@@ -1,0 +1,166 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireProfile } from '@/lib/auth'
+import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { getEnemyById } from '@/config/enemies'
+
+// =============================================================================
+// POST /api/battles
+// Records a completed battle against a field enemy.
+// Handles FP spending, rewards, and profile stat updates.
+// =============================================================================
+export async function POST(req: NextRequest) {
+  try {
+    const profile = await requireProfile()
+    const admin = createSupabaseAdminClient()
+
+    const body = await req.json()
+    const {
+      enemy_id,
+      result,         // 'victory' | 'defeat' | 'fled'
+      fp_spent,
+      moves_used,     // [{name, power, damage}]
+      latitude,
+      longitude,
+      duration_secs,
+    } = body
+
+    // Validate enemy exists
+    const enemy = getEnemyById(enemy_id)
+    if (!enemy) {
+      return NextResponse.json({ error: 'Invalid enemy' }, { status: 400 })
+    }
+
+    // Validate result
+    if (!['victory', 'defeat', 'fled'].includes(result)) {
+      return NextResponse.json({ error: 'Invalid result' }, { status: 400 })
+    }
+
+    // Validate FP spent
+    const fpCost = Math.max(0, fp_spent || 0)
+    if (fpCost > 0 && profile.fp_balance < fpCost) {
+      return NextResponse.json({ error: 'INSUFFICIENT_FP' }, { status: 400 })
+    }
+
+    // Calculate FP reward based on result and enemy tier
+    let fpReward = 0
+    if (result === 'victory') {
+      fpReward = enemy.fpReward
+      // Bonus for legendary enemies
+      if (enemy.tier === 'legendary') fpReward = Math.floor(fpReward * 1.5)
+    } else if (result === 'defeat') {
+      fpReward = Math.floor(enemy.fpReward * 0.1) // Small consolation
+    }
+
+    // Spend FP if any was used
+    if (fpCost > 0) {
+      await admin.rpc('spend_fp', {
+        p_profile_id: profile.id,
+        p_amount: fpCost,
+        p_type: 'gym_attack',
+        p_reference_type: 'battle',
+        p_description: `Battle vs ${enemy.name}: ${result}`
+      })
+    }
+
+    // Award FP for result
+    if (fpReward > 0) {
+      await admin.rpc('grant_fp', {
+        p_profile_id: profile.id,
+        p_amount: fpReward,
+        p_type: 'battle_reward',
+        p_reference_type: 'battle',
+        p_description: `${result === 'victory' ? 'Defeated' : 'Battled'} ${enemy.name}`
+      })
+    }
+
+    // Record the battle
+    const { data: battle, error: battleError } = await admin
+      .from('battles')
+      .insert({
+        profile_id: profile.id,
+        enemy_type: enemy.id,
+        enemy_name: enemy.name,
+        enemy_tier: enemy.tier,
+        fp_spent: fpCost,
+        fp_earned: fpReward,
+        result,
+        moves_used: moves_used || [],
+        latitude,
+        longitude,
+        duration_secs,
+      })
+      .select()
+      .single()
+
+    if (battleError) throw battleError
+
+    // Update profile stats for victories
+    if (result === 'victory') {
+      await admin
+        .from('profiles')
+        .update({
+          total_battles_won: profile.total_battles_won + 1,
+        })
+        .eq('id', profile.id)
+    } else if (result === 'defeat') {
+      await admin
+        .from('profiles')
+        .update({
+          total_battles_lost: profile.total_battles_lost + 1,
+        })
+        .eq('id', profile.id)
+    }
+
+    // Get updated balance
+    const { data: updated } = await admin
+      .from('profiles')
+      .select('fp_balance, total_battles_won')
+      .eq('id', profile.id)
+      .single()
+
+    return NextResponse.json({
+      success: true,
+      battle_id: battle.id,
+      result,
+      fp_spent: fpCost,
+      fp_earned: fpReward,
+      new_balance: updated?.fp_balance || 0,
+      message: result === 'victory'
+        ? `🎉 Victory! +${fpReward} FP earned!`
+        : result === 'defeat'
+        ? `💀 Defeated. +${fpReward} FP consolation`
+        : `🏃 You fled the battle`,
+    })
+
+  } catch (err: any) {
+    if (err instanceof Response) return err
+    console.error('POST /api/battles error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// =============================================================================
+// GET /api/battles
+// Returns recent battles for the current player
+// =============================================================================
+export async function GET(req: NextRequest) {
+  try {
+    const profile = await requireProfile()
+    const admin = createSupabaseAdminClient()
+
+    const { data: battles, error } = await admin
+      .from('battles')
+      .select('*')
+      .eq('profile_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (error) throw error
+
+    return NextResponse.json({ battles })
+
+  } catch (err: any) {
+    if (err instanceof Response) return err
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
