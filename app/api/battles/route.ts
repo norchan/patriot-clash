@@ -148,12 +148,13 @@ export async function GET(req: NextRequest) {
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
 
+    const limit = Math.min(50, parseInt(req.nextUrl.searchParams.get('limit') || '20'))
     const { data: battles, error } = await admin
       .from('battles')
-      .select('*')
+      .select('id, enemy_type, result, fp_spent, fp_earned, created_at')
       .eq('profile_id', profile.id)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(limit)
 
     if (error) throw error
 

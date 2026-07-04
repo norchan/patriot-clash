@@ -5,152 +5,339 @@ import { useProfile } from '@/hooks/useProfile'
 import { getEnemyById, getRandomEnemy } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
 
-// Capture rates by tier
 const CAPTURE_RATES = { common: 0.75, rare: 0.40, legendary: 0.15 }
 const CAPTURE_COSTS = { common: 15, rare: 30, legendary: 75 }
+const TIER_DEFENSE  = { common: 1.0, rare: 0.82, legendary: 0.65 }
 
+type GestureType = 'tap' | 'swipe-right' | 'swipe-up' | 'hold'
+
+const ATTACKS: Record<GestureType, { name: string; emoji: string; damage: number; fp: number; color: string; hint: string; type: string }> = {
+  tap:           { name: 'Quick Strike', emoji: '👊', damage: 20, fp: 8,  color: '#f59e0b', hint: 'TAP',     type: 'Normal'   },
+  'swipe-right': { name: 'Power Slam',   emoji: '💥', damage: 38, fp: 15, color: '#ef4444', hint: '→ SWIPE', type: 'Fire'     },
+  'swipe-up':    { name: 'Surge Strike', emoji: '⚡', damage: 60, fp: 25, color: '#8b5cf6', hint: '↑ SWIPE', type: 'Electric' },
+  hold:          { name: 'Shield Block', emoji: '🛡️', damage:  0, fp: 5,  color: '#3b82f6', hint: 'HOLD',    type: 'Guard'    },
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  Normal: '#a8a878', Fire: '#f08030', Electric: '#f8d030', Guard: '#6890f0',
+}
+
+const TIER_LEVELS = { common: 12, rare: 35, legendary: 70 }
+
+function wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)) }
+function canAfford(cost: number, fp: number) { return fp >= cost }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pokémon-style HP bar
+// ─────────────────────────────────────────────────────────────────────────────
+function HpBar({ current, max }: { current: number; max: number }) {
+  const pct = Math.max(0, Math.min(100, (current / max) * 100))
+  const barColor = pct > 50 ? '#22c55e' : pct > 25 ? '#facc15' : '#ef4444'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ color: '#9ca3af', fontSize: 11, fontWeight: 800, fontFamily: 'monospace', minWidth: 20 }}>HP</span>
+      <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 4, overflow: 'hidden', border: '1px solid #374151' }}>
+        <div style={{
+          height: '100%', width: `${pct}%`,
+          background: barColor,
+          borderRadius: 4,
+          transition: 'width 0.5s ease, background-color 0.5s ease',
+          boxShadow: `0 0 6px ${barColor}88`,
+        }} />
+      </div>
+      <span style={{ color: '#6b7280', fontSize: 10, fontFamily: 'monospace', minWidth: 52, textAlign: 'right' }}>
+        {current}/{max}
+      </span>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main battle content
+// ─────────────────────────────────────────────────────────────────────────────
 function BattleContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { profile, refetch } = useProfile()
   const enemyId = searchParams.get('enemy')
+  const spawnId = searchParams.get('spawn')
 
   const [enemy, setEnemy] = useState<Enemy | null>(null)
   const [enemyHp, setEnemyHp] = useState(0)
   const [maxHp, setMaxHp] = useState(0)
   const [playerHp, setPlayerHp] = useState(100)
-  const [battleLog, setBattleLog] = useState<string[]>([])
   const [phase, setPhase] = useState<'fighting' | 'victory' | 'defeat'>('fighting')
-  const [loading, setLoading] = useState(false)
-  const [movesUsed, setMovesUsed] = useState<any[]>([])
   const [fpSpent, setFpSpent] = useState(0)
+  const [movesUsed, setMovesUsed] = useState<any[]>([])
   const [battleId, setBattleId] = useState<string | null>(null)
+  const [isDefending, setIsDefending] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
 
-  // Animation states
-  const [enemyAnim, setEnemyAnim] = useState<'idle' | 'hit' | 'attack' | 'dead' | 'charge'>('idle')
-  const [shaking, setShaking] = useState(false)
-  const [flashColor, setFlashColor] = useState('')
-  const [damageNumbers, setDamageNumbers] = useState<{id: number, val: number, isPlayer: boolean}[]>([])
-  const [showImpact, setShowImpact] = useState(false)
-  const [lowHp, setLowHp] = useState(false)
+  // Sprite animation — increment spriteKey to force CSS restart
+  const [spriteKey, setSpriteKey] = useState(0)
+  const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'attack' | 'charge' | 'faint'>('idle')
 
-  // Capture states
-  const [canCapture, setCanCapture] = useState(false)
+  // Visual effects
+  const [screenShake, setScreenShake] = useState(false)
+  const [flashOverlay, setFlashOverlay] = useState('')
+  const [dmgNums, setDmgNums] = useState<{ id: number; val: number; isPlayer: boolean; color: string }[]>([])
+  const [lastMove, setLastMove] = useState<{ name: string; type: string } | null>(null)
+  const [dialogLine, setDialogLine] = useState('')
+
+  // Capture
   const [alreadyCaptured, setAlreadyCaptured] = useState(false)
   const [capturing, setCapturing] = useState(false)
   const [captureResult, setCaptureResult] = useState<'success' | 'failed' | null>(null)
 
+  // Touch gesture refs
+  const touchRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const holdFiredRef = useRef(false)
+  const dmgCounter = useRef(0)
   const startTime = useRef(Date.now())
-  const logRef = useRef<HTMLDivElement>(null)
-  const damageCounter = useRef(0)
 
+  // ── Inject battle keyframe styles into <head> (more reliable than <style> in body) ──
+  useEffect(() => {
+    if (document.getElementById('battle-kf')) return
+    const s = document.createElement('style')
+    s.id = 'battle-kf'
+    s.textContent = `
+      /* Idle: 20px bob with slight rotation to feel alive */
+      @keyframes pokeIdle {
+        0%,100% { transform: translateY(0px) rotate(0deg); }
+        25%      { transform: translateY(-18px) rotate(-2deg); }
+        75%      { transform: translateY(-8px) rotate(1.5deg); }
+      }
+      /* Low HP: frantic wobble */
+      @keyframes pokeLowHp {
+        0%,100% { transform: translateY(0) rotate(-6deg) scale(0.96); }
+        25%     { transform: translateY(-10px) rotate(6deg) scale(1.02); }
+        75%     { transform: translateY(-5px) rotate(-3deg) scale(0.98); }
+      }
+      /* Hit: triple white flash — the classic Pokémon hit */
+      @keyframes pokeHit {
+        0%   { filter: none;                         transform: translateX(0); }
+        12%  { filter: brightness(300) saturate(0);  transform: translateX(18px); }
+        24%  { filter: none;                         transform: translateX(-14px); }
+        42%  { filter: brightness(300) saturate(0);  transform: translateX(10px); }
+        60%  { filter: none;                         transform: translateX(-6px); }
+        78%  { filter: brightness(300) saturate(0); }
+        100% { filter: none;                         transform: translateX(0); }
+      }
+      /* Charge: pulse and glow before lunging */
+      @keyframes pokeChrg {
+        0%,100% { transform: scale(1); filter: brightness(1); }
+        50%      { transform: scale(1.15); filter: brightness(2.5) saturate(2); }
+      }
+      /* Attack: dramatic lunge across the arena toward the player */
+      @keyframes pokeAtk {
+        0%   { transform: translate(0px, 0px) scale(1); }
+        30%  { transform: translate(-220px, 90px) scale(1.35); }
+        60%  { transform: translate(-220px, 90px) scale(1.35); }
+        100% { transform: translate(0px, 0px) scale(1); }
+      }
+      /* Faint: fall and disappear */
+      @keyframes pokeFaint {
+        0%   { transform: translateY(0px) rotate(0deg); opacity: 1; }
+        20%  { transform: translateY(30px) rotate(15deg); opacity: 0.8; }
+        100% { transform: translateY(200px) rotate(40deg); opacity: 0; }
+      }
+      /* Screen shake */
+      @keyframes screenShake {
+        0%,100% { transform: translate(0,0); }
+        15%     { transform: translate(-12px,-5px) rotate(-1deg); }
+        30%     { transform: translate(12px,5px) rotate(1deg); }
+        50%     { transform: translate(-7px,-3px); }
+        70%     { transform: translate(7px,3px); }
+        85%     { transform: translate(-3px,0); }
+      }
+      @keyframes flashFade  { 0%{opacity:1} 100%{opacity:0} }
+      @keyframes dmgFloat   { 0%{transform:translateX(-50%) translateY(0);opacity:1} 100%{transform:translateX(-50%) translateY(-65px);opacity:0} }
+      @keyframes starTwinkle{ 0%,100%{opacity:0.3} 50%{opacity:0.9} }
+      button:active:not(:disabled){ transform:scale(0.93) }
+    `
+    document.head.appendChild(s)
+    return () => { document.getElementById('battle-kf')?.remove() }
+  }, [])
+
+  // ── Init ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!profile) return
-    const e = enemyId ? getEnemyById(enemyId) : getRandomEnemy(profile.party)
+    const opponentParty = profile.party === 'republican' ? 'democrat' : 'republican'
+    const e = enemyId ? getEnemyById(enemyId) : getRandomEnemy(opponentParty)
     if (e) {
       setEnemy(e)
       setEnemyHp(e.hp)
       setMaxHp(e.hp)
-      setBattleLog([`⚔️ A wild ${e.name} appeared!`])
+      setDialogLine(`A wild ${e.name} appeared!`)
     }
   }, [enemyId, profile])
 
   useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
-  }, [battleLog])
-
-  // Check if already captured
-  useEffect(() => {
     if (!enemy || !profile) return
     fetch(`/api/collection/check?enemy_id=${enemy.id}`)
       .then(r => r.json())
-      .then(data => setAlreadyCaptured(data.captured))
+      .then(d => setAlreadyCaptured(d.captured))
       .catch(() => {})
   }, [enemy, profile])
 
-  // Low HP warning
-  useEffect(() => {
-    if (enemy && enemyHp / maxHp < 0.25 && enemyHp > 0) {
-      setLowHp(true)
-    }
-  }, [enemyHp, maxHp, enemy])
-
-  function addDamageNumber(val: number, isPlayer: boolean) {
-    const id = ++damageCounter.current
-    setDamageNumbers(prev => [...prev, { id, val, isPlayer }])
-    setTimeout(() => setDamageNumbers(prev => prev.filter(d => d.id !== id)), 800)
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function addDmg(val: number, isPlayer: boolean, color: string) {
+    const id = ++dmgCounter.current
+    setDmgNums(p => [...p, { id, val, isPlayer, color }])
+    setTimeout(() => setDmgNums(p => p.filter(d => d.id !== id)), 1000)
   }
 
-  function triggerShake(color: string) {
-    setShaking(true)
-    setFlashColor(color)
-    setTimeout(() => { setShaking(false); setFlashColor('') }, 500)
+  function playAnim(name: typeof spriteAnim) {
+    setSpriteAnim(name)
+    setSpriteKey(k => k + 1)
   }
 
-  async function useMove(moveName: string, moveDamage: number, moveEmoji: string) {
-    if (!enemy || !profile || loading || phase !== 'fighting') return
-    const fpCost = Math.floor(moveDamage * 0.4)
-    if ((profile.fp_balance - fpSpent) < fpCost) {
-      setBattleLog(prev => [...prev, `❌ Not enough FP! Need ${fpCost} FP.`])
-      return
-    }
-    setLoading(true)
+  function shake() {
+    setScreenShake(true)
+    setTimeout(() => setScreenShake(false), 500)
+  }
 
-    // Player attacks — enemy gets hit
-    setEnemyAnim('hit')
-    setShowImpact(true)
-    triggerShake('#ef444433')
-    await new Promise(r => setTimeout(r, 100))
+  function flash(color: string, ms = 350) {
+    setFlashOverlay(color)
+    setTimeout(() => setFlashOverlay(''), ms)
+  }
 
-    const damage = Math.floor(moveDamage * (0.8 + Math.random() * 0.4))
-    const newEnemyHp = Math.max(0, enemyHp - damage)
-    setEnemyHp(newEnemyHp)
-    setFpSpent(prev => prev + fpCost)
-    addDamageNumber(damage, false)
+  // ── Attack handler ────────────────────────────────────────────────────────
+  async function handleAttack(gesture: GestureType) {
+    if (!enemy || !profile || isAnimating || phase !== 'fighting') return
 
-    setTimeout(() => { setEnemyAnim('idle'); setShowImpact(false) }, 500)
-
-    const moveRecord = { name: moveName, power: moveDamage, damage }
-    setMovesUsed(prev => [...prev, moveRecord])
-    setBattleLog(prev => [...prev, `${moveEmoji} ${moveName} hit for ${damage}! (-${fpCost} FP)`])
-
-    if (newEnemyHp <= 0) {
-      setEnemyAnim('dead')
-      await new Promise(r => setTimeout(r, 600))
-      setBattleLog(prev => [...prev, `🎉 ${enemy.name} was defeated!`])
-      const result = await recordBattle('victory', fpCost, [...movesUsed, moveRecord])
-      if (result?.battle_id) setBattleId(result.battle_id)
-      setCanCapture(!alreadyCaptured)
-      setPhase('victory')
-      setLoading(false)
+    const atk = ATTACKS[gesture]
+    const fp = profile.fp_balance - fpSpent
+    if (fp < atk.fp) {
+      setDialogLine(`Need ${atk.fp} FP for ${atk.name}!`)
       return
     }
 
-    // Enemy charges back
-    await new Promise(r => setTimeout(r, 600))
-    setEnemyAnim('charge')
-    await new Promise(r => setTimeout(r, 300))
-    setEnemyAnim('attack')
-    triggerShake('#3b82f633')
+    setIsAnimating(true)
+    setLastMove({ name: atk.name, type: atk.type })
+    setFpSpent(p => p + atk.fp)
 
-    const enemyMove = enemy.moves[Math.floor(Math.random() * enemy.moves.length)]
-    const enemyDamage = Math.floor(enemyMove.damage * (0.7 + Math.random() * 0.6))
-    const newPlayerHp = Math.max(0, playerHp - enemyDamage)
+    if (gesture === 'hold') {
+      setIsDefending(true)
+      setDialogLine(`${profile.username} used Shield Block!`)
+      flash('#3b82f666', 500)
+      await wait(600)
+    } else {
+      setDialogLine(`${profile.username} used ${atk.name}!`)
+      flash(`${atk.color}44`, 200)
+      await wait(180)
+
+      const mult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE]
+      const dmg = Math.floor(atk.damage * (0.8 + Math.random() * 0.4) * mult)
+      const newHp = Math.max(0, enemyHp - dmg)
+
+      playAnim('hit')
+      addDmg(dmg, false, atk.color)
+      setEnemyHp(newHp)
+
+      const moveRecord = { name: atk.name, power: atk.damage, damage: dmg }
+      setMovesUsed(p => [...p, moveRecord])
+
+      await wait(600)
+
+      if (newHp <= 0) {
+        playAnim('faint')
+        setDialogLine(`${enemy.name} fainted!`)
+        await wait(900)
+        const result = await recordBattle('victory', atk.fp, [...movesUsed, moveRecord])
+        if (result?.battle_id) setBattleId(result.battle_id)
+        if (spawnId) {
+          try { localStorage.setItem(`spawn_dead_${spawnId}`, Date.now().toString()) } catch {}
+        }
+        setPhase('victory')
+        setIsAnimating(false)
+        return
+      }
+
+      playAnim('idle')
+    }
+
+    // ── Enemy counterattack ─────────────────────────────────────────────────
+    await wait(250)
+    const move = enemy.moves[Math.floor(Math.random() * enemy.moves.length)]
+    setDialogLine(`${enemy.name} used ${move.name}!`)
+
+    playAnim('charge')
+    await wait(400)
+    playAnim('attack')
+    await wait(350)
+
+    const baseDmg = Math.floor(move.damage * (0.7 + Math.random() * 0.6))
+    const actualDmg = isDefending ? Math.floor(baseDmg * 0.4) : baseDmg
+    const newPlayerHp = Math.max(0, playerHp - actualDmg)
+
+    shake()
+    flash('#ef444455', 400)
+    addDmg(actualDmg, true, '#ef4444')
     setPlayerHp(newPlayerHp)
-    addDamageNumber(enemyDamage, true)
-    setBattleLog(prev => [...prev, `${enemyMove.emoji} ${enemy.name} attacks for ${enemyDamage}!`])
+    if (isDefending) setIsDefending(false)
 
-    setTimeout(() => setEnemyAnim('idle'), 500)
+    setDialogLine(isDefending
+      ? `${enemy.name} used ${move.name}! Blocked! (-${actualDmg})`
+      : `${enemy.name} used ${move.name}! (-${actualDmg})`
+    )
+
+    await wait(500)
+    playAnim(newPlayerHp < 26 ? 'lowHp' : 'idle')
 
     if (newPlayerHp <= 0) {
-      await new Promise(r => setTimeout(r, 400))
-      setBattleLog(prev => [...prev, `💀 You were defeated...`])
-      await recordBattle('defeat', fpCost, [...movesUsed, moveRecord])
+      setDialogLine(`${profile.username} was defeated...`)
+      await recordBattle('defeat', atk.fp, movesUsed)
       setPhase('defeat')
     }
-    setLoading(false)
+
+    setIsAnimating(false)
   }
 
+  // ── Touch gestures ────────────────────────────────────────────────────────
+  function onTouchStart(e: React.TouchEvent) {
+    if (phase !== 'fighting') return
+    const t = e.touches[0]
+    touchRef.current = { x: t.clientX, y: t.clientY, time: Date.now() }
+    holdFiredRef.current = false
+    holdTimerRef.current = setTimeout(() => {
+      holdFiredRef.current = true
+      handleAttack('hold')
+    }, 550)
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
+    if (!touchRef.current || holdFiredRef.current) { touchRef.current = null; return }
+    const t = e.changedTouches[0]
+    const dx = t.clientX - touchRef.current.x
+    const dy = t.clientY - touchRef.current.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    const ms = Date.now() - touchRef.current.time
+    touchRef.current = null
+    if (dist < 18 && ms < 300) {
+      handleAttack('tap')
+    } else if (dist > 40) {
+      if (dy < -35 && Math.abs(dy) > Math.abs(dx)) handleAttack('swipe-up')
+      else if (dx > 40 && Math.abs(dx) > Math.abs(dy)) handleAttack('swipe-right')
+    }
+  }
+
+  // Keyboard fallback
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (phase !== 'fighting') return
+      if (e.key === ' ' || e.key === 'Enter') handleAttack('tap')
+      if (e.key === 'ArrowRight' || e.key === 'd') handleAttack('swipe-right')
+      if (e.key === 'ArrowUp' || e.key === 'w') handleAttack('swipe-up')
+      if (e.key === 's') handleAttack('hold')
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [phase, isAnimating, enemyHp, playerHp, fpSpent, isDefending, movesUsed, enemy, profile])
+
+  // ── API ───────────────────────────────────────────────────────────────────
   async function recordBattle(result: string, fpCost: number, moves: any[]) {
     if (!enemy || !profile) return null
     try {
@@ -158,53 +345,36 @@ function BattleContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          enemy_id: enemy.id,
-          result,
-          fp_spent: fpCost,
-          moves_used: moves,
+          enemy_id: enemy.id, result, fp_spent: fpCost, moves_used: moves,
           duration_secs: Math.floor((Date.now() - startTime.current) / 1000),
         }),
       })
       const data = await res.json()
       await refetch()
       return data
-    } catch (err) {
-      console.error('Failed to record battle:', err)
-      return null
-    }
+    } catch { return null }
   }
 
   async function attemptCapture() {
     if (!enemy || !profile || capturing) return
     const cost = CAPTURE_COSTS[enemy.tier]
     if ((profile.fp_balance - fpSpent) < cost) {
-      setBattleLog(prev => [...prev, `❌ Need ${cost} FP to capture!`])
+      setDialogLine(`Need ${cost} FP to capture!`)
       return
     }
     setCapturing(true)
-
     try {
       const res = await fetch('/api/collection/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          enemy_id: enemy.id,
-          battle_id: battleId,
-        }),
+        body: JSON.stringify({ enemy_id: enemy.id, battle_id: battleId }),
       })
       const data = await res.json()
       setCaptureResult(data.captured ? 'success' : 'failed')
-      if (data.captured) {
-        setBattleLog(prev => [...prev, `🎯 ${enemy.name} was captured!`])
-      } else {
-        setBattleLog(prev => [...prev, `💨 ${enemy.name} broke free!`])
-      }
+      setDialogLine(data.captured ? `${enemy.name} was captured!` : `${enemy.name} broke free!`)
       await refetch()
-    } catch {
-      setCaptureResult('failed')
-    } finally {
-      setCapturing(false)
-    }
+    } catch { setCaptureResult('failed') }
+    finally { setCapturing(false) }
   }
 
   async function flee() {
@@ -213,395 +383,302 @@ function BattleContent() {
     router.push('/map')
   }
 
+  // ── Guards ────────────────────────────────────────────────────────────────
   if (!enemy || !profile) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400">Loading battle...</div>
+      <div style={{ minHeight: '100vh', background: '#050a14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: '#6b7280', fontSize: 14 }}>Loading battle...</span>
       </div>
     )
   }
 
-  const hpPercent = (enemyHp / maxHp) * 100
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const fpAvail = profile.fp_balance - fpSpent
   const partyColor = profile.party === 'democrat' ? '#2563eb' : '#dc2626'
-  const enemyPartyColor = profile.party === 'democrat' ? '#dc2626' : '#2563eb'
-  const tierColor = enemy.tier === 'legendary' ? '#f59e0b'
-    : enemy.tier === 'rare' ? '#8b5cf6' : '#6b7280'
-  const captureCost = CAPTURE_COSTS[enemy.tier]
-  const captureRate = Math.round(CAPTURE_RATES[enemy.tier] * 100)
+  const tierColor = enemy.tier === 'legendary' ? '#f59e0b' : enemy.tier === 'rare' ? '#a78bfa' : '#9ca3af'
+  const enemyLevel = TIER_LEVELS[enemy.tier as keyof typeof TIER_LEVELS]
+  const playerLevel = Math.min(100, Math.floor(profile.fp_balance / 100) + 5)
 
-  // Enemy transform based on animation state
-  const enemyTransform = {
-    idle: lowHp ? 'translateY(0px) rotate(-3deg)' : 'translateY(0px)',
-    hit: 'translateX(20px) rotate(5deg) scale(0.9)',
-    attack: 'translateY(30px) scale(1.15)',
-    charge: 'translateY(-10px) scale(1.05)',
-    dead: 'translateY(20px) scale(0.5) rotate(15deg)',
-  }[enemyAnim]
+  const animDefs = {
+    idle:   { css: 'pokeIdle',   dur: 2400, iter: 'infinite' },
+    lowHp:  { css: 'pokeLowHp', dur: 900,  iter: 'infinite' },
+    hit:    { css: 'pokeHit',   dur: 500,  iter: '1' },
+    attack: { css: 'pokeAtk',   dur: 700,  iter: '1' },
+    charge: { css: 'pokeChrg',  dur: 350,  iter: '2' },
+    faint:  { css: 'pokeFaint', dur: 900,  iter: '1' },
+  }
+  const anim = animDefs[spriteAnim]
 
-  const enemyFilter = {
-    idle: lowHp ? 'saturate(0.7) brightness(0.9)' : 'none',
-    hit: 'brightness(3) saturate(0)',
-    attack: 'brightness(1.3)',
-    charge: 'brightness(1.2)',
-    dead: 'grayscale(1) brightness(0.3)',
-  }[enemyAnim]
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="min-h-screen flex flex-col overflow-hidden"
-      style={{
-        background: `linear-gradient(180deg, ${enemyPartyColor}44 0%, #050505 50%)`,
-        animation: shaking ? 'shake 0.4s ease-in-out' : 'none',
-      }}
-    >
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', animation: screenShake ? 'screenShake 0.5s ease-in-out' : 'none' }}>
+
       {/* Screen flash */}
-      {flashColor && (
-        <div
-          className="fixed inset-0 z-50 pointer-events-none"
-          style={{ background: flashColor, animation: 'flashFade 0.4s ease-out' }}
-        />
+      {flashOverlay && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: flashOverlay, animation: 'flashFade 0.35s ease-out', pointerEvents: 'none' }} />
       )}
 
-      {/* ENEMY ARENA — top 55% */}
-      <div className="relative flex flex-col items-center justify-center" style={{ minHeight: '55vh' }}>
+      {/* ══════════════════════════════════════════════════════════════════
+          ARENA (top 58vh) — primary gesture zone
+      ══════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          height: '58vh', flexShrink: 0, position: 'relative', overflow: 'visible',
+          background: 'linear-gradient(180deg, #060d1a 0%, #0c1533 35%, #12224a 50%, #1a2a3a 57%, #1c2e1a 65%, #243320 80%, #1c2e1a 100%)',
+          touchAction: 'none', cursor: phase === 'fighting' ? 'pointer' : 'default',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onClick={() => phase === 'fighting' && !isAnimating && handleAttack('tap')}
+      >
+        {/* Starfield */}
+        {[...Array(18)].map((_, i) => (
+          <div key={i} style={{
+            position: 'absolute',
+            width: i % 3 === 0 ? 2 : 1, height: i % 3 === 0 ? 2 : 1,
+            borderRadius: '50%', background: 'white',
+            opacity: 0.35 + (i % 4) * 0.15,
+            top: `${5 + (i * 13) % 48}%`,
+            left: `${(i * 17 + 7) % 100}%`,
+            animation: `starTwinkle ${2 + i % 3}s ease-in-out ${(i * 0.3) % 2}s infinite`,
+          }} />
+        ))}
 
-        {/* Arena glow background */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse at center 60%, ${enemyPartyColor}33 0%, transparent 70%)`,
-          }}
-        />
+        {/* Horizon glow */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '42%', background: 'linear-gradient(0deg, rgba(30,60,20,0.65) 0%, transparent 100%)', pointerEvents: 'none' }} />
 
-        {/* Tier badge */}
-        <div className="relative z-10 mb-3 mt-4">
-          <span
-            className="text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider"
-            style={{
-              background: `${tierColor}22`,
-              color: tierColor,
-              border: `1px solid ${tierColor}66`,
-            }}
-          >
-            {enemy.tier === 'legendary' ? '⭐ Legendary' :
-             enemy.tier === 'rare' ? '💜 Rare' : '• Common'}
-          </span>
-        </div>
-
-        {/* Enemy image */}
-        <div className="relative z-10 mb-4" style={{ perspective: '500px' }}>
-          {/* Impact explosion */}
-          {showImpact && (
-            <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-              <div style={{ animation: 'explode 0.4s ease-out forwards', fontSize: '80px' }}>
-                💥
-              </div>
-            </div>
-          )}
-
-          {/* Low HP warning pulse */}
-          {lowHp && enemyHp > 0 && (
-            <div
-              className="absolute inset-0 rounded-2xl z-0"
-              style={{
-                background: '#ef444422',
-                animation: 'pulse 1s infinite',
-                borderRadius: '16px',
-              }}
-            />
-          )}
-
-          {/* Damage numbers */}
-          {damageNumbers.map(d => (
-            <div
-              key={d.id}
-              className="absolute z-30 font-black pointer-events-none"
-              style={{
-                top: d.isPlayer ? 'auto' : '-20px',
-                bottom: d.isPlayer ? '-20px' : 'auto',
-                left: '50%',
-                fontSize: d.val > 60 ? '32px' : '24px',
-                color: d.isPlayer ? '#ef4444' : '#f59e0b',
-                textShadow: `0 0 10px ${d.isPlayer ? '#ef4444' : '#f59e0b'}`,
-                animation: 'damageFloat 0.8s ease-out forwards',
-              }}
-            >
-              -{d.val}
-            </div>
-          ))}
-
-          {enemyAnim === 'attack' && enemy.id === 'oil_baron' ? (
-  <video
-    src="/animations/oil_baron_attack.mp4"
-    autoPlay
-    muted
-    style={{
-      width: '200px',
-      height: '200px',
-      objectFit: 'cover',
-      borderRadius: '20px',
-      border: `3px solid ${lowHp && enemyHp > 0 ? '#ef4444' : tierColor}`,
-      boxShadow: `0 0 40px ${enemyPartyColor}55`,
-    }}
-  />
-) : (
-  <img
-    src={enemy.image}
-    alt={enemy.name}
-    style={{
-      width: '200px',
-      height: '200px',
-      objectFit: 'cover',
-      borderRadius: '20px',
-      border: `3px solid ${lowHp && enemyHp > 0 ? '#ef4444' : tierColor}`,
-      boxShadow: `0 0 40px ${enemyPartyColor}55, 0 8px 32px rgba(0,0,0,0.6)`,
-      transform: enemyTransform,
-      filter: enemyFilter,
-      transition: 'transform 0.2s ease, filter 0.2s ease',
-      opacity: enemyAnim === 'dead' ? 0.3 : 1,
-    }}
-  />
-)}
-        </div>
-
-        {/* Enemy name + HP */}
-        <div className="relative z-10 w-full px-6">
-          <div className="flex justify-between items-center mb-1">
-            <h2 className="text-white font-black text-lg">{enemy.name}</h2>
-            <span className="text-gray-400 text-xs">{enemyHp}/{maxHp} HP</span>
+        {/* ── Enemy status box (top-left) ─────────────────────────────────── */}
+        <div style={{
+          position: 'absolute', top: 14, left: 12, zIndex: 10,
+          background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
+          borderRadius: 14, padding: '8px 12px', minWidth: 170,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>{enemy.name}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6, border: `1px solid ${tierColor}`, color: tierColor }}>
+              Lv.{enemyLevel}
+            </span>
           </div>
-          <div className="h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
-            <div
-              className="h-full rounded-full transition-all duration-500 relative overflow-hidden"
-              style={{
-                width: `${hpPercent}%`,
-                background: hpPercent > 50
-                  ? 'linear-gradient(90deg, #16a34a, #22c55e)'
-                  : hpPercent > 25
-                  ? 'linear-gradient(90deg, #d97706, #f59e0b)'
-                  : 'linear-gradient(90deg, #b91c1c, #ef4444)',
-              }}
-            >
-              <div className="absolute inset-0 opacity-30"
-                style={{ background: 'linear-gradient(90deg, transparent, white, transparent)', animation: 'shimmer 2s infinite' }} />
-            </div>
-          </div>
-          {lowHp && enemyHp > 0 && (
-            <p className="text-red-400 text-xs mt-1 font-semibold animate-pulse">
-              ⚠️ Weakened — good time to capture!
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="h-px mx-4 my-1"
-        style={{ background: `linear-gradient(90deg, transparent, ${partyColor}, transparent)` }} />
-
-      {/* PLAYER CONTROLS — bottom */}
-      <div className="flex-1 bg-gray-950 px-4 pt-3 pb-2">
-
-        {/* Player HP + FP */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex-1">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-gray-400 font-medium">{profile.username}</span>
-              <span style={{ color: playerHp > 50 ? '#22c55e' : playerHp > 25 ? '#f59e0b' : '#ef4444' }}>
-                {playerHp}/100 HP
-              </span>
-            </div>
-            <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${playerHp}%`,
-                  background: playerHp > 50
-                    ? `linear-gradient(90deg, ${partyColor}aa, ${partyColor})`
-                    : playerHp > 25
-                    ? 'linear-gradient(90deg, #d97706, #f59e0b)'
-                    : 'linear-gradient(90deg, #b91c1c, #ef4444)',
-                }}
-              />
-            </div>
-          </div>
-          <div className="bg-gray-900 rounded-lg px-3 py-1.5 border border-gray-800">
-            <span className="text-yellow-400 text-xs font-bold">
-              ⚡ {(profile.fp_balance - fpSpent).toLocaleString()}
+          <HpBar current={enemyHp} max={maxHp} />
+          <div style={{ marginTop: 4, display: 'flex', gap: 4 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: `${tierColor}22`, color: tierColor, border: `1px solid ${tierColor}44`, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {enemy.tier}
             </span>
           </div>
         </div>
 
-        {/* Battle log */}
-        <div ref={logRef}
-          className="h-12 overflow-y-auto bg-gray-900 rounded-xl px-3 py-2 mb-3 border border-gray-800">
-          {battleLog.map((log, i) => (
-            <p key={i} className="text-gray-300 text-xs leading-relaxed">{log}</p>
+        {/* ── Enemy sprite (upper-right, on shadow platform) ───────────────── */}
+        <div style={{ position: 'absolute', right: '8%', bottom: '24%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 5 }}>
+          {/* Damage numbers above enemy */}
+          {dmgNums.filter(d => !d.isPlayer).map(d => (
+            <div key={d.id} style={{
+              position: 'absolute', top: -45, left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: d.val >= 50 ? 32 : 24, fontWeight: 900,
+              color: d.color, textShadow: `0 0 12px ${d.color}, 0 2px 4px rgba(0,0,0,0.8)`,
+              animation: 'dmgFloat 1s ease-out forwards', pointerEvents: 'none', zIndex: 20, whiteSpace: 'nowrap',
+            }}>−{d.val}</div>
           ))}
+
+          <img
+            key={spriteKey}
+            src={enemy.image}
+            alt={enemy.name}
+            style={{
+              width: 180, height: 180, objectFit: 'cover',
+              borderRadius: enemy.tier === 'legendary' ? 20 : '50%',
+              border: `3px solid ${tierColor}`,
+              boxShadow: `0 0 32px ${tierColor}55, 0 8px 32px rgba(0,0,0,0.6)`,
+              animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter}`,
+              transformOrigin: 'bottom center',
+            }}
+          />
+
+          {/* Ground shadow */}
+          <div style={{ width: 130, height: 22, background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 70%)', borderRadius: '50%', marginTop: -8, filter: 'blur(4px)' }} />
         </div>
 
-        {/* FIGHTING phase */}
+        {/* ── Player side (lower-left) ─────────────────────────────────────── */}
+        <div style={{ position: 'absolute', left: '8%', bottom: '16%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 5 }}>
+          {/* Player damage numbers */}
+          {dmgNums.filter(d => d.isPlayer).map(d => (
+            <div key={d.id} style={{
+              position: 'absolute', top: -35, left: '50%', transform: 'translateX(-50%)',
+              fontSize: 22, fontWeight: 900, color: d.color,
+              textShadow: `0 0 10px ${d.color}`,
+              animation: 'dmgFloat 1s ease-out forwards', pointerEvents: 'none', zIndex: 20, whiteSpace: 'nowrap',
+            }}>−{d.val}</div>
+          ))}
+
+          {/* Player "back sprite" */}
+          <div style={{
+            width: 88, height: 108,
+            background: `linear-gradient(160deg, ${partyColor}44 0%, ${partyColor}18 100%)`,
+            border: `2px solid ${partyColor}66`, borderRadius: '44% 44% 32% 32%',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            boxShadow: `0 0 18px ${partyColor}44`,
+          }}>
+            <div style={{ fontSize: 36 }}>{profile.party === 'democrat' ? '🔵' : '🔴'}</div>
+            {isDefending && <div style={{ fontSize: 16, marginTop: -4 }}>🛡️</div>}
+          </div>
+
+          <div style={{ width: 80, height: 18, background: 'radial-gradient(ellipse, rgba(0,0,0,0.45) 0%, transparent 70%)', borderRadius: '50%', marginTop: -6, filter: 'blur(4px)' }} />
+        </div>
+
+        {/* ── Player status box (lower-right) ─────────────────────────────── */}
+        <div style={{
+          position: 'absolute', bottom: 14, right: 12, zIndex: 10,
+          background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
+          borderRadius: 14, padding: '8px 12px', minWidth: 170,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>{profile.username}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6, border: `1px solid ${partyColor}`, color: partyColor }}>
+              Lv.{playerLevel}
+            </span>
+          </div>
+          <HpBar current={playerHp} max={100} />
+          <div style={{ marginTop: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#facc15', fontSize: 11, fontWeight: 700 }}>⚡ {fpAvail.toLocaleString()}</span>
+            {isDefending && <span style={{ fontSize: 10, color: '#60a5fa' }}>🛡️ SHIELD</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          BATTLE UI PANEL (bottom ~42vh)
+      ══════════════════════════════════════════════════════════════════ */}
+      <div style={{ flex: 1, background: '#080e1a', display: 'flex', flexDirection: 'column', borderTop: '2px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+
+        {/* Dialog box */}
+        <div style={{
+          margin: '10px 12px 0',
+          background: 'rgba(12,18,35,0.95)', border: '2px solid rgba(255,255,255,0.1)',
+          borderRadius: 12, padding: '8px 14px', minHeight: 42,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {lastMove && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
+              background: TYPE_COLORS[lastMove.type] + '33', color: TYPE_COLORS[lastMove.type],
+              border: `1px solid ${TYPE_COLORS[lastMove.type]}55`,
+              textTransform: 'uppercase', flexShrink: 0,
+            }}>
+              {lastMove.type}
+            </span>
+          )}
+          <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, lineHeight: 1.4, margin: 0 }}>
+            {dialogLine}
+          </p>
+        </div>
+
+        {/* FIGHTING: Pokémon 2×2 move grid */}
         {phase === 'fighting' && (
-          <>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              {enemy.moves.map(move => {
-                const fpCost = Math.floor(move.damage * 0.4)
-                const canAfford = (profile.fp_balance - fpSpent) >= fpCost
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 12px 10px', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, flex: 1 }}>
+              {(Object.entries(ATTACKS) as [GestureType, typeof ATTACKS[GestureType]][]).map(([g, a]) => {
+                const ok = canAfford(a.fp, fpAvail)
+                const tc = TYPE_COLORS[a.type]
                 return (
-                  <button
-                    key={move.name}
-                    onClick={() => useMove(move.name, move.damage, move.emoji)}
-                    disabled={loading || !canAfford}
-                    className="p-3 rounded-xl text-left transition-all active:scale-95"
+                  <button key={g} onClick={() => handleAttack(g)} disabled={isAnimating || !ok}
                     style={{
-                      background: canAfford ? `${partyColor}22` : '#111827',
-                      border: `1px solid ${canAfford ? partyColor + '55' : '#1f2937'}`,
-                      opacity: canAfford ? 1 : 0.4,
+                      background: ok ? `${tc}18` : 'rgba(12,18,30,0.8)',
+                      border: `2px solid ${ok ? tc + '88' : 'rgba(255,255,255,0.05)'}`,
+                      borderRadius: 12, padding: '10px 8px',
+                      opacity: ok ? 1 : 0.3,
+                      cursor: ok && !isAnimating ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.15s ease',
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
                     }}
                   >
-                    <div className="text-lg mb-0.5">{move.emoji}</div>
-                    <div className="text-white text-xs font-semibold truncate">{move.name}</div>
-                    <div className="text-gray-400 text-xs">
-                      DMG {move.damage} • <span className="text-yellow-500">{fpCost} FP</span>
+                    <span style={{ color: 'white', fontWeight: 800, fontSize: 13 }}>{a.emoji} {a.name}</span>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: tc + '33', color: tc, border: `1px solid ${tc}55`, textTransform: 'uppercase' }}>
+                        {a.type}
+                      </span>
+                      <span style={{ color: '#facc15', fontSize: 11, fontWeight: 700 }}>{a.fp} FP</span>
+                      <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, marginLeft: 'auto' }}>{a.hint}</span>
                     </div>
                   </button>
                 )
               })}
             </div>
-            <button
-              onClick={flee}
-              disabled={loading}
-              className="w-full py-2 border border-gray-800 rounded-xl text-gray-600 text-xs hover:text-gray-400 transition"
-            >
-              🏃 Flee
+            <button onClick={flee} disabled={isAnimating}
+              style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '7px 0', color: 'rgba(255,255,255,0.22)', fontSize: 12, cursor: 'pointer' }}>
+              🏃 Run Away
             </button>
-          </>
+          </div>
         )}
 
-        {/* VICTORY phase */}
+        {/* VICTORY */}
         {phase === 'victory' && (
-          <div className="text-center py-2">
-            <div className="text-4xl mb-2">🎉</div>
-            <h2 className="text-white font-black text-xl mb-1">Victory!</h2>
-            <p className="text-green-400 text-sm font-semibold mb-3">
-              +{enemy.fpReward} FP earned!
-            </p>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 12px 14px', gap: 10, overflowY: 'auto' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 40 }}>🎉</div>
+              <h2 style={{ color: 'white', fontWeight: 900, fontSize: 22, margin: '4px 0' }}>Victory!</h2>
+              <p style={{ color: '#4ade80', fontSize: 14, fontWeight: 700, margin: 0 }}>+{enemy.fpReward} FP earned!</p>
+            </div>
 
-            {/* Capture section */}
             {!alreadyCaptured && captureResult === null && (
-              <div
-                className="rounded-xl p-3 mb-3 border"
-                style={{
-                  background: `${tierColor}11`,
-                  borderColor: `${tierColor}44`,
-                }}
-              >
-                <p className="text-white font-bold text-sm mb-0.5">
-                  🎯 Capture {enemy.name}?
+              <div style={{ background: `${tierColor}11`, border: `2px solid ${tierColor}44`, borderRadius: 14, padding: '12px 14px' }}>
+                <p style={{ color: 'white', fontWeight: 800, fontSize: 14, margin: '0 0 2px' }}>🎯 Capture {enemy.name}?</p>
+                <p style={{ color: '#9ca3af', fontSize: 12, margin: '0 0 10px' }}>
+                  {Math.round(CAPTURE_RATES[enemy.tier] * 100)}% success · {CAPTURE_COSTS[enemy.tier]} FP
                 </p>
-                <p className="text-gray-400 text-xs mb-2">
-                  {captureRate}% success rate • Costs {captureCost} FP
-                </p>
-                <button
-                  onClick={attemptCapture}
-                  disabled={capturing || (profile.fp_balance - fpSpent) < captureCost}
-                  className="w-full py-2.5 rounded-lg font-bold text-sm transition active:scale-95"
+                <button onClick={attemptCapture} disabled={capturing || !canAfford(CAPTURE_COSTS[enemy.tier], fpAvail)}
                   style={{
-                    background: `linear-gradient(135deg, ${tierColor}, ${tierColor}bb)`,
-                    color: '#000',
-                    opacity: (profile.fp_balance - fpSpent) < captureCost ? 0.5 : 1,
-                  }}
-                >
-                  {capturing ? '⏳ Attempting...' : `🎯 Capture! (-${captureCost} FP)`}
+                    width: '100%', padding: '10px 0',
+                    background: canAfford(CAPTURE_COSTS[enemy.tier], fpAvail) ? `linear-gradient(135deg, ${tierColor}, ${tierColor}bb)` : '#1f2937',
+                    border: 'none', borderRadius: 10,
+                    color: canAfford(CAPTURE_COSTS[enemy.tier], fpAvail) ? '#000' : '#6b7280',
+                    fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                  }}>
+                  {capturing ? '⏳ Throwing...' : `🎯 Capture! (−${CAPTURE_COSTS[enemy.tier]} FP)`}
                 </button>
               </div>
             )}
-
-            {/* Capture result */}
             {captureResult === 'success' && (
-              <div className="rounded-xl p-3 mb-3 bg-green-900/40 border border-green-700">
-                <p className="text-green-400 font-bold">🎯 Captured {enemy.name}!</p>
-                <p className="text-green-600 text-xs">Added to your collection!</p>
+              <div style={{ background: '#14532d44', border: '2px solid #16a34a', borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
+                <p style={{ color: '#4ade80', fontWeight: 800, fontSize: 14, margin: 0 }}>🎯 {enemy.name} captured!</p>
               </div>
             )}
-
             {captureResult === 'failed' && (
-              <div className="rounded-xl p-3 mb-3 bg-red-900/40 border border-red-800">
-                <p className="text-red-400 font-bold">💨 {enemy.name} broke free!</p>
-                <p className="text-red-600 text-xs">Better luck next time!</p>
+              <div style={{ background: '#450a0a44', border: '2px solid #dc2626', borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
+                <p style={{ color: '#f87171', fontWeight: 800, fontSize: 14, margin: 0 }}>💨 {enemy.name} broke free!</p>
               </div>
             )}
-
             {alreadyCaptured && (
-              <div className="rounded-xl p-3 mb-3 bg-gray-900 border border-gray-700">
-                <p className="text-gray-400 text-sm">✅ Already in your collection!</p>
+              <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
+                <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>✅ Already in your collection</p>
               </div>
             )}
-
-            <button
-              onClick={() => router.push('/map')}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95"
-              style={{ background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)` }}
-            >
+            <button onClick={() => router.push('/map')}
+              style={{ padding: '14px 0', background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)`, border: 'none', borderRadius: 12, color: 'white', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>
               Back to Map
             </button>
           </div>
         )}
 
-        {/* DEFEAT phase */}
+        {/* DEFEAT */}
         {phase === 'defeat' && (
-          <div className="text-center py-2">
-            <div className="text-4xl mb-2">💀</div>
-            <h2 className="text-white font-black text-xl mb-1">Defeated!</h2>
-            <p className="text-gray-400 text-sm mb-4">{enemy.name} was too strong!</p>
-            <div className="space-y-2">
-              <button
-                onClick={() => router.push('/map')}
-                className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition"
-              >
-                Back to Map
-              </button>
-              <button
-                onClick={() => router.push('/shop')}
-                className="w-full py-3 rounded-xl font-bold text-white transition"
-                style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }}
-              >
-                ⚡ Buy More FP
-              </button>
-            </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 12px 14px', gap: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ fontSize: 48 }}>💀</div>
+            <h2 style={{ color: 'white', fontWeight: 900, fontSize: 22, margin: '4px 0' }}>Defeated!</h2>
+            <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 12px', textAlign: 'center' }}>{enemy.name} was too strong!</p>
+            <button onClick={() => router.push('/map')}
+              style={{ width: '100%', padding: '12px 0', background: '#1f2937', border: '1px solid #374151', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+              Back to Map
+            </button>
+            <button onClick={() => router.push('/shop')}
+              style={{ width: '100%', padding: '12px 0', background: 'linear-gradient(135deg, #d97706, #f59e0b)', border: 'none', borderRadius: 12, color: '#000', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+              ⚡ Get More FP
+            </button>
           </div>
         )}
       </div>
 
-      <style>{`
-        @keyframes shake {
-          0%,100% { transform: translateX(0) translateY(0); }
-          20% { transform: translateX(-10px) translateY(-3px) rotate(-1deg); }
-          40% { transform: translateX(10px) translateY(3px) rotate(1deg); }
-          60% { transform: translateX(-6px) translateY(-2px); }
-          80% { transform: translateX(6px) translateY(2px); }
-        }
-        @keyframes flashFade {
-          0% { opacity: 0.7; }
-          100% { opacity: 0; }
-        }
-        @keyframes damageFloat {
-          0% { transform: translateX(-50%) translateY(0); opacity: 1; }
-          100% { transform: translateX(-50%) translateY(-50px); opacity: 0; }
-        }
-        @keyframes explode {
-          0% { transform: scale(0.3); opacity: 1; }
-          60% { transform: scale(1.4); opacity: 0.8; }
-          100% { transform: scale(2); opacity: 0; }
-        }
-        @keyframes shimmer {
-          0% { transform: translateX(-200%); }
-          100% { transform: translateX(200%); }
-        }
-        @keyframes pulse {
-          0%,100% { opacity: 0.3; }
-          50% { opacity: 0.7; }
-        }
-      `}</style>
     </div>
   )
 }
@@ -609,8 +686,8 @@ function BattleContent() {
 export default function BattlePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400">Loading...</div>
+      <div style={{ minHeight: '100vh', background: '#050a14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: '#6b7280', fontSize: 14 }}>Loading...</span>
       </div>
     }>
       <BattleContent />

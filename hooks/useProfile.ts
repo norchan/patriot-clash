@@ -11,7 +11,11 @@ export interface Profile {
   total_battles_won: number
   total_battles_lost: number
   total_gyms_captured: number
+  total_captures: number
   rank_title: string
+  allow_pvp_messages: boolean
+  allow_messages: boolean
+  show_party: boolean
 }
 
 export function useProfile() {

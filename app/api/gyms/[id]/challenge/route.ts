@@ -8,12 +8,12 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // =============================================================================
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
-    const gymId = params.id
+    const { id: gymId } = await params
 
     const body = await req.json()
     const { latitude, longitude, fp_spent } = body
@@ -31,14 +31,14 @@ export async function POST(
       )
     }
 
-    // --- Validate player is within 100 miles of gym ---
+    // --- Validate player is within 15 miles of gym (matches the map zone circle) ---
     const { data: nearbyGyms } = await admin
-      .rpc('gyms_near', { p_lat: latitude, p_lng: longitude, p_miles: 100 })
+      .rpc('gyms_near', { p_lat: latitude, p_lng: longitude, p_miles: 15 })
 
     const gym = nearbyGyms?.find((g: any) => g.id === gymId)
     if (!gym) {
       return NextResponse.json(
-        { error: 'OUT_OF_RANGE', message: 'You must be within 100 miles of a Town Hall to challenge it' },
+        { error: 'OUT_OF_RANGE', message: 'You must be within 15 miles of a Town Hall to challenge it' },
         { status: 400 }
       )
     }

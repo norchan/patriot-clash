@@ -114,6 +114,7 @@ export default function TownHallPage() {
   }
 
   const isHolder = profile?.id === gym?.holder_id
+  const inRange = !gym?.distance_miles || parseFloat(gym.distance_miles) <= 15
   const partyColor = gym?.holder_party === 'democrat' ? '#2563eb' : gym?.holder_party === 'republican' ? '#dc2626' : '#6b7280'
   const flagEmoji = gym?.holder_party === 'democrat' ? '🔵' : gym?.holder_party === 'republican' ? '🔴' : '⚪'
   const dayHeld = gym?.held_since ? Math.floor((Date.now() - new Date(gym.held_since).getTime()) / 86400000) : 0
@@ -191,13 +192,20 @@ export default function TownHallPage() {
       {/* Actions */}
       <div className="mx-4 mt-4 space-y-3 pb-6">
         {!isHolder && (
-          <button
-            onClick={handleChallenge}
-            disabled={actionLoading || (profile?.fp_balance || 0) < 100}
-            className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition"
-          >
-            <Sword size={18} />Challenge Town Hall (100 FP)
-          </button>
+          <>
+            <button
+              onClick={handleChallenge}
+              disabled={actionLoading || (profile?.fp_balance || 0) < 100 || !inRange}
+              className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition"
+            >
+              <Sword size={18} />Challenge Town Hall (100 FP)
+            </button>
+            {!inRange && (
+              <p className="text-orange-400 text-xs text-center">
+                📍 Must be within 15 miles — you are {gym.distance_miles} mi away
+              </p>
+            )}
+          </>
         )}
 
         {isHolder && (

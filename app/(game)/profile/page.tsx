@@ -1,8 +1,24 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser, useClerk } from '@clerk/nextjs'
+import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
 import { LogOut, Zap, Footprints, Swords, Flag } from 'lucide-react'
+
+interface BattleRecord {
+  id: string
+  enemy_type: string
+  result: 'victory' | 'defeat' | 'fled'
+  fp_spent: number
+  created_at: string
+}
+
+const ENEMY_LABELS: Record<string, string> = {
+  oil_baron: 'Oil Baron', cowboy: 'Lone Star', politician: 'The Don',
+  eagle: 'Freedom Eagle', hick: 'Good Ole Boy',
+  crazy_liberal: 'Policy Wonk', crying_liberal: 'Tear Drop',
+  dem_politician: 'Shadow Senator', purple_hair: 'Purple Fury', protestor: 'Riot Gear',
+}
 
 const RANKS = [
   { title: 'Newcomer',   min: 0,   color: '#6b7280' },
@@ -14,17 +30,79 @@ const RANKS = [
   { title: 'Legend',     min: 500, color: '#f97316' },
 ]
 
+function timeAgo(iso: string): string {
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (secs < 60) return 'just now'
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+  return `${Math.floor(secs / 86400)}d ago`
+}
+
+interface BlockedPlayer {
+  id: string
+  username: string
+  blocked_at: string
+}
+
 export default function ProfilePage() {
   const router = useRouter()
-  const { user } = useUser()
   const { signOut } = useClerk()
-  const { profile, loading } = useProfile()
+  const { profile, loading, refetch } = useProfile()
+  const [battles, setBattles] = useState<BattleRecord[]>([])
+  const [battlesLoading, setBattlesLoading] = useState(true)
+  const [toggling, setToggling] = useState<string | null>(null)
+  const [blockedPlayers, setBlockedPlayers] = useState<BlockedPlayer[]>([])
+  const [showBlocked, setShowBlocked] = useState(false)
+
+  async function toggleSetting(key: 'allow_pvp_messages' | 'allow_messages' | 'show_party', current: boolean) {
+    setToggling(key)
+    try {
+      await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: !current }),
+      })
+      await refetch()
+    } catch {}
+    setToggling(null)
+  }
+
+  async function loadBlocked() {
+    try {
+      const res = await fetch('/api/players/block')
+      const data = await res.json()
+      setBlockedPlayers(data.blocked ?? [])
+      setShowBlocked(true)
+    } catch {}
+  }
+
+  async function unblock(id: string) {
+    try {
+      await fetch('/api/players/block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_id: id }),
+      })
+      setBlockedPlayers(prev => prev.filter(p => p.id !== id))
+    } catch {}
+  }
+
+  useEffect(() => {
+    fetch('/api/battles?limit=10')
+      .then(r => r.json())
+      .then(d => setBattles(d.battles ?? []))
+      .catch(() => {})
+      .finally(() => setBattlesLoading(false))
+  }, [])
 
   const rank = RANKS.slice().reverse().find(r => (profile?.total_battles_won || 0) >= r.min) || RANKS[0]
   const nextRank = RANKS.find(r => r.min > (profile?.total_battles_won || 0))
   const progressToNext = nextRank
     ? Math.min(100, ((profile?.total_battles_won || 0) - rank.min) / (nextRank.min - rank.min) * 100)
     : 100
+  const winRate = (profile?.total_battles_won || 0) + (profile?.total_battles_lost || 0) > 0
+    ? Math.round((profile!.total_battles_won / (profile!.total_battles_won + profile!.total_battles_lost)) * 100)
+    : 0
 
   if (loading) {
     return (
@@ -36,11 +114,14 @@ export default function ProfilePage() {
 
   const partyColor = profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
   const partyEmoji = profile?.party === 'democrat' ? '🔵' : '🔴'
-  const partyName = profile?.party === 'democrat' ? 'Democrat' : 'Republican'
+  const partyName  = profile?.party === 'democrat' ? 'Democrat' : 'Republican'
 
   return (
     <div className="min-h-screen bg-gray-950 pb-6">
-      <div className="px-4 pt-8 pb-6" style={{ background: `linear-gradient(180deg, ${partyColor}33 0%, transparent 100%)` }}>
+
+      {/* Hero header */}
+      <div className="px-4 pt-8 pb-6"
+        style={{ background: `linear-gradient(180deg, ${partyColor}33 0%, transparent 100%)` }}>
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl border-2"
             style={{ borderColor: partyColor, background: `${partyColor}33` }}>
@@ -59,10 +140,13 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
-          <button onClick={() => signOut(() => router.push('/sign-in'))} className="p-2 text-gray-500 hover:text-gray-300">
+          <button onClick={() => signOut(() => router.push('/sign-in'))}
+            className="p-2 text-gray-500 hover:text-gray-300">
             <LogOut size={20} />
           </button>
         </div>
+
+        {/* Rank progress bar */}
         {nextRank && (
           <div className="mt-4">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -70,28 +154,34 @@ export default function ProfilePage() {
               <span>{nextRank.title} in {nextRank.min - (profile?.total_battles_won || 0)} wins</span>
             </div>
             <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${progressToNext}%`, background: rank.color }} />
+              <div className="h-full rounded-full transition-all"
+                style={{ width: `${progressToNext}%`, background: rank.color }} />
             </div>
           </div>
         )}
       </div>
 
+      {/* Stats grid */}
       <div className="px-4 mt-2">
         <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: <Zap size={18} className="text-yellow-400" />, label: 'Fighting Points', value: profile?.fp_balance?.toLocaleString() || '0', color: 'text-yellow-400' },
-            { icon: <Footprints size={18} className="text-green-400" />, label: 'Total Steps', value: profile?.total_steps?.toLocaleString() || '0', color: 'text-green-400' },
-            { icon: <Swords size={18} className="text-blue-400" />, label: 'Battles Won', value: profile?.total_battles_won?.toLocaleString() || '0', color: 'text-blue-400' },
-            { icon: <Flag size={18} className="text-purple-400" />, label: 'Halls Captured', value: profile?.total_gyms_captured?.toLocaleString() || '0', color: 'text-purple-400' },
+            { icon: <Zap size={18} className="text-yellow-400" />,    label: 'Fighting Points', value: profile?.fp_balance?.toLocaleString() || '0',        color: 'text-yellow-400' },
+            { icon: <Footprints size={18} className="text-green-400" />, label: 'Total Steps',  value: profile?.total_steps?.toLocaleString() || '0',         color: 'text-green-400' },
+            { icon: <Swords size={18} className="text-blue-400" />,   label: 'Battles Won',    value: profile?.total_battles_won?.toLocaleString() || '0',    color: 'text-blue-400' },
+            { icon: <Flag size={18} className="text-purple-400" />,   label: 'Halls Captured', value: profile?.total_gyms_captured?.toLocaleString() || '0', color: 'text-purple-400' },
           ].map(({ icon, label, value, color }) => (
             <div key={label} className="bg-gray-900 rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-2">{icon}<span className="text-gray-500 text-xs">{label}</span></div>
+              <div className="flex items-center gap-2 mb-2">
+                {icon}
+                <span className="text-gray-500 text-xs">{label}</span>
+              </div>
               <div className={`font-bold text-2xl ${color}`}>{value}</div>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Battle record summary */}
       <div className="mx-4 mt-3 bg-gray-900 rounded-2xl p-4">
         <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-3">Battle Record</h3>
         <div className="flex items-center gap-3">
@@ -106,26 +196,137 @@ export default function ProfilePage() {
           </div>
           <div className="text-gray-700 font-bold text-xl">/</div>
           <div className="flex-1 text-center">
-            <div className="text-gray-400 font-bold text-2xl">
-              {profile?.total_battles_won && profile?.total_battles_lost
-                ? Math.round(profile.total_battles_won / Math.max(1, profile.total_battles_won + profile.total_battles_lost) * 100)
-                : 0}%
-            </div>
+            <div className="text-gray-400 font-bold text-2xl">{winRate}%</div>
             <div className="text-gray-500 text-xs">Win Rate</div>
           </div>
         </div>
       </div>
 
+      {/* Recent battles */}
+      <div className="mx-4 mt-3 bg-gray-900 rounded-2xl p-4">
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-3">Recent Battles</h3>
+        {battlesLoading ? (
+          <p className="text-gray-600 text-sm text-center py-2">Loading...</p>
+        ) : battles.length === 0 ? (
+          <p className="text-gray-600 text-sm text-center py-2">No battles yet — get out there!</p>
+        ) : (
+          <div className="space-y-2">
+            {battles.map(b => {
+              const resultColor = b.result === 'victory' ? '#22c55e'
+                : b.result === 'defeat' ? '#ef4444' : '#6b7280'
+              const resultEmoji = b.result === 'victory' ? '🏆'
+                : b.result === 'defeat' ? '💀' : '🏃'
+              const enemyName = ENEMY_LABELS[b.enemy_type] || b.enemy_type.replace(/_/g, ' ')
+              return (
+                <div key={b.id}
+                  className="flex items-center gap-3 py-2 border-b border-gray-800 last:border-0">
+                  <span className="text-lg w-7 text-center flex-shrink-0">{resultEmoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{enemyName}</p>
+                    <p className="text-gray-500 text-xs">{timeAgo(b.created_at)} · {b.fp_spent} FP spent</p>
+                  </div>
+                  <span className="text-xs font-bold capitalize px-2 py-0.5 rounded-full flex-shrink-0"
+                    style={{ color: resultColor, background: `${resultColor}18`, border: `1px solid ${resultColor}44` }}>
+                    {b.result}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Quick links */}
       <div className="mx-4 mt-3 space-y-2">
-        <button onClick={() => router.push('/map')} className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
-          🗺️ Back to Map
+        <button onClick={() => router.push('/collection')}
+          className="w-full py-3 bg-gray-900 border border-yellow-900 rounded-xl text-yellow-400 text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
+          🎯 My Collection ({profile?.total_captures || 0} caught)
         </button>
-        <button onClick={() => router.push('/collection')} className="w-full py-3 bg-gray-900 border border-yellow-900 rounded-xl text-yellow-400 text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
-          🎯 My Collection
+        <button onClick={() => router.push('/leaderboard')}
+          className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
+          🏆 Leaderboard
         </button>
-        <button onClick={() => router.push('/shop')} className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
+        <button onClick={() => router.push('/shop')}
+          className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
           ⚡ Buy Fighting Points
         </button>
+      </div>
+
+      {/* Settings */}
+      <div className="mx-4 mt-4">
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Settings</h3>
+        <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800">
+          {(
+            [
+              {
+                key: 'show_party' as const,
+                label: 'Show Party Affiliation',
+                sub: 'Others see your party color on the map',
+                val: profile?.show_party ?? true,
+                onColor: '#22c55e',
+              },
+              {
+                key: 'allow_messages' as const,
+                label: 'Allow Direct Messages',
+                sub: 'Other players can send you chat requests',
+                val: profile?.allow_messages ?? true,
+                onColor: '#3b82f6',
+              },
+              {
+                key: 'allow_pvp_messages' as const,
+                label: 'PvP Battle Chat',
+                sub: 'Chat after PvP battles (both players must enable)',
+                val: profile?.allow_pvp_messages ?? false,
+                onColor: '#7c3aed',
+              },
+            ] as const
+          ).map(({ key, label, sub, val, onColor }) => (
+            <button
+              key={key}
+              onClick={() => toggleSetting(key, val)}
+              disabled={toggling === key}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800 transition border-b border-gray-800 last:border-0 disabled:opacity-50"
+            >
+              <div className="text-left">
+                <div className="text-white text-sm font-medium">{label}</div>
+                <div className="text-gray-500 text-xs">{sub}</div>
+              </div>
+              <div className="ml-3 flex-shrink-0 w-10 h-6 rounded-full relative transition-colors"
+                style={{ background: val ? onColor : '#374151' }}>
+                <div className="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all"
+                  style={{ left: val ? 22 : 4 }} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Blocked players */}
+      <div className="mx-4 mt-3 mb-6">
+        {!showBlocked ? (
+          <button onClick={loadBlocked}
+            className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-gray-500 text-sm hover:bg-gray-800 hover:text-gray-300 transition">
+            🚫 Manage Blocked Players
+          </button>
+        ) : (
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+              <span className="text-gray-400 text-xs uppercase tracking-wider">Blocked Players</span>
+              <button onClick={() => setShowBlocked(false)} className="text-gray-600 hover:text-gray-400 text-xs">Hide</button>
+            </div>
+            {blockedPlayers.length === 0 ? (
+              <p className="text-gray-600 text-sm text-center py-4">No blocked players</p>
+            ) : blockedPlayers.map(p => (
+              <div key={p.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-800 last:border-0">
+                <span className="text-gray-300 text-sm">{p.username}</span>
+                <button onClick={() => unblock(p.id)}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition font-medium">
+                  Unblock
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil',
+  apiVersion: '2026-04-22.dahlia',
 })
 
 // =============================================================================
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const admin = createSupabaseAdminClient()
 
   if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as Stripe.CheckoutSession
+    const session = event.data.object as Stripe.Checkout.Session
 
     // Idempotency check — don't fulfill twice
     const { data: existing } = await admin

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
     // Enrich with holder username
     const gymIds = gyms.map((g: any) => g.id)
-    let holderMap: Record<string, string> = {}
+    let holderMap: Record<string, { username: string; party: string }> = {}
 
     if (gymIds.length > 0) {
       const { data: holders } = await admin
@@ -52,10 +52,10 @@ export async function GET(req: NextRequest) {
         .in('id', gyms.filter((g: any) => g.holder_id).map((g: any) => g.holder_id))
 
       if (holders) {
-        holderMap = holders.reduce((acc: any, h: any) => {
+        holderMap = holders.reduce((acc: Record<string, { username: string; party: string }>, h: any) => {
           acc[h.id] = { username: h.username, party: h.party }
           return acc
-        }, {})
+        }, {} as Record<string, { username: string; party: string }>)
       }
     }
 

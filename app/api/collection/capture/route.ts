@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('id, fp_balance')
+      .select('id, fp_balance, total_captures')
       .eq('clerk_user_id', userId)
       .single()
 
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
       await admin
         .from('profiles')
-        .update({ total_captures: admin.rpc('total_captures') })
+        .update({ total_captures: (profile.total_captures || 0) + 1 })
         .eq('id', profile.id)
     }
 
