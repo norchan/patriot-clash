@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { sanitizeFighter } from '@/lib/fighter'
 
 // PATCH /api/profile/settings — update player preferences
 export async function PATCH(req: NextRequest) {
@@ -13,6 +14,10 @@ export async function PATCH(req: NextRequest) {
     const updates: Record<string, unknown> = {}
     for (const key of allowed) {
       if (key in body) updates[key] = body[key]
+    }
+    // Fighter designs are validated against the allowed option sets
+    if ('fighter' in body) {
+      updates.fighter = sanitizeFighter(body.fighter, profile.id)
     }
 
     if (Object.keys(updates).length === 0) {

@@ -1,9 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
-import { LogOut, Zap, Footprints, Swords, Flag } from 'lucide-react'
+import { LogOut, Zap, Footprints, Swords, Flag, Camera } from 'lucide-react'
 
 interface BattleRecord {
   id: string
@@ -44,6 +44,31 @@ interface BlockedPlayer {
   blocked_at: string
 }
 
+interface Post {
+  id: string
+  content: string
+  created_at: string
+}
+
+// Resize any picked image to a 256px square JPEG data URL before upload
+function resizeImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 256
+      canvas.height = 256
+      const ctx = canvas.getContext('2d')!
+      // cover-crop to square
+      const s = Math.min(img.width, img.height)
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 256, 256)
+      resolve(canvas.toDataURL('image/jpeg', 0.85))
+    }
+    img.onerror = reject
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const { signOut } = useClerk()
@@ -53,6 +78,66 @@ export default function ProfilePage() {
   const [toggling, setToggling] = useState<string | null>(null)
   const [blockedPlayers, setBlockedPlayers] = useState<BlockedPlayer[]>([])
   const [showBlocked, setShowBlocked] = useState(false)
+
+  // Photo, click, posts
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [cliqueName, setCliqueName] = useState<string | null>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [postText, setPostText] = useState('')
+  const [posting, setPosting] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/posts')
+      .then(r => r.json())
+      .then(d => setPosts(d.posts ?? []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!profile?.clique_id) { setCliqueName(null); return }
+    fetch(`/api/cliques/${profile.clique_id}`)
+      .then(r => r.json())
+      .then(d => setCliqueName(d.clique?.name ?? null))
+      .catch(() => {})
+  }, [profile?.clique_id])
+
+  async function uploadPhoto(file: File) {
+    setUploading(true)
+    try {
+      const dataUrl = await resizeImage(file)
+      const res = await fetch('/api/profile/photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      })
+      if (res.ok) await refetch()
+    } catch {}
+    setUploading(false)
+  }
+
+  async function publishPost() {
+    if (!postText.trim()) return
+    setPosting(true)
+    try {
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: postText.trim() }),
+      })
+      const data = await res.json()
+      if (data.post) {
+        setPosts(prev => [data.post, ...prev])
+        setPostText('')
+      }
+    } catch {}
+    setPosting(false)
+  }
+
+  async function deletePost(id: string) {
+    setPosts(prev => prev.filter(p => p.id !== id))
+    fetch(`/api/posts/${id}`, { method: 'DELETE' }).catch(() => {})
+  }
 
   async function toggleSetting(key: 'allow_pvp_messages' | 'allow_messages' | 'show_party', current: boolean) {
     setToggling(key)
@@ -123,13 +208,29 @@ export default function ProfilePage() {
       <div className="px-4 pt-8 pb-6"
         style={{ background: `linear-gradient(180deg, ${partyColor}33 0%, transparent 100%)` }}>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl border-2"
-            style={{ borderColor: partyColor, background: `${partyColor}33` }}>
-            {partyEmoji}
+          {/* Avatar — ring is party-colored, or white when affiliation is hidden */}
+          <div className="relative flex-shrink-0">
+            <input ref={fileRef} type="file" accept="image/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); e.target.value = '' }} />
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="block">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Profile"
+                  className="w-16 h-16 rounded-full object-cover border-[3px]"
+                  style={{ borderColor: profile?.show_party === false ? '#e5e7eb' : partyColor, opacity: uploading ? 0.5 : 1 }} />
+              ) : (
+                <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl border-[3px]"
+                  style={{ borderColor: profile?.show_party === false ? '#e5e7eb' : partyColor, background: `${partyColor}33`, opacity: uploading ? 0.5 : 1 }}>
+                  {partyEmoji}
+                </div>
+              )}
+            </button>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gray-800 border border-gray-600 flex items-center justify-center pointer-events-none">
+              <Camera size={12} className="text-gray-300" />
+            </div>
           </div>
           <div className="flex-1">
             <h1 className="text-white font-bold text-xl">{profile?.username}</h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                 style={{ background: `${partyColor}33`, color: partyColor }}>
                 {partyName}
@@ -139,6 +240,13 @@ export default function ProfilePage() {
                 {rank.title}
               </span>
             </div>
+            {cliqueName && (
+              <button onClick={() => router.push('/cliques')}
+                className="mt-1.5 text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1"
+                style={{ background: `${partyColor}1a`, color: partyColor, border: `1px solid ${partyColor}44` }}>
+                ✊ {cliqueName}
+              </button>
+            )}
           </div>
           <button onClick={() => signOut(() => router.push('/sign-in'))}
             className="p-2 text-gray-500 hover:text-gray-300">
@@ -238,6 +346,10 @@ export default function ProfilePage() {
 
       {/* Quick links */}
       <div className="mx-4 mt-3 space-y-2">
+        <button onClick={() => router.push('/fighter')}
+          className="w-full py-3 bg-gray-900 border border-red-900 rounded-xl text-red-400 text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
+          🥊 Design My Fighter
+        </button>
         <button onClick={() => router.push('/collection')}
           className="w-full py-3 bg-gray-900 border border-yellow-900 rounded-xl text-yellow-400 text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
           🎯 My Collection ({profile?.total_captures || 0} caught)
@@ -323,6 +435,46 @@ export default function ProfilePage() {
                   className="text-xs text-blue-400 hover:text-blue-300 transition font-medium">
                   Unblock
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Posts (public feed at the bottom of the profile) ─────────────── */}
+      <div className="mx-4 mt-3 mb-6">
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Posts</h3>
+
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-3 mb-3">
+          <textarea
+            value={postText}
+            onChange={e => setPostText(e.target.value.slice(0, 500))}
+            placeholder="What's happening on the trail?"
+            rows={2}
+            className="w-full bg-gray-800 text-white rounded-xl p-3 text-sm resize-none border border-gray-700 focus:border-gray-500 outline-none placeholder-gray-600"
+          />
+          <div className="flex justify-between items-center mt-2">
+            <span className="text-gray-600 text-xs">{postText.length}/500</span>
+            <button onClick={publishPost} disabled={posting || !postText.trim()}
+              className="px-4 py-2 rounded-lg text-sm font-bold text-white transition active:scale-95 disabled:opacity-40"
+              style={{ background: partyColor }}>
+              {posting ? '...' : 'Post'}
+            </button>
+          </div>
+        </div>
+
+        {posts.length === 0 ? (
+          <p className="text-gray-600 text-sm text-center py-4">No posts yet — say something!</p>
+        ) : (
+          <div className="space-y-2">
+            {posts.map(p => (
+              <div key={p.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3">
+                <div className="flex items-start gap-2">
+                  <p className="text-gray-200 text-sm flex-1 whitespace-pre-wrap break-words">{p.content}</p>
+                  <button onClick={() => deletePost(p.id)}
+                    className="text-gray-700 hover:text-red-400 text-xs flex-shrink-0 transition">✕</button>
+                </div>
+                <p className="text-gray-600 text-xs mt-1.5">{timeAgo(p.created_at)}</p>
               </div>
             ))}
           </div>

@@ -19,6 +19,7 @@ interface Gym {
   held_since: string | null
   total_captures: number
   distance_miles: string
+  radius_miles: number
 }
 
 const DEFENSE_ITEMS = [
@@ -41,6 +42,17 @@ export default function TownHallPage() {
   const [toast, setToast] = useState('')
   const [showDefense, setShowDefense] = useState(false)
   const [showMessage, setShowMessage] = useState(false)
+  const [showDonate, setShowDonate] = useState(false)
+  const [donateAmount, setDonateAmount] = useState('')
+  const [localCliques, setLocalCliques] = useState<{ id: string; name: string; party: string; member_count: number }[]>([])
+
+  useEffect(() => {
+    if (!gym?.id) return
+    fetch(`/api/cliques?gym_id=${gym.id}`)
+      .then(r => r.json())
+      .then(d => setLocalCliques(d.cliques ?? []))
+      .catch(() => {})
+  }, [gym?.id])
 
   useEffect(() => {
     if (!location) return
@@ -59,24 +71,10 @@ export default function TownHallPage() {
     setTimeout(() => setToast(''), 3000)
   }
 
-  async function handleChallenge() {
-    if (!profile || !location || !gym) return
-    if (profile.fp_balance < 100) { showToast('❌ Need at least 100 FP!'); return }
-    setActionLoading(true)
-    try {
-      const res = await fetch(`/api/gyms/${gym.id}/challenge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ latitude: location.lat, longitude: location.lng, fp_spent: 100 }),
-      })
-      const data = await res.json()
-      showToast(data.message || (data.captured ? '🎉 Captured!' : '❌ Repelled!'))
-      if (data.captured) {
-        setGym(prev => prev ? { ...prev, holder_id: profile.id, holder_party: profile.party, holder_username: profile.username, defense_points: 0 } : prev)
-      }
-      await refetch()
-    } catch { showToast('❌ Challenge failed.') }
-    finally { setActionLoading(false) }
+  // Attacking opens Siege Mode — the animated hall assault screen
+  function handleChallenge() {
+    if (!gym) return
+    router.push(`/battle/siege?gym=${gym.id}`)
   }
 
   async function handleBuyDefense(itemId: string, cost: number) {
@@ -94,6 +92,30 @@ export default function TownHallPage() {
       await refetch()
     } catch { showToast('❌ Failed') }
     finally { setActionLoading(false); setShowDefense(false) }
+  }
+
+  async function handleDonate(amount: number) {
+    if (!profile || !gym) return
+    if (amount < 10) { showToast('❌ Minimum donation is 10 FP'); return }
+    if (profile.fp_balance < amount) { showToast(`❌ Need ${amount.toLocaleString()} FP`); return }
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/gyms/${gym.id}/donate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        showToast(data.message || '🏛️ Donation received!')
+        setGym(prev => prev ? { ...prev, defense_points: data.defense_points } : prev)
+        setDonateAmount('')
+      } else {
+        showToast(`❌ ${data.error || 'Donation failed'}`)
+      }
+      await refetch()
+    } catch { showToast('❌ Donation failed') }
+    finally { setActionLoading(false) }
   }
 
   async function handlePostMessage() {
@@ -114,7 +136,8 @@ export default function TownHallPage() {
   }
 
   const isHolder = profile?.id === gym?.holder_id
-  const inRange = !gym?.distance_miles || parseFloat(gym.distance_miles) <= 15
+  const battleRadius = gym?.radius_miles || 10
+  const inRange = !gym?.distance_miles || parseFloat(gym.distance_miles) <= battleRadius
   const partyColor = gym?.holder_party === 'democrat' ? '#2563eb' : gym?.holder_party === 'republican' ? '#dc2626' : '#6b7280'
   const flagEmoji = gym?.holder_party === 'democrat' ? '🔵' : gym?.holder_party === 'republican' ? '🔴' : '⚪'
   const dayHeld = gym?.held_since ? Math.floor((Date.now() - new Date(gym.held_since).getTime()) / 86400000) : 0
@@ -151,8 +174,18 @@ export default function TownHallPage() {
         <div className="absolute bottom-3 left-3 right-3 bg-black/70 rounded-xl p-3 flex items-center justify-between">
           <div>
             {gym.holder_username
-              ? <><span className="text-white text-sm">🏆 Held by <strong>{gym.holder_username}</strong></span>
-                  <span className="text-gray-400 text-xs block">{dayHeld} day{dayHeld !== 1 ? 's' : ''}</span></>
+              ? <>
+                  <span className="text-white text-sm">
+                    🏆 Held by{' '}
+                    <button
+                      onClick={() => gym.holder_id && router.push(`/player/${gym.holder_id}`)}
+                      className="font-bold underline decoration-dotted underline-offset-2 hover:text-blue-300 transition"
+                    >
+                      {gym.holder_username}
+                    </button>
+                  </span>
+                  <span className="text-gray-400 text-xs block">{dayHeld} day{dayHeld !== 1 ? 's' : ''}</span>
+                </>
               : <span className="text-gray-400 text-sm">⚪ Unclaimed</span>
             }
           </div>
@@ -189,21 +222,104 @@ export default function TownHallPage() {
         ))}
       </div>
 
+      {/* Local cliques */}
+      {localCliques.length > 0 && (
+        <div className="mx-4 mt-3 bg-gray-900 rounded-2xl p-4">
+          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-1">✊ Local Cliques</h3>
+          <p className="text-gray-600 text-xs mb-3">
+            Each clique adds +500 starting defense when its party captures this hall
+          </p>
+          <div className="space-y-2">
+            {localCliques.map(c => {
+              const cColor = c.party === 'democrat' ? '#2563eb' : '#dc2626'
+              return (
+                <button key={c.id} onClick={() => router.push('/cliques')}
+                  className="w-full flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-gray-800 transition text-left">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cColor }} />
+                  <span className="text-white text-sm font-medium flex-1 truncate">{c.name}</span>
+                  <span className="text-gray-500 text-xs flex-shrink-0">
+                    {c.member_count} member{c.member_count !== 1 ? 's' : ''}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="mx-4 mt-4 space-y-3 pb-6">
-        {!isHolder && (
+        {/* Attack — only for enemy-held or unclaimed halls */}
+        {(!gym.holder_party || profile?.party !== gym.holder_party) && (
           <>
             <button
               onClick={handleChallenge}
               disabled={actionLoading || (profile?.fp_balance || 0) < 100 || !inRange}
               className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition"
             >
-              <Sword size={18} />Challenge Town Hall (100 FP)
+              <Sword size={18} />
+              {gym.holder_party ? 'Attack Town Hall (100 FP)' : 'Claim Town Hall (100 FP)'}
             </button>
+            {gym.holder_party && (
+              <p className="text-gray-500 text-xs text-center">
+                Each attack deals 200–400 damage to its {gym.defense_points?.toLocaleString() || 0} defense points — it falls at 0
+              </p>
+            )}
             {!inRange && (
               <p className="text-orange-400 text-xs text-center">
-                📍 Must be within 15 miles — you are {gym.distance_miles} mi away
+                📍 Must be within {battleRadius} miles — you are {gym.distance_miles} mi away
               </p>
+            )}
+          </>
+        )}
+
+        {/* Donate — any same-party player can reinforce this hall */}
+        {gym.holder_party && profile?.party === gym.holder_party && (
+          <>
+            <button onClick={() => setShowDonate(!showDonate)}
+              className="w-full py-4 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition">
+              🏛️ Donate Fighting Points
+            </button>
+
+            {showDonate && (
+              <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+                <p className="text-gray-400 text-xs mb-3">
+                  1 FP = 1 defense point. Reinforce your party's hold on {gym.city_name}!
+                </p>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {[100, 500, 1000].map(amt => (
+                    <button key={amt}
+                      onClick={() => handleDonate(amt)}
+                      disabled={actionLoading || (profile?.fp_balance || 0) < amt}
+                      className="py-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm font-bold hover:bg-gray-700 disabled:opacity-40 transition"
+                    >
+                      ⚡ {amt.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={10}
+                    max={10000}
+                    value={donateAmount}
+                    onChange={e => setDonateAmount(e.target.value)}
+                    placeholder="Custom amount (10–10,000)"
+                    className="flex-1 bg-gray-800 text-white text-sm rounded-xl px-3 py-2 outline-none placeholder-gray-600 border border-gray-700 focus:border-gray-500"
+                  />
+                  <button
+                    onClick={() => handleDonate(Math.floor(Number(donateAmount)))}
+                    disabled={actionLoading || !donateAmount || Number(donateAmount) < 10}
+                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 text-black text-sm font-bold rounded-xl transition"
+                  >
+                    Donate
+                  </button>
+                </div>
+                <p className="text-gray-600 text-xs mt-2 text-right">
+                  Your balance: ⚡ {profile?.fp_balance?.toLocaleString() || 0} FP
+                </p>
+              </div>
             )}
           </>
         )}

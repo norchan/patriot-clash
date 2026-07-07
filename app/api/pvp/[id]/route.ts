@@ -27,22 +27,8 @@ export async function GET(
       return NextResponse.json({ ...challenge, status: 'expired' })
     }
 
-    // For completed challenges, enrich with player details so the battle page
-    // can display usernames and parties without extra round-trips
-    if (challenge.status === 'completed') {
-      const [{ data: challenger }, { data: defender }] = await Promise.all([
-        admin.from('profiles').select('username, party').eq('id', challenge.challenger_id).single(),
-        admin.from('profiles').select('username, party').eq('id', challenge.defender_id).single(),
-      ])
-      return NextResponse.json({
-        ...challenge,
-        challenger_username: challenger?.username ?? 'Player',
-        challenger_party: challenger?.party ?? 'democrat',
-        defender_username: defender?.username ?? 'Player',
-        defender_party: defender?.party ?? 'republican',
-      })
-    }
-
+    // Usernames/parties are denormalized onto the row at insert time — no
+    // extra profile queries needed (this route is polled every 3s)
     return NextResponse.json(challenge)
 
   } catch (err: any) {

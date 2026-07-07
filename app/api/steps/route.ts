@@ -5,7 +5,8 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // =============================================================================
 // POST /api/steps
 // Called by the mobile app to sync step count from device pedometer.
-// Awards FP: 10 FP per 500 steps, max 200 FP per day.
+// Awards FP: 100 FP per 50 steps (no daily cap — see award_step_fp in
+// Supabase), plus a 500 FP daily bonus on first sync of the day.
 // =============================================================================
 export async function POST(req: NextRequest) {
   try {
@@ -20,11 +21,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid step count' }, { status: 400 })
     }
 
-    // Cap at 50,000 steps per day (prevent cheating)
-    const cappedSteps = Math.min(steps, 50000)
-
     // Use today's date if not provided
     const recordDate = date || new Date().toISOString().split('T')[0]
+
+    // ── Anti-cheat clamps ─────────────────────────────────────────────────
+    // Steps are client-reported (device motion) so they can be spoofed; the
+    // server bounds the damage: 30k/day hard cap (~world-class step count)
+    // and max +8,000 steps per sync (the client syncs every 15 min; 8k
+    // covers a missed sync at running pace with headroom).
+    const DAILY_CAP = 30000
+    const PER_SYNC_CAP = 8000
+
+    const { data: existingRec } = await admin
+      .from('step_records')
+      .select('steps')
+      .eq('profile_id', profile.id)
+      .eq('record_date', recordDate)
+      .maybeSingle()
+
+    const prevSteps = existingRec?.steps ?? 0
+    const cappedSteps = Math.max(
+      prevSteps,
+      Math.min(steps, DAILY_CAP, prevSteps + PER_SYNC_CAP)
+    )
 
     // Award FP using our database function
     const { data: fpAwarded, error } = await admin
@@ -46,7 +65,7 @@ export async function POST(req: NextRequest) {
     // Check for daily bonus (first sync of the day)
     let dailyBonusAwarded = 0
     if (profile.last_daily_bonus !== recordDate) {
-      dailyBonusAwarded = 10 // 10 FP daily login bonus
+      dailyBonusAwarded = 1000 // daily bonus, auto-granted on first sync
       await admin.rpc('grant_fp', {
         p_profile_id: profile.id,
         p_amount: dailyBonusAwarded,

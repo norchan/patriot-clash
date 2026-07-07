@@ -31,22 +31,35 @@ export async function POST(
       )
     }
 
-    // --- Validate player is within 15 miles of gym (matches the map zone circle) ---
-    const { data: nearbyGyms } = await admin
-      .rpc('gyms_near', { p_lat: latitude, p_lng: longitude, p_miles: 15 })
+    // --- Validate player is inside this hall's own battle radius ---
+    // gyms_near is called with the maximum possible radius (10 mi); the
+    // per-hall radius_miles (5 mi for dense metros) is enforced below.
+    const [{ data: nearbyGyms }, { data: gymRow }] = await Promise.all([
+      admin.rpc('gyms_near', { p_lat: latitude, p_lng: longitude, p_miles: 10 }),
+      admin.from('gyms').select('radius_miles').eq('id', gymId).single(),
+    ])
 
     const gym = nearbyGyms?.find((g: any) => g.id === gymId)
-    if (!gym) {
+    const battleRadius = Number(gymRow?.radius_miles) || 10
+    const distMiles = gym?.dist_meters ? gym.dist_meters / 1609.34 : Infinity
+
+    if (!gym || distMiles > battleRadius) {
       return NextResponse.json(
-        { error: 'OUT_OF_RANGE', message: 'You must be within 15 miles of a Town Hall to challenge it' },
+        { error: 'OUT_OF_RANGE', message: `You must be within ${battleRadius} miles of this Town Hall to challenge it` },
         { status: 400 }
       )
     }
 
-    // --- Can't attack your own gym ---
+    // --- Can't attack your own gym or your own party's hall ---
     if (gym.holder_id === profile.id) {
       return NextResponse.json(
         { error: 'OWN_GYM', message: 'You already hold this Town Hall' },
+        { status: 400 }
+      )
+    }
+    if (gym.holder_party && gym.holder_party === profile.party) {
+      return NextResponse.json(
+        { error: 'SAME_PARTY', message: 'Your party holds this Town Hall — donate FP to defend it instead!' },
         { status: 400 }
       )
     }
@@ -68,43 +81,56 @@ export async function POST(
       )
     }
 
-    // --- Run combat calculation ---
-    const attackerScore = Math.floor(Math.random() * 50) + profile.fp_balance * 0.1 + 50
+    // --- Siege combat: each attack chips away at the hall's defense points ---
+    // The hall only falls when its defense reaches 0. Defenders counter by
+    // donating FP (1 FP = 1 defense point), so contested halls become a
+    // tug-of-war instead of an instant coin flip.
     const defensePoints = gym.defense_points || 0
-    const defenderScore = Math.floor(Math.random() * 50) + defensePoints * 0.05 + 20
+    let damage = 0
+    let remaining = defensePoints
+    let captured = false
+    let absorbed = false
 
-    // Check for iron firewall bonus
-    const { data: firewall } = await admin
-      .from('defense_items')
-      .select('*')
-      .eq('gym_id', gymId)
-      .eq('item_type', 'iron_firewall')
-      .eq('consumed', false)
-      .gt('expires_at', new Date().toISOString())
-      .single()
-
-    const finalDefenderScore = firewall
-      ? defenderScore * 1.2  // +20% defense bonus
-      : defenderScore
-
-    const captured = attackerScore > finalDefenderScore
-
-    // --- Check for decoy gym (absorbs one attack) ---
-    if (!captured) {
+    if (!gym.holder_id) {
+      // Unclaimed halls have no garrison — first challenger claims them
+      captured = true
+    } else {
+      // Decoy absorbs one full attack
       const { data: decoy } = await admin
         .from('defense_items')
-        .select('*')
+        .select('id')
         .eq('gym_id', gymId)
         .eq('item_type', 'decoy_gym')
         .eq('consumed', false)
-        .single()
+        .maybeSingle()
 
       if (decoy) {
-        // Consume the decoy
-        await admin
+        absorbed = true
+        await admin.from('defense_items').update({ consumed: true }).eq('id', decoy.id)
+      } else {
+        damage = Math.floor(200 + Math.random() * 200) // 200-400 per attack
+
+        // Iron firewall blunts the attack by 20%
+        const { data: firewall } = await admin
           .from('defense_items')
-          .update({ consumed: true })
-          .eq('id', decoy.id)
+          .select('id')
+          .eq('gym_id', gymId)
+          .eq('item_type', 'iron_firewall')
+          .eq('consumed', false)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle()
+
+        if (firewall) damage = Math.floor(damage * 0.8)
+
+        remaining = Math.max(0, defensePoints - damage)
+        captured = remaining <= 0
+
+        if (!captured) {
+          await admin
+            .from('gyms')
+            .update({ defense_points: remaining })
+            .eq('id', gymId)
+        }
       }
     }
 
@@ -117,8 +143,8 @@ export async function POST(
       p_description: `Challenged Town Hall: ${gym.city_name}`
     })
 
-    // --- Record the challenge ---
-    const { data: challenge } = await admin
+    // --- Record the challenge (attacker_score = damage dealt, defender_score = defense remaining) ---
+    await admin
       .from('gym_challenges')
       .insert({
         gym_id: gymId,
@@ -126,15 +152,13 @@ export async function POST(
         defender_id: gym.holder_id,
         challenger_party: profile.party,
         fp_spent: fpCost,
-        attacker_score: Math.round(attackerScore),
-        defender_score: Math.round(finalDefenderScore),
+        attacker_score: damage,
+        defender_score: remaining,
         result: captured ? 'victory' : 'defeat',
         captured,
         latitude,
         longitude,
       })
-      .select()
-      .single()
 
     // --- Capture the gym if attacker won ---
     if (captured) {
@@ -145,6 +169,18 @@ export async function POST(
         p_latitude: latitude,
         p_longitude: longitude,
       })
+
+      // Starting garrison: every clique of the capturing party tied to this
+      // hall contributes +500 starting defense
+      const { data: allyCliques } = await admin
+        .from('cliques')
+        .select('id')
+        .eq('gym_id', gymId)
+        .eq('party', profile.party)
+      const startDefense = (allyCliques?.length ?? 0) * 500
+      if (startDefense > 0) {
+        await admin.from('gyms').update({ defense_points: startDefense }).eq('id', gymId)
+      }
 
       // Queue notification to previous holder
       if (gym.holder_id) {
@@ -196,12 +232,14 @@ export async function POST(
     return NextResponse.json({
       success: true,
       captured,
-      attacker_score: Math.round(attackerScore),
-      defender_score: Math.round(finalDefenderScore),
+      damage,
+      defense_remaining: captured ? 0 : remaining,
       capture_bonus: captured ? 50 : 0,
       message: captured
         ? `🎉 You captured ${gym.city_name} Town Hall!`
-        : `❌ You were repelled from ${gym.city_name} Town Hall`,
+        : absorbed
+        ? `🎭 Your attack was absorbed by a decoy!`
+        : `💥 Dealt ${damage.toLocaleString()} damage! ${remaining.toLocaleString()} defense remaining`,
     })
 
   } catch (err: any) {

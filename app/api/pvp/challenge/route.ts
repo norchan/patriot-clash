@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { isBlockedEitherWay } from '@/lib/blocks'
+import { resolvePvpChallenge } from '@/lib/pvp'
 
 const FP_STAKE = 50
 
@@ -27,9 +29,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'INSUFFICIENT_FP', message: `Need ${FP_STAKE} FP to challenge` }, { status: 400 })
     }
 
+    // Blocked players cannot challenge each other
+    if (await isBlockedEitherWay(admin, profile.id, defender_id)) {
+      return NextResponse.json({ error: 'Cannot challenge this player' }, { status: 403 })
+    }
+
     const { data: defender } = await admin
       .from('profiles')
-      .select('id, username, party, fp_balance')
+      .select('id, username, party, fp_balance, clerk_user_id')
       .eq('id', defender_id)
       .single()
 
@@ -37,7 +44,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 })
     }
 
-    if (defender.fp_balance < FP_STAKE) {
+    // Bots always accept and get their treasury refilled by the resolver, so
+    // only human defenders need the balance pre-check
+    const isBot = defender.clerk_user_id?.startsWith('bot_')
+    if (!isBot && defender.fp_balance < FP_STAKE) {
       return NextResponse.json({ error: 'Opponent does not have enough FP' }, { status: 400 })
     }
 
@@ -67,7 +77,8 @@ export async function POST(req: NextRequest) {
         challenger_party: profile.party,
         defender_party: defender.party,
         fp_stake: FP_STAKE,
-        status: 'pending',
+        // Bots auto-accept: claim the challenge immediately so it resolves now
+        status: isBot ? 'resolving' : 'pending',
         expires_at: new Date(Date.now() + 60 * 1000).toISOString(),
       })
       .select()
@@ -76,6 +87,16 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('pvp_challenges insert error:', error)
       return NextResponse.json({ error: 'Failed to create challenge' }, { status: 500 })
+    }
+
+    // Bot defender: resolve the battle on the spot and send the challenger
+    // straight to the replay screen
+    if (isBot) {
+      const resolved = await resolvePvpChallenge(admin, challenge)
+      if (!resolved.ok) {
+        return NextResponse.json({ error: resolved.error }, { status: resolved.status })
+      }
+      return NextResponse.json({ id: challenge.id, status: 'completed', defender_username: defender.username })
     }
 
     return NextResponse.json({ id: challenge.id, status: 'pending', defender_username: defender.username })

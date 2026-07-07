@@ -11,7 +11,26 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
 
-const CHALLENGE_RADIUS_MILES = 15
+const DEFAULT_RADIUS_MILES = 10 // fallback when a gym has no radius_miles set
+
+// Escape user-controlled strings before injecting into marker innerHTML —
+// a username like <img onerror=...> would otherwise execute in every
+// nearby player's browser
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
+  ))
+}
+
+// Haversine distance in miles
+function milesBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3958.8
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
 
 // Returns GeoJSON polygon coordinates approximating a geographic circle
 function makeCircleCoords(centerLng: number, centerLat: number, radiusMiles: number, steps = 64): [number, number][] {
@@ -42,6 +61,7 @@ interface Gym {
   distance_miles: string
   latitude: number
   longitude: number
+  radius_miles: number
 }
 
 interface NearbyPlayer {
@@ -51,14 +71,7 @@ interface NearbyPlayer {
   lat: number
   lng: number
   allow_messages: boolean
-}
-
-interface IncomingChatReq {
-  id: string
-  sender_id: string
-  sender_username: string
-  sender_party: 'democrat' | 'republican' | null
-  expires_at: string
+  avatar_url: string | null
 }
 
 interface IncomingChallenge {
@@ -92,7 +105,8 @@ export default function MapPage() {
   const [pvpToast, setPvpToast] = useState('')
 
   // Chat state
-  const [incomingChatReq, setIncomingChatReq] = useState<IncomingChatReq | null>(null)
+  const [incomingMsg, setIncomingMsg] = useState<{ sender_id: string; sender_username: string; sender_avatar: string | null; preview: string } | null>(null)
+  const lastInboxRef = useRef(new Date(Date.now() - 60 * 1000).toISOString())
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null)
   const [activeChatUsername, setActiveChatUsername] = useState('')
   const [chatMessages, setChatMessages] = useState<{ id: string; sender_id: string; content: string; created_at: string }[]>([])
@@ -103,14 +117,40 @@ export default function MapPage() {
   // Map refs
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<mapboxgl.Marker[]>([])
+  const gymMarkersRef = useRef<mapboxgl.Marker[]>([])
+  const enemyMarkersRef = useRef<mapboxgl.Marker[]>([])
   const playerMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const otherPlayerMarkersRef = useRef<mapboxgl.Marker[]>([])
   const mapInitialized = useRef(false)
 
+  // Latest GPS fix, readable inside long-lived intervals. watchPosition
+  // delivers a NEW location object every tick — keying effects on it tears
+  // intervals down and refires fetches at GPS rate instead of their stated
+  // periods, so effects key on hasLocation / grid cell and read this ref.
+  const locationRef = useRef(location)
+  useEffect(() => { locationRef.current = location }, [location])
+  const hasLocation = !!location
+  // ~1km grid cell — spawn/gym queries only re-run when you actually move
+  const gridLat = location ? location.lat.toFixed(2) : null
+  const gridLng = location ? location.lng.toFixed(2) : null
+
   function showPvpToast(msg: string) {
     setPvpToast(msg)
     setTimeout(() => setPvpToast(''), 4000)
+  }
+
+  // HTML markers keep a fixed pixel size, so they visually dominate the map
+  // as you zoom out. Hide them past zoom thresholds: zoomed to state level,
+  // only the party-colored zone circles remain.
+  function applyZoomVisibility() {
+    const m = map.current
+    if (!m) return
+    const z = m.getZoom()
+    const showEnemies = z >= 11   // enemies: only at neighborhood zoom
+    const showLabels = z >= 9     // gym labels + players: city zoom
+    enemyMarkersRef.current.forEach(mk => { mk.getElement().style.display = showEnemies ? '' : 'none' })
+    gymMarkersRef.current.forEach(mk => { mk.getElement().style.display = showLabels ? '' : 'none' })
+    otherPlayerMarkersRef.current.forEach(mk => { mk.getElement().style.display = showLabels ? '' : 'none' })
   }
 
   // Load player toggle preference
@@ -130,26 +170,33 @@ export default function MapPage() {
     }
   }
 
-  // ── Map initialization ────────────────────────────────────────────────────
+  // ── Map initialization (once — must NOT re-run per GPS tick) ─────────────
+  // Deps include the loading flags because the container div only renders
+  // after BOTH location and profile finish loading — keying on hasLocation
+  // alone can fire while the loading screen is still up (no container) and
+  // then never retry.
   useEffect(() => {
-    if (!location || !mapContainer.current || mapInitialized.current) return
+    const loc = locationRef.current
+    if (!loc || !mapContainer.current || mapInitialized.current) return
     mapInitialized.current = true
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [location.lng, location.lat],
+      center: [loc.lng, loc.lat],
       zoom: 16,
       pitch: 30,
     })
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+    map.current.on('zoom', applyZoomVisibility)
 
     return () => {
       map.current?.remove()
+      map.current = null
       mapInitialized.current = false
     }
-  }, [location])
+  }, [hasLocation, locationLoading, profileLoading])
 
   // ── Own player marker ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -158,14 +205,23 @@ export default function MapPage() {
     if (playerMarkerRef.current) {
       playerMarkerRef.current.setLngLat([location.lng, location.lat])
     } else {
-      const color = profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
+      const color = profile?.show_party === false ? '#f3f4f6'
+        : profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
       const el = document.createElement('div')
-      el.style.cssText = `
-        width: 20px; height: 20px;
-        background: ${color}; border: 3px solid white; border-radius: 50%;
-        box-shadow: 0 0 0 3px ${color}, 0 0 15px ${color}88;
-        cursor: pointer;
-      `
+      if (profile?.avatar_url) {
+        el.innerHTML = `<img src="${esc(profile.avatar_url)}" style="
+          width:34px;height:34px;border-radius:50%;object-fit:cover;
+          border:3px solid ${color};
+          box-shadow:0 0 0 2px white, 0 0 12px ${color}88;
+          cursor:pointer;" />`
+      } else {
+        el.style.cssText = `
+          width: 20px; height: 20px;
+          background: ${color}; border: 3px solid white; border-radius: 50%;
+          box-shadow: 0 0 0 3px ${color}, 0 0 15px ${color}88;
+          cursor: pointer;
+        `
+      }
       playerMarkerRef.current = new mapboxgl.Marker({ element: el })
         .setLngLat([location.lng, location.lat])
         .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(`📍 ${profile?.username || 'You'}`))
@@ -175,27 +231,30 @@ export default function MapPage() {
 
   // ── Broadcast own location every 10s ──────────────────────────────────────
   useEffect(() => {
-    if (!location) return
+    if (!hasLocation) return
     const broadcast = () => {
+      const loc = locationRef.current
+      if (!loc) return
       fetch('/api/players/location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: location.lat, lng: location.lng }),
+        body: JSON.stringify({ lat: loc.lat, lng: loc.lng }),
       }).catch(() => {})
     }
     broadcast()
     const interval = setInterval(broadcast, 10000)
     return () => clearInterval(interval)
-  }, [location])
+  }, [hasLocation])
 
   // ── Fetch & render nearby players every 8s ────────────────────────────────
   useEffect(() => {
-    if (!location || !showPlayers) return
+    if (!hasLocation || !showPlayers) return
 
     const fetchAndRender = async () => {
-      if (!map.current) return
+      const loc = locationRef.current
+      if (!map.current || !loc) return
       try {
-        const res = await fetch(`/api/players/nearby?lat=${location.lat}&lng=${location.lng}`)
+        const res = await fetch(`/api/players/nearby?lat=${loc.lat}&lng=${loc.lng}`)
         const data = await res.json()
         const players: NearbyPlayer[] = data.players ?? []
         setNearbyPlayers(players)
@@ -206,27 +265,35 @@ export default function MapPage() {
         if (!map.current) return
 
         players.forEach(player => {
-          // White/neutral if party is hidden, otherwise party color
+          // White/neutral ring if party is hidden, otherwise party color
           const color = player.party === 'democrat' ? '#2563eb'
             : player.party === 'republican' ? '#dc2626'
-            : '#9ca3af'
+            : '#f3f4f6'
           const dotEmoji = player.party === 'democrat' ? '🔵'
             : player.party === 'republican' ? '🔴' : '⚪'
           const el = document.createElement('div')
           el.style.cursor = 'pointer'
+          // Profile photo inside the party ring when they have one
+          const face = player.avatar_url
+            ? `<img src="${esc(player.avatar_url)}" style="
+                 width:30px;height:30px;border-radius:50%;object-fit:cover;
+                 border:3px solid ${color};
+                 box-shadow:0 0 8px ${color}88, 0 2px 6px rgba(0,0,0,0.5);
+               " />`
+            : `<div style="
+                 width:16px;height:16px;border-radius:50%;
+                 background:${color};border:2px solid white;
+                 box-shadow:0 0 0 2px ${color},0 0 8px ${color}66;
+               "></div>`
           el.innerHTML = `
             <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-              <div style="
-                width:16px;height:16px;border-radius:50%;
-                background:${color};border:2px solid white;
-                box-shadow:0 0 0 2px ${color},0 0 8px ${color}66;
-              "></div>
+              ${face}
               <div style="
                 background:rgba(0,0,0,0.85);color:white;
                 font-size:10px;font-weight:600;padding:2px 5px;
                 border-radius:4px;white-space:nowrap;
                 border:1px solid ${color}66;
-              ">${dotEmoji} ${player.username || 'Player'}</div>
+              ">${dotEmoji} ${esc(player.username || 'Player')}</div>
             </div>
           `
           el.addEventListener('click', () => setSelectedPlayer(player))
@@ -236,6 +303,7 @@ export default function MapPage() {
             .addTo(map.current!)
           otherPlayerMarkersRef.current.push(marker)
         })
+        applyZoomVisibility()
       } catch {
         // Player markers are non-critical — silently ignore
       }
@@ -248,11 +316,11 @@ export default function MapPage() {
       otherPlayerMarkersRef.current.forEach(m => m.remove())
       otherPlayerMarkersRef.current = []
     }
-  }, [location, showPlayers])
+  }, [hasLocation, showPlayers])
 
   // ── Poll for incoming PvP challenges every 5s ─────────────────────────────
   useEffect(() => {
-    if (!location || incomingChallenge || sentChallenge) return
+    if (!hasLocation || incomingChallenge || sentChallenge) return
 
     const check = async () => {
       try {
@@ -265,7 +333,7 @@ export default function MapPage() {
     check()
     const interval = setInterval(check, 5000)
     return () => clearInterval(interval)
-  }, [location, incomingChallenge, sentChallenge])
+  }, [hasLocation, incomingChallenge, sentChallenge])
 
   // ── Poll sent challenge for result every 3s ───────────────────────────────
   useEffect(() => {
@@ -303,7 +371,10 @@ export default function MapPage() {
         body: JSON.stringify({ defender_id: player.profile_id }),
       })
       const data = await res.json()
-      if (res.ok) {
+      if (res.ok && data.status === 'completed') {
+        // Bot defenders auto-accept — go straight to the battle replay
+        router.push(`/battle/pvp?id=${data.id}`)
+      } else if (res.ok) {
         setSentChallenge({ id: data.id, opponentName: player.username })
       } else {
         showPvpToast(`❌ ${data.message || data.error || 'Challenge failed'}`)
@@ -348,20 +419,32 @@ export default function MapPage() {
     }
   }
 
-  // ── Poll for incoming chat requests every 5s ─────────────────────────────
+  // ── Poll the inbox for new incoming messages every 8s ────────────────────
+  // Open messaging: anyone can message you (unless blocked/incognito). New
+  // messages pop a card with Reply / Snooze / Block. Snoozes live in
+  // localStorage per sender.
   useEffect(() => {
-    if (!location || incomingChallenge || incomingChatReq || activeChatUserId) return
-    const check = async () => {
+    if (!hasLocation) return
+    const poll = async () => {
       try {
-        const res = await fetch('/api/chat/pending')
+        const since = lastInboxRef.current
+        lastInboxRef.current = new Date().toISOString()
+        const res = await fetch(`/api/chat/inbox?since=${encodeURIComponent(since)}`)
         const data = await res.json()
-        if (data.request) setIncomingChatReq(data.request)
+        for (const m of data.messages ?? []) {
+          if (m.sender_id === activeChatUserId) continue // already chatting
+          const snoozedUntil = parseInt(localStorage.getItem(`chat_snooze_${m.sender_id}`) || '0')
+          if (snoozedUntil > Date.now()) continue
+          setIncomingMsg(m)
+          break
+        }
       } catch {}
     }
-    check()
-    const interval = setInterval(check, 5000)
+    poll()
+    const interval = setInterval(poll, 8000)
     return () => clearInterval(interval)
-  }, [location, incomingChallenge, incomingChatReq, activeChatUserId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasLocation, activeChatUserId])
 
   // ── Poll active chat messages every 3s ────────────────────────────────────
   useEffect(() => {
@@ -383,43 +466,36 @@ export default function MapPage() {
     chatBoxRef.current?.scrollTo({ top: chatBoxRef.current.scrollHeight, behavior: 'smooth' })
   }, [chatMessages])
 
-  // ── Start a chat with a player ────────────────────────────────────────────
-  async function startChat(player: NearbyPlayer) {
+  // ── Start a chat with a player (opens the chat overlay directly) ──────────
+  function startChat(player: NearbyPlayer) {
     setSelectedPlayer(null)
-    try {
-      const res = await fetch('/api/chat/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiver_id: player.profile_id }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        showPvpToast(`💬 Chat request sent to ${player.username}`)
-      } else {
-        showPvpToast(`❌ ${data.error || 'Could not send request'}`)
-      }
-    } catch {
-      showPvpToast('❌ Could not send chat request')
-    }
+    setActiveChatUserId(player.profile_id)
+    setActiveChatUsername(player.username)
+    setChatMessages([])
   }
 
-  // ── Accept / decline incoming chat request ────────────────────────────────
-  async function respondToChatReq(accept: boolean) {
-    if (!incomingChatReq) return
-    const req = incomingChatReq
-    setIncomingChatReq(null)
-    try {
-      const res = await fetch(`/api/chat/request/${req.id}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accept }),
-      })
-      if (res.ok && accept) {
-        setActiveChatUserId(req.sender_id)
-        setActiveChatUsername(req.sender_username)
-        setChatMessages([])
-      }
-    } catch {}
+  // ── Incoming message popup actions ────────────────────────────────────────
+  function replyToMsg() {
+    if (!incomingMsg) return
+    setActiveChatUserId(incomingMsg.sender_id)
+    setActiveChatUsername(incomingMsg.sender_username)
+    setChatMessages([])
+    setIncomingMsg(null)
+  }
+
+  function snoozeMsg() {
+    if (!incomingMsg) return
+    // Mute this sender's popups for 8 hours (they can still send)
+    localStorage.setItem(`chat_snooze_${incomingMsg.sender_id}`, String(Date.now() + 8 * 3600 * 1000))
+    setIncomingMsg(null)
+    showPvpToast(`😴 ${incomingMsg.sender_username} snoozed for 8 hours`)
+  }
+
+  function blockMsgSender() {
+    if (!incomingMsg) return
+    const { sender_id, sender_username } = incomingMsg
+    setIncomingMsg(null)
+    blockPlayer(sender_id, sender_username)
   }
 
   // ── Send a direct message ─────────────────────────────────────────────────
@@ -461,14 +537,17 @@ export default function MapPage() {
     } catch {}
   }
 
-  // ── Gyms ──────────────────────────────────────────────────────────────────
+  // ── Gyms (refetch only when moving to a new ~1km grid cell) ───────────────
   useEffect(() => {
-    if (!location) return
-    fetch(`/api/gyms?lat=${location.lat}&lng=${location.lng}`)
+    if (!gridLat || !gridLng) return
+    const loc = locationRef.current
+    if (!loc) return
+    fetch(`/api/gyms?lat=${loc.lat}&lng=${loc.lng}`)
       .then(r => r.json())
       .then(data => setGyms(data.gyms || []))
       .catch(console.error)
-  }, [location])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridLat, gridLng])
 
   useEffect(() => {
     if (!map.current || gyms.length === 0) return
@@ -481,7 +560,7 @@ export default function MapPage() {
           type: 'Feature' as const,
           geometry: {
             type: 'Polygon' as const,
-            coordinates: [makeCircleCoords(gym.longitude, gym.latitude, CHALLENGE_RADIUS_MILES)],
+            coordinates: [makeCircleCoords(gym.longitude, gym.latitude, gym.radius_miles || DEFAULT_RADIUS_MILES)],
           },
           properties: { party: gym.holder_party ?? 'none' },
         })),
@@ -534,6 +613,10 @@ export default function MapPage() {
       }
 
       // ── Gym label markers (HTML, always above vector layers) ────────────────
+      // Remove the previous set first — markers otherwise accumulate on
+      // every gyms refetch
+      gymMarkersRef.current.forEach(m => m.remove())
+      gymMarkersRef.current = []
       gyms.forEach(gym => {
         const partyColor = gym.holder_party === 'democrat' ? '#2563eb'
           : gym.holder_party === 'republican' ? '#dc2626' : '#6b7280'
@@ -548,7 +631,7 @@ export default function MapPage() {
             white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.4);
           ">
             <span style="font-size:14px;">🏛️</span>
-            <span style="color:white;font-size:11px;font-weight:600;">${gym.city_name}</span>
+            <span style="color:white;font-size:11px;font-weight:600;">${esc(gym.city_name)}</span>
             <span style="font-size:10px;">${flagEmoji}</span>
           </div>
         `
@@ -558,22 +641,34 @@ export default function MapPage() {
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat([gym.longitude, gym.latitude])
           .addTo(map.current!)
-        markersRef.current.push(marker)
+        gymMarkersRef.current.push(marker)
       })
+      applyZoomVisibility()
     }
 
+    // isStyleLoaded() can be false even after 'load' already fired, and
+    // 'load' fires only once — waiting on it can miss forever. 'idle' fires
+    // again whenever the map settles, so a missed check always recovers.
     if (map.current.isStyleLoaded()) {
       addGyms()
     } else {
-      map.current.once('load', addGyms)
+      map.current.once('idle', addGyms)
+    }
+
+    return () => {
+      map.current?.off('idle', addGyms)
+      gymMarkersRef.current.forEach(m => m.remove())
+      gymMarkersRef.current = []
     }
   }, [gyms, router])
 
   // ── Enemy spawns ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!location || !profile) return
+    if (!gridLat || !gridLng || !profile) return
+    const loc = locationRef.current
+    if (!loc) return
 
-    // Seeded random so gym enemies stay in the same spots per session
+    // Seeded random so enemies stay in the same spots per grid cell
     function seededRand(seed: string): number {
       let h = 0
       for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0
@@ -594,42 +689,58 @@ export default function MapPage() {
     // Opponents are always the OPPOSING party
     const opponentParty = profile.party === 'republican' ? 'democrat' : 'republican'
 
-    // 2 random enemies near the player
+    // 2 enemies near the player, seeded by grid cell so they don't teleport
+    // on every GPS jitter
     for (let i = 0; i < 2; i++) {
       const spawnId = `local_${i}`
       if (!isAlive(spawnId)) continue
-      const angle = Math.random() * Math.PI * 2
-      const dist = 0.001 + Math.random() * 0.002
+      const seed = `${spawnId}_${gridLat}_${gridLng}`
+      const angle = seededRand(seed + 'a') * Math.PI * 2
+      const dist = 0.001 + seededRand(seed + 'd') * 0.002
       enemies.push({
         id: spawnId,
         enemy: getRandomEnemy(opponentParty),
-        lat: location.lat + Math.sin(angle) * dist,
-        lng: location.lng + Math.cos(angle) * dist,
+        lat: loc.lat + Math.sin(angle) * dist,
+        lng: loc.lng + Math.cos(angle) * dist,
       })
     }
 
-    // 1-2 enemies seeded inside each gym circle
-    gyms.forEach(gym => {
-      const count = 1 + Math.floor(seededRand(gym.id + 'n') * 2)
-      for (let i = 0; i < count; i++) {
-        const spawnId = `gym_${gym.id}_${i}`
-        if (!isAlive(spawnId)) continue
-        const seed = gym.id + i
-        const angle = seededRand(seed + 'a') * Math.PI * 2
-        const radiusMiles = 1 + seededRand(seed + 'r') * 11
-        const radiusLat = radiusMiles / 69.0
-        const radiusLng = radiusMiles / (69.0 * Math.cos(gym.latitude * Math.PI / 180))
-        enemies.push({
-          id: spawnId,
-          enemy: getRandomEnemy(opponentParty),
-          lat: gym.latitude + Math.sin(angle) * radiusLat,
-          lng: gym.longitude + Math.cos(angle) * radiusLng,
-        })
-      }
-    })
+    // 1-2 enemies seeded inside each NEARBY gym circle. Gyms come back from
+    // /api/gyms up to 100 miles out — only consider gyms whose zone could
+    // put an enemy within the 5-mile visibility range.
+    gyms
+      .filter(gym => {
+        const d = parseFloat(gym.distance_miles)
+        const zr = gym.radius_miles || DEFAULT_RADIUS_MILES
+        return Number.isFinite(d) && d <= 5 + zr
+      })
+      .forEach(gym => {
+        const count = 1 + Math.floor(seededRand(gym.id + 'n') * 2)
+        for (let i = 0; i < count; i++) {
+          const spawnId = `gym_${gym.id}_${i}`
+          if (!isAlive(spawnId)) continue
+          const seed = gym.id + i
+          const angle = seededRand(seed + 'a') * Math.PI * 2
+          // Spawn inside this gym's own zone, whatever its radius
+          const zoneRadius = gym.radius_miles || DEFAULT_RADIUS_MILES
+          const radiusMiles = 1 + seededRand(seed + 'r') * Math.max(1, zoneRadius - 2)
+          const radiusLat = radiusMiles / 69.0
+          const radiusLng = radiusMiles / (69.0 * Math.cos(gym.latitude * Math.PI / 180))
+          enemies.push({
+            id: spawnId,
+            enemy: getRandomEnemy(opponentParty),
+            lat: gym.latitude + Math.sin(angle) * radiusLat,
+            lng: gym.longitude + Math.cos(angle) * radiusLng,
+          })
+        }
+      })
 
-    setSpawnedEnemies(enemies)
-  }, [location?.lat, location?.lng, profile, gyms])
+    // Visibility: enemies within 5 miles are shown; battle range is 1 mile
+    const visible = enemies.filter(e => milesBetween(loc.lat, loc.lng, e.lat, e.lng) <= 5)
+
+    setSpawnedEnemies(visible)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridLat, gridLng, profile, gyms])
 
   useEffect(() => {
     if (!map.current || spawnedEnemies.length === 0) return
@@ -671,9 +782,10 @@ export default function MapPage() {
             <div class="em-img ${isLeg ? 'legendary' : ''}"
               style="width:${sz}px;height:${sz}px;
                      border:3px solid ${tc};
+                     background:radial-gradient(circle at 50% 32%, ${tc}30 0%, #101828 75%);
                      box-shadow:0 0 14px ${tc}77, 0 4px 14px rgba(0,0,0,0.6);">
               <img src="${spawn.enemy.image}"
-                style="width:100%;height:100%;object-fit:cover;" />
+                style="width:100%;height:100%;object-fit:contain;padding:3px;" />
             </div>
             <div class="em-name">${spawn.enemy.name}</div>
             <div class="em-tier"
@@ -682,19 +794,41 @@ export default function MapPage() {
             </div>
           </div>
         `
-        el.addEventListener('click', () =>
+        el.addEventListener('click', () => {
+          // Battle range: must be within 1 mile of the enemy
+          const loc = locationRef.current
+          if (!loc) return
+          const dist = milesBetween(loc.lat, loc.lng, spawn.lat, spawn.lng)
+          if (dist > 1) {
+            showPvpToast(`🚶 ${spawn.enemy.name} is ${dist.toFixed(1)} mi away — get within 1 mile to battle`)
+            return
+          }
           router.push(`/battle?enemy=${spawn.enemy.id}&spawn=${spawn.id}`)
-        )
+        })
 
         const marker = new mapboxgl.Marker({ element: el, anchor: 'top' })
           .setLngLat([spawn.lng, spawn.lat])
           .addTo(map.current!)
-        markersRef.current.push(marker)
+        enemyMarkersRef.current.push(marker)
       })
+      applyZoomVisibility()
     }
 
+    // Remove the previous set — enemy markers otherwise accumulate on every
+    // spawn regeneration, leaving stale clickable enemies on the map
+    enemyMarkersRef.current.forEach(m => m.remove())
+    enemyMarkersRef.current = []
+
+    // Same 'load'-vs-'idle' pitfall as the gym effect: 'load' fires once and
+    // may already be gone, silently dropping all enemy markers
     if (map.current.isStyleLoaded()) addEnemies()
-    else map.current.on('load', addEnemies)
+    else map.current.once('idle', addEnemies)
+
+    return () => {
+      map.current?.off('idle', addEnemies)
+      enemyMarkersRef.current.forEach(m => m.remove())
+      enemyMarkersRef.current = []
+    }
   }, [spawnedEnemies, router])
 
   // ── FP toast ──────────────────────────────────────────────────────────────
@@ -775,7 +909,7 @@ export default function MapPage() {
         <div className="bg-black/75 backdrop-blur rounded-full px-5 py-2.5 flex items-center gap-3">
           <span className="text-white text-xs">{spawnedEnemies.length} enemies nearby</span>
           <div className="w-px h-3 bg-gray-600" />
-          <span className="text-white text-xs">{gyms.length} town halls in range</span>
+          <span className="text-white text-xs">{gyms.length} town halls</span>
           {showPlayers && nearbyPlayers.length > 0 && (
             <>
               <div className="w-px h-3 bg-gray-600" />
@@ -818,15 +952,24 @@ export default function MapPage() {
         <div className="absolute bottom-20 left-4 right-4 z-30 bg-gray-900 rounded-2xl p-4 border border-gray-700 shadow-2xl">
           {/* Player header */}
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-              style={{
-                background: selectedPlayer.party === 'democrat' ? '#1e3a8a'
-                  : selectedPlayer.party === 'republican' ? '#7f1d1d' : '#1f2937',
-                border: `2px solid ${selectedPlayer.party === 'democrat' ? '#3b82f6'
-                  : selectedPlayer.party === 'republican' ? '#ef4444' : '#6b7280'}`,
-              }}>
-              {selectedPlayer.party === 'democrat' ? '🔵' : selectedPlayer.party === 'republican' ? '🔴' : '⚪'}
-            </div>
+            {selectedPlayer.avatar_url ? (
+              <img src={selectedPlayer.avatar_url} alt={selectedPlayer.username}
+                className="w-12 h-12 rounded-full object-cover border-2"
+                style={{
+                  borderColor: selectedPlayer.party === 'democrat' ? '#3b82f6'
+                    : selectedPlayer.party === 'republican' ? '#ef4444' : '#e5e7eb',
+                }} />
+            ) : (
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+                style={{
+                  background: selectedPlayer.party === 'democrat' ? '#1e3a8a'
+                    : selectedPlayer.party === 'republican' ? '#7f1d1d' : '#1f2937',
+                  border: `2px solid ${selectedPlayer.party === 'democrat' ? '#3b82f6'
+                    : selectedPlayer.party === 'republican' ? '#ef4444' : '#6b7280'}`,
+                }}>
+                {selectedPlayer.party === 'democrat' ? '🔵' : selectedPlayer.party === 'republican' ? '🔴' : '⚪'}
+              </div>
+            )}
             <div>
               <div className="text-white font-bold">{selectedPlayer.username}</div>
               <div className="text-gray-400 text-xs">
@@ -837,6 +980,13 @@ export default function MapPage() {
           </div>
 
           <div className="space-y-2">
+            {/* View profile — public page with posts + click */}
+            <button
+              onClick={() => router.push(`/player/${selectedPlayer.profile_id}`)}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-gray-800 hover:bg-gray-700 border border-gray-700"
+            >
+              👤 View Profile
+            </button>
             {/* Battle — only if both parties are visible and different */}
             {selectedPlayer.party && profile?.party && selectedPlayer.party !== profile.party && (
               <button
@@ -914,32 +1064,31 @@ export default function MapPage() {
           </div>
         </div>
       )}
-      {/* ── Incoming chat request modal ───────────────────────────────────── */}
-      {incomingChatReq && !activeChatUserId && (
-        <div className="absolute inset-0 z-40 bg-black/70 flex items-center justify-center p-6">
-          <div className="bg-gray-900 rounded-2xl p-6 border border-blue-500/50 shadow-2xl w-full max-w-sm">
-            <div className="text-center mb-5">
-              <div className="text-5xl mb-3">💬</div>
-              <h2 className="text-white font-black text-xl">Chat Request</h2>
-              <p className="text-gray-400 text-sm mt-2">
-                <span className={`font-bold ${
-                  incomingChatReq.sender_party === 'democrat' ? 'text-blue-400'
-                  : incomingChatReq.sender_party === 'republican' ? 'text-red-400'
-                  : 'text-gray-300'
-                }`}>
-                  {incomingChatReq.sender_username}
-                </span>{' '}
-                wants to chat with you
-              </p>
+      {/* ── Incoming message popup ────────────────────────────────────────── */}
+      {incomingMsg && !activeChatUserId && (
+        <div className="absolute bottom-20 left-4 right-4 z-40">
+          <div className="bg-gray-900 rounded-2xl p-4 border border-blue-700/60 shadow-2xl max-w-md mx-auto">
+            <div className="flex items-center gap-3 mb-3">
+              {incomingMsg.sender_avatar
+                ? <img src={incomingMsg.sender_avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-blue-700 flex-shrink-0" />
+                : <div className="w-10 h-10 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">💬</div>}
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-bold truncate">{incomingMsg.sender_username}</p>
+                <p className="text-gray-400 text-xs truncate">{incomingMsg.preview}</p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => respondToChatReq(false)}
-                className="py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-bold transition">
-                Decline
+            <div className="grid grid-cols-3 gap-2">
+              <button onClick={replyToMsg}
+                className="py-2.5 bg-blue-700 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition">
+                💬 Reply
               </button>
-              <button onClick={() => respondToChatReq(true)}
-                className="py-3 bg-blue-700 hover:bg-blue-600 text-white rounded-xl font-bold transition">
-                💬 Accept
+              <button onClick={snoozeMsg}
+                className="py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-bold text-sm transition">
+                😴 Snooze
+              </button>
+              <button onClick={blockMsgSender}
+                className="py-2.5 bg-gray-800 hover:bg-red-900/60 text-gray-400 hover:text-red-300 rounded-xl font-bold text-sm transition">
+                🚫 Block
               </button>
             </div>
           </div>
@@ -1006,10 +1155,6 @@ export default function MapPage() {
       )}
 
 <style>{`
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
-        }
         .mapboxgl-popup-content {
           background: rgba(17, 24, 39, 0.95) !important;
           color: white !important;

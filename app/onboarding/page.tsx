@@ -20,7 +20,8 @@ export default function OnboardingPage() {
         body: JSON.stringify({ party: selected }),
       })
       if (!res.ok) throw new Error('Failed')
-      router.push('/map')
+      // Next stop: design your street fighter, then the map
+      router.push('/fighter?welcome=1')
     } catch {
       setError('Something went wrong. Please try again.')
       setLoading(false)

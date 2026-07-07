@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { isBlockedEitherWay } from '@/lib/blocks'
 
 function conversationId(a: string, b: string) {
   return [a, b].sort().join('_')
@@ -48,19 +49,19 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid message' }, { status: 400 })
     }
 
-    // Verify no block in either direction
-    const { data: block } = await admin
-      .from('player_blocks')
-      .select('blocker_id')
-      .or(
-        `and(blocker_id.eq.${profile.id},blocked_id.eq.${userId}),` +
-        `and(blocker_id.eq.${userId},blocked_id.eq.${profile.id})`
-      )
-      .limit(1)
-      .maybeSingle()
+    // Open messaging: anyone can message anyone UNLESS blocked (either way)
+    // or the receiver is incognito (allow_messages off). Receivers deal with
+    // unwanted senders via snooze (client-side) or block.
+    const [{ data: receiver }, blocked] = await Promise.all([
+      admin.from('profiles').select('allow_messages').eq('id', userId).single(),
+      isBlockedEitherWay(admin, profile.id, userId),
+    ])
 
-    if (block) {
+    if (blocked) {
       return NextResponse.json({ error: 'Cannot message this player' }, { status: 403 })
+    }
+    if (!receiver || receiver.allow_messages === false) {
+      return NextResponse.json({ error: 'That player is incognito — messages off' }, { status: 403 })
     }
 
     const convId = conversationId(profile.id, userId)

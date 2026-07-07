@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { isBlockedEitherWay } from '@/lib/blocks'
 
 // POST /api/chat/request — send a chat request to another player
 export async function POST(req: NextRequest) {
@@ -25,17 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check neither player has blocked the other
-    const { data: block } = await admin
-      .from('player_blocks')
-      .select('blocker_id')
-      .or(
-        `and(blocker_id.eq.${profile.id},blocked_id.eq.${receiver_id}),` +
-        `and(blocker_id.eq.${receiver_id},blocked_id.eq.${profile.id})`
-      )
-      .limit(1)
-      .maybeSingle()
-
-    if (block) {
+    if (await isBlockedEitherWay(admin, profile.id, receiver_id)) {
       return NextResponse.json({ error: 'Cannot message this player' }, { status: 403 })
     }
 

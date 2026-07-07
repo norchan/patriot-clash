@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "mcp__claude_ai_Higgs__balance",
+      "mcp__claude_ai_Higgs__models_explore",
+      "mcp__claude_ai_Higgs__show_plans_and_credits",
+      "Bash(npx tsc *)",
+      "mcp__claude_ai_Higgs__generate_video",
+      "mcp__claude_ai_Higgs__job_status",
+      "Bash(curl -sf -o oil_baron_idle.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014334_12d70a9c-27b3-4b3f-830f-ff90191baae5.mp4\")",
+      "Bash(curl -sf -o oil_baron_attack.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014416_e2f3a65c-05e9-4447-ab38-d9ed86fdc997.mp4\")",
+      "Bash(curl -sf -o cowboy_idle.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014420_5c8139ee-d95e-4905-b183-e90d28dc3f17.mp4\")",
+      "Bash(curl -sf -o cowboy_attack.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014421_8c1c625d-35e7-4203-87f1-5a365f0cc6da.mp4\")",
+      "Bash(curl -sf -o politician_idle.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014423_ae09b089-fae9-4ad1-afd5-da8f33c2fe21.mp4\")",
+      "Bash(curl -sf -o eagle_idle.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014539_0de7c729-872e-44e7-9229-77bfb51157d4.mp4\")",
+      "Bash(curl -sf -o eagle_attack.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014542_5b5b93e1-de33-4633-bd5d-5cf4c89b5159.mp4\")",
+      "Bash(curl -sf -o hick_idle.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014545_7d7284d4-8f46-4907-bcbb-cfb6ee2aa1be.mp4\")",
+      "Bash(curl -sf -o hick_attack.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014548_49d436e3-026f-4a28-8f00-f3cc36f0a22e.mp4\")",
+      "Bash(curl -sf -o crazy_liberal_idle.mp4 \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260704_014549_abe40af2-8e52-4c02-a7c8-faf22949e63a.mp4\")",
+      "Skill(code-review)",
+      "Skill(code-review:*)",
+      "Bash(git diff *)",
+      "Bash(node gen_seed.js)",
+      "Bash(cp \"C:\\\\Users\\\\Micha\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Micha-patriot-clash\\\\acd84d08-0df9-435a-8904-192f5d4e95a8\\\\scratchpad\\\\discover.mjs\" \"c:\\\\Users\\\\Micha\\\\patriot-clash\\\\scripts\\\\discover.mjs\")",
+      "Bash(node scripts/discover.mjs)",
+      "Bash(node scripts/garrison_rest.mjs)",
+      "Bash(node scripts/set_radii.mjs)",
+      "Bash(cd \"c:\\\\Users\\\\Micha\\\\patriot-clash\" && sed -i \\\\ *)",
+      "Bash(node scripts/check_feature.mjs)",
+      "Bash(node gen_seed2.js)",
+      "Bash(node scripts/migrate_halls_v2.mjs)",
+      "Bash(node scripts/bot_life.mjs)",
+      "Bash(node scripts/cutout_enemies.mjs)",
+      "Bash(git check-ignore *)"
+    ]
+  }
+}

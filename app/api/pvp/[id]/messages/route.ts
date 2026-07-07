@@ -24,35 +24,32 @@ export async function GET(
       return NextResponse.json({ messages: [] })
     }
 
-    // Verify both players have messaging enabled
+    // Verify both players have messaging enabled. requireProfile() already
+    // fetched the caller's row, so only the opponent needs a lookup — run it
+    // in parallel with the messages query (this route is polled every 4s).
     const otherPlayerId = challenge.challenger_id === profile.id
       ? challenge.defender_id
       : challenge.challenger_id
 
-    const { data: other } = await admin
-      .from('profiles')
-      .select('allow_pvp_messages, username')
-      .eq('id', otherPlayerId)
-      .single()
+    const [{ data: other }, { data: messages }] = await Promise.all([
+      admin
+        .from('profiles')
+        .select('allow_pvp_messages, username')
+        .eq('id', otherPlayerId)
+        .single(),
+      admin
+        .from('pvp_messages')
+        .select('id, sender_id, content, created_at')
+        .eq('challenge_id', id)
+        .order('created_at', { ascending: true })
+        .limit(50),
+    ])
 
-    const { data: me } = await admin
-      .from('profiles')
-      .select('allow_pvp_messages')
-      .eq('id', profile.id)
-      .single()
-
-    const chatEnabled = !!(me?.allow_pvp_messages && other?.allow_pvp_messages)
+    const chatEnabled = !!((profile as any).allow_pvp_messages && other?.allow_pvp_messages)
 
     if (!chatEnabled) {
       return NextResponse.json({ messages: [], chat_enabled: false, other_username: other?.username })
     }
-
-    const { data: messages } = await admin
-      .from('pvp_messages')
-      .select('id, sender_id, content, created_at')
-      .eq('challenge_id', id)
-      .order('created_at', { ascending: true })
-      .limit(50)
 
     return NextResponse.json({
       messages: messages ?? [],
@@ -100,12 +97,13 @@ export async function POST(
       ? challenge.defender_id
       : challenge.challenger_id
 
-    const [{ data: me }, { data: other }] = await Promise.all([
-      admin.from('profiles').select('allow_pvp_messages').eq('id', profile.id).single(),
-      admin.from('profiles').select('allow_pvp_messages').eq('id', otherPlayerId).single(),
-    ])
+    const { data: other } = await admin
+      .from('profiles')
+      .select('allow_pvp_messages')
+      .eq('id', otherPlayerId)
+      .single()
 
-    if (!me?.allow_pvp_messages || !other?.allow_pvp_messages) {
+    if (!(profile as any).allow_pvp_messages || !other?.allow_pvp_messages) {
       return NextResponse.json({ error: 'Both players must enable messaging' }, { status: 403 })
     }
 

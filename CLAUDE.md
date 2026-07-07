@@ -20,7 +20,7 @@ A location-based AR mobile-web game (think Pokémon Go, US politics edition). Pl
 
 - `@/*` path alias maps to the project root.
 - `proxy.ts` at the root **is the Clerk middleware** (functions as `middleware.ts`).
-- Both `hooks/` and `app/hooks/` exist with identical files — prefer the root `hooks/` for new code.
+- All hooks live in the root `hooks/` directory (the old `app/hooks/` duplicate was removed).
 - Supabase clients: `createSupabaseServerClient()` (async, server) and `createSupabaseAdminClient()` (service-role, bypasses RLS) live in `lib/supabase-server.ts`; browser client is in `lib/supabase-client.ts`.
 - `lib/auth.ts` exports `requireProfile()` — throws a `Response` (not an `Error`) to return 401 from API routes.
 

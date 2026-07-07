@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { getEnemyById } from '@/config/enemies'
+import { ATTACK_BY_NAME, TIER_DEFENSE } from '@/config/attacks'
 
 // =============================================================================
 // POST /api/battles
@@ -17,8 +18,7 @@ export async function POST(req: NextRequest) {
     const {
       enemy_id,
       result,         // 'victory' | 'defeat' | 'fled'
-      fp_spent,
-      moves_used,     // [{name, power, damage}]
+      moves_used,     // [{name, power, damage}] — fp cost is recomputed from this
       latitude,
       longitude,
       duration_secs,
@@ -35,8 +35,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid result' }, { status: 400 })
     }
 
-    // Validate FP spent
-    const fpCost = Math.max(0, fp_spent || 0)
+    // ── Server-side battle validation ─────────────────────────────────────
+    // The client's fp_spent and result are not trusted. FP cost is recomputed
+    // from the submitted moves, each move must be a real attack with damage
+    // inside its possible roll range, and a victory claim must be backed by
+    // enough total damage to actually defeat the enemy.
+    const moves: { name?: string; damage?: number }[] = Array.isArray(moves_used) ? moves_used : []
+    if (moves.length > 100) {
+      return NextResponse.json({ error: 'Too many moves' }, { status: 400 })
+    }
+
+    const tierMult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE] ?? 1.0
+    let fpCost = 0
+    let totalDamage = 0
+    for (const m of moves) {
+      const atk = ATTACK_BY_NAME[m?.name ?? '']
+      if (!atk) {
+        return NextResponse.json({ error: 'Invalid move in battle log' }, { status: 400 })
+      }
+      const dmg = Number(m?.damage) || 0
+      const maxRoll = Math.ceil(atk.damage * 1.2 * tierMult)
+      if (dmg < 0 || dmg > maxRoll) {
+        return NextResponse.json({ error: 'Impossible damage value' }, { status: 400 })
+      }
+      fpCost += atk.fp
+      totalDamage += dmg
+    }
+
+    if (result === 'victory' && totalDamage < enemy.hp) {
+      return NextResponse.json({ error: 'Claimed victory without dealing enough damage' }, { status: 400 })
+    }
+
     if (fpCost > 0 && profile.fp_balance < fpCost) {
       return NextResponse.json({ error: 'INSUFFICIENT_FP' }, { status: 400 })
     }

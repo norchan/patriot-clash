@@ -11,6 +11,14 @@ export interface Enemy {
   power: number
   fpReward: number
   moves: EnemyMove[]
+  // Video clips per battle state. Missing states fall back to the idle clip,
+  // and enemies with no animations at all fall back to the static image.
+  animations?: {
+    idle?: string
+    attack?: string
+    hit?: string
+    faint?: string
+  }
 }
 
 export interface EnemyMove {
@@ -24,7 +32,11 @@ export const republicanEnemies: Enemy[] = [
     id: 'oil_baron',
     name: 'Oil Baron',
     description: 'A portly tycoon with oil rigs on his hat',
-    image: '/enemies/republican/oil_baron.jpg',
+    image: '/enemies/republican/oil_baron.png',
+    animations: {
+      idle: '/animations/oil_baron_idle.mp4',
+      attack: '/animations/oil_baron_attack.mp4',
+    },
     party: 'republican',
     tier: 'rare',
     hp: 120,
@@ -40,7 +52,11 @@ export const republicanEnemies: Enemy[] = [
     id: 'cowboy',
     name: 'Lone Star',
     description: 'A tough cowboy from the heartland',
-    image: '/enemies/republican/cowboy.jpg',
+    image: '/enemies/republican/cowboy.png',
+    animations: {
+      idle: '/animations/cowboy_idle.mp4',
+      attack: '/animations/cowboy_attack.mp4',
+    },
     party: 'republican',
     tier: 'common',
     hp: 80,
@@ -56,7 +72,11 @@ export const republicanEnemies: Enemy[] = [
     id: 'politician',
     name: 'The Don',
     description: 'A powerful political figure in a blue suit',
-    image: '/enemies/republican/politician.jpg',
+    image: '/enemies/republican/politician.png',
+    animations: {
+      idle: '/animations/politician_idle.mp4',
+      attack: '/animations/politician_attack.mp4',
+    },
     party: 'republican',
     tier: 'legendary',
     hp: 200,
@@ -72,7 +92,11 @@ export const republicanEnemies: Enemy[] = [
     id: 'eagle',
     name: 'Freedom Eagle',
     description: 'A fierce eagle protecting its territory',
-    image: '/enemies/republican/eagle.jpg',
+    image: '/enemies/republican/eagle.png',
+    animations: {
+      idle: '/animations/eagle_idle.mp4',
+      attack: '/animations/eagle_attack.mp4',
+    },
     party: 'republican',
     tier: 'common',
     hp: 70,
@@ -88,7 +112,11 @@ export const republicanEnemies: Enemy[] = [
     id: 'hick',
     name: 'Good Ole Boy',
     description: 'A rugged country man in overalls',
-    image: '/enemies/republican/hick.jpg',
+    image: '/enemies/republican/hick.png',
+    animations: {
+      idle: '/animations/hick_idle.mp4',
+      attack: '/animations/hick_attack.mp4',
+    },
     party: 'republican',
     tier: 'common',
     hp: 90,
@@ -107,7 +135,11 @@ export const democratEnemies: Enemy[] = [
     id: 'crazy_liberal',
     name: 'Policy Wonk',
     description: 'An intense activist with strong opinions',
-    image: '/enemies/democrat/crazy_liberal.jpg',
+    image: '/enemies/democrat/crazy_liberal.png',
+    animations: {
+      idle: '/animations/crazy_liberal_idle.mp4',
+      attack: '/animations/crazy_liberal_attack.mp4',
+    },
     party: 'democrat',
     tier: 'common',
     hp: 75,
@@ -123,7 +155,11 @@ export const democratEnemies: Enemy[] = [
     id: 'crying_liberal',
     name: 'Tear Drop',
     description: 'An emotional protester in a green jacket',
-    image: '/enemies/democrat/crying_liberal.jpg',
+    image: '/enemies/democrat/crying_liberal.png',
+    animations: {
+      idle: '/animations/crying_liberal_idle.mp4',
+      attack: '/animations/crying_liberal_attack.mp4',
+    },
     party: 'democrat',
     tier: 'common',
     hp: 65,
@@ -139,7 +175,11 @@ export const democratEnemies: Enemy[] = [
     id: 'dem_politician',
     name: 'Shadow Senator',
     description: 'A powerful political operative',
-    image: '/enemies/democrat/politician_dems.jpg',
+    image: '/enemies/democrat/politician_dems.png',
+    animations: {
+      idle: '/animations/politician_dems_idle.mp4',
+      attack: '/animations/politician_dems_attack.mp4',
+    },
     party: 'democrat',
     tier: 'legendary',
     hp: 180,
@@ -155,7 +195,11 @@ export const democratEnemies: Enemy[] = [
     id: 'purple_hair',
     name: 'Purple Fury',
     description: 'A fierce activist with purple hair',
-    image: '/enemies/democrat/purple_hair.jpg',
+    image: '/enemies/democrat/purple_hair.png',
+    animations: {
+      idle: '/animations/purple_fury_idle.mp4',
+      attack: '/animations/purple_hair_attack.mp4',
+    },
     party: 'democrat',
     tier: 'rare',
     hp: 110,
@@ -171,7 +215,11 @@ export const democratEnemies: Enemy[] = [
     id: 'protestor',
     name: 'Riot Gear',
     description: 'A fully equipped protest enforcer',
-    image: '/enemies/democrat/protestor.jpg',
+    image: '/enemies/democrat/protestor.png',
+    animations: {
+      idle: '/animations/protestor_idle.mp4',
+      attack: '/animations/protestor_attack.mp4',
+    },
     party: 'democrat',
     tier: 'rare',
     hp: 130,
@@ -185,8 +233,12 @@ export const democratEnemies: Enemy[] = [
   },
 ]
 
+// Returns enemies BELONGING TO the given party — callers compute the
+// opponent party themselves and pass it in. (This used to take the player's
+// party and invert internally; combined with callers that also inverted, it
+// double-inverted and showed everyone their own party's enemies.)
 export function getEnemiesForParty(party: 'democrat' | 'republican'): Enemy[] {
-  return party === 'democrat' ? republicanEnemies : democratEnemies
+  return party === 'democrat' ? democratEnemies : republicanEnemies
 }
 
 export function getRandomEnemy(party: 'democrat' | 'republican'): Enemy {

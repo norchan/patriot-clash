@@ -1,13 +1,13 @@
 'use client'
 import { usePathname, useRouter } from 'next/navigation'
-import { Map, Building2, User, ShoppingBag, Trophy } from 'lucide-react'
+import { Map, Building2, User, ShoppingBag, Users } from 'lucide-react'
 
 const navItems = [
-  { href: '/map',         label: 'Map',       icon: Map },
-  { href: '/townhall',    label: 'Halls',     icon: Building2 },
-  { href: '/leaderboard', label: 'Ranks',     icon: Trophy },
-  { href: '/profile',     label: 'Profile',   icon: User },
-  { href: '/shop',        label: 'Shop',      icon: ShoppingBag },
+  { href: '/map',      label: 'Map',     icon: Map },
+  { href: '/townhall', label: 'Halls',   icon: Building2 },
+  { href: '/cliques',  label: 'Cliques', icon: Users },
+  { href: '/profile',  label: 'Profile', icon: User },
+  { href: '/shop',     label: 'Shop',    icon: ShoppingBag },
 ]
 
 export default function GameLayout({ children }: { children: React.ReactNode }) {

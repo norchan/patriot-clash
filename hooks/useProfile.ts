@@ -16,6 +16,9 @@ export interface Profile {
   allow_pvp_messages: boolean
   allow_messages: boolean
   show_party: boolean
+  avatar_url: string | null
+  clique_id: string | null
+  fighter: Record<string, string> | null
 }
 
 export function useProfile() {

@@ -14,18 +14,10 @@ interface CapturedCharacter {
   captured_at: string
 }
 
-const ALL_ENEMIES = [
-  { id: 'oil_baron',      name: 'Oil Baron',       party: 'republican', tier: 'rare',      image: '/enemies/republican/oil_baron.jpg' },
-  { id: 'cowboy',         name: 'Lone Star',        party: 'republican', tier: 'common',    image: '/enemies/republican/cowboy.jpg' },
-  { id: 'politician',     name: 'The Don',          party: 'republican', tier: 'legendary', image: '/enemies/republican/politician.jpg' },
-  { id: 'eagle',          name: 'Freedom Eagle',    party: 'republican', tier: 'common',    image: '/enemies/republican/eagle.jpg' },
-  { id: 'hick',           name: 'Good Ole Boy',     party: 'republican', tier: 'common',    image: '/enemies/republican/hick.jpg' },
-  { id: 'crazy_liberal',  name: 'Policy Wonk',      party: 'democrat',   tier: 'common',    image: '/enemies/democrat/crazy_liberal.jpg' },
-  { id: 'crying_liberal', name: 'Tear Drop',        party: 'democrat',   tier: 'common',    image: '/enemies/democrat/crying_liberal.jpg' },
-  { id: 'dem_politician', name: 'Shadow Senator',   party: 'democrat',   tier: 'legendary', image: '/enemies/democrat/politician_dems.jpg' },
-  { id: 'purple_hair',    name: 'Purple Fury',      party: 'democrat',   tier: 'rare',      image: '/enemies/democrat/purple_hair.jpg' },
-  { id: 'protestor',      name: 'Riot Gear',        party: 'democrat',   tier: 'rare',      image: '/enemies/democrat/protestor.jpg' },
-]
+import { republicanEnemies, democratEnemies } from '@/config/enemies'
+
+// Single source of truth — a hardcoded copy of this list once drifted
+const ALL_ENEMIES = [...republicanEnemies, ...democratEnemies]
 
 export default function CollectionPage() {
   const router = useRouter()
@@ -84,14 +76,22 @@ export default function CollectionPage() {
                   background: isCaptured ? `${color}11` : '#0f172a',
                 }}
               >
-                {/* Image */}
-                <div className="relative">
+                {/* Image — transparent cutout on a tier-tinted spotlight */}
+                <div className="relative h-32 flex items-end justify-center overflow-hidden"
+                  style={{
+                    background: isCaptured
+                      ? `radial-gradient(circle at 50% 28%, ${color}2e 0%, ${color}0a 45%, #0b1220 100%)`
+                      : 'radial-gradient(circle at 50% 30%, #1f293766 0%, #0b1220 100%)',
+                  }}>
                   <img
                     src={e.image}
                     alt={e.name}
-                    className="w-full h-32 object-cover"
-                    style={{ filter: isCaptured ? 'none' : 'grayscale(1) brightness(0.3)' }}
+                    className="h-[88%] object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
+                    style={{ filter: isCaptured ? 'none' : 'grayscale(1) brightness(0.25)' }}
                   />
+                  {/* ground glow */}
+                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-20 h-2.5 rounded-full pointer-events-none"
+                    style={{ background: `radial-gradient(ellipse, ${isCaptured ? color + '55' : '#00000066'}, transparent 70%)`, filter: 'blur(2px)' }} />
                   {!isCaptured && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span className="text-4xl">❓</span>
