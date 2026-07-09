@@ -6,6 +6,9 @@ export type Gender = 'male' | 'female' | 'trans'
 export type BodyType = 'skinny' | 'average' | 'athletic' | 'fat'
 export type HairStyle = 'short' | 'long' | 'bun' | 'afro' | 'ponytail' | 'bald'
 export type TopStyle = 'tee' | 'tank' | 'hoodie'
+export type FacialHair = 'none' | 'mustache' | 'beard' | 'goatee'
+export type Eyewear = 'none' | 'glasses' | 'shades'
+export type Hat = 'none' | 'cap' | 'beanie' | 'cowboy'
 
 export interface FighterDesign {
   gender: Gender
@@ -16,12 +19,18 @@ export interface FighterDesign {
   topStyle: TopStyle
   topColor: string
   pantColor: string
+  facialHair: FacialHair
+  eyewear: Eyewear
+  hat: Hat
 }
 
 export const GENDERS: Gender[] = ['male', 'female', 'trans']
 export const BODY_TYPES: BodyType[] = ['skinny', 'average', 'athletic', 'fat']
 export const HAIR_STYLES: HairStyle[] = ['short', 'long', 'bun', 'afro', 'ponytail', 'bald']
 export const TOP_STYLES: TopStyle[] = ['tee', 'tank', 'hoodie']
+export const FACIAL_HAIRS: FacialHair[] = ['none', 'mustache', 'beard', 'goatee']
+export const EYEWEARS: Eyewear[] = ['none', 'glasses', 'shades']
+export const HATS: Hat[] = ['none', 'cap', 'beanie', 'cowboy']
 
 export const SKIN_TONES = ['#f6d7bd', '#eab88e', '#d19a6b', '#a9714b', '#7c4f33', '#53331f']
 export const HAIR_COLORS = ['#1c1c1c', '#4a2f1b', '#8a5a2b', '#c99e57', '#b8b8b8', '#d9488b', '#3f7ad6', '#4caf50']
@@ -45,6 +54,11 @@ export function defaultFighter(seed: string): FighterDesign {
     topStyle: pick(TOP_STYLES, seed + 't'),
     topColor: pick(TOP_COLORS, seed + 'tc'),
     pantColor: pick(PANT_COLORS, seed + 'p'),
+    // Accessories lean heavily toward 'none' so most generated fighters
+    // stay clean-cut and the ones with a hat or beard stand out
+    facialHair: pick(['none', 'none', 'none', 'mustache', 'beard', 'goatee'] as FacialHair[], seed + 'fh'),
+    eyewear: pick(['none', 'none', 'none', 'none', 'glasses', 'shades'] as Eyewear[], seed + 'ew'),
+    hat: pick(['none', 'none', 'none', 'none', 'cap', 'beanie', 'cowboy'] as Hat[], seed + 'ht'),
   }
 }
 
@@ -61,6 +75,11 @@ export function sanitizeFighter(raw: any, seed: string): FighterDesign {
     topStyle: TOP_STYLES.includes(raw.topStyle) ? raw.topStyle : d.topStyle,
     topColor: TOP_COLORS.includes(raw.topColor) ? raw.topColor : d.topColor,
     pantColor: PANT_COLORS.includes(raw.pantColor) ? raw.pantColor : d.pantColor,
+    // Designs saved before accessories existed default to bare — a player's
+    // fighter must never grow a surprise beard on upgrade
+    facialHair: FACIAL_HAIRS.includes(raw.facialHair) ? raw.facialHair : 'none',
+    eyewear: EYEWEARS.includes(raw.eyewear) ? raw.eyewear : 'none',
+    hat: HATS.includes(raw.hat) ? raw.hat : 'none',
   }
 }
 

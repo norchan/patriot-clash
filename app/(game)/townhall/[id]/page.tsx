@@ -136,7 +136,7 @@ export default function TownHallPage() {
   }
 
   const isHolder = profile?.id === gym?.holder_id
-  const battleRadius = gym?.radius_miles || 10
+  const battleRadius = 10 // flat 10-mile attack range for every hall
   const inRange = !gym?.distance_miles || parseFloat(gym.distance_miles) <= battleRadius
   const partyColor = gym?.holder_party === 'democrat' ? '#2563eb' : gym?.holder_party === 'republican' ? '#dc2626' : '#6b7280'
   const flagEmoji = gym?.holder_party === 'democrat' ? '🔵' : gym?.holder_party === 'republican' ? '🔴' : '⚪'

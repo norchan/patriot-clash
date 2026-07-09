@@ -7,6 +7,7 @@ import type { Enemy } from '@/config/enemies'
 
 import { ATTACKS, TIER_DEFENSE } from '@/config/attacks'
 import type { GestureType } from '@/config/attacks'
+import { sfx } from '@/lib/juice'
 
 const CAPTURE_RATES = { common: 0.75, rare: 0.40, legendary: 0.15 }
 const CAPTURE_COSTS = { common: 15, rare: 30, legendary: 75 }
@@ -233,6 +234,7 @@ function BattleContent() {
     if (defending) {
       setIsDefending(true)
       setDialogLine(`${profile.username} used Shield Block!`)
+      sfx.block()
       flash('#3b82f666', 500)
       // Shield moves are recorded too — the server recomputes FP cost from
       // moves_used, so unrecorded moves would be free
@@ -250,6 +252,7 @@ function BattleContent() {
       enemyHpAfter = newHp
 
       playAnim('hit')
+      sfx.punch(gesture === 'swipe-up')
       addDmg(dmg, false, atk.color)
       setEnemyHp(newHp)
 
@@ -260,6 +263,7 @@ function BattleContent() {
 
       if (newHp <= 0) {
         playAnim('faint')
+        sfx.ko()
         setDialogLine(`${enemy.name} fainted!`)
         await wait(900)
         const result = await recordBattle('victory', totalFpSpent, [...movesUsed, moveRecord])
@@ -268,6 +272,7 @@ function BattleContent() {
           try { localStorage.setItem(`spawn_dead_${spawnId}`, Date.now().toString()) } catch {}
         }
         setPhase('victory')
+        sfx.victory()
         setIsAnimating(false)
         return
       }
@@ -294,8 +299,11 @@ function BattleContent() {
 
     if (missed) {
       setDialogLine(`${enemy.name} used ${move.name}... but missed!`)
+      sfx.whoosh()
     } else {
       shake()
+      if (defending) sfx.block()
+      else sfx.kick()
       flash('#ef444455', 400)
       addDmg(actualDmg, true, '#ef4444')
       setPlayerHp(newPlayerHp)
@@ -313,6 +321,7 @@ function BattleContent() {
       setDialogLine(`${profile.username} was defeated...`)
       await recordBattle('defeat', totalFpSpent, moveRecord ? [...movesUsed, moveRecord] : movesUsed)
       setPhase('defeat')
+      sfx.defeat()
     }
 
     setIsAnimating(false)
@@ -470,6 +479,7 @@ function BattleContent() {
       onTouchEnd={onTouchEnd}
       onClick={() => phase === 'fighting' && !isAnimating && handleAttack('tap')}
     >
+      <div className="battle-wipe" />
 
       {/* Screen flash */}
       {flashOverlay && (
@@ -537,37 +547,57 @@ function BattleContent() {
           }} />
 
           {(() => {
-            // No border, no bubble — a soft radial mask dissolves the clip's
-            // own background into the arena so the character reads as part of
-            // the scene
+            // No border, no bubble — a soft radial mask dissolves the sprite
+            // into the arena. The animation clips have a baked-in white
+            // background, so the video is multiply-blended onto a light
+            // party-tinted backdrop: white pixels become the tint, the
+            // character's own colors pass through nearly untouched.
+            const partyTint = enemy.party === 'democrat'
+              ? ['#dbeafe', '#93c5fd'] // light blue
+              : ['#fee2e2', '#fca5a5'] // light red
             const spriteMask = 'radial-gradient(ellipse 62% 62% at 50% 44%, black 45%, rgba(0,0,0,0.5) 62%, transparent 76%)'
-            const spriteStyle = {
+            const wrapStyle = {
               width: 'min(94vw, 460px)',
               aspectRatio: '1 / 1',
-              objectFit: 'cover' as const,
               maskImage: spriteMask,
               WebkitMaskImage: spriteMask,
               animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
               transformOrigin: 'bottom center' as const,
+              isolation: 'isolate' as const,
+            }
+            const mediaStyle = {
+              width: '100%', height: '100%',
+              objectFit: 'cover' as const,
+              display: 'block' as const,
             }
             return activeClip && !videoFailed ? (
-              <video
+              <div
                 key={`${spriteKey}-${activeClip}`}
-                src={activeClip}
-                poster={enemy.image}
-                aria-label={enemy.name}
-                autoPlay muted playsInline
-                loop={clipLoops}
-                onError={() => setVideoFailed(true)}
-                style={spriteStyle}
-              />
+                style={{
+                  ...wrapStyle,
+                  background: `radial-gradient(ellipse 70% 70% at 50% 44%, ${partyTint[0]} 0%, ${partyTint[1]} 58%, ${partyTint[1]} 100%)`,
+                }}
+              >
+                <video
+                  src={activeClip}
+                  poster={enemy.image}
+                  aria-label={enemy.name}
+                  autoPlay muted playsInline
+                  loop={clipLoops}
+                  onError={() => setVideoFailed(true)}
+                  style={{ ...mediaStyle, mixBlendMode: 'multiply' }}
+                />
+              </div>
             ) : (
-              <img
+              <div
                 key={spriteKey}
-                src={enemy.image}
-                alt={enemy.name}
-                style={{ ...spriteStyle, objectFit: 'contain' }}
-              />
+                style={{
+                  ...wrapStyle,
+                  background: `radial-gradient(ellipse 70% 70% at 50% 44%, ${partyTint[0]}cc 0%, ${partyTint[1]}66 55%, transparent 78%)`,
+                }}
+              >
+                <img src={enemy.image} alt={enemy.name} style={{ ...mediaStyle, objectFit: 'contain' }} />
+              </div>
             )
           })()}
 

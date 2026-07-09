@@ -24,3 +24,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Battle entry wipe — drop <div className="battle-wipe" /> in a screen root.
+   Covers the viewport in black and dissolves, so entering a fight feels like
+   a scene cut instead of a page load. */
+@keyframes battleWipeOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.battle-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, #101830 0%, #000 78%);
+  animation: battleWipeOut 0.5s ease-out 0.05s forwards;
+}

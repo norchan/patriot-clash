@@ -7,14 +7,21 @@ import FighterRig, { type FighterPose } from '@/components/FighterRig'
 import {
   defaultFighter, sanitizeFighter, fighterLevel, fighterStats,
   GENDERS, BODY_TYPES, HAIR_STYLES, TOP_STYLES,
+  FACIAL_HAIRS, EYEWEARS, HATS,
   SKIN_TONES, HAIR_COLORS, TOP_COLORS, PANT_COLORS,
   type FighterDesign,
 } from '@/lib/fighter'
+import { sfx } from '@/lib/juice'
 
 const GENDER_LABELS: Record<string, string> = { male: 'Male', female: 'Female', trans: 'Trans' }
 const BODY_LABELS: Record<string, string> = { skinny: 'Skinny', average: 'Average', athletic: 'Athletic', fat: 'Heavy' }
 const HAIR_LABELS: Record<string, string> = { short: 'Short', long: 'Long', bun: 'Bun', afro: 'Afro', ponytail: 'Ponytail', bald: 'Bald' }
 const TOP_LABELS: Record<string, string> = { tee: 'T-Shirt', tank: 'Tank Top', hoodie: 'Hoodie' }
+const FUZZ_LABELS: Record<string, string> = { none: 'Clean', mustache: 'Mustache', beard: 'Beard', goatee: 'Goatee' }
+const EYEWEAR_LABELS: Record<string, string> = { none: 'None', glasses: 'Glasses', shades: 'Shades' }
+const HAT_LABELS: Record<string, string> = { none: 'None', cap: 'Cap', beanie: 'Beanie', cowboy: 'Cowboy Hat' }
+
+const REACT_POSES: FighterPose[] = ['jab', 'cross', 'hook', 'uppercut', 'kick']
 
 function FighterDesignerContent() {
   const router = useRouter()
@@ -41,6 +48,10 @@ function FighterDesignerContent() {
 
   function set<K extends keyof FighterDesign>(key: K, value: FighterDesign[K]) {
     setDesign(d => d ? { ...d, [key]: value } : d)
+    // Every tweak makes the fighter throw a punch — instant feedback that
+    // the change landed (the shadowbox loop takes back over on its next tick)
+    setPose(REACT_POSES[Math.floor(Math.random() * REACT_POSES.length)])
+    sfx.punch(false)
   }
 
   async function save() {
@@ -130,14 +141,18 @@ function FighterDesignerContent() {
         </p>
       </div>
 
-      {/* Preview */}
+      {/* Preview — the fighter shadowboxes on the real fight-night street */}
       <div className="mx-4 mt-4 rounded-2xl overflow-hidden border border-gray-800 relative"
-        style={{ background: 'linear-gradient(180deg, #1a1033 0%, #2a1a3e 55%, #3d3548 72%, #2b2b31 78%, #1c1c22 100%)' }}>
+        style={{
+          backgroundImage: 'linear-gradient(180deg, rgba(6,5,14,0.45) 0%, transparent 35%, transparent 70%, rgba(6,5,14,0.5) 100%), url(/backgrounds/street_fight.webp)',
+          backgroundSize: 'cover', backgroundPosition: 'center 78%',
+        }}>
         <div className="flex items-end justify-center pt-6" style={{ minHeight: 260 }}>
-          <FighterRig design={design} pose={pose} facing="right" height={220} />
+          <div style={{ filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))' }}>
+            <FighterRig design={design} pose={pose} facing="right" height={220} />
+          </div>
         </div>
-        {/* street line */}
-        <div className="h-2" style={{ background: 'repeating-linear-gradient(90deg, #facc15 0 24px, transparent 24px 48px)' , opacity: 0.35 }} />
+        <div className="h-2" />
         <div className="absolute top-3 left-3 bg-black/60 rounded-lg px-3 py-1.5">
           <span className="text-white text-xs font-bold">Lv.{level}</span>
           <span className="text-gray-400 text-xs"> · STR {Math.round(stats.strength)} · STA {stats.stamina} · {stats.comboMax}-hit combos</span>
@@ -153,6 +168,9 @@ function FighterDesignerContent() {
         {design.hairStyle !== 'bald' && (
           <SwatchRow label="Hair Color" options={HAIR_COLORS} value={design.hairColor} onPick={v => set('hairColor', v)} />
         )}
+        <OptionRow label="Facial Hair" options={FACIAL_HAIRS} value={design.facialHair} labels={FUZZ_LABELS} onPick={v => set('facialHair', v)} />
+        <OptionRow label="Eyewear" options={EYEWEARS} value={design.eyewear} labels={EYEWEAR_LABELS} onPick={v => set('eyewear', v)} />
+        <OptionRow label="Hat" options={HATS} value={design.hat} labels={HAT_LABELS} onPick={v => set('hat', v)} />
         <OptionRow label="Top" options={TOP_STYLES} value={design.topStyle} labels={TOP_LABELS} onPick={v => set('topStyle', v)} />
         <SwatchRow label="Top Color" options={TOP_COLORS} value={design.topColor} onPick={v => set('topColor', v)} />
         <SwatchRow label="Pants" options={PANT_COLORS} value={design.pantColor} onPick={v => set('pantColor', v)} />

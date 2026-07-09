@@ -6,6 +6,7 @@ import { useLocation } from '@/hooks/useLocation'
 import FighterRig, { type FighterPose } from '@/components/FighterRig'
 import TownHall from '@/components/TownHall'
 import { defaultFighter, sanitizeFighter, type FighterDesign } from '@/lib/fighter'
+import { sfx } from '@/lib/juice'
 
 // Siege Mode: attacking a town hall is a battle scene, not a button. The
 // server's challenge API stays fully authoritative — this screen calls it
@@ -140,6 +141,7 @@ function SiegePage() {
     let t = 400
 
     setBanner('ASSAULT!')
+    sfx.bell(true)
     schedule(700, () => setBanner(''))
 
     for (let i = 0; i < blows; i++) {
@@ -151,6 +153,7 @@ function SiegePage() {
       })
       schedule(t + 160, () => {
         setShaking(true)
+        sfx.siegeBlow()
         addSpark(`-${Math.max(1, Math.round(totalDrop / blows))}`, '#facc15')
         setDefense(after)
         setTimeout(() => setShaking(false), 190)
@@ -162,10 +165,10 @@ function SiegePage() {
         t += 700
         schedule(t, () => { setGuardVisible(true); setGuardPose('idle') })
         schedule(t + 500, () => setGuardPose('jab'))
-        schedule(t + 650, () => setMyPose('hit'))
+        schedule(t + 650, () => { setMyPose('hit'); sfx.punch(false) })
         schedule(t + 950, () => { setMyPose('hook'); setAttacking(true) })
-        schedule(t + 1100, () => setGuardPose('hit'))
-        schedule(t + 1400, () => { setGuardPose('ko'); setMyPose('idle'); setAttacking(false) })
+        schedule(t + 1100, () => { setGuardPose('hit'); sfx.punch(true) })
+        schedule(t + 1400, () => { setGuardPose('ko'); setMyPose('idle'); setAttacking(false); sfx.ko() })
         schedule(t + 2100, () => setGuardVisible(false))
         t += 1600
       }
@@ -179,9 +182,11 @@ function SiegePage() {
         setFlagParty(profile?.party ?? null)
         setMyPose('victory')
         throwConfetti()
+        sfx.capture()
       } else {
         setBanner('DEFENSE HOLDS')
         setMyPose('idle')
+        sfx.defeat()
       }
     })
     schedule(t + 1900, () => {
@@ -199,8 +204,8 @@ function SiegePage() {
     setAttacking(false)
     setShaking(false)
     setDefense(result.captured ? 0 : result.remaining)
-    if (result.captured) { setFlagParty(profile?.party ?? null); setMyPose('victory'); throwConfetti() }
-    else setMyPose('idle')
+    if (result.captured) { setFlagParty(profile?.party ?? null); setMyPose('victory'); throwConfetti(); sfx.capture() }
+    else { setMyPose('idle'); sfx.defeat() }
     setBanner('')
     setPhase('result')
     setBusy(false)
@@ -227,6 +232,7 @@ function SiegePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-950">
+      <div className="battle-wipe" />
       {/* ══ SIEGE STAGE ═══════════════════════════════════════════════════ */}
       <div className="relative overflow-hidden select-none" onClick={skip}
         style={{
@@ -234,11 +240,18 @@ function SiegePage() {
           background: 'linear-gradient(180deg, #101529 0%, #23203d 40%, #3d3548 55%, #2b2b31 64%, #202024 100%)',
         }}>
 
-        {/* dusk glow behind the hall */}
-        <div className="absolute pointer-events-none" style={{ right: '2%', top: '8%', width: '55%', height: '60%', background: `radial-gradient(ellipse, ${holderColor}22 0%, transparent 65%)`, filter: 'blur(8px)' }} />
+        {/* painted plaza backdrop — the procedural hall sits in its empty center circle */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'url(/backgrounds/siege_plaza.webp)',
+          backgroundSize: 'cover', backgroundPosition: 'center 68%',
+        }} />
+        {/* darken edges so the hall, fighters and HUD read clearly over the art */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'linear-gradient(180deg, rgba(8,10,20,0.45) 0%, transparent 26%, transparent 60%, rgba(8,10,20,0.38) 100%)',
+        }} />
 
-        {/* street */}
-        <div className="absolute left-0 right-0 bottom-0 pointer-events-none" style={{ height: '20%', background: 'linear-gradient(180deg, #34343b 0%, #232327 100%)' }} />
+        {/* holder-party glow behind the hall */}
+        <div className="absolute pointer-events-none" style={{ right: '2%', top: '8%', width: '55%', height: '60%', background: `radial-gradient(ellipse, ${holderColor}2e 0%, transparent 65%)`, filter: 'blur(8px)' }} />
 
         {/* HUD: hall defense bar */}
         <div className="absolute top-3 left-3 right-3 z-20">

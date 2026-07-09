@@ -191,6 +191,73 @@ export default function FighterRig({
     }
   }
 
+  // ── Accessories (all live inside the head group so they track headY) ──────
+  // Beard renders BEFORE the face so the mouth stays visible; mustache/goatee
+  // and eyewear render after; hats render over the hair.
+  const Beard = () =>
+    design.facialHair === 'beard' ? (
+      <path
+        d={`M ${cx - 12} ${headCy + 3} a 16 16 0 0 0 32 0 l 0 8 a 16 21 0 0 1 -32 0 z`}
+        fill={design.hairColor}
+      />
+    ) : null
+
+  const FaceFuzz = () => {
+    const hc = design.hairColor
+    if (design.facialHair === 'mustache')
+      return <path d={`M ${cx + 2} ${headCy + 6.5} q 7 -3.5 14 0 q -7 4 -14 0 z`} fill={hc} />
+    if (design.facialHair === 'goatee')
+      return <ellipse cx={cx + 9} cy={headCy + 14} rx={5} ry={4} fill={hc} />
+    return null
+  }
+
+  const EyewearSvg = () => {
+    if (design.eyewear === 'glasses')
+      return (
+        <>
+          <circle cx={eyeX} cy={eyeY} r={5.5} stroke="#111827" strokeWidth={1.4} fill="rgba(255,255,255,0.14)" />
+          <path d={`M ${eyeX - 5.5} ${eyeY} L ${cx - 6} ${headCy + 1}`} stroke="#111827" strokeWidth={1.4} />
+        </>
+      )
+    if (design.eyewear === 'shades')
+      return (
+        <>
+          <rect x={eyeX - 6} y={eyeY - 4.5} width={13} height={8} rx={2.5} fill="#111827" />
+          <rect x={eyeX - 4} y={eyeY - 3} width={4} height={2} rx={1} fill="#e5e7eb" opacity={0.5} />
+          <path d={`M ${eyeX - 6} ${eyeY - 1} L ${cx - 6} ${headCy + 1}`} stroke="#111827" strokeWidth={1.6} />
+        </>
+      )
+    return null
+  }
+
+  const HatSvg = () => {
+    if (design.hat === 'cap')
+      return (
+        <>
+          <path d={`M ${cx - 12} ${headCy - 6} a 16 16 0 0 1 32 0 z`} fill={design.topColor} />
+          <path d={`M ${cx + 18} ${headCy - 8} q 16 1 14 6 l -14 2 z`} fill={design.topColor} />
+          <circle cx={cx + 4} cy={headCy - 20} r={2.5} fill={design.topColor} stroke={shade} strokeWidth={0.8} />
+        </>
+      )
+    if (design.hat === 'beanie')
+      return (
+        <>
+          <path d={`M ${cx - 13} ${headCy - 4} a 17 17 0 0 1 34 0 z`} fill={design.topColor} />
+          <rect x={cx - 14} y={headCy - 9} width={36} height={7} rx={3} fill={design.topColor} />
+          <rect x={cx - 14} y={headCy - 9} width={36} height={7} rx={3} fill="#ffffff" opacity={0.18} />
+        </>
+      )
+    if (design.hat === 'cowboy')
+      return (
+        <>
+          <ellipse cx={cx + 4} cy={headCy - 9} rx={27} ry={5.5} fill="#7c4a21" />
+          <path d={`M ${cx - 8} ${headCy - 10} q -1 -17 12 -17 q 13 0 12 17 z`} fill="#8a5a2b" />
+          <rect x={cx - 8} y={headCy - 14} width={24} height={4} fill="#5b3416" />
+        </>
+      )
+    return null
+  }
+
   const bodyAnim =
     pose === 'ko' ? 'rigKoFall 1s cubic-bezier(0.5, 0, 0.75, 0.4) forwards'
     : pose === 'victory' ? 'rigVictory 1s ease-in-out infinite'
@@ -246,8 +313,12 @@ export default function FighterRig({
             <circle cx={cx + 4} cy={headCy} r={headR} fill={skin} />
             {/* chin shading */}
             <path d={`M ${cx - 9} ${headCy + 8} q 13 9 26 0 l -2 4 q -11 7 -22 0 z`} fill={shade} opacity={0.35} />
+            <Beard />
             <Hair />
+            <HatSvg />
             <Face />
+            <FaceFuzz />
+            <EyewearSvg />
           </g>
         </g>
 

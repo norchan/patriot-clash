@@ -5,6 +5,7 @@ import { useProfile } from '@/hooks/useProfile'
 import FighterRig, { type FighterPose } from '@/components/FighterRig'
 import { defaultFighter, sanitizeFighter } from '@/lib/fighter'
 import type { FighterDesign } from '@/lib/fighter'
+import { sfx } from '@/lib/juice'
 
 // ── Types matching lib/pvp.ts FightLog v2 ───────────────────────────────────
 interface FightEvent {
@@ -216,7 +217,7 @@ function StreetFightPage() {
 
     // Intro cards
     setBanner('ROUND 1')
-    schedule(900, () => setBanner('FIGHT!'))
+    schedule(900, () => { setBanner('FIGHT!'); sfx.bell(true) })
     schedule(1500, () => { setBanner(''); setPhase('fighting') })
 
     const t0 = 1500 // fight starts after intro
@@ -242,7 +243,9 @@ function StreetFightPage() {
           reel(iAttack)
           addBurst(iAttack, heavy)
           addSpark(iAttack, `-${ev.dmg}`, iAttack ? '#facc15' : '#f87171')
-          if (ev.dmg >= 14 || heavy) bumpCrowd()
+          if (ev.move === 'kick') sfx.kick()
+          else sfx.punch(heavy)
+          if (ev.dmg >= 14 || heavy) { bumpCrowd(); sfx.crowd(0.4) }
           setShake(true)
           setTimeout(() => setShake(false), heavy ? 220 : 150)
           if (ev.comboLen > 1) {
@@ -255,9 +258,11 @@ function StreetFightPage() {
         } else if (ev.result === 'blocked') {
           setDefPose('block')
           addSpark(iAttack, 'BLOCK', '#93c5fd')
+          sfx.block()
         } else {
           setDefPose('dodge')
           addSpark(iAttack, 'MISS', '#9ca3af')
+          sfx.whoosh()
         }
         // HP from my perspective
         setMyHp(me === 'c' ? ev.chp : ev.dhp)
@@ -295,6 +300,8 @@ function StreetFightPage() {
       setBanner(fight.endedBy === 'ko' ? 'K.O.!' : 'TIME!')
       if (iWonFight) { setMyPose('victory'); setFoePose('ko') }
       else { setMyPose('ko'); setFoePose('victory') }
+      if (fight.endedBy === 'ko') sfx.ko()
+      else sfx.bell(false)
       bumpCrowd()
       clearInterval(clockIv)
       setClock(fight.endedBy === 'ko' ? Math.max(0, 30 - Math.floor(fight.endT)) : 0)
@@ -308,6 +315,16 @@ function StreetFightPage() {
   useEffect(() => {
     return () => { timersRef.current.forEach(clearTimeout); timersRef.current = [] }
   }, [])
+
+  // Result sting — once, when the result panel appears
+  const stingPlayed = useRef(false)
+  useEffect(() => {
+    if (phase !== 'done' || stingPlayed.current || !challenge?.winner_id || !profile) return
+    stingPlayed.current = true
+    if (challenge.winner_id === profile.id) sfx.victory()
+    else sfx.defeat()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   // Fetch chat when done
   useEffect(() => {
@@ -411,6 +428,7 @@ function StreetFightPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-950">
+      <div className="battle-wipe" />
 
       {/* ══ STREET STAGE ══════════════════════════════════════════════════ */}
       <div className="relative overflow-hidden select-none"
@@ -423,61 +441,16 @@ function StreetFightPage() {
           background: 'linear-gradient(180deg, #0d0a1e 0%, #221439 38%, #45274b 52%, #2b2b31 60%, #232329 74%, #1a1a1f 100%)',
         }}>
 
-        {/* skyline silhouettes */}
-        <div className="absolute left-0 right-0 pointer-events-none" style={{ top: '30%', height: '24%', opacity: 0.9 }}>
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'repeating-linear-gradient(90deg, #131022 0 42px, #0e0c1c 42px 78px, #17132a 78px 130px, #100e20 130px 170px)',
-            clipPath: 'polygon(0 100%, 0 46%, 7% 46%, 7% 20%, 14% 20%, 14% 58%, 22% 58%, 22% 8%, 30% 8%, 30% 40%, 39% 40%, 39% 26%, 48% 26%, 48% 60%, 55% 60%, 55% 14%, 64% 14%, 64% 44%, 72% 44%, 72% 30%, 81% 30%, 81% 54%, 88% 54%, 88% 22%, 100% 22%, 100% 100%)',
-          }} />
-          {/* lit windows */}
-          <div style={{
-            position: 'absolute', inset: 0, opacity: 0.5,
-            background: 'repeating-linear-gradient(0deg, transparent 0 9px, rgba(250,204,21,0.14) 9px 11px), repeating-linear-gradient(90deg, transparent 0 14px, rgba(250,204,21,0.10) 14px 17px)',
-            clipPath: 'polygon(0 100%, 0 46%, 7% 46%, 7% 20%, 14% 20%, 14% 58%, 22% 58%, 22% 8%, 30% 8%, 30% 40%, 39% 40%, 39% 26%, 48% 26%, 48% 60%, 55% 60%, 55% 14%, 64% 14%, 64% 44%, 72% 44%, 72% 30%, 81% 30%, 81% 54%, 88% 54%, 88% 22%, 100% 22%, 100% 100%)',
-          }} />
-        </div>
-
-        {/* street */}
-        <div className="absolute left-0 right-0 bottom-0 pointer-events-none" style={{ height: '42%', background: 'linear-gradient(180deg, #3a3a41 0%, #2b2b31 30%, #202024 100%)' }}>
-          <div style={{ position: 'absolute', top: '38%', left: 0, right: 0, height: 5, background: 'repeating-linear-gradient(90deg, #facc15 0 34px, transparent 34px 72px)', opacity: 0.35 }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 60%, rgba(255,180,80,0.10) 0%, transparent 70%)' }} />
-        </div>
-
-        {/* streetlight glows */}
-        <div className="absolute pointer-events-none" style={{ top: 0, left: '12%', width: 130, height: '60%', background: 'linear-gradient(180deg, rgba(255,210,120,0.15), transparent 80%)', filter: 'blur(6px)' }} />
-        <div className="absolute pointer-events-none" style={{ top: 0, right: '12%', width: 130, height: '60%', background: 'linear-gradient(180deg, rgba(255,210,120,0.12), transparent 80%)', filter: 'blur(6px)' }} />
-
-        {/* neon signs */}
-        <div className="absolute pointer-events-none font-black" style={{
-          top: '33%', left: '17%', fontSize: 13, letterSpacing: 3, transform: 'rotate(-3deg)',
-          color: '#f9a8d4', textShadow: '0 0 8px #ec4899, 0 0 18px #ec4899',
-          animation: 'sfNeon 3.1s linear infinite',
-        }}>DINER</div>
-        <div className="absolute pointer-events-none font-black" style={{
-          top: '30%', right: '14%', fontSize: 11, letterSpacing: 2, transform: 'rotate(2deg)',
-          color: '#67e8f9', textShadow: '0 0 8px #06b6d4, 0 0 18px #06b6d4',
-          animation: 'sfNeon 4.3s linear infinite 0.7s',
-        }}>OPEN 24HR</div>
-
-        {/* crowd silhouettes along the far sidewalk (they jump on big hits) */}
-        <div className="absolute left-0 right-0 pointer-events-none" style={{
-          top: '51.5%', height: 26,
-          transform: crowdBump ? 'translateY(-7px)' : 'translateY(0)',
-          transition: 'transform 130ms ease-out',
-          background: [
-            'radial-gradient(circle 9px at 5% 30%, #0c0a12 60%, transparent 61%)',
-            'radial-gradient(circle 11px at 13% 38%, #120e1a 60%, transparent 61%)',
-            'radial-gradient(circle 8px at 21% 26%, #0c0a12 60%, transparent 61%)',
-            'radial-gradient(circle 10px at 30% 34%, #151021 60%, transparent 61%)',
-            'radial-gradient(circle 9px at 44% 28%, #0c0a12 60%, transparent 61%)',
-            'radial-gradient(circle 11px at 56% 36%, #120e1a 60%, transparent 61%)',
-            'radial-gradient(circle 8px at 68% 26%, #0c0a12 60%, transparent 61%)',
-            'radial-gradient(circle 10px at 79% 34%, #151021 60%, transparent 61%)',
-            'radial-gradient(circle 9px at 88% 28%, #0c0a12 60%, transparent 61%)',
-            'radial-gradient(circle 11px at 96% 36%, #120e1a 60%, transparent 61%)',
-            'linear-gradient(180deg, transparent 40%, #0b0912 100%)',
-          ].join(', '),
+        {/* painted street backdrop — flashes brighter when the crowd pops on a big hit */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'url(/backgrounds/street_fight.webp)',
+          backgroundSize: 'cover', backgroundPosition: 'center 72%',
+          filter: crowdBump ? 'brightness(1.18) saturate(1.1)' : 'brightness(1) saturate(1)',
+          transition: 'filter 130ms ease-out',
+        }} />
+        {/* darken the lower third so fighters + HUD pop off the art */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'linear-gradient(180deg, rgba(5,4,12,0.35) 0%, transparent 22%, transparent 55%, rgba(5,4,12,0.42) 100%)',
         }} />
 
         {/* party graffiti tags behind each corner */}

@@ -31,16 +31,16 @@ export async function POST(
       )
     }
 
-    // --- Validate player is inside this hall's own battle radius ---
-    // gyms_near is called with the maximum possible radius (10 mi); the
-    // per-hall radius_miles (5 mi for dense metros) is enforced below.
-    const [{ data: nearbyGyms }, { data: gymRow }] = await Promise.all([
-      admin.rpc('gyms_near', { p_lat: latitude, p_lng: longitude, p_miles: 10 }),
-      admin.from('gyms').select('radius_miles').eq('id', gymId).single(),
-    ])
+    // --- Validate player is inside attack range ---
+    // Attack range is a flat 10 miles for every hall (independent of the
+    // hall's visual radius_miles circle); may be tightened later.
+    const ATTACK_RANGE_MILES = 10
+    const { data: nearbyGyms } = await admin.rpc('gyms_near', {
+      p_lat: latitude, p_lng: longitude, p_miles: ATTACK_RANGE_MILES,
+    })
 
     const gym = nearbyGyms?.find((g: any) => g.id === gymId)
-    const battleRadius = Number(gymRow?.radius_miles) || 10
+    const battleRadius = ATTACK_RANGE_MILES
     const distMiles = gym?.dist_meters ? gym.dist_meters / 1609.34 : Infinity
 
     if (!gym || distMiles > battleRadius) {
