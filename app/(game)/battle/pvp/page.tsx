@@ -447,8 +447,11 @@ function StreetFightPage() {
       <div className="battle-wipe" />
 
       {/* ══ STREET STAGE ══════════════════════════════════════════════════ */}
+      {/* No tap-anywhere skip: players tap the screen out of PvE habit and
+          were fast-forwarding their own fights. Skipping is the ⏭ button —
+          stage taps just hype the crowd. */}
       <div className="relative overflow-hidden select-none"
-        onClick={skipToEnd}
+        onClick={() => { if (phase === 'fighting') { bumpCrowd(); sfx.crowd(0.35) } }}
         style={{
           height: '62vh',
           animation: shake ? 'sfShake 0.16s linear' : 'none',
@@ -597,8 +600,9 @@ function StreetFightPage() {
 
         {/* skip hint */}
         {phase === 'fighting' && clock <= 27 && (
-          <div className="absolute top-[18%] right-3 z-20 pointer-events-none">
-            <span className="text-white/35 text-[10px] font-bold tracking-widest">TAP TO SKIP ⏭</span>
+          <div className="absolute top-[18%] right-3 z-20">
+            <button onClick={skipToEnd}
+              className="bg-black/50 border border-white/20 text-white/70 text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-full active:scale-95 transition">SKIP ⏭</button>
           </div>
         )}
       </div>

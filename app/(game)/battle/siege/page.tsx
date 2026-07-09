@@ -242,7 +242,7 @@ function SiegePage() {
     <div className="min-h-screen flex flex-col bg-gray-950">
       <div className="battle-wipe" />
       {/* ══ SIEGE STAGE ═══════════════════════════════════════════════════ */}
-      <div className="relative overflow-hidden select-none" onClick={skip}
+      <div className="relative overflow-hidden select-none"
         style={{
           height: '58vh',
           background: 'linear-gradient(180deg, #101529 0%, #23203d 40%, #3d3548 55%, #2b2b31 64%, #202024 100%)',
@@ -324,8 +324,9 @@ function SiegePage() {
         </div>
 
         {phase === 'assault' && (
-          <div className="absolute bottom-2 right-3 z-20 pointer-events-none">
-            <span className="text-white/35 text-[10px] font-bold tracking-widest">TAP TO SKIP ⏭</span>
+          <div className="absolute bottom-2 right-3 z-20">
+            <button onClick={skip}
+              className="bg-black/50 border border-white/20 text-white/70 text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-full active:scale-95 transition">SKIP ⏭</button>
           </div>
         )}
       </div>
