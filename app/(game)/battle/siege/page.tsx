@@ -107,7 +107,11 @@ function SiegePage() {
   }
 
   async function launchAssault() {
-    if (!gym || !location || busy) return
+    if (!gym || busy) return
+    if (!location) {
+      showToast('📍 Still finding your location — make sure location access is allowed')
+      return
+    }
     setBusy(true)
     try {
       const res = await fetch(`/api/gyms/${gym.id}/challenge`, {
@@ -338,10 +342,15 @@ function SiegePage() {
                   </button>
                 </div>
               ) : (
-                <button onClick={launchAssault} disabled={busy || (profile.fp_balance ?? 0) < 100 || !location}
-                  className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black text-lg transition active:scale-95">
-                  {busy ? '⏳ ...' : '⚔️ LAUNCH ASSAULT (100 FP)'}
-                </button>
+                <>
+                  <button onClick={launchAssault} disabled={busy || (profile.fp_balance ?? 0) < 100}
+                    className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black text-lg transition active:scale-95">
+                    {busy ? '⏳ ...' : '⚔️ LAUNCH ASSAULT (100 FP)'}
+                  </button>
+                  {!location && (
+                    <p className="text-yellow-500/80 text-xs text-center">📍 Locating you... attack unlocks once your position is found</p>
+                  )}
+                </>
               )}
               <button onClick={() => router.back()}
                 className="w-full py-3 bg-gray-900 border border-gray-800 text-gray-400 rounded-xl font-bold text-sm hover:bg-gray-800 transition">

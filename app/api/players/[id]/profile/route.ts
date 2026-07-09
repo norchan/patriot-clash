@@ -35,12 +35,17 @@ export async function GET(
       clique = c
     }
 
-    const { data: posts } = await admin
-      .from('profile_posts')
-      .select('id, content, created_at')
-      .eq('profile_id', id)
-      .order('created_at', { ascending: false })
-      .limit(20)
+    const [{ data: posts }, { count: hallsHeld }] = await Promise.all([
+      admin
+        .from('profile_posts')
+        .select('id, content, created_at')
+        .eq('profile_id', id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      // Halls held is computed live — the counter column lags for bots that
+      // were garrisoned by seeding rather than by capturing
+      admin.from('gyms').select('id', { count: 'exact', head: true }).eq('holder_id', id),
+    ])
 
     return NextResponse.json({
       profile: {
@@ -50,7 +55,8 @@ export async function GET(
         avatar_url: player.avatar_url,
         total_battles_won: player.total_battles_won,
         total_battles_lost: player.total_battles_lost,
-        total_gyms_captured: player.total_gyms_captured,
+        total_gyms_captured: Math.max(player.total_gyms_captured ?? 0, hallsHeld ?? 0),
+        halls_held: hallsHeld ?? 0,
         total_captures: player.total_captures,
       },
       clique,

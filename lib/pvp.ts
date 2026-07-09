@@ -175,8 +175,8 @@ export async function resolvePvpChallenge(
   }
 
   const [{ data: challenger }, { data: defender }] = await Promise.all([
-    admin.from('profiles').select('id, fp_balance, username, party, clerk_user_id, fighter, total_battles_won').eq('id', challenge.challenger_id).single(),
-    admin.from('profiles').select('id, fp_balance, username, party, clerk_user_id, fighter, total_battles_won').eq('id', challenge.defender_id).single(),
+    admin.from('profiles').select('id, fp_balance, username, party, clerk_user_id, fighter, total_battles_won, total_battles_lost').eq('id', challenge.challenger_id).single(),
+    admin.from('profiles').select('id, fp_balance, username, party, clerk_user_id, fighter, total_battles_won, total_battles_lost').eq('id', challenge.defender_id).single(),
   ])
 
   if (!challenger || !defender) {
@@ -199,14 +199,11 @@ export async function resolvePvpChallenge(
     return { ok: false, status: 400, error: 'Insufficient FP — challenge cancelled' }
   }
 
-  // Levels: humans earn theirs from battles won; bots get a stable seeded
-  // level (3-15) so the world has a spread of opponents
-  const cLevel = challenger.clerk_user_id?.startsWith('bot_')
-    ? 3 + Math.floor(seededRand(challenger.id) * 13)
-    : fighterLevel(challenger.total_battles_won ?? 0)
-  const dLevel = defender.clerk_user_id?.startsWith('bot_')
-    ? 3 + Math.floor(seededRand(defender.id) * 13)
-    : fighterLevel(defender.total_battles_won ?? 0)
+  // Levels come from battles won for EVERYONE — bots included. Bots start
+  // near level 1 (small seeded win counts) and climb only by actually
+  // winning fights, so the world levels up alongside the players.
+  const cLevel = fighterLevel(challenger.total_battles_won ?? 0)
+  const dLevel = fighterLevel(defender.total_battles_won ?? 0)
 
   const result = simulateStreetFight(
     cLevel, dLevel,
@@ -279,6 +276,15 @@ export async function resolvePvpChallenge(
     await cancel()
     return { ok: false, status: 500, error: `Could not save fight result: ${saveErr.message}` }
   }
+
+  // Fight record feeds fighter levels — this is how both humans AND bots
+  // level up (or don't) over time
+  const winner = result.winner === 'c' ? challenger : defender
+  const loser  = result.winner === 'c' ? defender : challenger
+  await Promise.all([
+    admin.from('profiles').update({ total_battles_won: (winner.total_battles_won ?? 0) + 1 }).eq('id', winner.id),
+    admin.from('profiles').update({ total_battles_lost: (loser.total_battles_lost ?? 0) + 1 }).eq('id', loser.id),
+  ])
 
   return {
     ok: true,
