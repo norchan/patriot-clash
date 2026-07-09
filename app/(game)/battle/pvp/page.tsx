@@ -90,7 +90,6 @@ function StreetFightPage() {
   const sparkId = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const replayStarted = useRef(false)
-  const replayT0 = useRef(0)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Chat state (post-fight)
@@ -189,27 +188,6 @@ function StreetFightPage() {
     setTimeout(() => setCrowdBump(false), 260)
   }
 
-  // Tap anywhere during the fight to jump straight to the result. The skip
-  // only arms 3 seconds into the replay — a stray tap or double-click ghost
-  // from the challenge button was instantly ending fights at ROUND 1.
-  function skipToEnd() {
-    if (phase !== 'fighting' || !validLog || !profile) return
-    if (Date.now() - replayT0.current < 3000) return
-    timersRef.current.forEach(clearTimeout)
-    timersRef.current = []
-    const fight = log as FightLog
-    const last = fight.events[fight.events.length - 1]
-    setMyHp(me === 'c' ? (last?.chp ?? 100) : (last?.dhp ?? 100))
-    setFoeHp(me === 'c' ? (last?.dhp ?? 100) : (last?.chp ?? 100))
-    const iWonFight = fight.winner === me
-    if (iWonFight) { setMyPose('victory'); setFoePose('ko') }
-    else { setMyPose('ko'); setFoePose('victory') }
-    setMyAttacking(false); setFoeAttacking(false)
-    setBanner(''); setMoveText(''); setComboText('')
-    setClock(fight.endedBy === 'ko' ? Math.max(0, 30 - Math.floor(fight.endT)) : 0)
-    setPhase('done')
-  }
-
   // ── Replay engine ─────────────────────────────────────────────────────────
   // Started exactly once per page load. Timers must NOT be tied to effect
   // cleanup on dep changes: the phase flips intro→fighting mid-replay, and
@@ -217,7 +195,6 @@ function StreetFightPage() {
   useEffect(() => {
     if (phase !== 'intro' || !validLog || !profile || replayStarted.current) return
     replayStarted.current = true
-    replayT0.current = Date.now()
     const fight = log as FightLog
     const timers = timersRef.current
 
@@ -599,12 +576,6 @@ function StreetFightPage() {
         )}
 
         {/* skip hint */}
-        {phase === 'fighting' && clock <= 27 && (
-          <div className="absolute top-[18%] right-3 z-20">
-            <button onClick={skipToEnd}
-              className="bg-black/50 border border-white/20 text-white/70 text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-full active:scale-95 transition">SKIP ⏭</button>
-          </div>
-        )}
       </div>
 
       {/* ══ BELOW THE STAGE ═══════════════════════════════════════════════ */}
@@ -618,7 +589,11 @@ function StreetFightPage() {
               <h2 className="font-black text-3xl" style={{ color: iWon ? '#22c55e' : '#ef4444' }}>
                 {iWon ? 'VICTORY!' : 'DEFEATED!'}
               </h2>
-              <p className="text-gray-400 text-sm">vs {theirUsername}</p>
+              <p className="text-gray-400 text-sm">
+                {validLog && (log as FightLog).endedBy === 'bell'
+                  ? `by decision vs ${theirUsername} — went the distance`
+                  : `by knockout vs ${theirUsername}`}
+              </p>
               <div className="inline-block mt-2 px-6 py-2 rounded-xl border"
                 style={{ background: iWon ? '#22c55e11' : '#ef444411', borderColor: iWon ? '#22c55e44' : '#ef444444' }}>
                 <span className="font-black text-2xl" style={{ color: iWon ? '#22c55e' : '#ef4444' }}>

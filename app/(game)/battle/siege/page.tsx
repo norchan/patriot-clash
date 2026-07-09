@@ -53,7 +53,6 @@ function SiegePage() {
   const [result, setResult] = useState<{ captured: boolean; damage: number; remaining: number } | null>(null)
   const idRef = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
-  const assaultT0 = useRef(0)
 
   useEffect(() => () => { timersRef.current.forEach(clearTimeout) }, [])
 
@@ -135,7 +134,6 @@ function SiegePage() {
   }
 
   function choreograph(captured: boolean, damage: number, remaining: number) {
-    assaultT0.current = Date.now()
     setPhase('assault')
     setResult({ captured, damage, remaining })
     const timers = timersRef.current
@@ -201,22 +199,6 @@ function SiegePage() {
       setPhase('result')
       setBusy(false)
     })
-  }
-
-  function skip() {
-    if (phase !== 'assault' || !result) return
-    if (Date.now() - assaultT0.current < 2500) return // ignore stray early taps
-    timersRef.current.forEach(clearTimeout)
-    timersRef.current = []
-    setGuardVisible(false)
-    setAttacking(false)
-    setShaking(false)
-    setDefense(result.captured ? 0 : result.remaining)
-    if (result.captured) { setFlagParty(profile?.party ?? null); setMyPose('victory'); throwConfetti(); sfx.capture() }
-    else { setMyPose('idle'); sfx.defeat() }
-    setBanner('')
-    setPhase('result')
-    setBusy(false)
   }
 
   if (phase === 'loading' || !profile) {
@@ -323,12 +305,6 @@ function SiegePage() {
           <div className="w-24 h-3 mx-auto -mt-1 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(0,0,0,0.55), transparent 70%)' }} />
         </div>
 
-        {phase === 'assault' && (
-          <div className="absolute bottom-2 right-3 z-20">
-            <button onClick={skip}
-              className="bg-black/50 border border-white/20 text-white/70 text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-full active:scale-95 transition">SKIP ⏭</button>
-          </div>
-        )}
       </div>
 
       {/* ══ CONTROLS ══════════════════════════════════════════════════════ */}

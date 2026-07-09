@@ -82,7 +82,7 @@ export function simulateStreetFight(
 
     // Most exchanges are single strikes; combos are the exception that
     // makes the crowd pop, capped by the attacker's combo unlock
-    const comboLen = Math.random() < 0.4
+    const comboLen = Math.random() < 0.5
       ? 1 + Math.floor(Math.random() * atk.comboMax)
       : 1
     const pool = movesForLevel(atk.level)
@@ -102,13 +102,21 @@ export function simulateStreetFight(
 
       let dmg = 0
       if (result !== 'dodged') {
-        // Damage is tuned so a KO takes ~8-14 clean hits: fights fill most
-        // of the 30-second round instead of ending on one combo
-        const base = 3.5 + atk.strength * 0.33
-        const falloff = Math.pow(0.8, i) // later combo hits land softer
-        dmg = Math.max(1, Math.round(base * m.mult * falloff * (0.85 + Math.random() * 0.3)))
+        // Damage curve (validated by simulation): strength contributes
+        // lightly so every level hurts; fatigue ramps damage through the
+        // round so fights BUILD to a knockout instead of fizzling to a
+        // decision. Result: KOs land between ~15s and the bell.
+        const fatigue = 1 + Math.min(1, t / 28)
+        const base = 7 + atk.strength * 0.15
+        const falloff = Math.pow(0.85, i) // later combo hits land softer
+        dmg = Math.max(1, Math.round(base * fatigue * m.mult * falloff * (0.85 + Math.random() * 0.3)))
         if (result === 'blocked') dmg = Math.max(1, Math.floor(dmg * 0.25))
       }
+
+      // No KO before the 14-second mark — a fighter about to drop early
+      // survives on 1 HP (saved by grit), so every fight is a real show
+      const defenderHp = cTurn ? dhp : chp
+      if (dmg >= defenderHp && t < 14) dmg = Math.max(0, defenderHp - 1)
 
       if (cTurn) dhp = Math.max(0, dhp - dmg)
       else chp = Math.max(0, chp - dmg)
@@ -135,7 +143,7 @@ export function simulateStreetFight(
     }
 
     // Breather between exchanges — fitter fighters press faster
-    t += 1.0 + Math.random() * 1.0
+    t += 0.8 * (0.75 + Math.random() * 0.5)
   }
 
   const winner: 'c' | 'd' = chp === dhp ? 'c' : chp > dhp ? 'c' : 'd'
