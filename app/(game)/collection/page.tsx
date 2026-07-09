@@ -19,11 +19,15 @@ import { republicanEnemies, democratEnemies } from '@/config/enemies'
 // Single source of truth — a hardcoded copy of this list once drifted
 const ALL_ENEMIES = [...republicanEnemies, ...democratEnemies]
 
+const SELL_PRICES: Record<string, number> = { common: 10, rare: 40, legendary: 250 }
+
 export default function CollectionPage() {
   const router = useRouter()
-  const { profile } = useProfile()
+  const { profile, refetch } = useProfile()
   const [captured, setCaptured] = useState<CapturedCharacter[]>([])
   const [loading, setLoading] = useState(true)
+  const [selling, setSelling] = useState(false)
+  const [toast, setToast] = useState('')
 
   useEffect(() => {
     fetch('/api/collection')
@@ -36,6 +40,33 @@ export default function CollectionPage() {
   const tierColor = (tier: string) =>
     tier === 'legendary' ? '#f59e0b' : tier === 'rare' ? '#8b5cf6' : '#6b7280'
 
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
+  }
+
+  // Sells the OLDEST copy of a character (keeps the newest capture date)
+  async function sellOne(enemyId: string, name: string, tier: string) {
+    if (selling) return
+    const copies = captured.filter(c => c.enemy_id === enemyId)
+    if (copies.length === 0) return
+    const target = [...copies].sort((a, b) => a.captured_at.localeCompare(b.captured_at))[0]
+    setSelling(true)
+    try {
+      const res = await fetch('/api/collection/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captured_id: target.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) { showToast(`❌ ${data.error || 'Sale failed'}`); return }
+      setCaptured(prev => prev.filter(c => c.id !== target.id))
+      refetch()
+      showToast(`💰 Sold ${name} for ${data.fp_earned} FP!`)
+    } catch { showToast('❌ Sale failed') }
+    finally { setSelling(false) }
+  }
+
   return (
     <div className="min-h-screen bg-gray-950 pb-6">
       {/* Header */}
@@ -45,13 +76,13 @@ export default function CollectionPage() {
         </button>
         <h1 className="text-white font-bold text-2xl">Collection</h1>
         <p className="text-gray-500 text-sm mt-1">
-          {captured.length} / {ALL_ENEMIES.length} captured
+          {capturedIds.size} / {ALL_ENEMIES.length} unique · {captured.length} total owned
         </p>
         {/* Progress bar */}
         <div className="h-2 bg-gray-800 rounded-full mt-2 overflow-hidden">
           <div
             className="h-full rounded-full bg-yellow-500 transition-all"
-            style={{ width: `${(captured.length / ALL_ENEMIES.length) * 100}%` }}
+            style={{ width: `${(capturedIds.size / ALL_ENEMIES.length) * 100}%` }}
           />
         </div>
       </div>
@@ -65,6 +96,7 @@ export default function CollectionPage() {
           {ALL_ENEMIES.map(e => {
             const isCaptured = capturedIds.has(e.id)
             const captureData = captured.find(c => c.enemy_id === e.id)
+            const copies = captured.filter(c => c.enemy_id === e.id).length
             const color = tierColor(e.tier)
 
             return (
@@ -98,7 +130,12 @@ export default function CollectionPage() {
                     </div>
                   )}
                   {isCaptured && (
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute top-2 right-2 flex items-center gap-1">
+                      {copies > 1 && (
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-white/90 text-black">
+                          ×{copies}
+                        </span>
+                      )}
                       <span
                         className="text-xs font-bold px-2 py-0.5 rounded-full"
                         style={{ background: `${color}33`, color }}
@@ -122,10 +159,25 @@ export default function CollectionPage() {
                       {new Date(captureData.captured_at).toLocaleDateString()}
                     </div>
                   )}
+                  {isCaptured && (
+                    <button
+                      onClick={() => sellOne(e.id, e.name, e.tier)}
+                      disabled={selling}
+                      className="w-full mt-1.5 py-1.5 rounded-lg text-[11px] font-bold bg-gray-800 text-amber-400 hover:bg-gray-700 transition active:scale-95 disabled:opacity-50"
+                    >
+                      💰 Sell {copies > 1 ? 'one ' : ''}· {SELL_PRICES[e.tier] ?? 10} FP
+                    </button>
+                  )}
                 </div>
               </div>
             )
           })}
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto">
+          <div className="bg-gray-800 text-white px-4 py-3 rounded-xl text-sm text-center shadow-xl border border-gray-700">{toast}</div>
         </div>
       )}
     </div>

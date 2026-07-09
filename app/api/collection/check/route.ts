@@ -21,14 +21,13 @@ export async function GET(req: NextRequest) {
 
     if (!profile) return NextResponse.json({ captured: false })
 
-    const { data } = await admin
+    const { count } = await admin
       .from('captured_characters')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('profile_id', profile.id)
       .eq('enemy_id', enemy_id)
-      .single()
 
-    return NextResponse.json({ captured: !!data })
+    return NextResponse.json({ captured: (count ?? 0) > 0, count: count ?? 0 })
 
   } catch {
     return NextResponse.json({ captured: false })

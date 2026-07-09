@@ -89,7 +89,7 @@ function BattleContent() {
   const [dialogLine, setDialogLine] = useState('')
 
   // Capture
-  const [alreadyCaptured, setAlreadyCaptured] = useState(false)
+  const [ownedCount, setOwnedCount] = useState(0)
   const [capturing, setCapturing] = useState(false)
   const [captureResult, setCaptureResult] = useState<'success' | 'failed' | null>(null)
 
@@ -182,7 +182,7 @@ function BattleContent() {
     if (!enemy || !profile) return
     fetch(`/api/collection/check?enemy_id=${enemy.id}`)
       .then(r => r.json())
-      .then(d => setAlreadyCaptured(d.captured))
+      .then(d => setOwnedCount(d.count ?? (d.captured ? 1 : 0)))
       .catch(() => {})
   }, [enemy, profile])
 
@@ -724,11 +724,12 @@ function BattleContent() {
               <p style={{ color: '#4ade80', fontSize: 14, fontWeight: 700, margin: 0 }}>+{enemy.fpReward} FP earned!</p>
             </div>
 
-            {!alreadyCaptured && captureResult === null && (
+            {captureResult === null && (
               <div style={{ background: `${tierColor}11`, border: `2px solid ${tierColor}44`, borderRadius: 14, padding: '12px 14px' }}>
                 <p style={{ color: 'white', fontWeight: 800, fontSize: 14, margin: '0 0 2px' }}>🎯 Capture {enemy.name}?</p>
                 <p style={{ color: '#9ca3af', fontSize: 12, margin: '0 0 10px' }}>
                   {Math.round(CAPTURE_RATES[enemy.tier] * 100)}% success · {CAPTURE_COSTS[enemy.tier]} FP
+                  {ownedCount > 0 ? ` · you own ${ownedCount} — extras sell for FP` : ''}
                 </p>
                 <button onClick={attemptCapture} disabled={capturing || !canAfford(CAPTURE_COSTS[enemy.tier], fpAvail)}
                   style={{
@@ -750,11 +751,6 @@ function BattleContent() {
             {captureResult === 'failed' && (
               <div style={{ background: '#450a0a44', border: '2px solid #dc2626', borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
                 <p style={{ color: '#f87171', fontWeight: 800, fontSize: 14, margin: 0 }}>💨 {enemy.name} broke free!</p>
-              </div>
-            )}
-            {alreadyCaptured && (
-              <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
-                <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>✅ Already in your collection</p>
               </div>
             )}
             <button onClick={() => router.push('/map')}

@@ -30,17 +30,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'INSUFFICIENT_FP' }, { status: 400 })
     }
 
-    // Check already captured
-    const { data: existing } = await admin
-      .from('captured_characters')
-      .select('id')
-      .eq('profile_id', profile.id)
-      .eq('enemy_id', enemy_id)
-      .single()
-
-    if (existing) {
-      return NextResponse.json({ error: 'Already captured', captured: false }, { status: 400 })
-    }
+    // Duplicates are allowed — collect as many of each character as you
+    // want; extras can be sold back for FP from the Collection screen
 
     // Spend FP
     await admin
