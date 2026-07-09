@@ -53,6 +53,7 @@ function SiegePage() {
   const [result, setResult] = useState<{ captured: boolean; damage: number; remaining: number } | null>(null)
   const idRef = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const assaultT0 = useRef(0)
 
   useEffect(() => () => { timersRef.current.forEach(clearTimeout) }, [])
 
@@ -134,6 +135,7 @@ function SiegePage() {
   }
 
   function choreograph(captured: boolean, damage: number, remaining: number) {
+    assaultT0.current = Date.now()
     setPhase('assault')
     setResult({ captured, damage, remaining })
     const timers = timersRef.current
@@ -203,6 +205,7 @@ function SiegePage() {
 
   function skip() {
     if (phase !== 'assault' || !result) return
+    if (Date.now() - assaultT0.current < 2500) return // ignore stray early taps
     timersRef.current.forEach(clearTimeout)
     timersRef.current = []
     setGuardVisible(false)

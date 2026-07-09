@@ -90,6 +90,7 @@ function StreetFightPage() {
   const sparkId = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const replayStarted = useRef(false)
+  const replayT0 = useRef(0)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Chat state (post-fight)
@@ -188,9 +189,12 @@ function StreetFightPage() {
     setTimeout(() => setCrowdBump(false), 260)
   }
 
-  // Tap anywhere during the fight to jump straight to the result
+  // Tap anywhere during the fight to jump straight to the result. The skip
+  // only arms 3 seconds into the replay — a stray tap or double-click ghost
+  // from the challenge button was instantly ending fights at ROUND 1.
   function skipToEnd() {
-    if ((phase !== 'intro' && phase !== 'fighting') || !validLog || !profile) return
+    if (phase !== 'fighting' || !validLog || !profile) return
+    if (Date.now() - replayT0.current < 3000) return
     timersRef.current.forEach(clearTimeout)
     timersRef.current = []
     const fight = log as FightLog
@@ -213,6 +217,7 @@ function StreetFightPage() {
   useEffect(() => {
     if (phase !== 'intro' || !validLog || !profile || replayStarted.current) return
     replayStarted.current = true
+    replayT0.current = Date.now()
     const fight = log as FightLog
     const timers = timersRef.current
 
@@ -591,7 +596,7 @@ function StreetFightPage() {
         )}
 
         {/* skip hint */}
-        {(phase === 'fighting' || phase === 'intro') && (
+        {phase === 'fighting' && clock <= 27 && (
           <div className="absolute top-[18%] right-3 z-20 pointer-events-none">
             <span className="text-white/35 text-[10px] font-bold tracking-widest">TAP TO SKIP ⏭</span>
           </div>
