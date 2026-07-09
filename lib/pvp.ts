@@ -1,13 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { defaultFighter, sanitizeFighter, fighterLevel, fighterStats } from '@/lib/fighter'
+import { fighterLevel, sanitizeFighter } from '@/lib/fighter'
 import type { FighterDesign } from '@/lib/fighter'
 
-// Shared PvP battle resolution — used by /api/pvp/[id]/respond (human
-// defenders accepting) and /api/pvp/challenge (bot defenders auto-accepting).
+// PvP street fights are INTERACTIVE: the challenger actually fights on the
+// battle screen (taps punch, swipes kick, hold blocks) against the
+// defender's fighter, which is driven at the defender's level. The client
+// submits the outcome; this module validates it hard and settles the stakes.
 //
-// Fights are 30-second single-round street fights: the server simulates a
-// full timeline of punches, kicks and combos; the client replays it with the
-// fighter rigs.
+// FightLog v2 (server-simulated replays) is kept only so old completed
+// fights still render.
 
 export type Move = 'jab' | 'cross' | 'hook' | 'kick' | 'jumpkick' | 'uppercut' | 'special'
 
@@ -36,151 +37,100 @@ export interface FightLog {
   dFighter: FighterDesign
 }
 
-// Move ladder — every few levels unlocks a bigger move. `w` is the pick
-// weight during normal exchanges (light moves are thrown far more often,
-// exactly like a real fight).
+// Move ladder — every few levels unlocks a bigger move
 export const MOVES: { move: Move; label: string; mult: number; minLevel: number; w: number }[] = [
   { move: 'jab',      label: 'Jab',          mult: 0.60, minLevel: 1,  w: 3.0 },
   { move: 'cross',    label: 'Cross',        mult: 0.85, minLevel: 1,  w: 2.6 },
-  { move: 'hook',     label: 'Hook',         mult: 1.05, minLevel: 2,  w: 2.0 },
-  { move: 'kick',     label: 'Kick',         mult: 1.25, minLevel: 4,  w: 1.8 },
-  { move: 'jumpkick', label: 'Jump Kick',    mult: 1.50, minLevel: 7,  w: 1.1 },
-  { move: 'uppercut', label: 'Uppercut',     mult: 1.65, minLevel: 9,  w: 0.9 },
-  { move: 'special',  label: 'SPECIAL',      mult: 2.10, minLevel: 12, w: 0.5 },
+  { move: 'hook',     label: 'Hook (3-tap combo)', mult: 1.05, minLevel: 2,  w: 2.0 },
+  { move: 'kick',     label: 'Kick (swipe ➡)', mult: 1.25, minLevel: 4,  w: 1.8 },
+  { move: 'jumpkick', label: 'Jump Kick (swipe ⬆)', mult: 1.50, minLevel: 7,  w: 1.1 },
+  { move: 'uppercut', label: 'Uppercut (combo finisher)', mult: 1.65, minLevel: 9,  w: 0.9 },
+  { move: 'special',  label: 'SPECIAL (full meter)', mult: 2.10, minLevel: 12, w: 0.5 },
 ]
 
 export function movesForLevel(level: number) {
   return MOVES.filter(m => m.minLevel <= level)
 }
 
-function weightedPick<T extends { w: number }>(pool: T[]): T {
-  const total = pool.reduce((s, m) => s + m.w, 0)
-  let r = Math.random() * total
-  for (const m of pool) { r -= m.w; if (r <= 0) return m }
-  return pool[pool.length - 1]
-}
+// ── Interactive fight settlement ─────────────────────────────────────────────
 
-export function simulateStreetFight(
-  cLevel: number, dLevel: number,
-  cFighter: FighterDesign, dFighter: FighterDesign
-): FightLog {
-  const cs = fighterStats(cLevel)
-  const ds = fighterStats(dLevel)
-  let chp = 100, dhp = 100
-  const events: FightEvent[] = []
-
-  let t = 1.6
-  let endedBy: 'ko' | 'bell' = 'bell'
-  let endT = 30
-
-  while (t < 28 && chp > 0 && dhp > 0) {
-    // Who attacks: weighted by stamina (higher level presses more often,
-    // but the underdog still gets real turns)
-    const cTurn = Math.random() < cs.stamina / (cs.stamina + ds.stamina)
-    const atk = cTurn ? cs : ds
-    const def = cTurn ? ds : cs
-
-    // Most exchanges are single strikes; combos are the exception that
-    // makes the crowd pop, capped by the attacker's combo unlock
-    const comboLen = Math.random() < 0.5
-      ? 1 + Math.floor(Math.random() * atk.comboMax)
-      : 1
-    const pool = movesForLevel(atk.level)
-
-    for (let i = 0; i < comboLen; i++) {
-      // Combo finishers favor the two heaviest unlocked moves
-      const m = i === comboLen - 1 && comboLen > 1
-        ? pool[pool.length - 1 - Math.floor(Math.random() * Math.min(2, pool.length))]
-        : weightedPick(pool)
-
-      const roll = Math.random()
-      // Mid-combo hits are harder to defend
-      const defendScale = i === 0 ? 1 : 0.45
-      let result: FightEvent['result'] = 'hit'
-      if (roll < def.dodgeChance * defendScale) result = 'dodged'
-      else if (roll < (def.dodgeChance + def.blockChance) * defendScale) result = 'blocked'
-
-      let dmg = 0
-      if (result !== 'dodged') {
-        // Damage curve (validated by simulation): strength contributes
-        // lightly so every level hurts; fatigue ramps damage through the
-        // round so fights BUILD to a knockout instead of fizzling to a
-        // decision. Result: KOs land between ~15s and the bell.
-        const fatigue = 1 + Math.min(1, t / 28)
-        const base = 7 + atk.strength * 0.15
-        const falloff = Math.pow(0.85, i) // later combo hits land softer
-        dmg = Math.max(1, Math.round(base * fatigue * m.mult * falloff * (0.85 + Math.random() * 0.3)))
-        if (result === 'blocked') dmg = Math.max(1, Math.floor(dmg * 0.25))
-      }
-
-      // No KO before the 14-second mark — a fighter about to drop early
-      // survives on 1 HP (saved by grit), so every fight is a real show
-      const defenderHp = cTurn ? dhp : chp
-      if (dmg >= defenderHp && t < 14) dmg = Math.max(0, defenderHp - 1)
-
-      if (cTurn) dhp = Math.max(0, dhp - dmg)
-      else chp = Math.max(0, chp - dmg)
-
-      events.push({
-        t: Number(t.toFixed(2)),
-        attacker: cTurn ? 'c' : 'd',
-        move: m.move,
-        result,
-        dmg,
-        chp, dhp,
-        comboIndex: i,
-        comboLen,
-      })
-
-      t += 0.45
-      if (chp === 0 || dhp === 0) break
-    }
-
-    if (chp === 0 || dhp === 0) {
-      endedBy = 'ko'
-      endT = Math.min(29, Number((t + 0.4).toFixed(2)))
-      break
-    }
-
-    // Breather between exchanges — fitter fighters press faster
-    t += 0.8 * (0.75 + Math.random() * 0.5)
-  }
-
-  const winner: 'c' | 'd' = chp === dhp ? 'c' : chp > dhp ? 'c' : 'd'
-
-  return {
-    version: 2,
-    duration: 30,
-    events,
-    winner: dhp === 0 ? 'c' : chp === 0 ? 'd' : winner,
-    endedBy,
-    endT,
-    cLevel, dLevel,
-    cFighter, dFighter,
-  }
-}
-
-function seededRand(seed: string): number {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0
-  return Math.abs(h) / 2147483647
+export interface FightSubmission {
+  won: boolean
+  myHp: number       // challenger HP at the end
+  foeHp: number      // defender HP at the end
+  duration: number   // seconds
+  counts: { taps: number; kicks: number; jumpkicks: number; blocks: number; combos: number; specials: number }
 }
 
 export type ResolveResult =
   | { ok: true; payload: Record<string, unknown> }
   | { ok: false; status: number; error: string }
 
-// Runs the battle for a challenge that has already been claimed (status
-// 'resolving'): checks balances, simulates, transfers FP with rollback on
-// partial failure, and writes the completed row. Bots with a drained
-// treasury are refilled so they always have a stake to lose.
-export async function resolvePvpChallenge(
+const int = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : NaN
+
+// Validates a submitted fight outcome, transfers the stakes with rollback on
+// partial failure, and records the completed fight. The challenge row must
+// currently be 'accepted' (armed); claiming it to 'resolving' is atomic, so
+// a fight can only ever be settled once.
+export async function settleInteractiveFight(
   admin: SupabaseClient,
-  challenge: { id: string; challenger_id: string; defender_id: string; fp_stake: number }
+  challenge: {
+    id: string; challenger_id: string; defender_id: string
+    fp_stake: number; accepted_at: string | null
+  },
+  raw: any
 ): Promise<ResolveResult> {
   const cancel = async () => {
     await admin.from('pvp_challenges').update({ status: 'cancelled' }).eq('id', challenge.id)
   }
+
+  // --- Sanity-check the submission (server is the authority on money) ---
+  const sub: FightSubmission = {
+    won: !!raw?.won,
+    myHp: int(raw?.myHp),
+    foeHp: int(raw?.foeHp),
+    duration: int(raw?.duration),
+    counts: {
+      taps: int(raw?.counts?.taps) || 0,
+      kicks: int(raw?.counts?.kicks) || 0,
+      jumpkicks: int(raw?.counts?.jumpkicks) || 0,
+      blocks: int(raw?.counts?.blocks) || 0,
+      combos: int(raw?.counts?.combos) || 0,
+      specials: int(raw?.counts?.specials) || 0,
+    },
+  }
+
+  const bad = (reason: string): ResolveResult => ({ ok: false, status: 400, error: `Invalid fight result: ${reason}` })
+
+  if (![sub.myHp, sub.foeHp, sub.duration].every(Number.isFinite)) return bad('malformed')
+  if (sub.myHp < 0 || sub.myHp > 100 || sub.foeHp < 0 || sub.foeHp > 100) return bad('hp out of range')
+  if (sub.duration < 14 || sub.duration > 35) return bad('impossible duration')
+  // Winner must be consistent with the HP story
+  if (sub.won && !(sub.foeHp === 0 || sub.myHp > sub.foeHp)) return bad('inconsistent outcome')
+  if (!sub.won && !(sub.myHp === 0 || sub.foeHp >= sub.myHp)) return bad('inconsistent outcome')
+  // Damage-rate ceiling: even perfect play can't exceed ~9 dmg/sec
+  if (100 - sub.foeHp > sub.duration * 9 + 15) return bad('impossible damage output')
+  if (sub.counts.taps > sub.duration * 6) return bad('impossible input rate')
+
+  // Wall-clock check: the fight must have actually taken the time it claims
+  if (challenge.accepted_at) {
+    const elapsed = Date.now() - new Date(challenge.accepted_at).getTime()
+    if (elapsed < 12_000) return bad('finished faster than physically possible')
+    if (elapsed > 10 * 60_000) {
+      await cancel()
+      return { ok: false, status: 400, error: 'Fight expired — challenge cancelled, no FP moved' }
+    }
+  }
+
+  // --- Claim: accepted → resolving, exactly once ---
+  const { data: claimed } = await admin
+    .from('pvp_challenges')
+    .update({ status: 'resolving' })
+    .eq('id', challenge.id)
+    .eq('status', 'accepted')
+    .select('id')
+    .maybeSingle()
+  if (!claimed) return { ok: false, status: 409, error: 'Fight already settled' }
 
   const [{ data: challenger }, { data: defender }] = await Promise.all([
     admin.from('profiles').select('id, fp_balance, username, party, clerk_user_id, fighter, total_battles_won, total_battles_lost').eq('id', challenge.challenger_id).single(),
@@ -207,33 +157,15 @@ export async function resolvePvpChallenge(
     return { ok: false, status: 400, error: 'Insufficient FP — challenge cancelled' }
   }
 
-  // Levels come from battles won for EVERYONE — bots included. Bots start
-  // near level 1 (small seeded win counts) and climb only by actually
-  // winning fights, so the world levels up alongside the players.
-  const cLevel = fighterLevel(challenger.total_battles_won ?? 0)
-  const dLevel = fighterLevel(defender.total_battles_won ?? 0)
-
-  const result = simulateStreetFight(
-    cLevel, dLevel,
-    sanitizeFighter(challenger.fighter, challenger.id),
-    sanitizeFighter(defender.fighter, defender.id),
-  )
-
-  const finalEvent = result.events[result.events.length - 1]
-  const challengerHp = finalEvent?.chp ?? 100
-  const defenderHp = finalEvent?.dhp ?? 100
-
-  const winnerId  = result.winner === 'c' ? challenger.id : defender.id
-  const loserId   = result.winner === 'c' ? defender.id  : challenger.id
-  const winnerName = result.winner === 'c' ? challenger.username : defender.username
-  const loserName  = result.winner === 'c' ? defender.username  : challenger.username
+  const winner = sub.won ? challenger : defender
+  const loser  = sub.won ? defender : challenger
 
   // Debit the loser first and check — supabase rpc() returns errors rather
   // than throwing, and an unchecked failure here would mint FP
   const { error: spendErr } = await admin.rpc('spend_fp', {
-    p_profile_id: loserId, p_amount: challenge.fp_stake,
+    p_profile_id: loser.id, p_amount: challenge.fp_stake,
     p_type: 'gym_attack', p_reference_type: 'pvp_battle',
-    p_description: `Lost PvP vs ${winnerName}`,
+    p_description: `Lost PvP vs ${winner.username}`,
   })
   if (spendErr) {
     console.error('pvp spend_fp failed:', spendErr)
@@ -242,15 +174,14 @@ export async function resolvePvpChallenge(
   }
 
   const { error: grantErr } = await admin.rpc('grant_fp', {
-    p_profile_id: winnerId, p_amount: challenge.fp_stake,
+    p_profile_id: winner.id, p_amount: challenge.fp_stake,
     p_type: 'battle_reward', p_reference_type: 'pvp_battle',
-    p_description: `Won PvP vs ${loserName}`,
+    p_description: `Won PvP vs ${loser.username}`,
   })
   if (grantErr) {
-    // Loser was already debited — refund them before cancelling
     console.error('pvp grant_fp failed, refunding loser:', grantErr)
     await admin.rpc('grant_fp', {
-      p_profile_id: loserId, p_amount: challenge.fp_stake,
+      p_profile_id: loser.id, p_amount: challenge.fp_stake,
       p_type: 'battle_reward', p_reference_type: 'pvp_battle',
       p_description: 'PvP stake refund (transfer failed)',
     })
@@ -258,26 +189,39 @@ export async function resolvePvpChallenge(
     return { ok: false, status: 500, error: 'FP transfer failed — challenge cancelled' }
   }
 
+  const battleLog = {
+    version: 3 as const,
+    mode: 'interactive' as const,
+    duration: sub.duration,
+    winner: sub.won ? 'c' : 'd',
+    endedBy: sub.myHp === 0 || sub.foeHp === 0 ? 'ko' : 'bell',
+    chp: sub.myHp,
+    dhp: sub.foeHp,
+    counts: sub.counts,
+    cLevel: fighterLevel(challenger.total_battles_won ?? 0),
+    dLevel: fighterLevel(defender.total_battles_won ?? 0),
+    cFighter: sanitizeFighter(challenger.fighter, challenger.id),
+    dFighter: sanitizeFighter(defender.fighter, defender.id),
+  }
+
   const { error: saveErr } = await admin.from('pvp_challenges').update({
     status: 'completed',
-    winner_id: winnerId,
-    challenger_hp_remaining: challengerHp,
-    defender_hp_remaining:   defenderHp,
-    turns_played: result.events.length,
-    battle_log:   result,
+    winner_id: winner.id,
+    challenger_hp_remaining: sub.myHp,
+    defender_hp_remaining:   sub.foeHp,
+    turns_played: sub.counts.taps + sub.counts.kicks + sub.counts.jumpkicks + sub.counts.specials,
+    battle_log: battleLog,
   }).eq('id', challenge.id)
 
   if (saveErr) {
-    // Couldn't record the result (e.g. schema drift) — unwind the stake so no
-    // FP is lost, then surface the real error instead of a stuck challenge
     console.error('pvp result save failed, rolling back stake:', saveErr)
     await admin.rpc('grant_fp', {
-      p_profile_id: loserId, p_amount: challenge.fp_stake,
+      p_profile_id: loser.id, p_amount: challenge.fp_stake,
       p_type: 'battle_reward', p_reference_type: 'pvp_battle',
       p_description: 'PvP stake refund (result save failed)',
     })
     await admin.rpc('spend_fp', {
-      p_profile_id: winnerId, p_amount: challenge.fp_stake,
+      p_profile_id: winner.id, p_amount: challenge.fp_stake,
       p_type: 'gym_attack', p_reference_type: 'pvp_battle',
       p_description: 'PvP stake clawback (result save failed)',
     })
@@ -287,8 +231,6 @@ export async function resolvePvpChallenge(
 
   // Fight record feeds fighter levels — this is how both humans AND bots
   // level up (or don't) over time
-  const winner = result.winner === 'c' ? challenger : defender
-  const loser  = result.winner === 'c' ? defender : challenger
   await Promise.all([
     admin.from('profiles').update({ total_battles_won: (winner.total_battles_won ?? 0) + 1 }).eq('id', winner.id),
     admin.from('profiles').update({ total_battles_lost: (loser.total_battles_lost ?? 0) + 1 }).eq('id', loser.id),
@@ -298,18 +240,13 @@ export async function resolvePvpChallenge(
     ok: true,
     payload: {
       status: 'completed',
-      winner_id:    winnerId,
+      winner_id: winner.id,
       challenger_id: challenge.challenger_id,
-      defender_id:   challenge.defender_id,
-      challenger_hp_remaining: challengerHp,
-      defender_hp_remaining:   defenderHp,
-      turns_played: result.events.length,
+      defender_id: challenge.defender_id,
+      challenger_hp_remaining: sub.myHp,
+      defender_hp_remaining: sub.foeHp,
       fp_stake: challenge.fp_stake,
-      battle_log: result,
-      challenger_username: challenger.username,
-      defender_username:   defender.username,
-      challenger_party:    challenger.party,
-      defender_party:      defender.party,
+      battle_log: battleLog,
     },
   }
 }

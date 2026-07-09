@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { resolvePvpChallenge } from '@/lib/pvp'
 
 export async function POST(
   req: NextRequest,
@@ -38,11 +37,12 @@ export async function POST(
       return NextResponse.json({ status: 'declined' })
     }
 
-    // Atomically claim the challenge: only one request can move it from
-    // 'pending' to 'resolving', so concurrent accepts can't both pay out.
+    // Accepting ARMS the fight: the challenger plays it live on the fight
+    // screen (the defender's side is fought by their fighter at their level).
+    // Atomic pending→accepted so concurrent accepts can't double-arm.
     const { data: claimed } = await admin
       .from('pvp_challenges')
-      .update({ status: 'resolving' })
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('id', id)
       .eq('status', 'pending')
       .select('id')
@@ -52,11 +52,7 @@ export async function POST(
       return NextResponse.json({ error: 'Challenge is already being resolved' }, { status: 409 })
     }
 
-    const resolved = await resolvePvpChallenge(admin, challenge)
-    if (!resolved.ok) {
-      return NextResponse.json({ error: resolved.error }, { status: resolved.status })
-    }
-    return NextResponse.json(resolved.payload)
+    return NextResponse.json({ status: 'accepted' })
 
   } catch (err: any) {
     if (err instanceof Response) return err

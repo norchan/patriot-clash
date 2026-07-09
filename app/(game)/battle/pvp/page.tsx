@@ -4,9 +4,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { type FighterPose } from '@/components/FighterRig'
 import FighterSprite from '@/components/FighterSprite'
-import { defaultFighter, sanitizeFighter } from '@/lib/fighter'
+import { defaultFighter, sanitizeFighter, fighterStats } from '@/lib/fighter'
 import type { FighterDesign } from '@/lib/fighter'
-import { sfx } from '@/lib/juice'
+import { MOVES, movesForLevel, type Move } from '@/lib/pvp'
+import { sfx, buzz } from '@/lib/juice'
 
 // ── Types matching lib/pvp.ts FightLog v2 ───────────────────────────────────
 interface FightEvent {
@@ -41,11 +42,18 @@ interface ChallengeData {
   defender_id: string
   winner_id: string
   fp_stake: number
-  battle_log: FightLog | null
+  battle_log: (FightLog & { version: number; mode?: string; chp?: number; dhp?: number }) | null
   challenger_username: string
   defender_username: string
   challenger_party: 'democrat' | 'republican'
   defender_party: 'democrat' | 'republican'
+  challenger_hp_remaining: number | null
+  defender_hp_remaining: number | null
+  // present while status === 'accepted' (armed live fight)
+  challenger_level?: number
+  defender_level?: number
+  challenger_fighter?: FighterDesign
+  defender_fighter?: FighterDesign
 }
 
 interface ChatMessage { id: string; sender_id: string; content: string; created_at: string }
@@ -66,7 +74,7 @@ function StreetFightPage() {
   const { profile, loading: profileLoading } = useProfile()
 
   const [challenge, setChallenge] = useState<ChallengeData | null>(null)
-  const [phase, setPhase] = useState<'loading' | 'waiting' | 'intro' | 'fighting' | 'done' | 'aborted'>('loading')
+  const [phase, setPhase] = useState<'loading' | 'waiting' | 'intro' | 'fighting' | 'live' | 'done' | 'aborted'>('loading')
 
   // Fight presentation state
   const [myPose, setMyPose] = useState<FighterPose>('idle')
@@ -91,6 +99,7 @@ function StreetFightPage() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const replayStarted = useRef(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const profileRef = useRef<string | null>(null)
 
   // Chat state (post-fight)
   const [chatEnabled, setChatEnabled] = useState(false)
@@ -109,7 +118,19 @@ function StreetFightPage() {
       setChallenge(data)
       if (data.status === 'completed') {
         if (pollRef.current) clearInterval(pollRef.current)
-        setPhase(p => (p === 'loading' || p === 'waiting') ? 'intro' : p)
+        // v2 logs are server-simulated replays; interactive (v3) fights jump
+        // straight to the result — the fight already happened live
+        setPhase(p => (p === 'loading' || p === 'waiting')
+          ? (data.battle_log?.version === 2 ? 'intro' : 'done')
+          : p)
+      } else if (data.status === 'accepted') {
+        // Armed: the challenger fights it live; the defender waits for news
+        if (profileRef.current && data.challenger_id === profileRef.current) {
+          if (pollRef.current) clearInterval(pollRef.current)
+          setPhase(p => (p === 'loading' || p === 'waiting') ? 'intro' : p)
+        } else {
+          setPhase('waiting')
+        }
       } else if (data.status === 'pending' || data.status === 'resolving') {
         setPhase('waiting')
       } else {
@@ -119,11 +140,16 @@ function StreetFightPage() {
     } catch {}
   }, [challengeId])
 
+  useEffect(() => { profileRef.current = profile?.id ?? null }, [profile?.id])
+
   useEffect(() => {
     fetchChallenge()
     pollRef.current = setInterval(fetchChallenge, 3000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [fetchChallenge])
+
+  // The 'accepted' branch needs the profile id — refetch once it loads
+  useEffect(() => { if (profile?.id) fetchChallenge() }, [profile?.id, fetchChallenge])
 
   // Perspective
   const isChallenger = profile && challenge ? challenge.challenger_id === profile.id : true
@@ -135,14 +161,19 @@ function StreetFightPage() {
 
   const log = challenge?.battle_log
   const validLog = log && log.version === 2 && Array.isArray(log.events)
+  const isLive = challenge?.status === 'accepted' && !!profile && challenge.challenger_id === profile.id
   const myFighter: FighterDesign = validLog
     ? sanitizeFighter(isChallenger ? log!.cFighter : log!.dFighter, profile?.id ?? 'me')
-    : defaultFighter(profile?.id ?? 'me')
+    : sanitizeFighter(isChallenger ? challenge?.challenger_fighter : challenge?.defender_fighter, profile?.id ?? 'me')
   const foeFighter: FighterDesign = validLog
     ? sanitizeFighter(isChallenger ? log!.dFighter : log!.cFighter, 'foe')
-    : defaultFighter('foe')
-  const myLevel = validLog ? (isChallenger ? log!.cLevel : log!.dLevel) : 1
-  const foeLevel = validLog ? (isChallenger ? log!.dLevel : log!.cLevel) : 1
+    : sanitizeFighter(isChallenger ? challenge?.defender_fighter : challenge?.challenger_fighter, 'foe')
+  const myLevel = validLog
+    ? (isChallenger ? log!.cLevel : log!.dLevel)
+    : (isChallenger ? challenge?.challenger_level ?? 1 : challenge?.defender_level ?? 1)
+  const foeLevel = validLog
+    ? (isChallenger ? log!.dLevel : log!.cLevel)
+    : (isChallenger ? challenge?.defender_level ?? 1 : challenge?.challenger_level ?? 1)
 
   function addSpark(onFoe: boolean, text: string, color: string) {
     const id = ++sparkId.current
@@ -309,6 +340,18 @@ function StreetFightPage() {
     return () => { timersRef.current.forEach(clearTimeout); timersRef.current = [] }
   }, [])
 
+  // Landing straight on a finished fight (defender view, page refresh):
+  // show the final HP without a replay
+  useEffect(() => {
+    if (phase !== 'done' || !challenge || replayStarted.current || liveStarted.current) return
+    const chp = challenge.challenger_hp_remaining ?? 100
+    const dhp = challenge.defender_hp_remaining ?? 100
+    setMyHp(isChallenger ? chp : dhp)
+    setFoeHp(isChallenger ? dhp : chp)
+    setClock(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, challenge?.id])
+
   // Result sting — once, when the result panel appears
   const stingPlayed = useRef(false)
   useEffect(() => {
@@ -316,6 +359,282 @@ function StreetFightPage() {
     stingPlayed.current = true
     if (challenge.winner_id === profile.id) sfx.victory()
     else sfx.defeat()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
+  // ══ LIVE FIGHT ENGINE ══════════════════════════════════════════════════
+  // The challenger plays for real: taps punch, 3-tap chains a combo finisher,
+  // swipe toward the foe kicks, swipe up jump-kicks, holding blocks. The foe
+  // is driven at the DEFENDER'S level — it telegraphs attacks (⚠ flash), and
+  // blocking during the strike absorbs almost everything. Server validates
+  // the submitted outcome before any FP moves.
+  const TAP_CD = 380, KICK_CD = 750, JUMP_CD = 950, SPECIAL_CD = 600
+  const [meter, setMeter] = useState(0)
+  const [telegraph, setTelegraph] = useState(false)
+  const [hint, setHint] = useState('')
+  const [submitErr, setSubmitErr] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const liveStarted = useRef(false)
+  const L = useRef({
+    startAt: 0, over: false, myCd: 0, tapAlt: false,
+    comboN: 0, lastHit: 0, lastTouch: 0,
+    blockHeld: false, blockTimer: 0 as ReturnType<typeof setTimeout> | 0,
+    touchX: 0, touchY: 0, touchT: 0,
+    foeNextAt: 0, foeWindupAt: 0, foeMove: 'jab' as Move,
+    lastResult: { won: false },
+    counts: { taps: 0, kicks: 0, jumpkicks: 0, blocks: 0, combos: 0, specials: 0 },
+    myHp: 100, foeHp: 100, meter: 0,
+  })
+  const myStats = fighterStats(myLevel)
+  const foeStats = fighterStats(foeLevel)
+
+  function flashHint(msg: string) {
+    setHint(msg)
+    setTimeout(() => setHint(''), 1400)
+  }
+
+  // Intro banners for a live fight, then hand control to the player
+  useEffect(() => {
+    if (!isLive || phase !== 'intro' || liveStarted.current || !profile) return
+    liveStarted.current = true
+    setBanner('ROUND 1')
+    const t1 = setTimeout(() => { setBanner('FIGHT!'); sfx.bell(true) }, 900)
+    const t2 = setTimeout(() => {
+      setBanner('')
+      L.current.startAt = Date.now()
+      L.current.foeNextAt = Date.now() + 1600
+      setPhase('live')
+    }, 1500)
+    timersRef.current.push(t1, t2)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, phase, profile?.id])
+
+  function foeInterval() {
+    const base = Math.max(950, 2300 - foeLevel * 70)
+    return base * (0.75 + Math.random() * 0.5)
+  }
+
+  function endFight(won: boolean, ko: boolean) {
+    const S = L.current
+    if (S.over) return
+    S.over = true
+    S.lastResult = { won }
+    setTelegraph(false)
+    if (won) { setMyPose('victory'); setFoePose('ko') }
+    else { setMyPose('ko'); setFoePose('victory') }
+    if (ko) { setKoFlash(true); setZoom(true); sfx.ko(); setTimeout(() => { setKoFlash(false); setZoom(false) }, 900) }
+    else sfx.bell(false)
+    setBanner(ko ? 'K.O.!' : 'TIME!')
+    bumpCrowd()
+    setTimeout(() => { setBanner(''); submitFight(won) }, 1500)
+  }
+
+  async function submitFight(won: boolean) {
+    const S = L.current
+    setSubmitting(true)
+    const payload = {
+      won,
+      myHp: S.myHp,
+      foeHp: S.foeHp,
+      duration: Math.min(35, Math.max(14, Math.round((Date.now() - S.startAt) / 1000))),
+      counts: S.counts,
+    }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/pvp/${challengeId}/fight`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          setSubmitting(false)
+          await fetchChallenge()
+          setPhase('done')
+          return
+        }
+        // Validation rejections won't change on retry
+        setSubmitting(false)
+        setSubmitErr(data.error || 'Could not save the fight result')
+        return
+      } catch { /* network hiccup — retry once */ }
+    }
+    setSubmitting(false)
+    setSubmitErr('Network error — the fight result could not be saved')
+  }
+
+  // Player attack (shared by taps, swipes, keys, and the special button)
+  function playerStrike(move: Move) {
+    const S = L.current
+    if (phase !== 'live' || S.over || S.blockHeld) return
+    const now = Date.now()
+    if (now < S.myCd) return
+    const def = MOVES.find(m => m.move === move)!
+    if (myLevel < def.minLevel) { flashHint(`🔒 ${def.label.split(' (')[0]} unlocks at Lv.${def.minLevel}`); return }
+    if (move === 'special') {
+      if (S.meter < 100) { flashHint('⚡ Land hits to charge your special'); return }
+      S.meter = 0
+      setMeter(0)
+      S.counts.specials++
+      setKoFlash(true); setZoom(true)
+      setTimeout(() => { setKoFlash(false); setZoom(false) }, 700)
+    }
+    S.myCd = now + (move === 'kick' ? KICK_CD : move === 'jumpkick' ? JUMP_CD : move === 'special' ? SPECIAL_CD : TAP_CD)
+
+    // Combo bookkeeping: rapid consecutive strikes chain; every 3rd is a finisher
+    let actual: Move = move
+    if (move === 'jab') {
+      S.comboN = now - S.lastHit < 1100 ? S.comboN + 1 : 1
+      S.lastHit = now
+      S.counts.taps++
+      if (S.comboN % 3 === 0 && myLevel >= 2) {
+        actual = myLevel >= 9 ? 'uppercut' : 'hook'
+        S.counts.combos++
+        setComboText(`${S.comboN} HIT COMBO!`)
+        setTimeout(() => setComboText(''), 900)
+      } else {
+        actual = (S.tapAlt = !S.tapAlt) ? 'jab' : 'cross'
+      }
+    } else if (move === 'kick') S.counts.kicks++
+    else if (move === 'jumpkick') S.counts.jumpkicks++
+
+    const heavy = actual !== 'jab' && actual !== 'cross'
+    setMyPose(MOVE_POSE[actual]); setMyAttacking(true)
+    setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
+    setMoveText(`YOU: ${MOVE_LABELS[actual]}`)
+
+    // Impact resolves a beat later, against the DEFENDER'S real stats
+    setTimeout(() => {
+      if (S.over) return
+      const mult = MOVES.find(m => m.move === actual)!.mult
+      const roll = Math.random()
+      let result: 'hit' | 'blocked' | 'dodged' = 'hit'
+      if (roll < foeStats.dodgeChance) result = 'dodged'
+      else if (roll < foeStats.dodgeChance + foeStats.blockChance) result = 'blocked'
+      let dmg = 0
+      if (result !== 'dodged') {
+        dmg = Math.max(1, Math.round((7 + myStats.strength * 0.15) * mult * (0.85 + Math.random() * 0.3)))
+        if (result === 'blocked') dmg = Math.max(1, Math.floor(dmg * 0.25))
+      }
+      const t = (Date.now() - S.startAt) / 1000
+      if (dmg >= S.foeHp && t < 14) dmg = Math.max(0, S.foeHp - 1) // no KO before 14s
+      S.foeHp = Math.max(0, S.foeHp - dmg)
+      setFoeHp(S.foeHp)
+      if (result === 'hit') {
+        setFoePose('hit'); reel(true); addBurst(true, heavy)
+        addSpark(true, `-${dmg}`, '#facc15')
+        if (actual === 'kick' || actual === 'jumpkick') sfx.kick()
+        else sfx.punch(heavy)
+        S.meter = Math.min(100, S.meter + dmg * 1.7)
+        setMeter(S.meter)
+        if (heavy) { bumpCrowd(); sfx.crowd(0.3) }
+        setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
+      } else if (result === 'blocked') {
+        addSpark(true, 'BLOCK', '#93c5fd'); sfx.block()
+      } else {
+        addSpark(true, 'MISS', '#9ca3af'); sfx.whoosh()
+      }
+      if (S.foeHp === 0) endFight(true, true)
+    }, 120)
+  }
+
+  // Game tick: clock, bell, and the foe's AI (telegraphed attacks)
+  useEffect(() => {
+    if (phase !== 'live') return
+    const S = L.current
+    const iv = setInterval(() => {
+      if (S.over) return
+      const now = Date.now()
+      const t = (now - S.startAt) / 1000
+      setClock(Math.max(0, Math.ceil(30 - t)))
+      if (t >= 30) { endFight(S.myHp > S.foeHp, false); return }
+
+      if (S.foeWindupAt && now >= S.foeWindupAt) {
+        // Strike lands
+        S.foeWindupAt = 0
+        setTelegraph(false)
+        const def = MOVES.find(m => m.move === S.foeMove)!
+        const heavy = def.mult > 1
+        setFoePose(MOVE_POSE[S.foeMove]); setFoeAttacking(true)
+        setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
+        setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[S.foeMove]}`)
+        let dmg = Math.max(1, Math.round((7 + foeStats.strength * 0.15) * def.mult * (0.85 + Math.random() * 0.3)))
+        if (S.blockHeld) {
+          dmg = Math.max(0, Math.floor(dmg * 0.15))
+          S.counts.blocks++
+          addSpark(false, 'BLOCKED!', '#93c5fd')
+          sfx.block(); buzz(15)
+        } else {
+          setMyPose('hit'); reel(false); addBurst(false, heavy)
+          addSpark(false, `-${dmg}`, '#f87171')
+          if (S.foeMove === 'kick' || S.foeMove === 'jumpkick') sfx.kick()
+          else sfx.punch(heavy)
+          setShake(true); setTimeout(() => setShake(false), 170)
+          setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
+        }
+        if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1)
+        S.myHp = Math.max(0, S.myHp - dmg)
+        setMyHp(S.myHp)
+        if (S.myHp === 0) { endFight(false, true); return }
+        S.foeNextAt = now + foeInterval()
+      } else if (!S.foeWindupAt && now >= S.foeNextAt) {
+        // Wind up: telegraphed — block NOW to absorb it
+        const pool = movesForLevel(foeLevel)
+        S.foeMove = pool[Math.floor(Math.random() * pool.length)].move
+        S.foeWindupAt = now + Math.max(380, 650 - foeLevel * 9)
+        setTelegraph(true)
+        sfx.tap()
+      }
+    }, 90)
+    return () => clearInterval(iv)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
+  // ── Live inputs: touch (tap/swipe/hold), mouse, and keyboard ─────────────
+  function liveTouchStart(x: number, y: number) {
+    const S = L.current
+    if (phase !== 'live' || S.over) return
+    S.touchX = x; S.touchY = y; S.touchT = Date.now(); S.lastTouch = Date.now()
+    S.blockTimer = setTimeout(() => {
+      S.blockHeld = true
+      setMyPose('block')
+      buzz(10)
+    }, 230)
+  }
+  function liveTouchEnd(x: number, y: number) {
+    const S = L.current
+    if (phase !== 'live') return
+    S.lastTouch = Date.now()
+    if (S.blockTimer) { clearTimeout(S.blockTimer); S.blockTimer = 0 }
+    if (S.blockHeld) {
+      S.blockHeld = false
+      if (!S.over) setMyPose('idle')
+      return
+    }
+    const dx = x - S.touchX, dy = y - S.touchY
+    if (dy < -35 && Math.abs(dy) > Math.abs(dx)) playerStrike('jumpkick')
+    else if (Math.abs(dx) > 40) playerStrike('kick') // swipe either way = kick
+    else playerStrike('jab')
+  }
+  useEffect(() => {
+    if (phase !== 'live') return
+    const down = (e: KeyboardEvent) => {
+      if (e.repeat) return
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); playerStrike('jab') }
+      if (e.key === 'ArrowRight' || e.key === 'd') playerStrike('kick')
+      if (e.key === 'ArrowUp' || e.key === 'w') playerStrike('jumpkick')
+      if (e.key === 'f') playerStrike('special')
+      if (e.key === 'ArrowDown' || e.key === 's') { L.current.blockHeld = true; setMyPose('block') }
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown' || e.key === 's') {
+        L.current.blockHeld = false
+        if (!L.current.over) setMyPose('idle')
+      }
+    }
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
@@ -378,10 +697,14 @@ function StreetFightPage() {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="text-6xl mb-4">⏳</div>
-          <h2 className="text-white font-black text-2xl mb-2">Waiting for opponent...</h2>
+          <div className="text-6xl mb-4">{challenge?.status === 'accepted' ? '🥊' : '⏳'}</div>
+          <h2 className="text-white font-black text-2xl mb-2">
+            {challenge?.status === 'accepted' ? 'Fight in progress...' : 'Waiting for opponent...'}
+          </h2>
           <p className="text-gray-400 text-sm mb-6">
-            Waiting for {challenge?.defender_username ?? 'your opponent'} to accept
+            {challenge?.status === 'accepted'
+              ? `${challenge?.challenger_username ?? 'Your challenger'} is fighting your fighter right now — the result will appear here`
+              : `Waiting for ${challenge?.defender_username ?? 'your opponent'} to accept`}
           </p>
           <button onClick={() => router.push('/map')}
             className="px-6 py-3 bg-gray-800 text-gray-300 rounded-xl font-bold hover:bg-gray-700 transition">
@@ -424,11 +747,18 @@ function StreetFightPage() {
       <div className="battle-wipe" />
 
       {/* ══ STREET STAGE ══════════════════════════════════════════════════ */}
-      {/* No tap-anywhere skip: players tap the screen out of PvE habit and
-          were fast-forwarding their own fights. Skipping is the ⏭ button —
-          stage taps just hype the crowd. */}
+      {/* LIVE fights: the stage is the controller (tap/swipe/hold). Replays
+          of old fights: taps just hype the crowd. */}
       <div className="relative overflow-hidden select-none"
-        onClick={() => { if (phase === 'fighting') { bumpCrowd(); sfx.crowd(0.35) } }}
+        onClick={() => {
+          if (phase === 'live') {
+            // Desktop click = punch; suppress the synthetic click after touch
+            if (Date.now() - L.current.lastTouch < 600) return
+            playerStrike('jab')
+          } else if (phase === 'fighting') { bumpCrowd(); sfx.crowd(0.35) }
+        }}
+        onTouchStart={e => liveTouchStart(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchEnd={e => liveTouchEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
         style={{
           height: '62vh',
           animation: shake ? 'sfShake 0.16s linear' : 'none',
@@ -567,7 +897,44 @@ function StreetFightPage() {
         </div>
 
         {/* move ticker */}
-        {phase === 'fighting' && moveText && (
+        {/* meter + special (live only) */}
+        {phase === 'live' && (
+          <div className="absolute bottom-9 left-3 right-3 z-20 flex items-center gap-2">
+            <div className="flex-1 h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/15">
+              <div className="h-full transition-all duration-200"
+                style={{ width: `${meter}%`, background: 'linear-gradient(90deg, #f59e0b, #fde047)' }} />
+            </div>
+            {myLevel >= 12 && (
+              <button
+                onClick={e => { e.stopPropagation(); playerStrike('special') }}
+                onTouchStart={e => e.stopPropagation()}
+                onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); playerStrike('special') }}
+                className={`text-[11px] font-black px-3 py-1.5 rounded-full border transition ${
+                  meter >= 100
+                    ? 'bg-yellow-400 text-black border-yellow-200 animate-pulse'
+                    : 'bg-black/50 text-white/40 border-white/15'
+                }`}>
+                ★ SPECIAL
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* foe telegraph — block NOW */}
+        {telegraph && (
+          <div className="absolute z-20 pointer-events-none" style={{ right: '16%', top: '24%' }}>
+            <span className="text-4xl" style={{ animation: 'sfCombo 0.7s ease-out', display: 'inline-block' }}>⚠️</span>
+          </div>
+        )}
+
+        {/* hint flash (locked moves, meter) */}
+        {hint && (
+          <div className="absolute bottom-20 left-0 right-0 text-center z-20 pointer-events-none">
+            <span className="text-yellow-300 text-xs font-bold bg-black/60 px-3 py-1.5 rounded-full">{hint}</span>
+          </div>
+        )}
+
+        {(phase === 'fighting' || phase === 'live') && moveText && (
           <div className="absolute bottom-2 left-0 right-0 z-20 text-center pointer-events-none">
             <span className="text-white/80 text-xs font-bold tracking-widest" style={{ textShadow: '0 2px 4px #000' }}>
               {moveText}
@@ -580,7 +947,23 @@ function StreetFightPage() {
 
       {/* ══ BELOW THE STAGE ═══════════════════════════════════════════════ */}
       <div className="flex-1 px-4 py-4 overflow-y-auto">
-        {phase !== 'done' ? (
+        {submitErr ? (
+          <div className="max-w-md mx-auto text-center space-y-3">
+            <p className="text-red-400 text-sm font-bold">⚠️ {submitErr}</p>
+            <button onClick={() => { setSubmitErr(''); submitFight(L.current.lastResult.won) }}
+              className="px-6 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-700 transition">
+              🔄 Retry
+            </button>
+          </div>
+        ) : submitting ? (
+          <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
+        ) : phase === 'live' ? (
+          <div className="text-center space-y-1">
+            <p className="text-white/80 text-xs font-bold">👊 TAP to punch — 3 fast taps = combo finisher</p>
+            <p className="text-gray-400 text-[11px]">🦵 SWIPE across = kick{myLevel < 4 ? ' (Lv.4)' : ''} · 🚀 SWIPE UP = jump kick{myLevel < 7 ? ' (Lv.7)' : ''} · 🛡️ HOLD = block</p>
+            <p className="text-gray-600 text-[10px]">Block when you see ⚠️ — it absorbs almost everything</p>
+          </div>
+        ) : phase !== 'done' ? (
           <p className="text-gray-600 text-xs text-center">🥊 Street fight in progress — one round, 30 seconds</p>
         ) : (
           <div className="max-w-md mx-auto space-y-3">
@@ -590,7 +973,7 @@ function StreetFightPage() {
                 {iWon ? 'VICTORY!' : 'DEFEATED!'}
               </h2>
               <p className="text-gray-400 text-sm">
-                {validLog && (log as FightLog).endedBy === 'bell'
+                {(log as any)?.endedBy === 'bell'
                   ? `by decision vs ${theirUsername} — went the distance`
                   : `by knockout vs ${theirUsername}`}
               </p>

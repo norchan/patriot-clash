@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { isBlockedEitherWay } from '@/lib/blocks'
-import { resolvePvpChallenge } from '@/lib/pvp'
 
 const FP_STAKE = 50
 
@@ -77,8 +76,10 @@ export async function POST(req: NextRequest) {
         challenger_party: profile.party,
         defender_party: defender.party,
         fp_stake: FP_STAKE,
-        // Bots auto-accept: claim the challenge immediately so it resolves now
-        status: isBot ? 'resolving' : 'pending',
+        // Bots auto-accept: the challenge is immediately ARMED — the
+        // challenger fights it live on the fight screen
+        status: isBot ? 'accepted' : 'pending',
+        accepted_at: isBot ? new Date().toISOString() : null,
         expires_at: new Date(Date.now() + 60 * 1000).toISOString(),
       })
       .select()
@@ -89,17 +90,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create challenge' }, { status: 500 })
     }
 
-    // Bot defender: resolve the battle on the spot and send the challenger
-    // straight to the replay screen
-    if (isBot) {
-      const resolved = await resolvePvpChallenge(admin, challenge)
-      if (!resolved.ok) {
-        return NextResponse.json({ error: resolved.error }, { status: resolved.status })
-      }
-      return NextResponse.json({ id: challenge.id, status: 'completed', defender_username: defender.username })
-    }
-
-    return NextResponse.json({ id: challenge.id, status: 'pending', defender_username: defender.username })
+    return NextResponse.json({ id: challenge.id, status: challenge.status, defender_username: defender.username })
 
   } catch (err: any) {
     if (err instanceof Response) return err

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { fighterLevel, sanitizeFighter } from '@/lib/fighter'
 
 export async function GET(
   _req: NextRequest,
@@ -27,8 +28,32 @@ export async function GET(
       return NextResponse.json({ ...challenge, status: 'expired' })
     }
 
+    // Armed fights the challenger walked away from get cancelled — no FP
+    // ever moved, so nothing to unwind
+    if (challenge.status === 'accepted' && challenge.accepted_at
+      && Date.now() - new Date(challenge.accepted_at).getTime() > 10 * 60_000) {
+      await admin.from('pvp_challenges').update({ status: 'cancelled' }).eq('id', id).eq('status', 'accepted')
+      return NextResponse.json({ ...challenge, status: 'cancelled' })
+    }
+
     // Usernames/parties are denormalized onto the row at insert time — no
-    // extra profile queries needed (this route is polled every 3s)
+    // extra profile queries needed (this route is polled every 3s)...
+    // EXCEPT armed fights: the live fight screen needs both fighters'
+    // levels and designs before the first punch
+    if (challenge.status === 'accepted') {
+      const [{ data: c }, { data: d }] = await Promise.all([
+        admin.from('profiles').select('id, total_battles_won, fighter').eq('id', challenge.challenger_id).single(),
+        admin.from('profiles').select('id, total_battles_won, fighter').eq('id', challenge.defender_id).single(),
+      ])
+      return NextResponse.json({
+        ...challenge,
+        challenger_level: fighterLevel(c?.total_battles_won ?? 0),
+        defender_level: fighterLevel(d?.total_battles_won ?? 0),
+        challenger_fighter: sanitizeFighter(c?.fighter, challenge.challenger_id),
+        defender_fighter: sanitizeFighter(d?.fighter, challenge.defender_id),
+      })
+    }
+
     return NextResponse.json(challenge)
 
   } catch (err: any) {
