@@ -344,7 +344,8 @@ export default function MapPage() {
         const res = await fetch(`/api/pvp/${sentChallenge.id}`)
         const data = await res.json()
 
-        if (data.status === 'completed') {
+        if (data.status === 'accepted' || data.status === 'completed') {
+          // Accepted = the defender armed the fight — go fight it live
           setSentChallenge(null)
           router.push(`/battle/pvp?id=${sentChallenge.id}`)
         } else if (['declined', 'expired', 'cancelled'].includes(data.status)) {
@@ -371,8 +372,8 @@ export default function MapPage() {
         body: JSON.stringify({ defender_id: player.profile_id }),
       })
       const data = await res.json()
-      if (res.ok && data.status === 'completed') {
-        // Bot defenders auto-accept — go straight to the battle replay
+      if (res.ok && (data.status === 'accepted' || data.status === 'completed')) {
+        // Bot defenders auto-accept — the fight is armed, go throw hands
         router.push(`/battle/pvp?id=${data.id}`)
       } else if (res.ok) {
         setSentChallenge({ id: data.id, opponentName: player.username })
@@ -409,7 +410,8 @@ export default function MapPage() {
       })
       const data = await res.json()
 
-      if (res.ok && data.status === 'completed') {
+      if (res.ok && (data.status === 'accepted' || data.status === 'completed')) {
+        // Accepting arms the fight — the challenger plays it; watch for the result
         router.push(`/battle/pvp?id=${challenge.id}`)
       } else {
         showPvpToast(`❌ ${data.error || 'Battle failed'}`)
