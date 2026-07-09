@@ -7,7 +7,8 @@ import { type FighterPose } from '@/components/FighterRig'
 import FighterSprite from '@/components/FighterSprite'
 import TownHallPhoto from '@/components/TownHallPhoto'
 import { defaultFighter, sanitizeFighter, type FighterDesign } from '@/lib/fighter'
-import { sfx } from '@/lib/juice'
+import { sfx, buzz } from '@/lib/juice'
+import { ITEMS, type ItemType } from '@/config/items'
 
 // Siege Mode: attacking a town hall is a battle scene, not a button. The
 // server's challenge API stays fully authoritative — this screen calls it
@@ -51,6 +52,8 @@ function SiegePage() {
   const [sparks, setSparks] = useState<{ id: number; x: number; y: number; text: string; color: string }[]>([])
   const [confetti, setConfetti] = useState<{ id: number; x: number; dx: number; dy: number; color: string; size: number }[]>([])
   const [result, setResult] = useState<{ captured: boolean; damage: number; remaining: number } | null>(null)
+  const [items, setItems] = useState<Record<string, number>>({})
+  const [itemBusy, setItemBusy] = useState(false)
   const idRef = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
@@ -71,6 +74,58 @@ function SiegePage() {
       })
       .catch(() => {})
   }, [gymId])
+
+  // Boost inventory — also claims the daily free firecracker
+  useEffect(() => {
+    fetch('/api/items')
+      .then(r => r.json())
+      .then(d => {
+        if (d.items) setItems(d.items)
+        if (d.free_granted) showToast('🎁 Daily free Firecracker added to your bag!')
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function useBoost(itemId: ItemType) {
+    if (!gym || itemBusy) return
+    const def = ITEMS.find(i => i.id === itemId)!
+    setItemBusy(true)
+    try {
+      if ((items[itemId] ?? 0) > 0) {
+        // Detonate it on the hall
+        if (!location) { showToast('📍 Still finding your location...'); return }
+        const res = await fetch(`/api/gyms/${gym.id}/boost`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item: itemId, latitude: location.lat, longitude: location.lng }),
+        })
+        const data = await res.json()
+        if (!res.ok) { showToast(`❌ ${data.message || data.error || 'Boost failed'}`); return }
+        setItems(prev => ({ ...prev, [itemId]: data.quantity_left }))
+        setDefense(data.defense_remaining)
+        setShaking(true)
+        setTimeout(() => setShaking(false), 260)
+        addSpark(`-${data.damage.toLocaleString()}`, '#fb923c')
+        sfx.siegeBlow()
+        buzz([60, 30, 60])
+        if (data.defense_remaining <= 1) showToast('💥 Defense shattered — finish it with an assault!')
+      } else {
+        // Buy one
+        const res = await fetch('/api/items/buy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item: itemId }),
+        })
+        const data = await res.json()
+        if (!res.ok) { showToast(`❌ ${data.error || 'Purchase failed'}`); return }
+        setItems(prev => ({ ...prev, [itemId]: data.quantity }))
+        refetch()
+        showToast(`${def.emoji} ${def.name} added — tap again to use it!`)
+      }
+    } catch { showToast('❌ Boost failed') }
+    finally { setItemBusy(false) }
+  }
 
   const myFighter: FighterDesign = sanitizeFighter(profile?.fighter, profile?.id ?? 'me')
   const guardFighter: FighterDesign = defaultFighter(`${gymId}guard`)
@@ -310,6 +365,34 @@ function SiegePage() {
       {/* ══ CONTROLS ══════════════════════════════════════════════════════ */}
       <div className="flex-1 px-4 py-4 overflow-y-auto">
         <div className="max-w-md mx-auto space-y-3">
+          {/* Battle boosts — CoC-style consumables; free firecracker daily */}
+          {!samePartyHall && (phase === 'ready' || (phase === 'result' && !result?.captured)) && (
+            <div>
+              <p className="text-gray-500 text-[10px] uppercase tracking-wider mb-1.5 text-center">💥 Battle Boosts — instant damage</p>
+              <div className="grid grid-cols-3 gap-2">
+                {ITEMS.map(it => {
+                  const qty = items[it.id] ?? 0
+                  return (
+                    <button key={it.id} onClick={() => useBoost(it.id)} disabled={itemBusy}
+                      className="bg-gray-900 border rounded-xl py-2 px-1 text-center transition active:scale-95 disabled:opacity-50"
+                      style={{ borderColor: qty > 0 ? '#f59e0b66' : '#1f2937' }}>
+                      <div className="text-2xl leading-none relative inline-block">
+                        {it.emoji}
+                        {qty > 0 && (
+                          <span className="absolute -top-1.5 -right-3 bg-amber-500 text-black text-[9px] font-black rounded-full px-1.5 py-0.5">{qty}</span>
+                        )}
+                      </div>
+                      <p className="text-white text-[10px] font-bold mt-1">{it.name}</p>
+                      <p className={`text-[9px] ${qty > 0 ? 'text-amber-400' : 'text-gray-500'}`}>
+                        {qty > 0 ? `💥 -${it.damage.toLocaleString()} def` : `Buy · ${it.price} FP`}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {phase === 'ready' && (
             <>
               {samePartyHall ? (
