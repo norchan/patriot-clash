@@ -50,7 +50,8 @@
       "Bash(node scripts/world_rebalance.mjs)",
       "mcp__claude_ai_Supabase__execute_sql",
       "mcp__claude_ai_Supabase__apply_migration",
-      "Bash(node scripts/build_hall.mjs)"
+      "Bash(node scripts/build_hall.mjs)",
+      "Bash(node scripts/expand_bots2.mjs)"
     ]
   }
 }

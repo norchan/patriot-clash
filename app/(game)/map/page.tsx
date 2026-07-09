@@ -93,6 +93,14 @@ export default function MapPage() {
   // Map state
   const [gyms, setGyms] = useState<Gym[]>([])
   const [spawnedEnemies, setSpawnedEnemies] = useState<SpawnedEnemy[]>([])
+  const [spawnTick, setSpawnTick] = useState(0)
+
+  // Re-evaluate spawns every 5 min: respawns come back and the 90-min
+  // rotation kicks in even if the player never moves
+  useEffect(() => {
+    const iv = setInterval(() => setSpawnTick(t => t + 1), 5 * 60_000)
+    return () => clearInterval(iv)
+  }, [])
   const [nearbyPlayers, setNearbyPlayers] = useState<NearbyPlayer[]>([])
   const [showPlayers, setShowPlayers] = useState(true)
   const [fpToast, setFpToast] = useState('')
@@ -148,10 +156,19 @@ export default function MapPage() {
     const z = m.getZoom()
     const showEnemies = z >= 11   // enemies: only at neighborhood zoom
     const showLabels = z >= 9     // gym labels + players: city zoom
-    enemyMarkersRef.current.forEach(mk => { mk.getElement().style.display = showEnemies ? '' : 'none' })
+    // Enemies shrink as you zoom out so they stay in scale with player dots
+    // (full size at z14+, down to ~40% at z11)
+    const scale = Math.max(0.4, Math.min(1, 0.4 + (z - 11) * 0.2))
+    enemyMarkersRef.current.forEach(mk => {
+      const el = mk.getElement()
+      el.style.display = showEnemies ? '' : 'none'
+      const inner = el.querySelector('.em-scale') as HTMLElement | null
+      if (inner) inner.style.transform = `scale(${scale})`
+    })
     gymMarkersRef.current.forEach(mk => { mk.getElement().style.display = showLabels ? '' : 'none' })
     otherPlayerMarkersRef.current.forEach(mk => { mk.getElement().style.display = showLabels ? '' : 'none' })
   }
+
 
   // Load player toggle preference
   useEffect(() => {
@@ -691,23 +708,45 @@ export default function MapPage() {
     // Opponents are always the OPPOSING party
     const opponentParty = profile.party === 'republican' ? 'democrat' : 'republican'
 
-    // 2 enemies near the player, seeded by grid cell so they don't teleport
-    // on every GPS jitter
-    for (let i = 0; i < 2; i++) {
-      const spawnId = `local_${i}`
+    // Spawns rotate every 90 minutes: the bucket is part of every seed, so
+    // enemies hold their positions long enough to walk to, then the whole
+    // board reshuffles into fresh random spots.
+    const bucket = Math.floor(Date.now() / 5_400_000)
+
+    // CLOSE RING: 3 enemies within ~0.2-0.9 mi — these are attackable now
+    // (or after a short walk). Seeded by grid cell so GPS jitter doesn't
+    // teleport them.
+    for (let i = 0; i < 3; i++) {
+      const spawnId = `local_${i}_${bucket}`
       if (!isAlive(spawnId)) continue
       const seed = `${spawnId}_${gridLat}_${gridLng}`
       const angle = seededRand(seed + 'a') * Math.PI * 2
-      const dist = 0.001 + seededRand(seed + 'd') * 0.002
+      const distMiles = 0.2 + seededRand(seed + 'd') * 0.7
       enemies.push({
         id: spawnId,
         enemy: getRandomEnemy(opponentParty),
-        lat: loc.lat + Math.sin(angle) * dist,
-        lng: loc.lng + Math.cos(angle) * dist,
+        lat: loc.lat + Math.sin(angle) * (distMiles / 69),
+        lng: loc.lng + Math.cos(angle) * (distMiles / (69 * Math.cos(loc.lat * Math.PI / 180))),
       })
     }
 
-    // 1-2 enemies seeded inside each NEARBY gym circle. Gyms come back from
+    // WALK-TO RING: 5 enemies scattered 1.2-4.5 mi out in random directions —
+    // visible on the map as targets worth walking toward
+    for (let i = 0; i < 5; i++) {
+      const spawnId = `ring_${i}_${bucket}`
+      if (!isAlive(spawnId)) continue
+      const seed = `${spawnId}_${gridLat}_${gridLng}`
+      const angle = seededRand(seed + 'a') * Math.PI * 2
+      const distMiles = 1.2 + seededRand(seed + 'd') * 3.3
+      enemies.push({
+        id: spawnId,
+        enemy: getRandomEnemy(opponentParty),
+        lat: loc.lat + Math.sin(angle) * (distMiles / 69),
+        lng: loc.lng + Math.cos(angle) * (distMiles / (69 * Math.cos(loc.lat * Math.PI / 180))),
+      })
+    }
+
+    // 2-4 enemies seeded inside each NEARBY gym circle. Gyms come back from
     // /api/gyms up to 100 miles out — only consider gyms whose zone could
     // put an enemy within the 5-mile visibility range.
     gyms
@@ -717,15 +756,15 @@ export default function MapPage() {
         return Number.isFinite(d) && d <= 5 + zr
       })
       .forEach(gym => {
-        const count = 1 + Math.floor(seededRand(gym.id + 'n') * 2)
+        const count = 2 + Math.floor(seededRand(gym.id + 'n' + bucket) * 3)
         for (let i = 0; i < count; i++) {
-          const spawnId = `gym_${gym.id}_${i}`
+          const spawnId = `gym_${gym.id}_${i}_${bucket}`
           if (!isAlive(spawnId)) continue
-          const seed = gym.id + i
+          const seed = gym.id + i + bucket
           const angle = seededRand(seed + 'a') * Math.PI * 2
           // Spawn inside this gym's own zone, whatever its radius
           const zoneRadius = gym.radius_miles || DEFAULT_RADIUS_MILES
-          const radiusMiles = 1 + seededRand(seed + 'r') * Math.max(1, zoneRadius - 2)
+          const radiusMiles = 0.5 + seededRand(seed + 'r') * Math.max(1, zoneRadius - 1)
           const radiusLat = radiusMiles / 69.0
           const radiusLng = radiusMiles / (69.0 * Math.cos(gym.latitude * Math.PI / 180))
           enemies.push({
@@ -742,7 +781,7 @@ export default function MapPage() {
 
     setSpawnedEnemies(visible)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridLat, gridLng, profile, gyms])
+  }, [gridLat, gridLng, profile, gyms, spawnTick])
 
   useEffect(() => {
     if (!map.current || spawnedEnemies.length === 0) return
@@ -753,14 +792,14 @@ export default function MapPage() {
         const s = document.createElement('style')
         s.id = 'enemy-marker-styles'
         s.textContent = `
+          .em-scale { transform-origin: top center; transition: transform 150ms ease-out; }
           .em-wrap { display:flex; flex-direction:column; align-items:center; cursor:pointer; position:relative; animation:emBob 2.6s ease-in-out infinite; }
-          .em-pulse { position:absolute; border-radius:50%; animation:emPulse 2s ease-out infinite; pointer-events:none; }
-          .em-pulse.legendary { border-radius:18px; }
-          .em-img  { border-radius:50%; overflow:hidden; position:relative; z-index:1; }
-          .em-img.legendary { border-radius:14px; }
-          .em-name { font-size:10px; font-weight:700; color:white; background:rgba(0,0,0,0.82); padding:2px 6px; border-radius:5px; margin-top:4px; white-space:nowrap; border:1px solid rgba(255,255,255,0.12); }
+          .em-pulse { position:absolute; border-radius:14px; transform:rotate(45deg); animation:emPulse 2s ease-out infinite; pointer-events:none; }
+          .em-img  { border-radius:12px; transform:rotate(45deg); overflow:hidden; position:relative; z-index:1; }
+          .em-img img { transform:rotate(-45deg) scale(1.42); }
+          .em-name { font-size:10px; font-weight:700; color:white; background:rgba(0,0,0,0.82); padding:2px 6px; border-radius:5px; margin-top:12px; white-space:nowrap; border:1px solid rgba(255,255,255,0.12); }
           .em-tier { font-size:8px; font-weight:800; padding:1px 4px; border-radius:3px; margin-top:1px; text-transform:uppercase; letter-spacing:.5px; }
-          @keyframes emPulse { 0%{transform:scale(1);opacity:.55} 70%{transform:scale(1.65);opacity:0} 100%{opacity:0} }
+          @keyframes emPulse { 0%{transform:rotate(45deg) scale(1);opacity:.55} 70%{transform:rotate(45deg) scale(1.55);opacity:0} 100%{opacity:0} }
           @keyframes emBob   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
         `
         document.head.appendChild(s)
@@ -775,24 +814,26 @@ export default function MapPage() {
 
         const el = document.createElement('div')
         el.innerHTML = `
-          <div class="em-wrap">
-            <div class="em-pulse ${isLeg ? 'legendary' : ''}"
-              style="width:${sz + pulseOff * 2}px;height:${sz + pulseOff * 2}px;
-                     top:-${pulseOff}px;left:-${pulseOff}px;
-                     border:2px solid ${tc}; background:${tc}18;">
-            </div>
-            <div class="em-img ${isLeg ? 'legendary' : ''}"
-              style="width:${sz}px;height:${sz}px;
-                     border:3px solid ${tc};
-                     background:radial-gradient(circle at 50% 32%, ${tc}30 0%, #101828 75%);
-                     box-shadow:0 0 14px ${tc}77, 0 4px 14px rgba(0,0,0,0.6);">
-              <img src="${spawn.enemy.image}"
-                style="width:100%;height:100%;object-fit:contain;padding:3px;" />
-            </div>
-            <div class="em-name">${spawn.enemy.name}</div>
-            <div class="em-tier"
-              style="background:${tc}22;color:${tc};border:1px solid ${tc}44;">
-              ${spawn.enemy.tier}
+          <div class="em-scale">
+            <div class="em-wrap">
+              <div class="em-pulse"
+                style="width:${sz + pulseOff * 2}px;height:${sz + pulseOff * 2}px;
+                       top:-${pulseOff}px;left:-${pulseOff}px;
+                       border:2px solid ${tc}; background:${tc}18;">
+              </div>
+              <div class="em-img"
+                style="width:${sz}px;height:${sz}px;
+                       border:3px solid ${tc};
+                       background:radial-gradient(circle at 50% 32%, ${tc}30 0%, #101828 75%);
+                       box-shadow:0 0 14px ${tc}77, 0 4px 14px rgba(0,0,0,0.6);">
+                <img src="${spawn.enemy.image}"
+                  style="width:100%;height:100%;object-fit:contain;padding:3px;" />
+              </div>
+              <div class="em-name">${spawn.enemy.name}</div>
+              <div class="em-tier"
+                style="background:${tc}22;color:${tc};border:1px solid ${tc}44;">
+                ${spawn.enemy.tier}
+              </div>
             </div>
           </div>
         `

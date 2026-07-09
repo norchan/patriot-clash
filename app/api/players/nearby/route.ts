@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
           .map(({ b }) => b)
 
       for (const hall of halls) {
-        const crew = [...pickForHall(repBots, hall.id, 4), ...pickForHall(demBots, hall.id, 4)]
+        const crew = [...pickForHall(repBots, hall.id, 12), ...pickForHall(demBots, hall.id, 12)]
         for (const bot of crew) {
           placed.add(bot.id)
           const angle = seededRand(`${bot.id}|${hall.id}|a`) * Math.PI * 2
