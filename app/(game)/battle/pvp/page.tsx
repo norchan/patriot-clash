@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
-import FighterRig, { type FighterPose } from '@/components/FighterRig'
+import { type FighterPose } from '@/components/FighterRig'
+import FighterSprite from '@/components/FighterSprite'
 import { defaultFighter, sanitizeFighter } from '@/lib/fighter'
 import type { FighterDesign } from '@/lib/fighter'
 import { sfx } from '@/lib/juice'
@@ -11,7 +12,7 @@ import { sfx } from '@/lib/juice'
 interface FightEvent {
   t: number
   attacker: 'c' | 'd'
-  move: 'jab' | 'cross' | 'hook' | 'uppercut' | 'kick'
+  move: 'jab' | 'cross' | 'hook' | 'kick' | 'jumpkick' | 'uppercut' | 'special'
   result: 'hit' | 'blocked' | 'dodged'
   dmg: number
   chp: number
@@ -51,9 +52,11 @@ interface ChatMessage { id: string; sender_id: string; content: string; created_
 
 const MOVE_LABELS: Record<string, string> = {
   jab: 'JAB', cross: 'CROSS', hook: 'HOOK', uppercut: 'UPPERCUT', kick: 'KICK',
+  jumpkick: 'JUMP KICK', special: '★ SPECIAL ★',
 }
 const MOVE_POSE: Record<string, FighterPose> = {
   jab: 'jab', cross: 'cross', hook: 'hook', uppercut: 'uppercut', kick: 'kick',
+  jumpkick: 'jumpkick', special: 'special',
 }
 
 function StreetFightPage() {
@@ -238,6 +241,14 @@ function StreetFightPage() {
         // defender reaction + damage
         const setDefPose = iAttack ? setFoePose : setMyPose
         const heavy = ev.move === 'hook' || ev.move === 'uppercut' || ev.move === 'kick'
+          || ev.move === 'jumpkick' || ev.move === 'special'
+        // Specials get the cinema treatment: flash frame + camera punch-in
+        if (ev.move === 'special') {
+          setKoFlash(true)
+          setZoom(true)
+          setTimeout(() => setKoFlash(false), 300)
+          setTimeout(() => setZoom(false), 900)
+        }
         if (ev.result === 'hit') {
           setDefPose('hit')
           reel(iAttack)
@@ -562,11 +573,11 @@ function StreetFightPage() {
 
         {/* ── FIGHTERS ── */}
         <div className="absolute z-10" style={{ left: '8%', bottom: '7%', filter: `drop-shadow(0 0 10px ${myColor}33)` }}>
-          <FighterRig design={myFighter} pose={myPose} facing="right" height={Math.min(300, 260)} attacking={myAttacking} reeling={myReeling} />
+          <FighterSprite design={myFighter} party={myParty === 'democrat' ? 'democrat' : 'republican'} pose={myPose} facing="right" height={Math.min(300, 260)} attacking={myAttacking} reeling={myReeling} />
           <div className="w-24 h-3 mx-auto -mt-1 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(0,0,0,0.55), transparent 70%)' }} />
         </div>
         <div className="absolute z-10" style={{ right: '8%', bottom: '7%', filter: `drop-shadow(0 0 10px ${theirColor}33)` }}>
-          <FighterRig design={foeFighter} pose={foePose} facing="left" height={Math.min(300, 260)} attacking={foeAttacking} reeling={foeReeling} />
+          <FighterSprite design={foeFighter} party={theirParty === 'democrat' ? 'democrat' : 'republican'} pose={foePose} facing="left" height={Math.min(300, 260)} attacking={foeAttacking} reeling={foeReeling} />
           <div className="w-24 h-3 mx-auto -mt-1 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(0,0,0,0.55), transparent 70%)' }} />
         </div>
 

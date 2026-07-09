@@ -44,7 +44,9 @@
       "Bash(curl -so siege_a.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260709_015422_00bc2060-f125-43d3-ad3f-44e06564a3f3.png\")",
       "Bash(curl -so siege_b.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260709_015422_634f4942-da71-4164-a26d-c70df6ce0827.png\")",
       "Bash(wait)",
-      "Bash(curl -so icon_a.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260709_021051_971a319f-f8e3-46c0-8fc2-4f360cace0f9.png\")"
+      "Bash(curl -so icon_a.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260709_021051_971a319f-f8e3-46c0-8fc2-4f360cace0f9.png\")",
+      "Bash(node scripts/political_avatars.mjs)",
+      "Bash(node scripts/build_sprites.mjs)"
     ]
   }
 }

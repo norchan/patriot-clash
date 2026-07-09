@@ -9,7 +9,7 @@ import type { FighterDesign } from '@/lib/fighter'
 // full timeline of punches, kicks and combos; the client replays it with the
 // fighter rigs.
 
-export type Move = 'jab' | 'cross' | 'hook' | 'uppercut' | 'kick'
+export type Move = 'jab' | 'cross' | 'hook' | 'kick' | 'jumpkick' | 'uppercut' | 'special'
 
 export interface FightEvent {
   t: number                     // seconds into the round
@@ -36,13 +36,29 @@ export interface FightLog {
   dFighter: FighterDesign
 }
 
-const MOVES: { move: Move; mult: number; minLevel: number }[] = [
-  { move: 'jab',      mult: 0.7,  minLevel: 1 },
-  { move: 'cross',    mult: 1.0,  minLevel: 1 },
-  { move: 'hook',     mult: 1.25, minLevel: 1 },
-  { move: 'kick',     mult: 1.5,  minLevel: 2 },
-  { move: 'uppercut', mult: 1.8,  minLevel: 10 },
+// Move ladder — every few levels unlocks a bigger move. `w` is the pick
+// weight during normal exchanges (light moves are thrown far more often,
+// exactly like a real fight).
+export const MOVES: { move: Move; label: string; mult: number; minLevel: number; w: number }[] = [
+  { move: 'jab',      label: 'Jab',          mult: 0.60, minLevel: 1,  w: 3.0 },
+  { move: 'cross',    label: 'Cross',        mult: 0.85, minLevel: 1,  w: 2.6 },
+  { move: 'hook',     label: 'Hook',         mult: 1.05, minLevel: 2,  w: 2.0 },
+  { move: 'kick',     label: 'Kick',         mult: 1.25, minLevel: 4,  w: 1.8 },
+  { move: 'jumpkick', label: 'Jump Kick',    mult: 1.50, minLevel: 7,  w: 1.1 },
+  { move: 'uppercut', label: 'Uppercut',     mult: 1.65, minLevel: 9,  w: 0.9 },
+  { move: 'special',  label: 'SPECIAL',      mult: 2.10, minLevel: 12, w: 0.5 },
 ]
+
+export function movesForLevel(level: number) {
+  return MOVES.filter(m => m.minLevel <= level)
+}
+
+function weightedPick<T extends { w: number }>(pool: T[]): T {
+  const total = pool.reduce((s, m) => s + m.w, 0)
+  let r = Math.random() * total
+  for (const m of pool) { r -= m.w; if (r <= 0) return m }
+  return pool[pool.length - 1]
+}
 
 export function simulateStreetFight(
   cLevel: number, dLevel: number,
@@ -58,20 +74,24 @@ export function simulateStreetFight(
   let endT = 30
 
   while (t < 28 && chp > 0 && dhp > 0) {
-    // Who attacks: weighted by stamina
+    // Who attacks: weighted by stamina (higher level presses more often,
+    // but the underdog still gets real turns)
     const cTurn = Math.random() < cs.stamina / (cs.stamina + ds.stamina)
     const atk = cTurn ? cs : ds
     const def = cTurn ? ds : cs
 
-    // Combo length: mostly short, capped by level unlocks
-    const comboLen = 1 + Math.floor(Math.random() * atk.comboMax)
-    const pool = MOVES.filter(m => m.minLevel <= atk.level)
+    // Most exchanges are single strikes; combos are the exception that
+    // makes the crowd pop, capped by the attacker's combo unlock
+    const comboLen = Math.random() < 0.4
+      ? 1 + Math.floor(Math.random() * atk.comboMax)
+      : 1
+    const pool = movesForLevel(atk.level)
 
     for (let i = 0; i < comboLen; i++) {
-      // Later combo hits favor bigger moves — finish with the heavy stuff
+      // Combo finishers favor the two heaviest unlocked moves
       const m = i === comboLen - 1 && comboLen > 1
         ? pool[pool.length - 1 - Math.floor(Math.random() * Math.min(2, pool.length))]
-        : pool[Math.floor(Math.random() * pool.length)]
+        : weightedPick(pool)
 
       const roll = Math.random()
       // Mid-combo hits are harder to defend
@@ -82,8 +102,12 @@ export function simulateStreetFight(
 
       let dmg = 0
       if (result !== 'dodged') {
-        dmg = Math.max(1, Math.floor(atk.strength * m.mult * (0.8 + Math.random() * 0.4)))
-        if (result === 'blocked') dmg = Math.floor(dmg * 0.25)
+        // Damage is tuned so a KO takes ~8-14 clean hits: fights fill most
+        // of the 30-second round instead of ending on one combo
+        const base = 3.5 + atk.strength * 0.33
+        const falloff = Math.pow(0.8, i) // later combo hits land softer
+        dmg = Math.max(1, Math.round(base * m.mult * falloff * (0.85 + Math.random() * 0.3)))
+        if (result === 'blocked') dmg = Math.max(1, Math.floor(dmg * 0.25))
       }
 
       if (cTurn) dhp = Math.max(0, dhp - dmg)
@@ -100,7 +124,7 @@ export function simulateStreetFight(
         comboLen,
       })
 
-      t += 0.32
+      t += 0.45
       if (chp === 0 || dhp === 0) break
     }
 
@@ -111,8 +135,7 @@ export function simulateStreetFight(
     }
 
     // Breather between exchanges — fitter fighters press faster
-    const tempo = 2.6 - Math.min(1.4, (atk.stamina + def.stamina) / 30)
-    t += tempo * (0.7 + Math.random() * 0.6)
+    t += 1.0 + Math.random() * 1.0
   }
 
   const winner: 'c' | 'd' = chp === dhp ? 'c' : chp > dhp ? 'c' : 'd'

@@ -9,6 +9,10 @@ export type TopStyle = 'tee' | 'tank' | 'hoodie'
 export type FacialHair = 'none' | 'mustache' | 'beard' | 'goatee'
 export type Eyewear = 'none' | 'glasses' | 'shades'
 export type Hat = 'none' | 'cap' | 'beanie' | 'cowboy'
+// Painted sprite characters (public/sprites). Party decides the outfit
+// color at render time; toneShift moves skin tone one shade either way.
+export type Archetype = 'brawler' | 'master' | 'champ' | 'striker' | 'guardian' | 'rebel'
+export type ToneShift = -1 | 0 | 1
 
 export interface FighterDesign {
   gender: Gender
@@ -22,6 +26,8 @@ export interface FighterDesign {
   facialHair: FacialHair
   eyewear: Eyewear
   hat: Hat
+  archetype: Archetype
+  toneShift: ToneShift
 }
 
 export const GENDERS: Gender[] = ['male', 'female', 'trans']
@@ -31,6 +37,21 @@ export const TOP_STYLES: TopStyle[] = ['tee', 'tank', 'hoodie']
 export const FACIAL_HAIRS: FacialHair[] = ['none', 'mustache', 'beard', 'goatee']
 export const EYEWEARS: Eyewear[] = ['none', 'glasses', 'shades']
 export const HATS: Hat[] = ['none', 'cap', 'beanie', 'cowboy']
+export const ARCHETYPES: Archetype[] = ['brawler', 'master', 'champ', 'striker', 'guardian', 'rebel']
+export const ARCHETYPE_LABELS: Record<Archetype, string> = {
+  brawler: 'The Brawler',
+  master: 'The Master',
+  champ: 'The Champ',
+  striker: 'The Striker',
+  guardian: 'The Guardian',
+  rebel: 'The Rebel',
+}
+// Default character per gender — new players start on these
+export const DEFAULT_ARCHETYPE: Record<Gender, Archetype> = {
+  male: 'brawler',
+  female: 'striker',
+  trans: 'rebel',
+}
 
 export const SKIN_TONES = ['#f6d7bd', '#eab88e', '#d19a6b', '#a9714b', '#7c4f33', '#53331f']
 export const HAIR_COLORS = ['#1c1c1c', '#4a2f1b', '#8a5a2b', '#c99e57', '#b8b8b8', '#d9488b', '#3f7ad6', '#4caf50']
@@ -59,6 +80,8 @@ export function defaultFighter(seed: string): FighterDesign {
     facialHair: pick(['none', 'none', 'none', 'mustache', 'beard', 'goatee'] as FacialHair[], seed + 'fh'),
     eyewear: pick(['none', 'none', 'none', 'none', 'glasses', 'shades'] as Eyewear[], seed + 'ew'),
     hat: pick(['none', 'none', 'none', 'none', 'cap', 'beanie', 'cowboy'] as Hat[], seed + 'ht'),
+    archetype: pick(ARCHETYPES, seed + 'ar'),
+    toneShift: pick([-1, 0, 0, 0, 1] as ToneShift[], seed + 'ts'),
   }
 }
 
@@ -80,6 +103,12 @@ export function sanitizeFighter(raw: any, seed: string): FighterDesign {
     facialHair: FACIAL_HAIRS.includes(raw.facialHair) ? raw.facialHair : 'none',
     eyewear: EYEWEARS.includes(raw.eyewear) ? raw.eyewear : 'none',
     hat: HATS.includes(raw.hat) ? raw.hat : 'none',
+    // Designs saved before the sprite roster default to their gender's
+    // starter character with unshifted skin tone
+    archetype: ARCHETYPES.includes(raw.archetype)
+      ? raw.archetype
+      : DEFAULT_ARCHETYPE[(GENDERS.includes(raw.gender) ? raw.gender : d.gender) as Gender],
+    toneShift: raw.toneShift === -1 || raw.toneShift === 1 ? raw.toneShift : 0,
   }
 }
 

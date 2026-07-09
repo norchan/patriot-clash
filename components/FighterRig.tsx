@@ -7,6 +7,7 @@ import type { FighterDesign } from '@/lib/fighter'
 
 export type FighterPose =
   | 'idle' | 'jab' | 'cross' | 'hook' | 'uppercut' | 'kick'
+  | 'jumpkick' | 'special'
   | 'block' | 'hit' | 'dodge' | 'ko' | 'victory'
 
 interface Joints {
@@ -28,6 +29,8 @@ const POSES: Record<FighterPose, Joints> = {
   hook:    { torso: 16, headY: 0, luA: 105, llA: -74, ruA: 42, rlA: -118, luL: 20, llL: -8, ruL: -20, rlL: 16, lift: 0 },
   uppercut:{ torso: 6,  headY: 0, luA: 38, llA: -155, ruA: 36, rlA: -112, luL: 24, llL: -14, ruL: -18, rlL: 14, lift: -6 },
   kick:    { torso: -18, headY: 0, luA: 66, llA: -88, ruA: 24, rlA: -78,  luL: 88, llL: -12, ruL: -22, rlL: 28, lift: -2 },
+  jumpkick:{ torso: -24, headY: 0, luA: 70, llA: -92, ruA: 20, rlA: -70,  luL: 96, llL: -8,  ruL: -30, rlL: 40, lift: -18 },
+  special: { torso: 8,   headY: -1, luA: 30, llA: -160, ruA: 40, rlA: -110, luL: 26, llL: -12, ruL: -20, rlL: 16, lift: -8 },
   block:   { torso: -2, headY: 3, luA: 122, llA: -142, ruA: 112, rlA: -152, luL: 12, llL: -10, ruL: -14, rlL: 14, lift: 4 },
   hit:     { torso: -24, headY: 4, luA: 34, llA: -66, ruA: 18, rlA: -54,  luL: 8,  llL: -18, ruL: -12, rlL: 24, lift: 4 },
   dodge:   { torso: -30, headY: 5, luA: 56, llA: -108, ruA: 34, rlA: -118, luL: 4, llL: -24, ruL: -8,  rlL: 32, lift: 7 },
@@ -46,6 +49,7 @@ type ExpKind = 'neutral' | 'angry' | 'pain' | 'happy' | 'out'
 const POSE_EXP: Record<FighterPose, ExpKind> = {
   idle: 'neutral', block: 'neutral', dodge: 'neutral',
   jab: 'angry', cross: 'angry', hook: 'angry', uppercut: 'angry', kick: 'angry',
+  jumpkick: 'angry', special: 'angry',
   hit: 'pain', ko: 'out', victory: 'happy',
 }
 

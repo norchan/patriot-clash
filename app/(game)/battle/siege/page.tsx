@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
-import FighterRig, { type FighterPose } from '@/components/FighterRig'
+import { type FighterPose } from '@/components/FighterRig'
+import FighterSprite from '@/components/FighterSprite'
 import TownHall from '@/components/TownHall'
 import { defaultFighter, sanitizeFighter, type FighterDesign } from '@/lib/fighter'
 import { sfx } from '@/lib/juice'
@@ -23,7 +24,7 @@ interface SiegeGym {
   radius_miles: number
 }
 
-const ATTACK_POSES: FighterPose[] = ['cross', 'hook', 'kick', 'hook', 'uppercut']
+const ATTACK_POSES: FighterPose[] = ['cross', 'kick', 'jumpkick', 'hook', 'special']
 
 function SiegePage() {
   const router = useRouter()
@@ -305,13 +306,13 @@ function SiegePage() {
         {/* garrison defender */}
         {guardVisible && (
           <div className="absolute z-10 transition-all duration-500" style={{ left: '42%', bottom: '8%' }}>
-            <FighterRig design={guardFighter} pose={guardPose} facing="left" height={200} />
+            <FighterSprite design={guardFighter} party={gym.holder_party ?? (profile.party === 'democrat' ? 'republican' : 'democrat')} pose={guardPose} facing="left" height={200} />
           </div>
         )}
 
         {/* my fighter (left) */}
         <div className="absolute z-10" style={{ left: '6%', bottom: '8%', filter: `drop-shadow(0 0 10px ${myColor}33)` }}>
-          <FighterRig design={myFighter} pose={myPose} facing="right" height={230} attacking={attacking} />
+          <FighterSprite design={myFighter} party={profile.party === 'democrat' ? 'democrat' : 'republican'} pose={myPose} facing="right" height={230} attacking={attacking} />
           <div className="w-24 h-3 mx-auto -mt-1 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(0,0,0,0.55), transparent 70%)' }} />
         </div>
 
