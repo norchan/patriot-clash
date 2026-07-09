@@ -5,7 +5,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
 import { type FighterPose } from '@/components/FighterRig'
 import FighterSprite from '@/components/FighterSprite'
-import TownHall from '@/components/TownHall'
+import TownHallPhoto from '@/components/TownHallPhoto'
 import { defaultFighter, sanitizeFighter, type FighterDesign } from '@/lib/fighter'
 import { sfx } from '@/lib/juice'
 
@@ -288,8 +288,8 @@ function SiegePage() {
         ))}
 
         {/* town hall (right) */}
-        <div className="absolute z-10" style={{ right: '2%', bottom: '9%' }}>
-          <TownHall flagParty={flagParty} damagePct={damagePct} shaking={shaking} height={Math.min(250, 230)} />
+        <div className="absolute z-10" style={{ right: '1%', bottom: '8%' }}>
+          <TownHallPhoto flagParty={flagParty} damagePct={damagePct} shaking={shaking} height={280} />
         </div>
 
         {/* garrison defender */}
