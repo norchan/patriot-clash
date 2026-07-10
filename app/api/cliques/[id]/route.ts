@@ -15,7 +15,7 @@ export async function GET(
 
     const { data: clique } = await admin
       .from('cliques')
-      .select('id, name, party, gym_id, creator_id, created_at')
+      .select('id, name, party, gym_id, creator_id, created_at, join_policy, banner_url')
       .eq('id', id)
       .single()
 

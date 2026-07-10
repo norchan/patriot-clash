@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
     let query = admin
       .from('cliques')
-      .select('id, name, party, gym_id, creator_id, created_at')
+      .select('id, name, party, gym_id, creator_id, created_at, join_policy, banner_url')
       .order('created_at', { ascending: false })
       .limit(50)
 

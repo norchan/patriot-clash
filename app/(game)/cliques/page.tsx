@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 
 interface Clique {
@@ -8,6 +9,7 @@ interface Clique {
   party: 'democrat' | 'republican'
   gym_id: string | null
   member_count: number
+  join_policy?: 'open' | 'request'
 }
 
 interface Member {
@@ -30,6 +32,7 @@ interface GymHit {
 }
 
 export default function CliquesPage() {
+  const router = useRouter()
   const { profile, loading: profileLoading, refetch } = useProfile()
   const [cliques, setCliques] = useState<Clique[]>([])
   const [myCliqueId, setMyCliqueId] = useState<string | null>(null)
@@ -121,13 +124,21 @@ export default function CliquesPage() {
       const res = await fetch(`/api/cliques/${c.id}/join`, { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
-        showToastMsg(`📨 Request sent to ${c.name} — waiting for approval`)
-        setMyPendingId(c.id)
-        await Promise.all([loadCliques(), refetch()])
+        if (data.status === 'member') {
+          // Open clique — you're straight in
+          showToastMsg(`🎉 Joined ${c.name}!`)
+          setMyCliqueId(c.id)
+          await Promise.all([loadCliques(), refetch()])
+          router.push(`/cliques/${c.id}`)
+        } else {
+          showToastMsg(`📨 Request sent to ${c.name} — waiting for approval`)
+          setMyPendingId(c.id)
+          await Promise.all([loadCliques(), refetch()])
+        }
       } else {
-        showToastMsg(`❌ ${data.error || 'Could not request'}`)
+        showToastMsg(`❌ ${data.error || 'Could not join'}`)
       }
-    } catch { showToastMsg('❌ Could not request') }
+    } catch { showToastMsg('❌ Could not join') }
     setBusy(false)
   }
 
@@ -198,8 +209,11 @@ export default function CliquesPage() {
               Leave
             </button>
           </div>
-          <h2 className="text-white font-bold text-lg">{myClique?.name ?? '...'}</h2>
-          <p className="text-gray-500 text-xs mb-3">{myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''}</p>
+          <button onClick={() => router.push(`/cliques/${myCliqueId}`)} className="text-left w-full">
+            <h2 className="text-white font-bold text-lg">{myClique?.name ?? '...'}</h2>
+            <p className="text-gray-500 text-xs mb-1">{myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''}</p>
+            <p className="text-xs font-bold mb-3" style={{ color: partyColor }}>💬 Open clique feed →</p>
+          </button>
 
           {/* pending join requests (creator only) */}
           {isCreator && pendingRequests.length > 0 && (
@@ -326,10 +340,13 @@ export default function CliquesPage() {
                   style={{ background: `${partyColor}22`, border: `1px solid ${partyColor}44` }}>
                   ✊
                 </div>
-                <div className="flex-1 min-w-0">
+                <button onClick={() => router.push(`/cliques/${c.id}`)} className="flex-1 min-w-0 text-left">
                   <p className="text-white text-sm font-bold truncate">{c.name}</p>
-                  <p className="text-gray-500 text-xs">{c.member_count} member{c.member_count !== 1 ? 's' : ''}</p>
-                </div>
+                  <p className="text-gray-500 text-xs">
+                    {c.member_count} member{c.member_count !== 1 ? 's' : ''}
+                    {c.join_policy === 'open' ? ' · 🚪 Open' : ' · 🔒 Request'}
+                  </p>
+                </button>
                 {c.id === myCliqueId ? (
                   <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ color: partyColor, background: `${partyColor}1a` }}>
                     Joined
@@ -339,10 +356,10 @@ export default function CliquesPage() {
                     Requested ⏳
                   </span>
                 ) : (
-                  <button onClick={() => joinClique(c)} disabled={busy}
+                  <button onClick={() => joinClique(c)} disabled={busy || !!myCliqueId}
                     className="text-xs font-bold px-3 py-1.5 rounded-lg text-white transition active:scale-95 disabled:opacity-50"
                     style={{ background: partyColor }}>
-                    Request
+                    {c.join_policy === 'open' ? 'Join' : 'Request'}
                   </button>
                 )}
               </div>
