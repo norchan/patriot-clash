@@ -20,6 +20,32 @@ export async function PATCH(req: NextRequest) {
       updates.fighter = sanitizeFighter(body.fighter, profile.id)
     }
 
+    if ('username' in body) {
+      const name = String(body.username ?? '').trim()
+      if (name.length < 3 || name.length > 20) {
+        return NextResponse.json({ error: 'Name must be 3-20 characters' }, { status: 400 })
+      }
+      if (!/^[A-Za-z0-9_.-]+$/.test(name)) {
+        return NextResponse.json({ error: 'Letters, numbers, dots, dashes and underscores only' }, { status: 400 })
+      }
+      if (name.toLowerCase().startsWith('bot_')) {
+        return NextResponse.json({ error: 'That name is reserved' }, { status: 400 })
+      }
+      if (name !== profile.username) {
+        // Case-insensitive pre-check; the UNIQUE index is the real guard
+        const { data: taken } = await admin
+          .from('profiles')
+          .select('id')
+          .ilike('username', name)
+          .neq('id', profile.id)
+          .maybeSingle()
+        if (taken) {
+          return NextResponse.json({ error: 'That name is already taken' }, { status: 409 })
+        }
+      }
+      updates.username = name
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
@@ -29,7 +55,20 @@ export async function PATCH(req: NextRequest) {
       .update(updates)
       .eq('id', profile.id)
 
-    if (error) throw error
+    if (error) {
+      // 23505 = unique violation: someone claimed the name in between
+      if ((error as any).code === '23505') {
+        return NextResponse.json({ error: 'That name was just taken' }, { status: 409 })
+      }
+      throw error
+    }
+
+    // The map reads usernames from a denormalized copy — keep it in sync
+    if (updates.username) {
+      await admin.from('player_locations')
+        .update({ username: updates.username })
+        .eq('profile_id', profile.id)
+    }
 
     return NextResponse.json({ success: true, updated: updates })
 

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
-import { LogOut, Zap, Footprints, Swords, Flag, Camera } from 'lucide-react'
+import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X } from 'lucide-react'
 
 interface BattleRecord {
   id: string
@@ -83,6 +83,10 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [cliqueName, setCliqueName] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [nameError, setNameError] = useState('')
   const [posts, setPosts] = useState<Post[]>([])
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
@@ -101,6 +105,26 @@ export default function ProfilePage() {
       .then(d => setCliqueName(d.clique?.name ?? null))
       .catch(() => {})
   }, [profile?.clique_id])
+
+  async function saveName() {
+    const name = nameDraft.trim()
+    if (savingName) return
+    if (name === profile?.username) { setEditingName(false); return }
+    setSavingName(true)
+    setNameError('')
+    try {
+      const res = await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: name }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setNameError(data.error || 'Could not save name'); return }
+      await refetch()
+      setEditingName(false)
+    } catch { setNameError('Could not save name') }
+    finally { setSavingName(false) }
+  }
 
   async function uploadPhoto(file: File) {
     setUploading(true)
@@ -228,8 +252,40 @@ export default function ProfilePage() {
               <Camera size={12} className="text-gray-300" />
             </div>
           </div>
-          <div className="flex-1">
-            <h1 className="text-white font-bold text-xl">{profile?.username}</h1>
+          <div className="flex-1 min-w-0">
+            {editingName ? (
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={nameDraft}
+                    onChange={e => { setNameDraft(e.target.value); setNameError('') }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveName()
+                      if (e.key === 'Escape') { setEditingName(false); setNameError('') }
+                    }}
+                    maxLength={20}
+                    className="bg-gray-800 text-white font-bold text-lg rounded-lg px-2 py-1 w-full min-w-0 outline-none border border-gray-700 focus:border-gray-500"
+                  />
+                  <button onClick={saveName} disabled={savingName}
+                    className="p-1.5 rounded-lg bg-green-600 text-white disabled:opacity-50 flex-shrink-0">
+                    <Check size={14} />
+                  </button>
+                  <button onClick={() => { setEditingName(false); setNameError('') }}
+                    className="p-1.5 rounded-lg bg-gray-700 text-gray-300 flex-shrink-0">
+                    <X size={14} />
+                  </button>
+                </div>
+                {nameError && <p className="text-red-400 text-xs mt-1">{nameError}</p>}
+              </div>
+            ) : (
+              <button
+                onClick={() => { setNameDraft(profile?.username ?? ''); setEditingName(true) }}
+                className="flex items-center gap-2 group">
+                <h1 className="text-white font-bold text-xl truncate">{profile?.username}</h1>
+                <Pencil size={13} className="text-gray-500 group-hover:text-gray-300 flex-shrink-0" />
+              </button>
+            )}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                 style={{ background: `${partyColor}33`, color: partyColor }}>
