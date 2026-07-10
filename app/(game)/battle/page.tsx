@@ -97,6 +97,7 @@ function BattleContent() {
   const touchRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null)
   const holdFiredRef = useRef(false)
+  const lastTouchRef = useRef(0)
   const dmgCounter = useRef(0)
   const startTime = useRef(Date.now())
 
@@ -215,11 +216,27 @@ function BattleContent() {
     const atk = ATTACKS[gesture]
     const fp = profile.fp_balance - fpSpent
     if (fp < atk.fp) {
-      setDialogLine(`Need ${atk.fp} FP for ${atk.name}!`)
+      // Never leave the player stuck: fall back to the free basic attack
+      // instead of refusing to act
+      setDialogLine(`⚡ Not enough FP for ${atk.name} — threw a Quick Strike instead`)
+      if (gesture !== 'tap') { handleAttack('tap'); return }
       return
     }
 
     setIsAnimating(true)
+    try {
+      await runAttack(gesture, atk)
+    } catch (err) {
+      // A failed API call must never freeze the fight
+      console.error('attack failed:', err)
+      setDialogLine('⚠️ Connection hiccup — try again')
+    } finally {
+      setIsAnimating(false)
+    }
+  }
+
+  async function runAttack(gesture: GestureType, atk: typeof ATTACKS[GestureType]) {
+    if (!enemy || !profile) return
     setLastMove({ name: atk.name, type: atk.type })
     setFpSpent(p => p + atk.fp)
 
@@ -273,7 +290,6 @@ function BattleContent() {
         }
         setPhase('victory')
         sfx.victory()
-        setIsAnimating(false)
         return
       }
 
@@ -323,8 +339,6 @@ function BattleContent() {
       setPhase('defeat')
       sfx.defeat()
     }
-
-    setIsAnimating(false)
   }
 
   // ── Touch gestures ────────────────────────────────────────────────────────
@@ -349,13 +363,16 @@ function BattleContent() {
     const dx = t.clientX - touchRef.current.x
     const dy = t.clientY - touchRef.current.y
     const dist = Math.sqrt(dx * dx + dy * dy)
-    const ms = Date.now() - touchRef.current.time
     touchRef.current = null
-    if (dist < 18 && ms < 300) {
+    lastTouchRef.current = Date.now()
+    // Any short touch that didn't become a hold is a punch — the old
+    // 300ms window left a dead zone where a slightly slow tap did nothing
+    if (dist < 24) {
       handleAttack('tap')
-    } else if (dist > 40) {
-      if (dy < -35 && Math.abs(dy) > Math.abs(dx)) handleAttack('swipe-up')
-      else if (dx > 40 && Math.abs(dx) > Math.abs(dy)) handleAttack('swipe-right')
+    } else if (dy < -35 && Math.abs(dy) > Math.abs(dx)) {
+      handleAttack('swipe-up')
+    } else if (Math.abs(dx) > 40) {
+      handleAttack('swipe-right')
     }
   }
 
@@ -477,7 +494,12 @@ function BattleContent() {
       }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
-      onClick={() => phase === 'fighting' && !isAnimating && handleAttack('tap')}
+      onClick={() => {
+        // Mobile fires a synthetic click after touchend — ignore it so a
+        // single tap doesn't punch twice
+        if (Date.now() - lastTouchRef.current < 700) return
+        if (phase === 'fighting' && !isAnimating) handleAttack('tap')
+      }}
     >
       <div className="battle-wipe" />
 

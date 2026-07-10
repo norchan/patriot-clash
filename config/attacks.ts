@@ -14,11 +14,13 @@ export interface PlayerAttack {
   type: string
 }
 
+// Basic punches and blocking are FREE — a player must never be unable to
+// fight. FP buys the heavy hitters.
 export const ATTACKS: Record<GestureType, PlayerAttack> = {
-  tap:           { name: 'Quick Strike', emoji: '👊', damage: 20, fp: 8,  color: '#f59e0b', hint: 'TAP',     type: 'Normal'   },
-  'swipe-right': { name: 'Power Slam',   emoji: '💥', damage: 38, fp: 15, color: '#ef4444', hint: '→ SWIPE', type: 'Fire'     },
-  'swipe-up':    { name: 'Surge Strike', emoji: '⚡', damage: 60, fp: 25, color: '#8b5cf6', hint: '↑ SWIPE', type: 'Electric' },
-  hold:          { name: 'Shield Block', emoji: '🛡️', damage:  0, fp: 5,  color: '#3b82f6', hint: 'HOLD',    type: 'Guard'    },
+  tap:           { name: 'Quick Strike', emoji: '👊', damage: 20, fp: 0,  color: '#f59e0b', hint: 'TAP',     type: 'Normal'   },
+  'swipe-right': { name: 'Power Slam',   emoji: '💥', damage: 38, fp: 10, color: '#ef4444', hint: '→ SWIPE', type: 'Fire'     },
+  'swipe-up':    { name: 'Surge Strike', emoji: '⚡', damage: 60, fp: 20, color: '#8b5cf6', hint: '↑ SWIPE', type: 'Electric' },
+  hold:          { name: 'Shield Block', emoji: '🛡️', damage:  0, fp: 0,  color: '#3b82f6', hint: 'HOLD',    type: 'Guard'    },
 }
 
 export const ATTACK_BY_NAME: Record<string, PlayerAttack> = Object.fromEntries(

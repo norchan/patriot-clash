@@ -54,7 +54,7 @@ export async function createProfileForUser(clerkUserId: string, email: string, u
       clerk_user_id: clerkUserId,
       username: username || email.split('@')[0],
       party: 'democrat', // default, changed during onboarding
-      fp_balance: 50,    // starter FP gift
+      fp_balance: 500,   // starter FP gift — enough to capture and explore
     })
     .select()
     .single()

@@ -45,3 +45,6 @@ next-env.d.ts
 /patriot-clash-backend/
 /patriot-clash-backend.zip
 .claude/settings.local.json
+
+.vercel
+.env*

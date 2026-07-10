@@ -51,7 +51,21 @@
       "mcp__claude_ai_Supabase__execute_sql",
       "mcp__claude_ai_Supabase__apply_migration",
       "Bash(node scripts/build_hall.mjs)",
-      "Bash(node scripts/expand_bots2.mjs)"
+      "Bash(node scripts/expand_bots2.mjs)",
+      "Bash(npx vercel *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} \\(%{time_total}s\\)\" https://patriot-clash.vercel.app)",
+      "Bash(curl -s -o /dev/null -w \"browser-like /map: HTTP %{http_code} -> %{redirect_url}\\\\n\" -H \"Accept: text/html\" -H \"Sec-Fetch-Dest: document\" -H \"User-Agent: Mozilla/5.0\" \"https://patriot-clash.vercel.app/map\")",
+      "Bash(nslookup -type=NS politicsgo.app 8.8.8.8)",
+      "Bash(curl -s -o /dev/null -w \"https://politicsgo.app -> HTTP %{http_code}\\\\n\" --max-time 8 https://politicsgo.app)",
+      "Bash(curl -s -o /dev/null -w \"politicsgo.app -> HTTP %{http_code}\\\\n\" --max-time 8 -H \"Accept: text/html\" https://politicsgo.app)",
+      "Bash(xargs -I{} echo \"vercel nameservers visible: {}/2\")",
+      "Bash(curl -s -o /dev/null -w \"https://politicsgo.app -> HTTP %{http_code}\\\\n\" --max-time 8 -H \"Accept: text/html\" -H \"Sec-Fetch-Dest: document\" -H \"User-Agent: Mozilla/5.0\" https://politicsgo.app)",
+      "Bash(nslookup politicsgo.app 8.8.8.8)",
+      "Bash(curl -sv --max-time 10 -o /dev/null https://politicsgo.app)",
+      "Bash(curl -s -o /dev/null -w \"http://politicsgo.app -> %{http_code} redirect: %{redirect_url}\\\\n\" --max-time 10 http://politicsgo.app)",
+      "Bash(nslookup www.politicsgo.app 8.8.8.8)",
+      "Bash(curl -s -o /dev/null -w \"https://politicsgo.app -> HTTP %{http_code} -> %{redirect_url}\\\\n\" --max-time 15 -H \"Accept: text/html\" -H \"Sec-Fetch-Dest: document\" -H \"User-Agent: Mozilla/5.0\" https://politicsgo.app)",
+      "Bash(curl -s -o /dev/null -w \"sign-in page   -> HTTP %{http_code}\\\\n\" --max-time 15 -H \"Accept: text/html\" -H \"User-Agent: Mozilla/5.0\" https://politicsgo.app/sign-in)"
     ]
   }
 }
