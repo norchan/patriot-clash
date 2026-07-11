@@ -103,6 +103,7 @@ export default function ProfilePage() {
   const [posting, setPosting] = useState(false)
   const [sharedPost, setSharedPost] = useState('')
   const [showStats, setShowStats] = useState(false)
+  const [showPhotos, setShowPhotos] = useState(false)
   const [showRecent, setShowRecent] = useState(false)
   const [unreadNotifs, setUnreadNotifs] = useState(0)
 
@@ -309,17 +310,17 @@ export default function ProfilePage() {
             <button onClick={() => fileRef.current?.click()} disabled={uploading} className="block">
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="Profile"
-                  className="w-16 h-16 rounded-full object-cover border-[3px]"
+                  className="w-28 h-28 rounded-full object-cover border-4 shadow-xl"
                   style={{ borderColor: profile?.show_party === false ? '#e5e7eb' : partyColor, opacity: uploading ? 0.5 : 1 }} />
               ) : (
-                <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl border-[3px]"
+                <div className="w-28 h-28 rounded-full flex items-center justify-center text-5xl border-4"
                   style={{ borderColor: profile?.show_party === false ? '#e5e7eb' : partyColor, background: `${partyColor}33`, opacity: uploading ? 0.5 : 1 }}>
                   {partyEmoji}
                 </div>
               )}
             </button>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gray-800 border border-gray-600 flex items-center justify-center pointer-events-none">
-              <Camera size={12} className="text-gray-300" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gray-800 border border-gray-600 flex items-center justify-center pointer-events-none">
+              <Camera size={14} className="text-gray-300" />
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -407,13 +408,16 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Photo album */}
-      <div className="px-4 mt-2">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-gray-400 text-xs uppercase tracking-wider">My Photos</h3>
-          <span className="text-gray-600 text-xs">{fullAlbum.length}/13</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
+      {/* Photo album — collapsed behind an expandable bar; the big main
+             picture above is the star */}
+      <div className="mx-4 mt-2 bg-gray-900 rounded-2xl overflow-hidden">
+        <button onClick={() => setShowPhotos(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-800 transition">
+          <span className="text-white text-sm font-bold">📸 My Photos <span className="text-gray-500 font-normal">({fullAlbum.length}/13)</span></span>
+          <span className={`text-gray-500 text-xs transition-transform ${showPhotos ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+        {showPhotos && (
+        <div className="grid grid-cols-3 gap-2 px-3 pb-3">
           {fullAlbum.map((ph, idx) => (
             <div key={ph.id} className="relative aspect-square">
               <button onClick={() => setViewerStart(idx)}
@@ -435,6 +439,7 @@ export default function ProfilePage() {
             </button>
           )}
         </div>
+        )}
         <input ref={albumInputRef} type="file" accept="image/*" hidden
           onChange={e => e.target.files?.[0] && addAlbumPhoto(e.target.files[0])} />
       </div>
