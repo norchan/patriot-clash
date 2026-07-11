@@ -123,14 +123,28 @@ export async function POST(req: NextRequest) {
 
     if (battleError) throw battleError
 
-    // Update profile stats for victories
+    // Update profile stats for victories — and CAPTURE the beaten sprite.
+    // Winning a sprite battle catches the character automatically (duplicates
+    // welcome; extras sell back for FP from the Collection).
+    let captured = false
     if (result === 'victory') {
       await admin
         .from('profiles')
         .update({
           total_battles_won: profile.total_battles_won + 1,
+          total_captures: (profile.total_captures ?? 0) + 1,
         })
         .eq('id', profile.id)
+      const { error: capErr } = await admin.from('captured_characters').insert({
+        profile_id: profile.id,
+        enemy_id: enemy.id,
+        enemy_name: enemy.name,
+        enemy_tier: enemy.tier,
+        enemy_image: enemy.image,
+        enemy_party: enemy.party,
+        battle_id: battle?.id ?? null,
+      })
+      captured = !capErr
     } else if (result === 'defeat') {
       await admin
         .from('profiles')
@@ -151,11 +165,12 @@ export async function POST(req: NextRequest) {
       success: true,
       battle_id: battle.id,
       result,
+      captured,
       fp_spent: fpCost,
       fp_earned: fpReward,
       new_balance: updated?.fp_balance || 0,
       message: result === 'victory'
-        ? `🎉 Victory! +${fpReward} FP earned!`
+        ? `🎯 ${enemy.name} captured! +${fpReward} FP earned!`
         : result === 'defeat'
         ? `💀 Defeated. +${fpReward} FP consolation`
         : `🏃 You fled the battle`,

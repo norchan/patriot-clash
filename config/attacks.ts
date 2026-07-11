@@ -15,7 +15,8 @@ export interface PlayerAttack {
 }
 
 // Basic punches and blocking are FREE — a player must never be unable to
-// fight. FP buys the heavy hitters.
+// fight. FP buys the heavy hitters. (Legacy gesture attacks — old battle
+// logs still validate against these.)
 export const ATTACKS: Record<GestureType, PlayerAttack> = {
   tap:           { name: 'Quick Strike', emoji: '👊', damage: 20, fp: 0,  color: '#f59e0b', hint: 'TAP',     type: 'Normal'   },
   'swipe-right': { name: 'Power Slam',   emoji: '💥', damage: 38, fp: 10, color: '#ef4444', hint: '→ SWIPE', type: 'Fire'     },
@@ -23,8 +24,15 @@ export const ATTACKS: Record<GestureType, PlayerAttack> = {
   hold:          { name: 'Shield Block', emoji: '🛡️', damage:  0, fp: 0,  color: '#3b82f6', hint: 'HOLD',    type: 'Guard'    },
 }
 
+// Sprite-battle projectiles: swipe toward the sprite to throw. Both free —
+// skill (aiming at a dodging sprite) is the cost.
+export const THROWS: Record<'rock' | 'firecracker', PlayerAttack> = {
+  rock:        { name: 'Rock Throw',  emoji: '🪨', damage: 20, fp: 0, color: '#a8a29e', hint: 'SWIPE', type: 'Normal' },
+  firecracker: { name: 'Firecracker', emoji: '🧨', damage: 30, fp: 0, color: '#f97316', hint: 'SWIPE', type: 'Fire'   },
+}
+
 export const ATTACK_BY_NAME: Record<string, PlayerAttack> = Object.fromEntries(
-  Object.values(ATTACKS).map(a => [a.name, a])
+  [...Object.values(ATTACKS), ...Object.values(THROWS)].map(a => [a.name, a])
 )
 
 // Damage multiplier by enemy tier (tougher enemies take reduced damage).

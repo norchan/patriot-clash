@@ -4,35 +4,57 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { getEnemyById, getRandomEnemy } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
+import { THROWS, TIER_DEFENSE } from '@/config/attacks'
+import { sfx, buzz } from '@/lib/juice'
 
-import { ATTACKS, TIER_DEFENSE } from '@/config/attacks'
-import type { GestureType } from '@/config/attacks'
-import { sfx } from '@/lib/juice'
-
-const CAPTURE_RATES = { common: 0.75, rare: 0.40, legendary: 0.15 }
-const CAPTURE_COSTS = { common: 15, rare: 30, legendary: 75 }
+// ═════════════════════════════════════════════════════════════════════════════
+// SPRITE BATTLE — carnival dodgeball edition.
+// Swipe toward the sprite to hurl rocks and firecrackers along your swipe
+// line. The sprite sidesteps to dodge, pulls a hilarious OUCH face when you
+// connect, and throws character-themed junk back (the Oil Baron throws oil).
+// Tap incoming projectiles to swat them away. Win the fight = catch the
+// sprite. No gestures to memorize, no FP per throw — pure aim.
+// ═════════════════════════════════════════════════════════════════════════════
 
 const PLAYER_MAX_HP = 150
 
-// Enemy counterattack tuning. Raw move damage (18-100) vs 150 player HP would
-// make even commons near-unwinnable, so counters are scaled per tier and can
-// miss. Targets: commons easy (~10/turn), rares moderate (~17), legendaries
-// an RNG-tight epic (~24).
+// Enemy counterattack tuning (damage when their projectile lands on you)
 const ENEMY_DMG_SCALE = { common: 0.32, rare: 0.45, legendary: 0.4 }
-const ENEMY_MISS_CHANCE = 0.18
-
-const TYPE_COLORS: Record<string, string> = {
-  Normal: '#a8a878', Fire: '#f08030', Electric: '#f8d030', Guard: '#6890f0',
-}
 
 const TIER_LEVELS = { common: 12, rare: 35, legendary: 70 }
 
-function wait(ms: number) { return new Promise<void>(r => setTimeout(r, ms)) }
-function canAfford(cost: number, fp: number) { return fp >= cost }
+// How eagerly the sprite dodges an incoming throw, and how often it attacks
+const TIER_AI = {
+  common:    { dodge: 0.28, attackMs: 3600 },
+  rare:      { dodge: 0.45, attackMs: 3000 },
+  legendary: { dodge: 0.62, attackMs: 2400 },
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Pokémon-style HP bar
-// ─────────────────────────────────────────────────────────────────────────────
+// What each character throws back at you
+const FOE_THROWS: Record<string, { emoji: string; label: string; splat: string }> = {
+  oil_baron:       { emoji: '🛢️', label: 'Crude Oil',      splat: 'rgba(20,16,10,0.85)' },
+  cowboy:          { emoji: '🪢', label: 'Lasso',          splat: 'rgba(146,102,52,0.55)' },
+  eagle:           { emoji: '🪶', label: 'Feather Dart',   splat: 'rgba(220,215,200,0.5)' },
+  hick:            { emoji: '🫙', label: 'Moonshine Jug',  splat: 'rgba(210,180,120,0.55)' },
+  politician:      { emoji: '📜', label: 'Red Tape',       splat: 'rgba(200,60,60,0.5)' },
+  crazy_liberal:   { emoji: '☕', label: 'Oat Milk Latte', splat: 'rgba(160,120,80,0.6)' },
+  crying_liberal:  { emoji: '💧', label: 'Tear Flood',     splat: 'rgba(96,165,250,0.55)' },
+  politician_dems: { emoji: '📋', label: 'Regulations',    splat: 'rgba(59,130,246,0.5)' },
+  protestor:       { emoji: '🪧', label: 'Protest Sign',   splat: 'rgba(250,204,21,0.5)' },
+  purple_hair:     { emoji: '📢', label: 'Megaphone Blast', splat: 'rgba(168,85,247,0.55)' },
+}
+const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot', splat: 'rgba(120,100,80,0.55)' }
+
+interface Projectile {
+  id: number
+  side: 'mine' | 'foe'
+  emoji: string
+  x0: number; y0: number     // px, arena coords
+  x1: number; y1: number
+  dur: number
+  deflected?: boolean
+}
+
 function HpBar({ current, max }: { current: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100))
   const barColor = pct > 50 ? '#22c55e' : pct > 25 ? '#facc15' : '#ef4444'
@@ -55,9 +77,42 @@ function HpBar({ current, max }: { current: number; max: number }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main battle content
-// ─────────────────────────────────────────────────────────────────────────────
+// One flying object. Mounts at its start point, then glides to its end point;
+// foe projectiles grow as they approach (depth) and can be tapped to deflect.
+function Missile({ p, onDeflect }: { p: Projectile; onDeflect?: (id: number) => void }) {
+  const [fly, setFly] = useState(false)
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setFly(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const dx = p.x1 - p.x0
+  const dy = p.y1 - p.y0
+  return (
+    <div
+      onPointerDown={p.side === 'foe' && onDeflect && !p.deflected ? (e => { e.stopPropagation(); onDeflect(p.id) }) : undefined}
+      style={{
+        position: 'absolute', left: p.x0, top: p.y0, zIndex: 30,
+        fontSize: p.side === 'foe' ? 30 : 26,
+        transform: p.deflected
+          ? `translate(${dx * 0.4 + (Math.random() > 0.5 ? 220 : -220)}px, ${dy * 0.4 - 120}px) rotate(720deg) scale(0.6)`
+          : fly
+            ? `translate(${dx}px, ${dy}px) rotate(${p.side === 'mine' ? 540 : 360}deg) scale(${p.side === 'foe' ? 1.7 : 0.9})`
+            : 'translate(0px, 0px) rotate(0deg) scale(1)',
+        transition: p.deflected
+          ? 'transform 450ms ease-out'
+          : fly ? `transform ${p.dur}ms ${p.side === 'foe' ? 'ease-in' : 'linear'}` : 'none',
+        cursor: p.side === 'foe' ? 'pointer' : 'default',
+        filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))',
+        touchAction: 'none',
+        padding: p.side === 'foe' ? 14 : 0, // fat hit target for swatting
+        margin: p.side === 'foe' ? -14 : 0,
+      }}
+    >
+      {p.emoji}
+    </div>
+  )
+}
+
 function BattleContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -70,101 +125,59 @@ function BattleContent() {
   const [maxHp, setMaxHp] = useState(0)
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP)
   const [phase, setPhase] = useState<'fighting' | 'victory' | 'defeat'>('fighting')
-  const [fpSpent, setFpSpent] = useState(0)
   const [movesUsed, setMovesUsed] = useState<any[]>([])
-  const [battleId, setBattleId] = useState<string | null>(null)
-  const [isDefending, setIsDefending] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
+  const [captured, setCaptured] = useState(false)
+  const [fpEarned, setFpEarned] = useState(0)
 
-  // Sprite animation — increment spriteKey to force CSS restart
+  // Sprite presentation
+  const [enemyX, setEnemyX] = useState(50)           // % across the arena
+  const [ouch, setOuch] = useState(false)            // comic OUCH face
+  const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'charge' | 'faint'>('idle')
   const [spriteKey, setSpriteKey] = useState(0)
-  const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'attack' | 'charge' | 'faint'>('idle')
+  const ouchMissing = useRef(false)                  // no _ouch.png for this enemy
 
-  // Visual effects
+  // Projectiles + effects
+  const [projectiles, setProjectiles] = useState<Projectile[]>([])
+  const [splat, setSplat] = useState<{ color: string; emoji: string } | null>(null)
   const [screenShake, setScreenShake] = useState(false)
-  const [flashOverlay, setFlashOverlay] = useState('')
-  const [dmgNums, setDmgNums] = useState<{ id: number; val: number; isPlayer: boolean; color: string }[]>([])
-  const [lastMove, setLastMove] = useState<{ name: string; type: string } | null>(null)
+  const [dmgNums, setDmgNums] = useState<{ id: number; val: number; onEnemy: boolean; color: string; xPct: number }[]>([])
+  const [missAt, setMissAt] = useState<{ id: number; xPct: number } | null>(null)
   const [dialogLine, setDialogLine] = useState('')
 
-  // Capture
-  const [ownedCount, setOwnedCount] = useState(0)
-  const [capturing, setCapturing] = useState(false)
-  const [captureResult, setCaptureResult] = useState<'success' | 'failed' | null>(null)
-
-  // Touch gesture refs
-  const touchRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const holdTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const holdFiredRef = useRef(false)
-  const lastTouchRef = useRef(0)
-  const dmgCounter = useRef(0)
+  const arenaRef = useRef<HTMLDivElement>(null)
+  const S = useRef({
+    over: false,
+    enemyHp: 0, playerHp: PLAYER_MAX_HP,
+    throwCd: 0, nextFoeThrowAt: 0, dodgeBusyUntil: 0,
+    // enemy x tween tracking, for hit tests against a MOVING target
+    exFrom: 50, exTo: 50, exStart: 0, exDur: 1,
+    swipe: null as { x: number; y: number; t: number } | null,
+    idc: 0,
+    throwsMade: 0,
+  })
   const startTime = useRef(Date.now())
 
-  // ── Inject battle keyframe styles into <head> (more reliable than <style> in body) ──
+  // ── Keyframes ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (document.getElementById('battle-kf')) return
+    if (document.getElementById('battle-kf2')) return
     const s = document.createElement('style')
-    s.id = 'battle-kf'
+    s.id = 'battle-kf2'
     s.textContent = `
-      /* Idle: 20px bob with slight rotation to feel alive */
-      @keyframes pokeIdle {
-        0%,100% { transform: translateY(0px) rotate(0deg); }
-        25%      { transform: translateY(-18px) rotate(-2deg); }
-        75%      { transform: translateY(-8px) rotate(1.5deg); }
-      }
-      /* Low HP: frantic wobble */
-      @keyframes pokeLowHp {
-        0%,100% { transform: translateY(0) rotate(-6deg) scale(0.96); }
-        25%     { transform: translateY(-10px) rotate(6deg) scale(1.02); }
-        75%     { transform: translateY(-5px) rotate(-3deg) scale(0.98); }
-      }
-      /* Hit: triple white flash — the classic Pokémon hit */
-      @keyframes pokeHit {
-        0%   { filter: none;                         transform: translateX(0); }
-        12%  { filter: brightness(300) saturate(0);  transform: translateX(18px); }
-        24%  { filter: none;                         transform: translateX(-14px); }
-        42%  { filter: brightness(300) saturate(0);  transform: translateX(10px); }
-        60%  { filter: none;                         transform: translateX(-6px); }
-        78%  { filter: brightness(300) saturate(0); }
-        100% { filter: none;                         transform: translateX(0); }
-      }
-      /* Charge: pulse and glow before lunging */
-      @keyframes pokeChrg {
-        0%,100% { transform: scale(1); filter: brightness(1); }
-        50%      { transform: scale(1.15); filter: brightness(2.5) saturate(2); }
-      }
-      /* Attack: dramatic lunge across the arena toward the player */
-      @keyframes pokeAtk {
-        0%   { transform: translate(0px, 0px) scale(1); }
-        30%  { transform: translate(-220px, 90px) scale(1.35); }
-        60%  { transform: translate(-220px, 90px) scale(1.35); }
-        100% { transform: translate(0px, 0px) scale(1); }
-      }
-      /* Faint: fall and disappear */
-      @keyframes pokeFaint {
-        0%   { transform: translateY(0px) rotate(0deg); opacity: 1; }
-        20%  { transform: translateY(30px) rotate(15deg); opacity: 0.8; }
-        100% { transform: translateY(200px) rotate(40deg); opacity: 0; }
-      }
-      /* Screen shake */
-      @keyframes screenShake {
-        0%,100% { transform: translate(0,0); }
-        15%     { transform: translate(-12px,-5px) rotate(-1deg); }
-        30%     { transform: translate(12px,5px) rotate(1deg); }
-        50%     { transform: translate(-7px,-3px); }
-        70%     { transform: translate(7px,3px); }
-        85%     { transform: translate(-3px,0); }
-      }
-      @keyframes flashFade  { 0%{opacity:1} 100%{opacity:0} }
-      @keyframes dmgFloat   { 0%{transform:translateX(-50%) translateY(0);opacity:1} 100%{transform:translateX(-50%) translateY(-65px);opacity:0} }
-      @keyframes starTwinkle{ 0%,100%{opacity:0.3} 50%{opacity:0.9} }
-      button:active:not(:disabled){ transform:scale(0.93) }
+      @keyframes pokeIdle { 0%,100%{transform:translateY(0) rotate(0)} 25%{transform:translateY(-10px) rotate(-2deg)} 75%{transform:translateY(-4px) rotate(1.5deg)} }
+      @keyframes pokeLowHp { 0%,100%{transform:translateY(0) rotate(-5deg) scale(0.97)} 50%{transform:translateY(-7px) rotate(5deg) scale(1.02)} }
+      @keyframes pokeHit { 0%{transform:translateX(0)} 20%{transform:translateX(12px) rotate(4deg)} 45%{transform:translateX(-9px) rotate(-4deg)} 70%{transform:translateX(5px)} 100%{transform:translateX(0)} }
+      @keyframes pokeChrg { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12); filter:brightness(1.8)} }
+      @keyframes pokeFaint { 0%{transform:translateY(0) rotate(0);opacity:1} 20%{transform:translateY(18px) rotate(14deg);opacity:0.85} 100%{transform:translateY(160px) rotate(42deg);opacity:0} }
+      @keyframes screenShake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-12px,-5px) rotate(-1deg)} 30%{transform:translate(12px,5px) rotate(1deg)} 50%{transform:translate(-7px,-3px)} 70%{transform:translate(7px,3px)} 85%{transform:translate(-3px,0)} }
+      @keyframes dmgFloat { 0%{transform:translateX(-50%) translateY(0);opacity:1} 100%{transform:translateX(-50%) translateY(-60px);opacity:0} }
+      @keyframes splatFade { 0%{opacity:0.95; transform:scale(0.7)} 25%{opacity:0.9; transform:scale(1.05)} 100%{opacity:0; transform:scale(1.15)} }
+      @keyframes starTwinkle { 0%,100%{opacity:0.3} 50%{opacity:0.9} }
+      @keyframes boomPop { 0%{transform:scale(0.3);opacity:1} 100%{transform:scale(2.4);opacity:0} }
     `
     document.head.appendChild(s)
-    return () => { document.getElementById('battle-kf')?.remove() }
   }, [])
 
-  // ── Init ─────────────────────────────────────────────────────────────────
+  // ── Load the enemy ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!profile) return
     const opponentParty = profile.party === 'republican' ? 'democrat' : 'republican'
@@ -173,221 +186,226 @@ function BattleContent() {
       setEnemy(e)
       setEnemyHp(e.hp)
       setMaxHp(e.hp)
-      setDialogLine(`A wild ${e.name} appeared!`)
+      S.current.enemyHp = e.hp
+      S.current.nextFoeThrowAt = Date.now() + 2500
+      setDialogLine(`A wild ${e.name} appeared! Swipe to throw!`)
     }
   }, [enemyId, profile])
 
-  useEffect(() => {
-    if (!enemy || !profile) return
-    fetch(`/api/collection/check?enemy_id=${enemy.id}`)
-      .then(r => r.json())
-      .then(d => setOwnedCount(d.count ?? (d.captured ? 1 : 0)))
-      .catch(() => {})
-  }, [enemy, profile])
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  function addDmg(val: number, isPlayer: boolean, color: string) {
-    const id = ++dmgCounter.current
-    setDmgNums(p => [...p, { id, val, isPlayer, color }])
-    setTimeout(() => setDmgNums(p => p.filter(d => d.id !== id)), 1000)
-  }
-
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function playAnim(name: typeof spriteAnim) {
     setSpriteAnim(name)
     setSpriteKey(k => k + 1)
   }
-
   function shake() {
     setScreenShake(true)
-    setTimeout(() => setScreenShake(false), 500)
+    setTimeout(() => setScreenShake(false), 450)
+  }
+  function addDmg(val: number, onEnemy: boolean, color: string, xPct: number) {
+    const id = ++S.current.idc
+    setDmgNums(p => [...p, { id, val, onEnemy, color, xPct }])
+    setTimeout(() => setDmgNums(p => p.filter(d => d.id !== id)), 1000)
   }
 
-  function flash(color: string, ms = 350) {
-    setFlashOverlay(color)
-    setTimeout(() => setFlashOverlay(''), ms)
+  function moveEnemyTo(x: number, dur = 380) {
+    const st = S.current
+    const now = Date.now()
+    st.exFrom = enemyXAt(now)
+    st.exTo = Math.max(16, Math.min(84, x))
+    st.exStart = now
+    st.exDur = dur
+    setEnemyX(st.exTo)
+  }
+  function enemyXAt(t: number) {
+    const st = S.current
+    const k = Math.max(0, Math.min(1, (t - st.exStart) / st.exDur))
+    return st.exFrom + (st.exTo - st.exFrom) * k
   }
 
-  // ── Attack handler ────────────────────────────────────────────────────────
-  async function handleAttack(gesture: GestureType) {
-    if (!enemy || !profile || isAnimating || phase !== 'fighting') return
+  // ── Player throw: swipe toward the sprite ─────────────────────────────────
+  function launchThrow(x0: number, y0: number, x1: number, y1: number) {
+    const st = S.current
+    if (st.over || phase !== 'fighting' || !enemy || !arenaRef.current) return
+    const now = Date.now()
+    if (now < st.throwCd) return
+    const dy = y1 - y0
+    if (dy > -25) return // must swipe toward the sprite (upward)
+    st.throwCd = now + 380
 
-    const atk = ATTACKS[gesture]
-    const fp = profile.fp_balance - fpSpent
-    if (fp < atk.fp) {
-      // Never leave the player stuck: fall back to the free basic attack
-      // instead of refusing to act
-      setDialogLine(`⚡ Not enough FP for ${atk.name} — threw a Quick Strike instead`)
-      if (gesture !== 'tap') { handleAttack('tap'); return }
-      return
+    const rect = arenaRef.current.getBoundingClientRect()
+    const enemyCy = rect.height * 0.30 // sprite band
+    // extend the swipe vector until it reaches the sprite's height
+    const dirX = (x1 - x0), dirY = dy
+    const scale = (enemyCy - y0) / dirY
+    const endX = x0 + dirX * scale
+
+    const kind: keyof typeof THROWS = st.throwsMade % 3 === 2 ? 'firecracker' : 'rock'
+    st.throwsMade++
+    const weapon = THROWS[kind]
+    const id = ++st.idc
+    const dur = 430
+    setProjectiles(p => [...p, { id, side: 'mine', emoji: weapon.emoji, x0, y0, x1: endX, y1: enemyCy, dur }])
+    sfx.whoosh()
+
+    // The sprite may react and dodge mid-flight
+    const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
+    if (Math.random() < ai.dodge && now > st.dodgeBusyUntil) {
+      st.dodgeBusyUntil = now + 700
+      const cur = enemyXAt(now)
+      const hop = cur > 50 ? cur - (18 + Math.random() * 14) : cur + (18 + Math.random() * 14)
+      setTimeout(() => { if (!S.current.over) moveEnemyTo(hop, 330) }, 90)
     }
 
-    setIsAnimating(true)
-    try {
-      await runAttack(gesture, atk)
-    } catch (err) {
-      // A failed API call must never freeze the fight
-      console.error('attack failed:', err)
-      setDialogLine('⚠️ Connection hiccup — try again')
-    } finally {
-      setIsAnimating(false)
-    }
+    // Resolve at impact time against the sprite's LIVE position
+    setTimeout(() => {
+      setProjectiles(p => p.filter(x => x.id !== id))
+      if (S.current.over || !enemy) return
+      const impactT = Date.now()
+      const exPct = enemyXAt(impactT)
+      const exPx = rect.width * (exPct / 100)
+      const hitRadius = Math.min(rect.width * 0.13, 78)
+      if (Math.abs(endX - exPx) <= hitRadius) {
+        // HIT — comic ouch + damage
+        const tierMult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE]
+        const dmg = Math.floor(weapon.damage * (0.8 + Math.random() * 0.4) * tierMult)
+        S.current.enemyHp = Math.max(0, S.current.enemyHp - dmg)
+        setEnemyHp(S.current.enemyHp)
+        setMovesUsed(p => [...p, { name: weapon.name, power: weapon.damage, damage: dmg }])
+        addDmg(dmg, true, weapon.color, exPct)
+        if (!ouchMissing.current) setOuch(true)
+        playAnim('hit')
+        sfx.punch(kind === 'firecracker')
+        buzz(20)
+        if (kind === 'firecracker') { sfx.crowd(0.3) }
+        setDialogLine(`Direct hit with ${weapon.name}!`)
+        setTimeout(() => {
+          setOuch(false)
+          if (!S.current.over) playAnim(S.current.enemyHp <= maxHp * 0.25 ? 'lowHp' : 'idle')
+        }, 650)
+        if (S.current.enemyHp <= 0) winBattle(dmg, weapon)
+      } else {
+        // MISS — it dodged
+        const missId = ++S.current.idc
+        setMissAt({ id: missId, xPct: (endX / rect.width) * 100 })
+        setTimeout(() => setMissAt(m => (m?.id === missId ? null : m)), 800)
+        setDialogLine(`${enemy.name} dodged it!`)
+        sfx.whoosh()
+      }
+    }, dur)
   }
 
-  async function runAttack(gesture: GestureType, atk: typeof ATTACKS[GestureType]) {
-    if (!enemy || !profile) return
-    setLastMove({ name: atk.name, type: atk.type })
-    setFpSpent(p => p + atk.fp)
+  async function winBattle(lastDmg: number, weapon: typeof THROWS['rock']) {
+    const st = S.current
+    st.over = true
+    playAnim('faint')
+    sfx.ko()
+    setDialogLine(`${enemy!.name} is down!`)
+    if (spawnId) {
+      try { localStorage.setItem(`spawn_dead_${spawnId}`, Date.now().toString()) } catch {}
+    }
+    const moves = [...movesUsed, { name: weapon.name, power: weapon.damage, damage: lastDmg }]
+    const data = await recordBattle('victory', 0, moves)
+    setCaptured(!!data?.captured)
+    setFpEarned(data?.fp_earned ?? enemy!.fpReward)
+    setPhase('victory')
+    sfx.victory()
+  }
 
-    // Locals instead of state reads: state set above is stale inside this
-    // closure, which previously made Shield Block never block the counterattack
-    // and recorded only the final move's FP as spent.
-    const defending = gesture === 'hold'
-    const totalFpSpent = fpSpent + atk.fp
-    let moveRecord: { name: string; power: number; damage: number } | null = null
-    let enemyHpAfter = enemyHp
+  // ── Enemy AI: wander, and throw themed junk back ──────────────────────────
+  useEffect(() => {
+    if (!enemy || phase !== 'fighting') return
+    const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
+    const theme = FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW
 
-    if (defending) {
-      setIsDefending(true)
-      setDialogLine(`${profile.username} used Shield Block!`)
-      sfx.block()
-      flash('#3b82f666', 500)
-      // Shield moves are recorded too — the server recomputes FP cost from
-      // moves_used, so unrecorded moves would be free
-      moveRecord = { name: atk.name, power: 0, damage: 0 }
-      setMovesUsed(p => [...p, moveRecord!])
-      await wait(600)
-    } else {
-      setDialogLine(`${profile.username} used ${atk.name}!`)
-      flash(`${atk.color}44`, 200)
-      await wait(180)
+    const iv = setInterval(() => {
+      const st = S.current
+      if (st.over || !arenaRef.current) return
+      const now = Date.now()
 
-      const mult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE]
-      const dmg = Math.floor(atk.damage * (0.8 + Math.random() * 0.4) * mult)
-      const newHp = Math.max(0, enemyHp - dmg)
-      enemyHpAfter = newHp
-
-      playAnim('hit')
-      sfx.punch(gesture === 'swipe-up')
-      addDmg(dmg, false, atk.color)
-      setEnemyHp(newHp)
-
-      moveRecord = { name: atk.name, power: atk.damage, damage: dmg }
-      setMovesUsed(p => [...p, moveRecord!])
-
-      await wait(600)
-
-      if (newHp <= 0) {
-        playAnim('faint')
-        sfx.ko()
-        setDialogLine(`${enemy.name} fainted!`)
-        await wait(900)
-        const result = await recordBattle('victory', totalFpSpent, [...movesUsed, moveRecord])
-        if (result?.battle_id) setBattleId(result.battle_id)
-        if (spawnId) {
-          try { localStorage.setItem(`spawn_dead_${spawnId}`, Date.now().toString()) } catch {}
-        }
-        setPhase('victory')
-        sfx.victory()
-        return
+      // idle wander
+      if (now > st.dodgeBusyUntil && Math.random() < 0.25) {
+        moveEnemyTo(20 + Math.random() * 60, 500)
       }
 
-      // Wobble frantically once the ENEMY is low, not the player
-      playAnim(newHp <= maxHp * 0.25 ? 'lowHp' : 'idle')
-    }
+      // themed counterattack
+      if (now >= st.nextFoeThrowAt) {
+        st.nextFoeThrowAt = now + ai.attackMs * (0.8 + Math.random() * 0.5)
+        const rect = arenaRef.current.getBoundingClientRect()
+        playAnim('charge')
+        setDialogLine(`${enemy.name} throws ${theme.label}! Tap it!`)
+        setTimeout(() => {
+          if (S.current.over || !arenaRef.current) return
+          const r = arenaRef.current.getBoundingClientRect()
+          const fromX = r.width * (enemyXAt(Date.now()) / 100)
+          const fromY = r.height * 0.30
+          const toX = r.width * (0.3 + Math.random() * 0.4)
+          const toY = r.height * 0.86
+          const id = ++S.current.idc
+          const dur = 1050
+          setProjectiles(p => [...p, { id, side: 'foe', emoji: theme.emoji, x0: fromX, y0: fromY, x1: toX, y1: toY, dur }])
+          sfx.tap()
 
-    // ── Enemy counterattack ─────────────────────────────────────────────────
-    await wait(250)
-    const move = enemy.moves[Math.floor(Math.random() * enemy.moves.length)]
-    setDialogLine(`${enemy.name} used ${move.name}!`)
+          setTimeout(() => {
+            setProjectiles(p => {
+              const hit = p.find(x => x.id === id && !x.deflected)
+              if (hit && !S.current.over) {
+                // SPLAT — it landed on you
+                const move = enemy.moves[Math.floor(Math.random() * enemy.moves.length)]
+                const tierScale = ENEMY_DMG_SCALE[enemy.tier as keyof typeof ENEMY_DMG_SCALE] ?? 0.4
+                const dmg = Math.max(1, Math.floor(move.damage * (0.7 + Math.random() * 0.6) * tierScale))
+                S.current.playerHp = Math.max(0, S.current.playerHp - dmg)
+                setPlayerHp(S.current.playerHp)
+                setSplat({ color: theme.splat, emoji: theme.emoji })
+                setTimeout(() => setSplat(null), 900)
+                addDmg(dmg, false, '#ef4444', 50)
+                setDialogLine(`${theme.label} got you! (−${dmg})`)
+                shake()
+                sfx.kick()
+                buzz([40, 30, 40])
+                if (S.current.playerHp <= 0) {
+                  S.current.over = true
+                  setDialogLine(`${enemy.name} wins this round...`)
+                  recordBattle('defeat', 0, movesUsed).then(() => {
+                    setPhase('defeat')
+                    sfx.defeat()
+                  })
+                }
+              }
+              return p.filter(x => x.id !== id)
+            })
+          }, dur)
+        }, 380)
+      }
+    }, 250)
+    return () => clearInterval(iv)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enemy, phase])
 
-    playAnim('charge')
-    await wait(400)
-    playAnim('attack')
-    await wait(350)
-
-    const missed = Math.random() < ENEMY_MISS_CHANCE
-    const tierScale = ENEMY_DMG_SCALE[enemy.tier as keyof typeof ENEMY_DMG_SCALE] ?? 0.4
-    const baseDmg = Math.max(1, Math.floor(move.damage * (0.7 + Math.random() * 0.6) * tierScale))
-    const actualDmg = missed ? 0 : defending ? Math.floor(baseDmg * 0.4) : baseDmg
-    const newPlayerHp = Math.max(0, playerHp - actualDmg)
-
-    if (missed) {
-      setDialogLine(`${enemy.name} used ${move.name}... but missed!`)
-      sfx.whoosh()
-    } else {
-      shake()
-      if (defending) sfx.block()
-      else sfx.kick()
-      flash('#ef444455', 400)
-      addDmg(actualDmg, true, '#ef4444')
-      setPlayerHp(newPlayerHp)
-      setDialogLine(defending
-        ? `${enemy.name} used ${move.name}! Blocked! (-${actualDmg})`
-        : `${enemy.name} used ${move.name}! (-${actualDmg})`
-      )
-    }
-
-    await wait(500)
-    if (defending) setIsDefending(false)
-    playAnim(enemyHpAfter <= maxHp * 0.25 ? 'lowHp' : 'idle')
-
-    if (newPlayerHp <= 0) {
-      setDialogLine(`${profile.username} was defeated...`)
-      await recordBattle('defeat', totalFpSpent, moveRecord ? [...movesUsed, moveRecord] : movesUsed)
-      setPhase('defeat')
-      sfx.defeat()
-    }
+  function deflect(id: number) {
+    setProjectiles(p => p.map(x => x.id === id ? { ...x, deflected: true } : x))
+    setDialogLine('Swatted it away! 💪')
+    sfx.block()
+    buzz(15)
+    setTimeout(() => setProjectiles(p => p.filter(x => x.id !== id)), 460)
   }
 
-  // ── Touch gestures ────────────────────────────────────────────────────────
-  function onTouchStart(e: React.TouchEvent) {
-    if (phase !== 'fighting') return
-    // Gestures live on the whole screen now — ignore touches on real controls
-    if ((e.target as HTMLElement).closest?.('button')) return
-    const t = e.touches[0]
-    touchRef.current = { x: t.clientX, y: t.clientY, time: Date.now() }
-    holdFiredRef.current = false
-    holdTimerRef.current = setTimeout(() => {
-      holdFiredRef.current = true
-      handleAttack('hold')
-    }, 550)
+  // ── Input: swipe (touch) and drag (mouse) both throw ───────────────────────
+  function onPointerDown(e: React.PointerEvent) {
+    if (phase !== 'fighting' || !arenaRef.current) return
+    const rect = arenaRef.current.getBoundingClientRect()
+    S.current.swipe = { x: e.clientX - rect.left, y: e.clientY - rect.top, t: Date.now() }
+  }
+  function onPointerUp(e: React.PointerEvent) {
+    const sw = S.current.swipe
+    S.current.swipe = null
+    if (!sw || phase !== 'fighting' || !arenaRef.current) return
+    const rect = arenaRef.current.getBoundingClientRect()
+    const x1 = e.clientX - rect.left
+    const y1 = e.clientY - rect.top
+    launchThrow(sw.x, sw.y, x1, y1)
   }
 
-  function onTouchEnd(e: React.TouchEvent) {
-    if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
-    if ((e.target as HTMLElement).closest?.('button')) { touchRef.current = null; return }
-    if (!touchRef.current || holdFiredRef.current) { touchRef.current = null; return }
-    const t = e.changedTouches[0]
-    const dx = t.clientX - touchRef.current.x
-    const dy = t.clientY - touchRef.current.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    touchRef.current = null
-    lastTouchRef.current = Date.now()
-    // Any short touch that didn't become a hold is a punch — the old
-    // 300ms window left a dead zone where a slightly slow tap did nothing
-    if (dist < 24) {
-      handleAttack('tap')
-    } else if (dy < -35 && Math.abs(dy) > Math.abs(dx)) {
-      handleAttack('swipe-up')
-    } else if (Math.abs(dx) > 40) {
-      handleAttack('swipe-right')
-    }
-  }
-
-  // Keyboard fallback
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (phase !== 'fighting') return
-      if (e.key === ' ' || e.key === 'Enter') handleAttack('tap')
-      if (e.key === 'ArrowRight' || e.key === 'd') handleAttack('swipe-right')
-      if (e.key === 'ArrowUp' || e.key === 'w') handleAttack('swipe-up')
-      if (e.key === 's') handleAttack('hold')
-    }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [phase, isAnimating, enemyHp, playerHp, fpSpent, isDefending, movesUsed, enemy, profile])
-
-  // ── API ───────────────────────────────────────────────────────────────────
+  // ── API ────────────────────────────────────────────────────────────────────
   async function recordBattle(result: string, fpCost: number, moves: any[]) {
     if (!enemy || !profile) return null
     try {
@@ -401,43 +419,17 @@ function BattleContent() {
       })
       const data = await res.json()
       await refetch()
-      // The refetched balance already reflects the server-side debit — reset
-      // the local counter so fpAvail doesn't subtract the battle cost twice
-      setFpSpent(0)
       return data
     } catch { return null }
   }
 
-  async function attemptCapture() {
-    if (!enemy || !profile || capturing) return
-    const cost = CAPTURE_COSTS[enemy.tier]
-    if ((profile.fp_balance - fpSpent) < cost) {
-      setDialogLine(`Need ${cost} FP to capture!`)
-      return
-    }
-    setCapturing(true)
-    try {
-      const res = await fetch('/api/collection/capture', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enemy_id: enemy.id, battle_id: battleId }),
-      })
-      const data = await res.json()
-      setCaptureResult(data.captured ? 'success' : 'failed')
-      setDialogLine(data.captured ? `${enemy.name} was captured!` : `${enemy.name} broke free!`)
-      await refetch()
-    } catch { setCaptureResult('failed') }
-    finally { setCapturing(false) }
-  }
-
   async function flee() {
     if (!enemy) return
-    // Fleeing still pays for the moves already used this battle
-    await recordBattle('fled', fpSpent, movesUsed)
+    await recordBattle('fled', 0, movesUsed)
     router.push('/map')
   }
 
-  // ── Guards ────────────────────────────────────────────────────────────────
+  // ── Guards ─────────────────────────────────────────────────────────────────
   if (!enemy || !profile) {
     return (
       <div style={{ minHeight: '100vh', background: '#050a14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -446,215 +438,81 @@ function BattleContent() {
     )
   }
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const fpAvail = profile.fp_balance - fpSpent
+  // ── Derived ────────────────────────────────────────────────────────────────
   const partyColor = profile.party === 'democrat' ? '#2563eb' : '#dc2626'
   const tierColor = enemy.tier === 'legendary' ? '#f59e0b' : enemy.tier === 'rare' ? '#a78bfa' : '#9ca3af'
   const enemyLevel = TIER_LEVELS[enemy.tier as keyof typeof TIER_LEVELS]
-  const playerLevel = Math.min(100, Math.floor(profile.fp_balance / 100) + 5)
+  const enemyTint = enemy.party === 'democrat' ? ['#60a5fa', '#2563eb'] : ['#f87171', '#dc2626']
+  const ouchSrc = enemy.image.replace('.png', '_ouch.png')
 
   const animDefs = {
-    idle:   { css: 'pokeIdle',   dur: 2400, iter: 'infinite', fill: 'none' },
+    idle:   { css: 'pokeIdle',  dur: 2400, iter: 'infinite', fill: 'none' },
     lowHp:  { css: 'pokeLowHp', dur: 900,  iter: 'infinite', fill: 'none' },
     hit:    { css: 'pokeHit',   dur: 500,  iter: '1', fill: 'none' },
-    attack: { css: 'pokeAtk',   dur: 700,  iter: '1', fill: 'none' },
-    charge: { css: 'pokeChrg',  dur: 350,  iter: '2', fill: 'none' },
-    // forwards: hold the fallen/faded end state so the KO'd enemy doesn't
-    // visually resurrect behind the victory panel
+    charge: { css: 'pokeChrg',  dur: 380,  iter: '1', fill: 'none' },
     faint:  { css: 'pokeFaint', dur: 900,  iter: '1', fill: 'forwards' },
   }
   const anim = animDefs[spriteAnim]
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  // One full-screen arena. The entire screen is the gesture zone — tap/swipe/
-  // hold anywhere (on the enemy) to attack. No buttons during the fight.
   return (
     <div
+      ref={arenaRef}
       style={{
         height: '100dvh', minHeight: '100vh', position: 'relative', overflow: 'hidden',
         userSelect: 'none',
         background: 'linear-gradient(180deg, #060d1a 0%, #0c1533 30%, #12224a 48%, #1a2a3a 60%, #1c2e1a 74%, #243320 90%, #141f12 100%)',
         touchAction: phase === 'fighting' ? 'none' : 'auto',
-        cursor: phase === 'fighting' ? 'pointer' : 'default',
-        animation: screenShake ? 'screenShake 0.5s ease-in-out' : 'none',
+        animation: screenShake ? 'screenShake 0.45s ease-in-out' : 'none',
       }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onClick={() => {
-        // Mobile fires a synthetic click after touchend — ignore it so a
-        // single tap doesn't punch twice
-        if (Date.now() - lastTouchRef.current < 700) return
-        if (phase === 'fighting' && !isAnimating) handleAttack('tap')
-      }}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
     >
       <div className="battle-wipe" />
 
-      {/* Screen flash */}
-      {flashOverlay && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: flashOverlay, animation: 'flashFade 0.35s ease-out', pointerEvents: 'none' }} />
-      )}
-        {/* Starfield */}
-        {[...Array(18)].map((_, i) => (
-          <div key={i} style={{
-            position: 'absolute',
-            width: i % 3 === 0 ? 2 : 1, height: i % 3 === 0 ? 2 : 1,
-            borderRadius: '50%', background: 'white',
-            opacity: 0.35 + (i % 4) * 0.15,
-            top: `${5 + (i * 13) % 48}%`,
-            left: `${(i * 17 + 7) % 100}%`,
-            animation: `starTwinkle ${2 + i % 3}s ease-in-out ${(i * 0.3) % 2}s infinite`,
-          }} />
-        ))}
+      {/* Starfield */}
+      {[...Array(18)].map((_, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          width: i % 3 === 0 ? 2 : 1, height: i % 3 === 0 ? 2 : 1,
+          borderRadius: '50%', background: 'white',
+          opacity: 0.35 + (i % 4) * 0.15,
+          top: `${5 + (i * 13) % 42}%`,
+          left: `${(i * 17 + 7) % 100}%`,
+          animation: `starTwinkle ${2 + i % 3}s ease-in-out ${(i * 0.3) % 2}s infinite`,
+        }} />
+      ))}
 
-        {/* Horizon glow */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%', background: 'linear-gradient(0deg, rgba(30,60,20,0.6) 0%, transparent 100%)', pointerEvents: 'none' }} />
+      {/* Horizon glow + vignette */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%', background: 'linear-gradient(0deg, rgba(30,60,20,0.6) 0%, transparent 100%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 90% 75% at 50% 45%, transparent 55%, rgba(4,8,16,0.6) 100%)', pointerEvents: 'none' }} />
 
-        {/* Vignette — darkens the edges so the masked sprite melts into the scene */}
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 90% 75% at 50% 45%, transparent 55%, rgba(4,8,16,0.6) 100%)', pointerEvents: 'none' }} />
-
-        {/* ── Enemy status box (top-left) ─────────────────────────────────── */}
-        <div style={{
-          position: 'absolute', top: 14, left: 12, zIndex: 10,
-          background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
-          borderRadius: 14, padding: '8px 12px', minWidth: 170,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-            <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>{enemy.name}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6, border: `1px solid ${tierColor}`, color: tierColor }}>
-              Lv.{enemyLevel}
-            </span>
-          </div>
-          <HpBar current={enemyHp} max={maxHp} />
-          <div style={{ marginTop: 4, display: 'flex', gap: 4 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: `${tierColor}22`, color: tierColor, border: `1px solid ${tierColor}44`, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              {enemy.tier}
-            </span>
-          </div>
+      {/* ── Enemy status (top-left) ─────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute', top: 14, left: 12, zIndex: 10,
+        background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
+        borderRadius: 14, padding: '8px 12px', minWidth: 170,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+          <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>{enemy.name}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6, border: `1px solid ${tierColor}`, color: tierColor }}>
+            Lv.{enemyLevel}
+          </span>
         </div>
-
-        {/* ── Enemy — full-stage, edge-masked into the background ──────────── */}
-        <div style={{ position: 'absolute', left: '50%', top: '42%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 5, pointerEvents: 'none' }}>
-          {/* Damage numbers above enemy */}
-          {dmgNums.filter(d => !d.isPlayer).map(d => (
-            <div key={d.id} style={{
-              position: 'absolute', top: '10%', left: '50%',
-              transform: 'translateX(-50%)',
-              fontSize: d.val >= 50 ? 42 : 32, fontWeight: 900,
-              color: d.color, textShadow: `0 0 12px ${d.color}, 0 2px 4px rgba(0,0,0,0.8)`,
-              animation: 'dmgFloat 1s ease-out forwards', pointerEvents: 'none', zIndex: 20, whiteSpace: 'nowrap',
-            }}>−{d.val}</div>
-          ))}
-
-          {/* Tier aura glow behind the sprite */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '72%', height: '72%', borderRadius: '50%',
-            background: `radial-gradient(circle, ${tierColor}30 0%, transparent 68%)`,
-            pointerEvents: 'none',
-          }} />
-
-          {(() => {
-            // Transparent PNG cutout (same art as the map/collection) on a
-            // soft party-tinted glow. The old MP4 clips had a baked-in
-            // checkerboard background that CSS blending was supposed to hide
-            // — but phones ignore blend modes on hardware-accelerated video,
-            // so the checker showed through. The cutout + CSS keyframes are
-            // reliable everywhere.
-            const partyTint = enemy.party === 'democrat'
-              ? ['#60a5fa', '#2563eb'] // blue glow
-              : ['#f87171', '#dc2626'] // red glow
-            return (
-              <div
-                key={spriteKey}
-                style={{
-                  width: 'min(94vw, 460px)',
-                  aspectRatio: '1 / 1',
-                  position: 'relative',
-                  animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
-                  transformOrigin: 'bottom center',
-                }}
-              >
-                {/* party-colored aura behind the character */}
-                <div style={{
-                  position: 'absolute', inset: '6%',
-                  borderRadius: '50%',
-                  background: `radial-gradient(ellipse 60% 60% at 50% 52%, ${partyTint[0]}40 0%, ${partyTint[1]}18 48%, transparent 72%)`,
-                  filter: 'blur(4px)',
-                  pointerEvents: 'none',
-                }} />
-                <img
-                  src={enemy.image}
-                  alt={enemy.name}
-                  draggable={false}
-                  style={{
-                    width: '100%', height: '100%',
-                    objectFit: 'contain',
-                    display: 'block',
-                    position: 'relative',
-                    filter: `drop-shadow(0 0 18px ${partyTint[1]}55) drop-shadow(0 10px 12px rgba(0,0,0,0.55))`,
-                    userSelect: 'none',
-                  }}
-                />
-              </div>
-            )
-          })()}
-
-          {/* Ground shadow */}
-          <div style={{ width: '44%', height: 26, background: 'radial-gradient(ellipse, rgba(0,0,0,0.6) 0%, transparent 70%)', borderRadius: '50%', marginTop: '-14%', filter: 'blur(6px)' }} />
+        <HpBar current={enemyHp} max={maxHp} />
+        <div style={{ marginTop: 4 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: `${tierColor}22`, color: tierColor, border: `1px solid ${tierColor}44`, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            {enemy.tier}
+          </span>
         </div>
+      </div>
 
-        {/* ── Player side (lower-left) ─────────────────────────────────────── */}
-        <div style={{ position: 'absolute', left: 14, bottom: 118, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 5, pointerEvents: 'none' }}>
-          {/* Player damage numbers */}
-          {dmgNums.filter(d => d.isPlayer).map(d => (
-            <div key={d.id} style={{
-              position: 'absolute', top: -35, left: '50%', transform: 'translateX(-50%)',
-              fontSize: 22, fontWeight: 900, color: d.color,
-              textShadow: `0 0 10px ${d.color}`,
-              animation: 'dmgFloat 1s ease-out forwards', pointerEvents: 'none', zIndex: 20, whiteSpace: 'nowrap',
-            }}>−{d.val}</div>
-          ))}
-
-          {/* Player "back sprite" */}
-          <div style={{
-            width: 88, height: 108,
-            background: `linear-gradient(160deg, ${partyColor}44 0%, ${partyColor}18 100%)`,
-            border: `2px solid ${partyColor}66`, borderRadius: '44% 44% 32% 32%',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 0 18px ${partyColor}44`,
-          }}>
-            <div style={{ fontSize: 36 }}>{profile.party === 'democrat' ? '🔵' : '🔴'}</div>
-            {isDefending && <div style={{ fontSize: 16, marginTop: -4 }}>🛡️</div>}
-          </div>
-
-          <div style={{ width: 80, height: 18, background: 'radial-gradient(ellipse, rgba(0,0,0,0.45) 0%, transparent 70%)', borderRadius: '50%', marginTop: -6, filter: 'blur(4px)' }} />
-        </div>
-
-        {/* ── Player status box (lower-right) ─────────────────────────────── */}
-        <div style={{
-          position: 'absolute', bottom: 118, right: 12, zIndex: 10,
-          background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
-          borderRadius: 14, padding: '8px 12px', minWidth: 170,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-            <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>{profile.username}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6, border: `1px solid ${partyColor}`, color: partyColor }}>
-              Lv.{playerLevel}
-            </span>
-          </div>
-          <HpBar current={playerHp} max={PLAYER_MAX_HP} />
-          <div style={{ marginTop: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#facc15', fontSize: 11, fontWeight: 700 }}>⚡ {fpAvail.toLocaleString()}</span>
-            {isDefending && <span style={{ fontSize: 10, color: '#60a5fa' }}>🛡️ SHIELD</span>}
-          </div>
-        </div>
-      {/* ── Flee (top-right, only real button on screen) ──────────────────── */}
+      {/* ── Flee ────────────────────────────────────────────────────────────── */}
       {phase === 'fighting' && (
         <button
           onClick={(e) => { e.stopPropagation(); flee() }}
-          disabled={isAnimating}
+          onPointerDown={e => e.stopPropagation()}
+          onPointerUp={e => e.stopPropagation()}
           style={{
             position: 'absolute', top: 14, right: 12, zIndex: 10,
             background: 'rgba(8,12,22,0.85)', border: '1px solid rgba(255,255,255,0.14)',
@@ -665,120 +523,189 @@ function BattleContent() {
         </button>
       )}
 
-      {/* ── Dialog line (floating, above the hint bar) ────────────────────── */}
+      {/* ── The sprite — smaller, and it MOVES to dodge ─────────────────────── */}
       <div style={{
-        position: 'absolute', bottom: 78, left: 0, right: 0, zIndex: 10,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        padding: '0 16px', pointerEvents: 'none', minHeight: 22,
+        position: 'absolute', top: '17%', left: `${enemyX}%`, zIndex: 5,
+        transform: 'translateX(-50%)',
+        transition: `left ${S.current.exDur}ms ease-out`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        pointerEvents: 'none',
       }}>
-        {lastMove && (
-          <span style={{
-            fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
-            background: TYPE_COLORS[lastMove.type] + '33', color: TYPE_COLORS[lastMove.type],
-            border: `1px solid ${TYPE_COLORS[lastMove.type]}55`,
-            textTransform: 'uppercase', flexShrink: 0,
-          }}>
-            {lastMove.type}
-          </span>
-        )}
+        {/* damage numbers over the sprite */}
+        {dmgNums.filter(d => d.onEnemy).map(d => (
+          <div key={d.id} style={{
+            position: 'absolute', top: -8, left: '50%',
+            fontSize: d.val >= 30 ? 36 : 28, fontWeight: 900,
+            color: d.color, textShadow: `0 0 12px ${d.color}, 0 2px 4px rgba(0,0,0,0.8)`,
+            animation: 'dmgFloat 1s ease-out forwards', zIndex: 20, whiteSpace: 'nowrap',
+          }}>−{d.val}</div>
+        ))}
+
+        <div
+          key={spriteKey}
+          style={{
+            width: 'min(46vw, 195px)',
+            aspectRatio: '1 / 1',
+            position: 'relative',
+            animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
+            transformOrigin: 'bottom center',
+          }}
+        >
+          <div style={{
+            position: 'absolute', inset: '8%', borderRadius: '50%',
+            background: `radial-gradient(ellipse 60% 60% at 50% 55%, ${enemyTint[0]}40 0%, ${enemyTint[1]}18 48%, transparent 72%)`,
+            filter: 'blur(4px)',
+          }} />
+          <img
+            src={ouch ? ouchSrc : enemy.image}
+            alt={enemy.name}
+            draggable={false}
+            onError={() => { ouchMissing.current = true; setOuch(false) }}
+            style={{
+              width: '100%', height: '100%', objectFit: 'contain', display: 'block', position: 'relative',
+              filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
+            }}
+          />
+          {ouch && (
+            <div style={{
+              position: 'absolute', top: '-4%', right: '-6%',
+              fontSize: 26, fontWeight: 900, color: '#fde047',
+              textShadow: '0 2px 4px rgba(0,0,0,0.8)', transform: 'rotate(12deg)',
+            }}>💥OUCH!</div>
+          )}
+        </div>
+        <div style={{ width: '38%', height: 16, background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 70%)', borderRadius: '50%', marginTop: '-8%', filter: 'blur(5px)' }} />
+      </div>
+
+      {/* miss marker */}
+      {missAt && (
+        <div style={{
+          position: 'absolute', top: '26%', left: `${missAt.xPct}%`, zIndex: 20,
+          transform: 'translateX(-50%)', pointerEvents: 'none',
+          fontSize: 16, fontWeight: 900, color: '#9ca3af',
+          textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+          animation: 'dmgFloat 0.8s ease-out forwards',
+        }}>MISS</div>
+      )}
+
+      {/* flying projectiles */}
+      {projectiles.map(p => (
+        <Missile key={p.id} p={p} onDeflect={deflect} />
+      ))}
+
+      {/* splat overlay when their junk lands on you */}
+      {splat && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 40, pointerEvents: 'none' }}>
+          <div style={{
+            position: 'absolute', bottom: '-12%', left: '50%', transform: 'translateX(-50%)',
+            width: '130%', height: '55%', borderRadius: '50%',
+            background: `radial-gradient(ellipse at 50% 100%, ${splat.color} 0%, transparent 70%)`,
+            animation: 'splatFade 0.9s ease-out forwards',
+          }} />
+          <div style={{
+            position: 'absolute', bottom: '18%', left: '50%', transform: 'translateX(-50%)',
+            fontSize: 64, animation: 'boomPop 0.7s ease-out forwards',
+          }}>{splat.emoji}</div>
+        </div>
+      )}
+
+      {/* player damage numbers (center-low) */}
+      {dmgNums.filter(d => !d.onEnemy).map(d => (
+        <div key={d.id} style={{
+          position: 'absolute', bottom: '30%', left: '50%',
+          fontSize: 26, fontWeight: 900, color: d.color,
+          textShadow: `0 0 10px ${d.color}`,
+          animation: 'dmgFloat 1s ease-out forwards', zIndex: 20, whiteSpace: 'nowrap',
+        }}>−{d.val}</div>
+      ))}
+
+      {/* ── Player HP (bottom bar, compact) ─────────────────────────────────── */}
+      <div style={{
+        position: 'absolute', bottom: 96, left: 12, right: 12, zIndex: 10,
+        background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
+        borderRadius: 14, padding: '8px 12px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+          <span style={{ color: 'white', fontWeight: 800, fontSize: 13 }}>{profile.username}</span>
+          <span style={{ color: '#facc15', fontSize: 11, fontWeight: 700 }}>⚡ {profile.fp_balance.toLocaleString()}</span>
+        </div>
+        <HpBar current={playerHp} max={PLAYER_MAX_HP} />
+      </div>
+
+      {/* ── Dialog line ─────────────────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute', bottom: 62, left: 0, right: 0, zIndex: 10,
+        display: 'flex', justifyContent: 'center', padding: '0 16px', pointerEvents: 'none', minHeight: 22,
+      }}>
         <span style={{ color: 'rgba(255,255,255,0.92)', fontSize: 14, fontWeight: 600, textShadow: '0 2px 8px rgba(0,0,0,0.9)', textAlign: 'center' }}>
           {dialogLine}
         </span>
       </div>
 
-      {/* ── Gesture hints (bottom bar — the screen itself is the controller) ── */}
+      {/* ── How to play (bottom) ────────────────────────────────────────────── */}
       {phase === 'fighting' && (
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
-          display: 'flex', justifyContent: 'center', gap: 6,
-          padding: '10px 10px calc(12px + env(safe-area-inset-bottom))',
+          textAlign: 'center',
+          padding: '8px 12px calc(12px + env(safe-area-inset-bottom))',
           background: 'linear-gradient(0deg, rgba(4,8,14,0.9) 0%, transparent 100%)',
           pointerEvents: 'none',
         }}>
-          {(Object.entries(ATTACKS) as [GestureType, typeof ATTACKS[GestureType]][]).map(([g, a]) => {
-            const ok = canAfford(a.fp, fpAvail)
-            return (
-              <div key={g} style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
-                opacity: ok ? 1 : 0.3,
-                background: 'rgba(8,12,22,0.7)', border: `1px solid ${a.color}44`,
-                borderRadius: 10, padding: '6px 10px', minWidth: 70,
-              }}>
-                <span style={{ fontSize: 12, fontWeight: 800, color: 'white', whiteSpace: 'nowrap' }}>{a.emoji} {a.hint}</span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: a.color, whiteSpace: 'nowrap' }}>{a.name}</span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: '#facc15' }}>{a.fp} FP</span>
-              </div>
-            )
-          })}
+          <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 700 }}>
+            🪨 SWIPE at {enemy.name} to throw · ✋ TAP their {(FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW).emoji} to swat it
+          </span>
         </div>
       )}
 
-        {/* VICTORY overlay */}
-        {phase === 'victory' && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(4,8,16,0.78)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overflowY: 'auto' }}>
+      {/* VICTORY overlay */}
+      {phase === 'victory' && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(4,8,16,0.78)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 40 }}>🎉</div>
-              <h2 style={{ color: 'white', fontWeight: 900, fontSize: 22, margin: '4px 0' }}>Victory!</h2>
-              <p style={{ color: '#4ade80', fontSize: 14, fontWeight: 700, margin: 0 }}>+{enemy.fpReward} FP earned!</p>
+              <div style={{ fontSize: 44 }}>🎯</div>
+              <h2 style={{ color: 'white', fontWeight: 900, fontSize: 24, margin: '4px 0' }}>
+                {captured ? `${enemy.name} Captured!` : 'Victory!'}
+              </h2>
+              <p style={{ color: '#4ade80', fontSize: 14, fontWeight: 700, margin: 0 }}>+{fpEarned} FP earned!</p>
             </div>
-
-            {captureResult === null && (
-              <div style={{ background: `${tierColor}11`, border: `2px solid ${tierColor}44`, borderRadius: 14, padding: '12px 14px' }}>
-                <p style={{ color: 'white', fontWeight: 800, fontSize: 14, margin: '0 0 2px' }}>🎯 Capture {enemy.name}?</p>
-                <p style={{ color: '#9ca3af', fontSize: 12, margin: '0 0 10px' }}>
-                  {Math.round(CAPTURE_RATES[enemy.tier] * 100)}% success · {CAPTURE_COSTS[enemy.tier]} FP
-                  {ownedCount > 0 ? ` · you own ${ownedCount} — extras sell for FP` : ''}
-                </p>
-                <button onClick={attemptCapture} disabled={capturing || !canAfford(CAPTURE_COSTS[enemy.tier], fpAvail)}
-                  style={{
-                    width: '100%', padding: '10px 0',
-                    background: canAfford(CAPTURE_COSTS[enemy.tier], fpAvail) ? `linear-gradient(135deg, ${tierColor}, ${tierColor}bb)` : '#1f2937',
-                    border: 'none', borderRadius: 10,
-                    color: canAfford(CAPTURE_COSTS[enemy.tier], fpAvail) ? '#000' : '#6b7280',
-                    fontWeight: 800, fontSize: 14, cursor: 'pointer',
-                  }}>
-                  {capturing ? '⏳ Throwing...' : `🎯 Capture! (−${CAPTURE_COSTS[enemy.tier]} FP)`}
-                </button>
-              </div>
-            )}
-            {captureResult === 'success' && (
-              <div style={{ background: '#14532d44', border: '2px solid #16a34a', borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
-                <p style={{ color: '#4ade80', fontWeight: 800, fontSize: 14, margin: 0 }}>🎯 {enemy.name} captured!</p>
-              </div>
-            )}
-            {captureResult === 'failed' && (
-              <div style={{ background: '#450a0a44', border: '2px solid #dc2626', borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
-                <p style={{ color: '#f87171', fontWeight: 800, fontSize: 14, margin: 0 }}>💨 {enemy.name} broke free!</p>
-              </div>
-            )}
+            <div style={{
+              background: `${tierColor}11`, border: `2px solid ${tierColor}44`, borderRadius: 14,
+              padding: '14px', textAlign: 'center',
+            }}>
+              <img src={enemy.image} alt={enemy.name}
+                style={{ width: 110, height: 110, objectFit: 'contain', filter: `drop-shadow(0 0 14px ${tierColor}66)` }} />
+              <p style={{ color: 'white', fontWeight: 800, fontSize: 14, margin: '6px 0 0' }}>
+                {captured ? '📦 Added to your collection' : 'Defeated!'}
+              </p>
+              <p style={{ color: '#9ca3af', fontSize: 11, margin: '2px 0 0' }}>
+                Duplicates sell back for FP in your Collection
+              </p>
+            </div>
             <button onClick={() => router.push('/map')}
               style={{ padding: '14px 0', background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)`, border: 'none', borderRadius: 12, color: 'white', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>
               Back to Map
             </button>
           </div>
-          </div>
-        )}
+        </div>
+      )}
 
-        {/* DEFEAT overlay */}
-        {phase === 'defeat' && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(4,8,16,0.78)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      {/* DEFEAT overlay */}
+      {phase === 'defeat' && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(4,8,16,0.78)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
             <div style={{ fontSize: 48 }}>💀</div>
             <h2 style={{ color: 'white', fontWeight: 900, fontSize: 22, margin: '4px 0' }}>Defeated!</h2>
-            <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 12px', textAlign: 'center' }}>{enemy.name} was too strong!</p>
+            <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 12px', textAlign: 'center' }}>
+              {enemy.name}&apos;s {(FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW).label} was too much!
+            </p>
             <button onClick={() => router.push('/map')}
               style={{ width: '100%', padding: '12px 0', background: '#1f2937', border: '1px solid #374151', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
               Back to Map
             </button>
-            <button onClick={() => router.push('/shop')}
-              style={{ width: '100%', padding: '12px 0', background: 'linear-gradient(135deg, #d97706, #f59e0b)', border: 'none', borderRadius: 12, color: '#000', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
-              ⚡ Get More FP
-            </button>
           </div>
-          </div>
-        )}
-
+        </div>
+      )}
     </div>
   )
 }

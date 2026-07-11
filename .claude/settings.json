@@ -65,7 +65,9 @@
       "Bash(curl -s -o /dev/null -w \"http://politicsgo.app -> %{http_code} redirect: %{redirect_url}\\\\n\" --max-time 10 http://politicsgo.app)",
       "Bash(nslookup www.politicsgo.app 8.8.8.8)",
       "Bash(curl -s -o /dev/null -w \"https://politicsgo.app -> HTTP %{http_code} -> %{redirect_url}\\\\n\" --max-time 15 -H \"Accept: text/html\" -H \"Sec-Fetch-Dest: document\" -H \"User-Agent: Mozilla/5.0\" https://politicsgo.app)",
-      "Bash(curl -s -o /dev/null -w \"sign-in page   -> HTTP %{http_code}\\\\n\" --max-time 15 -H \"Accept: text/html\" -H \"User-Agent: Mozilla/5.0\" https://politicsgo.app/sign-in)"
+      "Bash(curl -s -o /dev/null -w \"sign-in page   -> HTTP %{http_code}\\\\n\" --max-time 15 -H \"Accept: text/html\" -H \"User-Agent: Mozilla/5.0\" https://politicsgo.app/sign-in)",
+      "mcp__claude_ai_Higgs__media_import_url",
+      "Bash(node scripts/build_ouch.mjs)"
     ]
   }
 }
