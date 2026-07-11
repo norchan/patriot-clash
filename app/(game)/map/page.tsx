@@ -157,18 +157,24 @@ export default function MapPage() {
     if (!m) return
     const z = m.getZoom()
     const showEnemies = z >= 11   // enemies: only at neighborhood zoom
-    const showLabels = z >= 9     // gym labels + players: city zoom
+    const showPlayerMk = z >= 9   // players: city zoom
     // Enemies shrink as you zoom out so they stay in scale with player dots
-    // (full size at z14+, down to ~40% at z11)
-    const scale = Math.max(0.4, Math.min(1, 0.4 + (z - 11) * 0.2))
+    // (full size only at z15+, down to ~30% at z11)
+    const scale = Math.max(0.3, Math.min(1, 0.3 + (z - 11) * 0.175))
     enemyMarkersRef.current.forEach(mk => {
       const el = mk.getElement()
       el.style.display = showEnemies ? '' : 'none'
       const inner = el.querySelector('.em-scale') as HTMLElement | null
       if (inner) inner.style.transform = `scale(${scale})`
     })
-    gymMarkersRef.current.forEach(mk => { mk.getElement().style.display = showLabels ? '' : 'none' })
-    otherPlayerMarkersRef.current.forEach(mk => { mk.getElement().style.display = showLabels ? '' : 'none' })
+    // Town halls stay visible at every zoom (they're the landmarks of the
+    // game) — the building just shrinks toward half size at state zoom
+    const gymScale = Math.max(0.5, Math.min(1, 0.5 + (z - 8) * 0.125))
+    gymMarkersRef.current.forEach(mk => {
+      const inner = mk.getElement().querySelector('.gh-scale') as HTMLElement | null
+      if (inner) inner.style.transform = `scale(${gymScale})`
+    })
+    otherPlayerMarkersRef.current.forEach(mk => { mk.getElement().style.display = showPlayerMk ? '' : 'none' })
   }
 
 
@@ -656,23 +662,32 @@ export default function MapPage() {
           : gym.holder_party === 'republican' ? '#dc2626' : '#6b7280'
         const flagEmoji = gym.holder_party === 'democrat' ? '🔵'
           : gym.holder_party === 'republican' ? '🔴' : '⚪'
+        // Town hall building cutout with the city name pill underneath —
+        // party-colored glow shows who holds it from across the map
         const el = document.createElement('div')
         el.innerHTML = `
-          <div style="
-            background:rgba(0,0,0,0.85);border:2px solid ${partyColor};
-            border-radius:10px;padding:4px 8px;display:flex;
-            align-items:center;gap:4px;cursor:pointer;
-            white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.4);
-          ">
-            <span style="font-size:14px;">🏛️</span>
-            <span style="color:white;font-size:11px;font-weight:600;">${esc(gym.city_name)}</span>
-            <span style="font-size:10px;">${flagEmoji}</span>
+          <div class="gh-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
+            <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+              <img src="/halls/hall_intact.webp" alt="" draggable="false" style="
+                width:58px;height:auto;pointer-events:none;
+                filter:drop-shadow(0 0 7px ${partyColor}) drop-shadow(0 0 2px ${partyColor}) drop-shadow(0 3px 5px rgba(0,0,0,0.65));
+              " />
+              <div style="
+                background:rgba(0,0,0,0.88);border:2px solid ${partyColor};
+                border-radius:8px;padding:2px 7px;margin-top:2px;display:flex;
+                align-items:center;gap:4px;white-space:nowrap;
+                box-shadow:0 2px 8px rgba(0,0,0,0.5);
+              ">
+                <span style="color:white;font-size:11px;font-weight:700;">${esc(gym.city_name)}</span>
+                <span style="font-size:10px;">${flagEmoji}</span>
+              </div>
+            </div>
           </div>
         `
         el.style.cursor = 'pointer'
         el.addEventListener('click', () => router.push(`/townhall/${gym.id}`))
 
-        const marker = new mapboxgl.Marker({ element: el })
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
           .setLngLat([gym.longitude, gym.latitude])
           .addTo(map.current!)
         gymMarkersRef.current.push(marker)
@@ -824,7 +839,7 @@ export default function MapPage() {
         const tc = spawn.enemy.tier === 'legendary' ? '#f59e0b'
           : spawn.enemy.tier === 'rare' ? '#8b5cf6' : '#6b7280'
         const isLeg = spawn.enemy.tier === 'legendary'
-        const sz = isLeg ? 58 : 52
+        const sz = isLeg ? 42 : 38
         const pulseOff = Math.floor(sz * 0.12)
 
         const el = document.createElement('div')
