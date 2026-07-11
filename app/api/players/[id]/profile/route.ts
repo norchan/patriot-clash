@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireProfile()
+    const viewer = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
 
@@ -38,7 +38,7 @@ export async function GET(
     const [{ data: posts }, { count: hallsHeld }, { data: photos }] = await Promise.all([
       admin
         .from('profile_posts')
-        .select('id, content, created_at')
+        .select('id, content, score, created_at')
         .eq('profile_id', id)
         .order('created_at', { ascending: false })
         .limit(20),
@@ -62,7 +62,17 @@ export async function GET(
         total_captures: player.total_captures,
       },
       clique,
-      posts: posts ?? [],
+      posts: await (async () => {
+        const list = posts ?? []
+        if (!list.length) return list
+        const { data: myVotes } = await admin
+          .from('profile_post_votes')
+          .select('post_id, vote')
+          .eq('profile_id', viewer.id)
+          .in('post_id', list.map(p => p.id))
+        const voteById = Object.fromEntries((myVotes ?? []).map(v => [v.post_id, v.vote]))
+        return list.map(p => ({ ...p, my_vote: voteById[p.id] ?? 0 }))
+      })(),
       // Album: the avatar first, then any extra photos
       photos: [
         ...(player.avatar_url ? [{ id: 'avatar', url: player.avatar_url }] : []),

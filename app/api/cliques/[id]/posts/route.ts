@@ -24,22 +24,30 @@ export async function GET(
 
     const { data: posts } = await admin
       .from('clique_posts')
-      .select('id, profile_id, content, image_url, created_at')
+      .select('id, profile_id, content, image_url, score, created_at')
       .eq('clique_id', id)
       .order('created_at', { ascending: false })
       .limit(60)
 
     const authorIds = [...new Set((posts ?? []).map((p: any) => p.profile_id))]
-    const { data: authors } = authorIds.length
-      ? await admin.from('profiles').select('id, username, avatar_url').in('id', authorIds)
-      : { data: [] as any[] }
+    const postIds = (posts ?? []).map((p: any) => p.id)
+    const [{ data: authors }, { data: myVotes }] = await Promise.all([
+      authorIds.length
+        ? admin.from('profiles').select('id, username, avatar_url').in('id', authorIds)
+        : Promise.resolve({ data: [] as any[] }),
+      postIds.length
+        ? admin.from('clique_post_votes').select('post_id, vote').eq('profile_id', profile.id).in('post_id', postIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ])
     const byId = Object.fromEntries((authors ?? []).map((a: any) => [a.id, a]))
+    const voteById = Object.fromEntries((myVotes ?? []).map((v: any) => [v.post_id, v.vote]))
 
     return NextResponse.json({
       posts: (posts ?? []).map((p: any) => ({
         ...p,
         username: byId[p.profile_id]?.username ?? 'Unknown',
         avatar_url: byId[p.profile_id]?.avatar_url ?? null,
+        my_vote: voteById[p.id] ?? 0,
         is_mine: p.profile_id === profile.id,
       })),
     })
@@ -107,12 +115,12 @@ export async function POST(
     const { data: post, error } = await admin
       .from('clique_posts')
       .insert({ clique_id: id, profile_id: profile.id, content: text || null, image_url: imageUrl })
-      .select('id, profile_id, content, image_url, created_at')
+      .select('id, profile_id, content, image_url, score, created_at')
       .single()
 
     if (error) throw error
     return NextResponse.json({
-      post: { ...post, username: profile.username, avatar_url: (profile as any).avatar_url ?? null, is_mine: true },
+      post: { ...post, username: profile.username, avatar_url: (profile as any).avatar_url ?? null, my_vote: 0, is_mine: true },
     })
 
   } catch (err: any) {

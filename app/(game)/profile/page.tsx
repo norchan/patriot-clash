@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
-import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare } from 'lucide-react'
+import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare, Share2 } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
+import { VoteButtons } from '@/components/HallFeed'
 
 interface BattleRecord {
   id: string
@@ -49,6 +50,8 @@ interface Post {
   id: string
   content: string
   created_at: string
+  score: number
+  my_vote: number
 }
 
 // Resize any picked image to a 256px square JPEG data URL before upload
@@ -109,6 +112,31 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
+  const [sharedPost, setSharedPost] = useState('')
+
+  async function votePost(post: Post, v: number) {
+    setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: (p.score ?? 0) + v - (p.my_vote ?? 0), my_vote: v } : p))
+    try {
+      const res = await fetch('/api/posts/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'profile', post_id: post.id, vote: v }),
+      })
+      const d = await res.json()
+      if (res.ok) setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: d.score, my_vote: d.my_vote } : p))
+    } catch {}
+  }
+
+  function sharePost(post: Post) {
+    const url = `${window.location.origin}/player/${profile?.id}`
+    if (navigator.share) {
+      navigator.share({ title: 'PoliticsGo', text: post.content.slice(0, 100), url }).catch(() => {})
+    } else {
+      navigator.clipboard?.writeText(url)
+    }
+    setSharedPost(post.id)
+    setTimeout(() => setSharedPost(''), 1500)
+  }
   const [todaySteps, setTodaySteps] = useState<number | null>(null)
   const [albumPhotos, setAlbumPhotos] = useState<{ id: string; url: string }[]>([])
   const [addingPhoto, setAddingPhoto] = useState(false)
@@ -661,7 +689,15 @@ export default function ProfilePage() {
                   <button onClick={() => deletePost(p.id)}
                     className="text-gray-700 hover:text-red-400 text-xs flex-shrink-0 transition">✕</button>
                 </div>
-                <p className="text-gray-600 text-xs mt-1.5">{timeAgo(p.created_at)}</p>
+                <div className="flex items-center gap-3 mt-2">
+                  <VoteButtons compact score={p.score ?? 0} myVote={p.my_vote ?? 0} onVote={v => votePost(p, v)} />
+                  <button onClick={() => sharePost(p)}
+                    className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
+                    <Share2 size={14} />
+                    <span className="text-[11px] font-bold">{sharedPost === p.id ? 'Copied!' : 'Share'}</span>
+                  </button>
+                  <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                </div>
               </div>
             ))}
           </div>

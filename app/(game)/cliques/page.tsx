@@ -43,6 +43,7 @@ export default function CliquesPage() {
   const [isCreator, setIsCreator] = useState(false)
   const [search, setSearch] = useState('')
   const [showBrowse, setShowBrowse] = useState(false)
+  const [showMembers, setShowMembers] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
@@ -211,10 +212,15 @@ export default function CliquesPage() {
               Leave
             </button>
           </div>
-          <button onClick={() => router.push(`/cliques/${myCliqueId}`)} className="text-left w-full">
-            <h2 className="text-white font-bold text-lg">{myClique?.name ?? '...'}</h2>
-            <p className="text-gray-500 text-xs mb-1">{myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''}</p>
-            <p className="text-xs font-bold mb-3" style={{ color: partyColor }}>💬 Open clique feed →</p>
+          {/* Tap the clique to expand/collapse the member roster */}
+          <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-bold text-lg">{myClique?.name ?? '...'}</h2>
+              <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
+            </div>
+            <p className="text-gray-500 text-xs">
+              {myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''} · tap to {showMembers ? 'hide' : 'see'} members
+            </p>
           </button>
 
           {/* pending join requests (creator only) */}
@@ -240,21 +246,27 @@ export default function CliquesPage() {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            {myMembers.slice(0, 20).map(m => (
-              <div key={m.id} className="flex items-center gap-2">
-                {m.avatar_url
-                  ? <img src={m.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border" style={{ borderColor: partyColor }} />
-                  : <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ background: `${partyColor}33` }}>👤</div>}
-                <span className="text-gray-300 text-sm flex-1 truncate">{m.username}</span>
-                <span className="text-gray-600 text-xs">⚔️ {m.total_battles_won}</span>
-                {isCreator && m.id !== profile?.id && (
-                  <button onClick={() => manageMember(m.id, 'remove')} disabled={busy}
-                    className="text-gray-700 hover:text-red-400 text-xs transition disabled:opacity-50" title="Remove from clique">✕</button>
-                )}
-              </div>
-            ))}
-          </div>
+          {showMembers && (
+            <div className="space-y-1.5">
+              {myMembers.map(m => (
+                <div key={m.id} className="flex items-center gap-2">
+                  {/* Tap a member to open their profile */}
+                  <button onClick={() => router.push(`/player/${m.id}`)}
+                    className="flex items-center gap-2 flex-1 min-w-0 text-left rounded-lg px-1 py-0.5 hover:bg-gray-800 transition">
+                    {m.avatar_url
+                      ? <img src={m.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border" style={{ borderColor: partyColor }} />
+                      : <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ background: `${partyColor}33` }}>👤</div>}
+                    <span className="text-gray-300 text-sm flex-1 truncate">{m.username}</span>
+                    <span className="text-gray-600 text-xs">⚔️ {m.total_battles_won}</span>
+                  </button>
+                  {isCreator && m.id !== profile?.id && (
+                    <button onClick={() => manageMember(m.id, 'remove')} disabled={busy}
+                      className="text-gray-700 hover:text-red-400 text-xs transition disabled:opacity-50" title="Remove from clique">✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

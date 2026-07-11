@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Share } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
+import { VoteButtons } from '@/components/HallFeed'
 
 interface PublicProfile {
   id: string
@@ -16,7 +17,7 @@ interface PublicProfile {
 }
 
 interface Clique { id: string; name: string; party: string }
-interface Post { id: string; content: string; created_at: string }
+interface Post { id: string; content: string; created_at: string; score: number; my_vote: number }
 
 function timeAgo(iso: string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -34,7 +35,32 @@ export default function PublicProfilePage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [photos, setPhotos] = useState<{ id: string; url: string }[]>([])
   const [viewerOpen, setViewerOpen] = useState(false)
+  const [shared, setShared] = useState('')
   const [loading, setLoading] = useState(true)
+
+  async function votePost(post: Post, v: number) {
+    setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: p.score + v - p.my_vote, my_vote: v } : p))
+    try {
+      const res = await fetch('/api/posts/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'profile', post_id: post.id, vote: v }),
+      })
+      const d = await res.json()
+      if (res.ok) setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: d.score, my_vote: d.my_vote } : p))
+    } catch {}
+  }
+
+  function sharePost(post: Post) {
+    const url = `${window.location.origin}/player/${params.id}`
+    if (navigator.share) {
+      navigator.share({ title: 'PoliticsGo', text: post.content.slice(0, 100), url }).catch(() => {})
+    } else {
+      navigator.clipboard?.writeText(url)
+    }
+    setShared(post.id)
+    setTimeout(() => setShared(''), 1500)
+  }
 
   useEffect(() => {
     fetch(`/api/players/${params.id}/profile`)
@@ -156,7 +182,15 @@ export default function PublicProfilePage() {
             {posts.map(p => (
               <div key={p.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3">
                 <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
-                <p className="text-gray-600 text-xs mt-1.5">{timeAgo(p.created_at)}</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => votePost(p, v)} />
+                  <button onClick={() => sharePost(p)}
+                    className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
+                    <Share size={14} />
+                    <span className="text-[11px] font-bold">{shared === p.id ? 'Copied!' : 'Share'}</span>
+                  </button>
+                  <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                </div>
               </div>
             ))}
           </div>
