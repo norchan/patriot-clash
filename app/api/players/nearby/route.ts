@@ -64,13 +64,21 @@ export async function GET(req: NextRequest) {
     const { data: profilePrefs } = ids.length > 0
       ? await admin
           .from('profiles')
-          .select('id, show_party, allow_messages, avatar_url')
+          .select('id, show_party, allow_messages, avatar_url, map_visibility')
           .in('id', ids)
       : { data: [] as any[] }
 
     const prefMap = Object.fromEntries((profilePrefs ?? []).map(p => [p.id, p]))
 
-    const players = visible.map(p => {
+    // Incognito: each player controls who can see them on the map
+    const hiddenFromMe = (vis: string | null | undefined) =>
+      vis === 'nobody' ||
+      (vis === 'hide_from_republicans' && profile.party === 'republican') ||
+      (vis === 'hide_from_democrats' && profile.party === 'democrat')
+
+    const players = visible
+      .filter(p => !hiddenFromMe(prefMap[p.profile_id]?.map_visibility))
+      .map(p => {
       const pref = prefMap[p.profile_id]
       return {
         profile_id: p.profile_id,

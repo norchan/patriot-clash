@@ -1111,7 +1111,12 @@ export default function MapPage() {
                     </button>
                   </div>
                 ))}
-                <div className="border-t border-gray-700 mt-1 pt-2 pb-1 px-2 flex items-center justify-between">
+                <button
+                  onClick={() => { setShowMapMenu(false); router.push('/settings/map') }}
+                  className="w-full text-left px-2 py-2 mt-1 border-t border-gray-700 text-blue-400 hover:text-blue-300 text-xs font-bold transition">
+                  ⚙️ Full Map Settings →
+                </button>
+                <div className="pt-1 pb-1 px-2 flex items-center justify-between">
                   <span className="text-gray-400 text-[11px]">Local Players Online:</span>
                   <span className="text-green-400 text-xs font-bold">{nearbyPlayers.length}</span>
                 </div>

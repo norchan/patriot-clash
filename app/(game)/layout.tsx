@@ -25,8 +25,10 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col max-w-md mx-auto relative">
-      {/* ── Global menu — upper right on every page ─────────────────────── */}
-      <div className="fixed top-3 right-3 z-[70]">
+      {/* ── Global menu — upper right corner of the GAME COLUMN, every page.
+             fixed is viewport-relative, so compute the column's right edge
+             (max-w-md = 28rem) instead of hugging the screen edge on PC ── */}
+      <div className="fixed top-3 z-[80]" style={{ right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
           className="w-10 h-10 rounded-xl bg-gray-900/90 backdrop-blur border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white shadow-lg transition"
@@ -76,9 +78,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
         </div>
       </nav>
 
-      {/* The map's zoom/compass stack lives top-right too — nudge it down
+      {/* The map's zoom/compass stack lives top-right too — push it down
           below the global menu button */}
-      <style>{`.mapboxgl-ctrl-top-right { margin-top: 48px; }`}</style>
+      <style>{`.mapboxgl-ctrl-top-right { margin-top: 56px; }`}</style>
     </div>
   )
 }

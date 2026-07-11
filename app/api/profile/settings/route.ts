@@ -15,6 +15,12 @@ export async function PATCH(req: NextRequest) {
     for (const key of allowed) {
       if (key in body) updates[key] = body[key]
     }
+    if ('map_visibility' in body) {
+      if (!['everyone', 'hide_from_republicans', 'hide_from_democrats', 'nobody'].includes(body.map_visibility)) {
+        return NextResponse.json({ error: 'Invalid map visibility' }, { status: 400 })
+      }
+      updates.map_visibility = body.map_visibility
+    }
     // Notification preferences: { dm?: bool, pvp?: bool, social?: bool } —
     // merged over the existing prefs; false mutes that type
     if ('notification_prefs' in body && typeof body.notification_prefs === 'object' && body.notification_prefs) {
