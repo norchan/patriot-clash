@@ -1,5 +1,5 @@
 {
   "crons": [
-    { "path": "/api/cron/reddit-posts", "schedule": "0 13 * * *" }
+    { "path": "/api/cron/town-square", "schedule": "0 13 * * *" }
   ]
 }
