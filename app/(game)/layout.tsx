@@ -15,7 +15,7 @@ const navItems = [
 const menuItems = [
   { href: '/townhall',         label: 'Halls',         icon: Building2 },
   { href: '/profile',          label: 'Profile',       icon: User },
-  { href: '/profile#settings', label: 'Settings',      icon: Settings },
+  { href: '/settings',         label: 'Settings',      icon: Settings },
   { href: '/notifications',    label: 'Notifications', icon: Bell },
   { href: '/shop',             label: 'Shop',          icon: ShoppingBag },
 ]

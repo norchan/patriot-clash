@@ -39,12 +39,6 @@ function timeAgo(iso: string): string {
   return `${Math.floor(secs / 86400)}d ago`
 }
 
-interface BlockedPlayer {
-  id: string
-  username: string
-  blocked_at: string
-}
-
 interface Post {
   id: string
   content: string
@@ -95,9 +89,6 @@ export default function ProfilePage() {
   const { profile, loading, refetch } = useProfile()
   const [battles, setBattles] = useState<BattleRecord[]>([])
   const [battlesLoading, setBattlesLoading] = useState(true)
-  const [toggling, setToggling] = useState<string | null>(null)
-  const [blockedPlayers, setBlockedPlayers] = useState<BlockedPlayer[]>([])
-  const [showBlocked, setShowBlocked] = useState(false)
 
   // Photo, click, posts
   const fileRef = useRef<HTMLInputElement>(null)
@@ -111,6 +102,8 @@ export default function ProfilePage() {
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
   const [sharedPost, setSharedPost] = useState('')
+  const [showStats, setShowStats] = useState(false)
+  const [showRecent, setShowRecent] = useState(false)
   const [unreadNotifs, setUnreadNotifs] = useState(0)
 
   useEffect(() => {
@@ -119,26 +112,6 @@ export default function ProfilePage() {
       .then(d => setUnreadNotifs(d.unread ?? 0))
       .catch(() => {})
   }, [])
-
-  // Menu "Settings" deep link: /profile#settings scrolls to the settings card
-  useEffect(() => {
-    if (!loading && window.location.hash === '#settings') {
-      setTimeout(() => document.getElementById('settings')?.scrollIntoView({ behavior: 'smooth' }), 150)
-    }
-  }, [loading])
-
-  async function toggleNotifPref(key: 'dm' | 'pvp' | 'social', val: boolean) {
-    setToggling(`notif_${key}`)
-    try {
-      await fetch('/api/profile/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification_prefs: { [key]: !val } }),
-      })
-      await refetch()
-    } catch {}
-    setToggling(null)
-  }
 
   async function votePost(post: Post, v: number) {
     setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: (p.score ?? 0) + v - (p.my_vote ?? 0), my_vote: v } : p))
@@ -291,39 +264,6 @@ export default function ProfilePage() {
   async function deletePost(id: string) {
     setPosts(prev => prev.filter(p => p.id !== id))
     fetch(`/api/posts/${id}`, { method: 'DELETE' }).catch(() => {})
-  }
-
-  async function toggleSetting(key: 'allow_pvp_messages' | 'allow_messages' | 'show_party', current: boolean) {
-    setToggling(key)
-    try {
-      await fetch('/api/profile/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: !current }),
-      })
-      await refetch()
-    } catch {}
-    setToggling(null)
-  }
-
-  async function loadBlocked() {
-    try {
-      const res = await fetch('/api/players/block')
-      const data = await res.json()
-      setBlockedPlayers(data.blocked ?? [])
-      setShowBlocked(true)
-    } catch {}
-  }
-
-  async function unblock(id: string) {
-    try {
-      await fetch('/api/players/block', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocked_id: id }),
-      })
-      setBlockedPlayers(prev => prev.filter(p => p.id !== id))
-    } catch {}
   }
 
   useEffect(() => {
@@ -516,50 +456,60 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="px-4 mt-3">
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { icon: <Zap size={18} className="text-yellow-400" />,    label: 'Fighting Points', value: profile?.fp_balance?.toLocaleString() || '0',        color: 'text-yellow-400' },
-            { icon: <Footprints size={18} className="text-green-400" />, label: 'Total Steps',  value: profile?.total_steps?.toLocaleString() || '0',         color: 'text-green-400' },
-            { icon: <Swords size={18} className="text-blue-400" />,   label: 'Battles Won',    value: profile?.total_battles_won?.toLocaleString() || '0',    color: 'text-blue-400' },
-            { icon: <Flag size={18} className="text-purple-400" />,   label: 'Halls Captured', value: profile?.total_gyms_captured?.toLocaleString() || '0', color: 'text-purple-400' },
-          ].map(({ icon, label, value, color }) => (
-            <div key={label} className="bg-gray-900 rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                {icon}
-                <span className="text-gray-500 text-xs">{label}</span>
-              </div>
-              <div className={`font-bold text-2xl ${color}`}>{value}</div>
+      {/* Stats + battle record — collapsed into an expandable bar */}
+      <div className="mx-4 mt-3 bg-gray-900 rounded-2xl overflow-hidden">
+        <button onClick={() => setShowStats(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-800 transition">
+          <span className="text-white text-sm font-bold">📊 My Stats & Battle Record</span>
+          <span className={`text-gray-500 text-xs transition-transform ${showStats ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+        {showStats && (
+          <div className="px-3 pb-3">
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { icon: <Zap size={18} className="text-yellow-400" />,    label: 'Fighting Points', value: profile?.fp_balance?.toLocaleString() || '0',        color: 'text-yellow-400' },
+                { icon: <Footprints size={18} className="text-green-400" />, label: 'Total Steps',  value: profile?.total_steps?.toLocaleString() || '0',         color: 'text-green-400' },
+                { icon: <Swords size={18} className="text-blue-400" />,   label: 'Battles Won',    value: profile?.total_battles_won?.toLocaleString() || '0',    color: 'text-blue-400' },
+                { icon: <Flag size={18} className="text-purple-400" />,   label: 'Halls Captured', value: profile?.total_gyms_captured?.toLocaleString() || '0', color: 'text-purple-400' },
+              ].map(({ icon, label, value, color }) => (
+                <div key={label} className="bg-gray-800/60 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    {icon}
+                    <span className="text-gray-500 text-xs">{label}</span>
+                  </div>
+                  <div className={`font-bold text-xl ${color}`}>{value}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+            <div className="bg-gray-800/60 rounded-xl p-3 mt-2 flex items-center gap-3">
+              <div className="flex-1 text-center">
+                <div className="text-green-400 font-bold text-xl">{profile?.total_battles_won || 0}</div>
+                <div className="text-gray-500 text-xs">Wins</div>
+              </div>
+              <div className="text-gray-700 font-bold text-xl">/</div>
+              <div className="flex-1 text-center">
+                <div className="text-red-400 font-bold text-xl">{profile?.total_battles_lost || 0}</div>
+                <div className="text-gray-500 text-xs">Losses</div>
+              </div>
+              <div className="text-gray-700 font-bold text-xl">/</div>
+              <div className="flex-1 text-center">
+                <div className="text-gray-400 font-bold text-xl">{winRate}%</div>
+                <div className="text-gray-500 text-xs">Win Rate</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Battle record summary */}
-      <div className="mx-4 mt-3 bg-gray-900 rounded-2xl p-4">
-        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-3">Battle Record</h3>
-        <div className="flex items-center gap-3">
-          <div className="flex-1 text-center">
-            <div className="text-green-400 font-bold text-2xl">{profile?.total_battles_won || 0}</div>
-            <div className="text-gray-500 text-xs">Wins</div>
-          </div>
-          <div className="text-gray-700 font-bold text-xl">/</div>
-          <div className="flex-1 text-center">
-            <div className="text-red-400 font-bold text-2xl">{profile?.total_battles_lost || 0}</div>
-            <div className="text-gray-500 text-xs">Losses</div>
-          </div>
-          <div className="text-gray-700 font-bold text-xl">/</div>
-          <div className="flex-1 text-center">
-            <div className="text-gray-400 font-bold text-2xl">{winRate}%</div>
-            <div className="text-gray-500 text-xs">Win Rate</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent battles */}
-      <div className="mx-4 mt-3 bg-gray-900 rounded-2xl p-4">
-        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-3">Recent Battles</h3>
+      {/* Recent battles — expandable bar */}
+      <div className="mx-4 mt-3 bg-gray-900 rounded-2xl overflow-hidden">
+        <button onClick={() => setShowRecent(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-800 transition">
+          <span className="text-white text-sm font-bold">⚔️ Recent Battles</span>
+          <span className={`text-gray-500 text-xs transition-transform ${showRecent ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+        {showRecent && (
+        <div className="px-4 pb-4">
         {battlesLoading ? (
           <p className="text-gray-600 text-sm text-center py-2">Loading...</p>
         ) : battles.length === 0 ? (
@@ -589,6 +539,8 @@ export default function ProfilePage() {
             })}
           </div>
         )}
+        </div>
+        )}
       </div>
 
       {/* Quick links */}
@@ -609,117 +561,6 @@ export default function ProfilePage() {
           className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
           ⚡ Buy Fighting Points
         </button>
-      </div>
-
-      {/* Settings */}
-      <div id="settings" className="mx-4 mt-4 scroll-mt-16">
-        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Settings</h3>
-        <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800">
-          {(
-            [
-              {
-                key: 'show_party' as const,
-                label: 'Show Party Affiliation',
-                sub: 'Others see your party color on the map',
-                val: profile?.show_party ?? true,
-                onColor: '#22c55e',
-              },
-              {
-                key: 'allow_messages' as const,
-                label: 'Allow Direct Messages',
-                sub: 'Other players can send you chat requests',
-                val: profile?.allow_messages ?? true,
-                onColor: '#3b82f6',
-              },
-              {
-                key: 'allow_pvp_messages' as const,
-                label: 'PvP Battle Chat',
-                sub: 'Chat after PvP battles (both players must enable)',
-                val: profile?.allow_pvp_messages ?? false,
-                onColor: '#7c3aed',
-              },
-            ] as const
-          ).map(({ key, label, sub, val, onColor }) => (
-            <button
-              key={key}
-              onClick={() => toggleSetting(key, val)}
-              disabled={toggling === key}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800 transition border-b border-gray-800 last:border-0 disabled:opacity-50"
-            >
-              <div className="text-left">
-                <div className="text-white text-sm font-medium">{label}</div>
-                <div className="text-gray-500 text-xs">{sub}</div>
-              </div>
-              <div className="ml-3 flex-shrink-0 w-10 h-6 rounded-full relative transition-colors"
-                style={{ background: val ? onColor : '#374151' }}>
-                <div className="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all"
-                  style={{ left: val ? 22 : 4 }} />
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Notification preferences */}
-      <div className="mx-4 mt-3">
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800">
-            <span className="text-gray-400 text-xs uppercase tracking-wider">🔔 Notifications</span>
-          </div>
-          {([
-            { key: 'dm' as const,     label: 'Direct Messages',   sub: 'When someone messages you' },
-            { key: 'pvp' as const,    label: 'Battle Challenges', sub: 'When someone challenges you to PvP' },
-            { key: 'social' as const, label: 'Comments & Replies', sub: 'When someone responds to your posts' },
-          ]).map(({ key, label, sub }) => {
-            const val = ((profile as any)?.notification_prefs ?? {})[key] !== false
-            return (
-              <button
-                key={key}
-                onClick={() => toggleNotifPref(key, val)}
-                disabled={toggling === `notif_${key}`}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800 transition border-b border-gray-800 last:border-0 disabled:opacity-50"
-              >
-                <div className="text-left">
-                  <div className="text-white text-sm font-medium">{label}</div>
-                  <div className="text-gray-500 text-xs">{sub}</div>
-                </div>
-                <div className="ml-3 flex-shrink-0 w-10 h-6 rounded-full relative transition-colors"
-                  style={{ background: val ? '#16a34a' : '#374151' }}>
-                  <div className="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all"
-                    style={{ left: val ? 22 : 4 }} />
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Blocked players */}
-      <div className="mx-4 mt-3 mb-6">
-        {!showBlocked ? (
-          <button onClick={loadBlocked}
-            className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-gray-500 text-sm hover:bg-gray-800 hover:text-gray-300 transition">
-            🚫 Manage Blocked Players
-          </button>
-        ) : (
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-              <span className="text-gray-400 text-xs uppercase tracking-wider">Blocked Players</span>
-              <button onClick={() => setShowBlocked(false)} className="text-gray-600 hover:text-gray-400 text-xs">Hide</button>
-            </div>
-            {blockedPlayers.length === 0 ? (
-              <p className="text-gray-600 text-sm text-center py-4">No blocked players</p>
-            ) : blockedPlayers.map(p => (
-              <div key={p.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-800 last:border-0">
-                <span className="text-gray-300 text-sm">{p.username}</span>
-                <button onClick={() => unblock(p.id)}
-                  className="text-xs text-blue-400 hover:text-blue-300 transition font-medium">
-                  Unblock
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ── Posts (public feed at the bottom of the profile) ─────────────── */}

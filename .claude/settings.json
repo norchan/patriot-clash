@@ -91,7 +91,10 @@
       "Bash(rm -rf \"app/\\(game\\)/townhall/[id]/chat\" \"app/api/gyms/[id]/chat\")",
       "Bash(node scripts/landmarks.mjs)",
       "Bash(curl -s -m 10 -A \"PoliticsGoBot/1.0\" \"https://en.wikipedia.org/api/rest_v1/page/summary/Lakeville,%20Minnesota\")",
-      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\('thumbnail:',j.thumbnail?.source\\);console.log\\('original:',j.originalimage?.source\\)}\\)\")"
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\('thumbnail:',j.thumbnail?.source\\);console.log\\('original:',j.originalimage?.source\\)}\\)\")",
+      "Bash(sed -n '/async function toggleSetting/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")",
+      "Bash(sed -n '/async function loadBlocked/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")",
+      "Bash(sed -n '/async function unblock/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat"
