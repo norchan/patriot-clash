@@ -96,9 +96,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'All feeds returned nothing' }, { status: 502 })
   }
 
-  const [{ data: bots }, { data: gyms }] = await Promise.all([
+  // PostgREST caps every response at 1000 rows — page anything that can
+  // be bigger than that (2300+ gyms, and the dedupe rows grow daily)
+  async function pageAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+    const all: T[] = []
+    for (let page = 0; page < 50; page++) {
+      const { data } = await build(page * 1000, page * 1000 + 999)
+      if (!data?.length) break
+      all.push(...data)
+      if (data.length < 1000) break
+    }
+    return all
+  }
+
+  const [{ data: bots }, gyms] = await Promise.all([
     admin.from('profiles').select('id, party').like('clerk_user_id', 'bot%'),
-    admin.from('gyms').select('id'),
+    pageAll<{ id: string }>((from, to) => admin.from('gyms').select('id').order('id').range(from, to)),
   ])
   const demBots = (bots ?? []).filter(b => b.party === 'democrat')
   const repBots = (bots ?? []).filter(b => b.party === 'republican')
@@ -111,12 +124,9 @@ export async function GET(req: NextRequest) {
   // Dedupe is scoped to links in TODAY'S pool: one .in() query answers
   // "which halls already have which of these links".
   const poolLinks = [...new Set([...repPosts, ...demPosts].map(p => p.link))]
-  const { data: existing } = await admin
-    .from('hall_posts')
-    .select('gym_id, link_url')
-    .in('link_url', poolLinks)
-    .limit(50000)
-  const seen = new Set((existing ?? []).map(e => `${e.gym_id}|${e.link_url}`))
+  const existing = await pageAll<{ gym_id: string; link_url: string }>((from, to) =>
+    admin.from('hall_posts').select('gym_id, link_url').in('link_url', poolLinks).order('id').range(from, to))
+  const seen = new Set(existing.map(e => `${e.gym_id}|${e.link_url}`))
 
   const rows: any[] = []
   for (const gym of gyms) {
