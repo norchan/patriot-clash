@@ -233,6 +233,28 @@ export default function MapPage() {
     })
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+
+    // Home button under the zoom/compass stack — fly back to where you are
+    const homeControl = {
+      onAdd() {
+        const div = document.createElement('div')
+        div.className = 'mapboxgl-ctrl mapboxgl-ctrl-group'
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.title = 'Go to my location'
+        btn.style.fontSize = '17px'
+        btn.textContent = '📍'
+        btn.addEventListener('click', () => {
+          const l = locationRef.current
+          if (l && map.current) map.current.flyTo({ center: [l.lng, l.lat], zoom: 16, pitch: 30 })
+        })
+        div.appendChild(btn)
+        return div
+      },
+      onRemove() {},
+    }
+    map.current.addControl(homeControl as unknown as mapboxgl.IControl, 'top-right')
+
     map.current.on('zoom', applyZoomVisibility)
 
     return () => {

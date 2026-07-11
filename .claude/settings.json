@@ -82,7 +82,9 @@
       "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://www.theguardian.com/us-news/us-politics/rss\")",
       "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://nypost.com/politics/feed/\")",
       "Bash(git rm *)",
-      "Bash(node -)"
+      "Bash(node -)",
+      "Bash(node scripts/add_mn_halls.mjs)",
+      "Bash(node scripts/add_wi_halls.mjs)"
     ]
   }
 }
