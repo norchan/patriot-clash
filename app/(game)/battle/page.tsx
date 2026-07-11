@@ -79,7 +79,6 @@ function BattleContent() {
   // Sprite animation — increment spriteKey to force CSS restart
   const [spriteKey, setSpriteKey] = useState(0)
   const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'attack' | 'charge' | 'faint'>('idle')
-  const [videoFailed, setVideoFailed] = useState(false)
 
   // Visual effects
   const [screenShake, setScreenShake] = useState(false)
@@ -467,18 +466,6 @@ function BattleContent() {
   }
   const anim = animDefs[spriteAnim]
 
-  // Video clip for the current state; states without a clip fall back to the
-  // idle clip (still with the CSS effect layered on top), and enemies with no
-  // clips at all fall back to the static image.
-  const clips = enemy.animations
-  const activeClip = clips
-    ? (spriteAnim === 'attack' || spriteAnim === 'charge' ? (clips.attack ?? clips.idle)
-      : spriteAnim === 'hit' ? (clips.hit ?? clips.idle)
-      : spriteAnim === 'faint' ? (clips.faint ?? clips.idle)
-      : clips.idle)
-    : undefined
-  const clipLoops = spriteAnim === 'idle' || spriteAnim === 'lowHp'
-
   // ── Render ────────────────────────────────────────────────────────────────
   // One full-screen arena. The entire screen is the gesture zone — tap/swipe/
   // hold anywhere (on the enemy) to attack. No buttons during the fight.
@@ -569,56 +556,47 @@ function BattleContent() {
           }} />
 
           {(() => {
-            // No border, no bubble — a soft radial mask dissolves the sprite
-            // into the arena. The animation clips have a baked-in white
-            // background, so the video is multiply-blended onto a light
-            // party-tinted backdrop: white pixels become the tint, the
-            // character's own colors pass through nearly untouched.
+            // Transparent PNG cutout (same art as the map/collection) on a
+            // soft party-tinted glow. The old MP4 clips had a baked-in
+            // checkerboard background that CSS blending was supposed to hide
+            // — but phones ignore blend modes on hardware-accelerated video,
+            // so the checker showed through. The cutout + CSS keyframes are
+            // reliable everywhere.
             const partyTint = enemy.party === 'democrat'
-              ? ['#dbeafe', '#93c5fd'] // light blue
-              : ['#fee2e2', '#fca5a5'] // light red
-            const spriteMask = 'radial-gradient(ellipse 62% 62% at 50% 44%, black 45%, rgba(0,0,0,0.5) 62%, transparent 76%)'
-            const wrapStyle = {
-              width: 'min(94vw, 460px)',
-              aspectRatio: '1 / 1',
-              maskImage: spriteMask,
-              WebkitMaskImage: spriteMask,
-              animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
-              transformOrigin: 'bottom center' as const,
-              isolation: 'isolate' as const,
-            }
-            const mediaStyle = {
-              width: '100%', height: '100%',
-              objectFit: 'cover' as const,
-              display: 'block' as const,
-            }
-            return activeClip && !videoFailed ? (
-              <div
-                key={`${spriteKey}-${activeClip}`}
-                style={{
-                  ...wrapStyle,
-                  background: `radial-gradient(ellipse 70% 70% at 50% 44%, ${partyTint[0]} 0%, ${partyTint[1]} 58%, ${partyTint[1]} 100%)`,
-                }}
-              >
-                <video
-                  src={activeClip}
-                  poster={enemy.image}
-                  aria-label={enemy.name}
-                  autoPlay muted playsInline
-                  loop={clipLoops}
-                  onError={() => setVideoFailed(true)}
-                  style={{ ...mediaStyle, mixBlendMode: 'multiply' }}
-                />
-              </div>
-            ) : (
+              ? ['#60a5fa', '#2563eb'] // blue glow
+              : ['#f87171', '#dc2626'] // red glow
+            return (
               <div
                 key={spriteKey}
                 style={{
-                  ...wrapStyle,
-                  background: `radial-gradient(ellipse 70% 70% at 50% 44%, ${partyTint[0]}cc 0%, ${partyTint[1]}66 55%, transparent 78%)`,
+                  width: 'min(94vw, 460px)',
+                  aspectRatio: '1 / 1',
+                  position: 'relative',
+                  animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
+                  transformOrigin: 'bottom center',
                 }}
               >
-                <img src={enemy.image} alt={enemy.name} style={{ ...mediaStyle, objectFit: 'contain' }} />
+                {/* party-colored aura behind the character */}
+                <div style={{
+                  position: 'absolute', inset: '6%',
+                  borderRadius: '50%',
+                  background: `radial-gradient(ellipse 60% 60% at 50% 52%, ${partyTint[0]}40 0%, ${partyTint[1]}18 48%, transparent 72%)`,
+                  filter: 'blur(4px)',
+                  pointerEvents: 'none',
+                }} />
+                <img
+                  src={enemy.image}
+                  alt={enemy.name}
+                  draggable={false}
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                    position: 'relative',
+                    filter: `drop-shadow(0 0 18px ${partyTint[1]}55) drop-shadow(0 10px 12px rgba(0,0,0,0.55))`,
+                    userSelect: 'none',
+                  }}
+                />
               </div>
             )
           })()}
