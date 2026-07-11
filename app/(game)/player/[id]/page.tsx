@@ -16,7 +16,7 @@ interface PublicProfile {
   total_captures: number
 }
 
-interface Clique { id: string; name: string; party: string }
+interface Clique { id: string; name: string; party: string; gym_id: string | null }
 interface Post { id: string; content: string; created_at: string; score: number; my_vote: number }
 
 function timeAgo(iso: string): string {
@@ -139,7 +139,30 @@ export default function PublicProfilePage() {
             <div className="mt-2">
               <span className="text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1"
                 style={{ background: `${cliquePartyColor}1a`, color: cliquePartyColor, border: `1px solid ${cliquePartyColor}44` }}>
-                ✊ {clique.name} · {clique.party === 'democrat' ? 'Democrat' : 'Republican'} Clique
+                {(() => {
+                  const i = clique.name.lastIndexOf(' — ')
+                  const nm = i >= 0 ? clique.name.slice(0, i) : clique.name
+                  const city = i >= 0 ? clique.name.slice(i + 3) : null
+                  return (
+                    <>
+                      {/* clique name → its page (join if same party, limited
+                          view for rivals); city → its town hall */}
+                      <span role="link" onClick={() => router.push(`/cliques/${clique.id}`)}
+                        className="cursor-pointer hover:underline">✊ {nm}</span>
+                      {city && (
+                        <>
+                          <span className="opacity-60">—</span>
+                          <span role="link"
+                            onClick={() => clique.gym_id && router.push(`/townhall/${clique.gym_id}`)}
+                            className="cursor-pointer underline decoration-dotted underline-offset-2 hover:opacity-80">
+                            {city}
+                          </span>
+                        </>
+                      )}
+                      <span className="opacity-70">· {clique.party === 'democrat' ? 'Democrat' : 'Republican'} Clique</span>
+                    </>
+                  )
+                })()}
               </span>
             </div>
           )}

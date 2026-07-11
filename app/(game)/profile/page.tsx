@@ -94,6 +94,7 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [cliqueName, setCliqueName] = useState<string | null>(null)
+  const [cliqueGymId, setCliqueGymId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [savingName, setSavingName] = useState(false)
@@ -169,10 +170,10 @@ export default function ProfilePage() {
   }, [])
 
   useEffect(() => {
-    if (!profile?.clique_id) { setCliqueName(null); return }
+    if (!profile?.clique_id) { setCliqueName(null); setCliqueGymId(null); return }
     fetch(`/api/cliques/${profile.clique_id}`)
       .then(r => r.json())
-      .then(d => setCliqueName(d.clique?.name ?? null))
+      .then(d => { setCliqueName(d.clique?.name ?? null); setCliqueGymId(d.clique?.gym_id ?? null) })
       .catch(() => {})
   }, [profile?.clique_id])
 
@@ -368,11 +369,31 @@ export default function ProfilePage() {
               </span>
             </div>
             {cliqueName && (
-              <button onClick={() => router.push('/cliques')}
-                className="mt-1.5 text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1"
+              <span className="mt-1.5 text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1"
                 style={{ background: `${partyColor}1a`, color: partyColor, border: `1px solid ${partyColor}44` }}>
-                ✊ {cliqueName}
-              </button>
+                {(() => {
+                  const i = cliqueName.lastIndexOf(' — ')
+                  const nm = i >= 0 ? cliqueName.slice(0, i) : cliqueName
+                  const city = i >= 0 ? cliqueName.slice(i + 3) : null
+                  return (
+                    <>
+                      {/* clique name → my clique's page; city → its town hall */}
+                      <span role="link" onClick={() => router.push(`/cliques/${profile?.clique_id}`)}
+                        className="cursor-pointer hover:underline">✊ {nm}</span>
+                      {city && (
+                        <>
+                          <span className="opacity-60">—</span>
+                          <span role="link"
+                            onClick={() => cliqueGymId && router.push(`/townhall/${cliqueGymId}`)}
+                            className="cursor-pointer underline decoration-dotted underline-offset-2 hover:opacity-80">
+                            {city}
+                          </span>
+                        </>
+                      )}
+                    </>
+                  )
+                })()}
+              </span>
             )}
           </div>
           {/* mt-11 clears the global menu button fixed in this corner */}

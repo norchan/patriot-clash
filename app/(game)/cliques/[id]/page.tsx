@@ -36,6 +36,7 @@ export default function CliquePage() {
   const [posting, setPosting] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [requested, setRequested] = useState(false)
   const [toast, setToast] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -110,6 +111,19 @@ export default function CliquePage() {
     finally { setBusy(false) }
   }
 
+  // Same-party visitors can join (or request) right from this page
+  async function joinClique() {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/cliques/${params.id}/join`, { method: 'POST' })
+      const d = await res.json()
+      if (!res.ok) { showToast(`❌ ${d.error || 'Could not join'}`); return }
+      if (d.status === 'member') { showToast('🎉 Welcome to the clique!'); load() }
+      else { setRequested(true); showToast('📨 Request sent — waiting for approval') }
+    } catch { showToast('❌ Could not join') }
+    finally { setBusy(false) }
+  }
+
   async function manageMember(profileId: string, action: 'approve' | 'deny' | 'remove') {
     setBusy(true)
     try {
@@ -133,6 +147,7 @@ export default function CliquePage() {
   )
 
   const partyColor = clique.party === 'democrat' ? '#2563eb' : '#dc2626'
+  const sameParty = profile?.party === clique.party
 
   return (
     <div className="min-h-screen bg-gray-950 pb-8">
@@ -155,9 +170,17 @@ export default function CliquePage() {
         <div className="absolute bottom-3 left-4 right-4">
           <h1 className="text-white font-black text-xl drop-shadow">{clique.name}</h1>
           <p className="text-gray-300 text-xs">
-            {memberCount} member{memberCount !== 1 ? 's' : ''}
-            {gym ? ` · ${gym.city_name}, ${gym.state}` : ''}
-            {' · '}{clique.join_policy === 'open' ? '🚪 Open to all' : '🔒 Request to join'}
+            {sameParty
+              ? <>
+                  {memberCount} member{memberCount !== 1 ? 's' : ''}
+                  {gym ? <> · <span role="link" onClick={() => clique.gym_id && router.push(`/townhall/${clique.gym_id}`)}
+                    className="underline decoration-dotted underline-offset-2 cursor-pointer hover:text-white">{gym.city_name}, {gym.state}</span></> : null}
+                  {' · '}{clique.join_policy === 'open' ? '🚪 Open to all' : '🔒 Request to join'}
+                </>
+              : gym
+                ? <span role="link" onClick={() => clique.gym_id && router.push(`/townhall/${clique.gym_id}`)}
+                    className="underline decoration-dotted underline-offset-2 cursor-pointer hover:text-white">{gym.city_name}, {gym.state}</span>
+                : `${clique.party === 'democrat' ? 'Democrat' : 'Republican'} clique`}
           </p>
         </div>
       </div>
@@ -214,13 +237,33 @@ export default function CliquePage() {
       )}
 
       {!isMember ? (
-        <div className="mx-4 mt-6 text-center">
-          <div className="text-5xl mb-3">🔒</div>
-          <p className="text-gray-400 text-sm">This clique&apos;s feed is private.</p>
-          <p className="text-gray-600 text-xs mt-1">
-            {clique.join_policy === 'open' ? 'Join from the Cliques page to see it.' : 'Request to join from the Cliques page.'}
-          </p>
-        </div>
+        sameParty ? (
+          // Same party: they can join (or request) right here
+          <div className="mx-4 mt-6 text-center">
+            <div className="text-5xl mb-3">🔒</div>
+            <p className="text-gray-400 text-sm">This clique&apos;s feed is members-only.</p>
+            {profile?.clique_id ? (
+              <p className="text-gray-600 text-xs mt-1">Leave your current clique first to join this one.</p>
+            ) : requested ? (
+              <p className="text-yellow-400 text-sm font-bold mt-3">📨 Request sent — waiting for approval</p>
+            ) : (
+              <button onClick={joinClique} disabled={busy}
+                className="mt-4 px-8 py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50"
+                style={{ background: partyColor }}>
+                {clique.join_policy === 'open' ? '✊ Join Clique' : '📨 Request to Join'}
+              </button>
+            )}
+          </div>
+        ) : (
+          // Rival party: name + town only (more visible to rivals later)
+          <div className="mx-4 mt-6 text-center">
+            <div className="text-5xl mb-3">✊</div>
+            <p className="text-gray-400 text-sm">
+              A {clique.party === 'democrat' ? 'Democrat' : 'Republican'} clique{gym ? ` out of ${gym.city_name}, ${gym.state}` : ''}.
+            </p>
+            <p className="text-gray-600 text-xs mt-1">Rival cliques keep their business to themselves.</p>
+          </div>
+        )
       ) : (
         <>
           {/* Composer */}
