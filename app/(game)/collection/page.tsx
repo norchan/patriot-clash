@@ -19,6 +19,8 @@ import { republicanEnemies, democratEnemies } from '@/config/enemies'
 // Single source of truth — a hardcoded copy of this list once drifted
 const ALL_ENEMIES = [...republicanEnemies, ...democratEnemies]
 
+const partyLabel = (party?: string | null) => party === 'democrat' ? 'Republican' : 'Democrat'
+
 const SELL_PRICES: Record<string, number> = { common: 10, rare: 40, legendary: 250 }
 
 export default function CollectionPage() {
@@ -39,6 +41,16 @@ export default function CollectionPage() {
   const capturedIds = new Set(captured.map(c => c.enemy_id))
   const tierColor = (tier: string) =>
     tier === 'legendary' ? '#f59e0b' : tier === 'rare' ? '#8b5cf6' : '#6b7280'
+
+  // You only ever battle (and catch) the OPPOSING party's sprites — a
+  // Republican will never meet The Don, so their roster shouldn't show him.
+  // Characters owned from outside the roster (old rules) still render below
+  // so they stay sellable.
+  const roster = profile?.party === 'democrat' ? republicanEnemies : democratEnemies
+  const rosterIds = new Set(roster.map(e => e.id))
+  const extras = ALL_ENEMIES.filter(e => !rosterIds.has(e.id) && capturedIds.has(e.id))
+  const shown = [...roster, ...extras]
+  const rosterCaught = roster.filter(e => capturedIds.has(e.id)).length
 
   function showToast(msg: string) {
     setToast(msg)
@@ -76,13 +88,13 @@ export default function CollectionPage() {
         </button>
         <h1 className="text-white font-bold text-2xl">Collection</h1>
         <p className="text-gray-500 text-sm mt-1">
-          {capturedIds.size} / {ALL_ENEMIES.length} unique · {captured.length} total owned
+          {partyLabel(profile?.party)} targets: {rosterCaught} / {roster.length} caught · {captured.length} total owned
         </p>
         {/* Progress bar */}
         <div className="h-2 bg-gray-800 rounded-full mt-2 overflow-hidden">
           <div
             className="h-full rounded-full bg-yellow-500 transition-all"
-            style={{ width: `${(capturedIds.size / ALL_ENEMIES.length) * 100}%` }}
+            style={{ width: `${(rosterCaught / Math.max(1, roster.length)) * 100}%` }}
           />
         </div>
       </div>
@@ -93,7 +105,7 @@ export default function CollectionPage() {
         </div>
       ) : (
         <div className="px-4 mt-4 grid grid-cols-2 gap-3">
-          {ALL_ENEMIES.map(e => {
+          {shown.map(e => {
             const isCaptured = capturedIds.has(e.id)
             const captureData = captured.find(c => c.enemy_id === e.id)
             const copies = captured.filter(c => c.enemy_id === e.id).length
@@ -156,7 +168,7 @@ export default function CollectionPage() {
                   </div>
                   {isCaptured && captureData && (
                     <div className="text-gray-600 text-xs mt-0.5">
-                      {new Date(captureData.captured_at).toLocaleDateString()}
+                      ×{copies} owned · {new Date(captureData.captured_at).toLocaleDateString()}
                     </div>
                   )}
                   {isCaptured && (

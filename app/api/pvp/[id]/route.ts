@@ -38,9 +38,11 @@ export async function GET(
 
     // Usernames/parties are denormalized onto the row at insert time — no
     // extra profile queries needed (this route is polled every 3s)...
-    // EXCEPT armed fights: the live fight screen needs both fighters'
-    // levels and designs before the first punch
-    if (challenge.status === 'accepted') {
+    // EXCEPT armed/settled fights: the fight screen needs both fighters'
+    // levels and designs — including AFTER settlement (the post-fight
+    // refetch previously dropped the designs, morphing the winner into a
+    // random default fighter at the victory screen)
+    if (['accepted', 'resolving', 'completed'].includes(challenge.status)) {
       const [{ data: c }, { data: d }] = await Promise.all([
         admin.from('profiles').select('id, total_battles_won, fighter, clerk_user_id').eq('id', challenge.challenger_id).single(),
         admin.from('profiles').select('id, total_battles_won, fighter, clerk_user_id').eq('id', challenge.defender_id).single(),

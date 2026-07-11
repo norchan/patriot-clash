@@ -154,6 +154,7 @@ function BattleContent() {
     swipe: null as { x: number; y: number; t: number } | null,
     idc: 0,
     throwsMade: 0,
+    hitCount: 0,
   })
   const startTime = useRef(Date.now())
 
@@ -272,7 +273,10 @@ function BattleContent() {
         setEnemyHp(S.current.enemyHp)
         setMovesUsed(p => [...p, { name: weapon.name, power: weapon.damage, damage: dmg }])
         addDmg(dmg, true, weapon.color, exPct)
-        if (!ouchMissing.current) setOuch(true)
+        // Comic OUCH face only lands every few hits — every hit was overkill
+        S.current.hitCount = (S.current.hitCount ?? 0) + 1
+        const showOuch = !ouchMissing.current && (S.current.hitCount % 3 === 0 || kind === 'firecracker')
+        if (showOuch) setOuch(true)
         playAnim('hit')
         sfx.punch(kind === 'firecracker')
         buzz(20)

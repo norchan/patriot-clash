@@ -94,7 +94,9 @@
       "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\('thumbnail:',j.thumbnail?.source\\);console.log\\('original:',j.originalimage?.source\\)}\\)\")",
       "Bash(sed -n '/async function toggleSetting/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")",
       "Bash(sed -n '/async function loadBlocked/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")",
-      "Bash(sed -n '/async function unblock/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")"
+      "Bash(sed -n '/async function unblock/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")",
+      "Read(//c/Users/Micha/patriot-clash/public/sprites/**)",
+      "Bash(powershell -NonInteractive -Command \"Move-Item -Force public\\\\sprites\\\\champ_blue_kick.webp.tmp public\\\\sprites\\\\champ_blue_kick.webp; Write-Output 'blue replaced'\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat"

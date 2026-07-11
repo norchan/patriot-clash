@@ -57,7 +57,7 @@ export default function FighterSprite({
       @keyframes sprJump { 0%{transform:translateY(0)} 40%{transform:translateY(-46px)} 75%{transform:translateY(-38px)} 100%{transform:translateY(0)} }
       @keyframes sprKo { 0%{transform:translateY(-26px);opacity:1} 55%{transform:translateY(4px)} 75%{transform:translateY(-3px)} 100%{transform:translateY(0)} }
       @keyframes sprSpecial { 0%,100%{filter:none} 40%{filter:brightness(1.35) drop-shadow(0 0 18px rgba(255,120,60,0.8))} }
-      @keyframes sprStrike { 0%{transform:translateX(0) rotate(0deg) scale(1)} 30%{transform:translateX(-14px) rotate(-3deg) scale(1.05)} 100%{transform:translateX(0) rotate(0deg) scale(1)} }
+      @keyframes sprStrike { 0%{transform:translateX(0) rotate(0deg) scale(1)} 30%{transform:translateX(16px) rotate(3deg) scale(1.05)} 100%{transform:translateX(0) rotate(0deg) scale(1)} }
       @keyframes sprJolt { 0%{transform:translateX(0) rotate(0deg)} 35%{transform:translateX(14px) rotate(5deg)} 100%{transform:translateX(0) rotate(0deg)} }
     `
     document.head.appendChild(s)
