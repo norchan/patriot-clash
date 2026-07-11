@@ -33,6 +33,19 @@ function milesBetween(lat1: number, lng1: number, lat2: number, lng2: number): n
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
+// Mirror of the server's location fuzz (app/api/players/location): same
+// hash, same offset — so your own dot can show exactly what others see
+function fuzzOffset(id: string, lat: number, lng: number): { lat: number; lng: number } {
+  let h = 0
+  for (const ch of id) h = (Math.imul(31, h) + ch.charCodeAt(0)) | 0
+  const angle = (Math.abs(h) / 2147483647) * Math.PI * 2
+  const distMiles = 0.8 + (Math.abs(Math.imul(h, 2654435761)) / 2147483647) * 0.4
+  return {
+    lat: lat + (distMiles / 69) * Math.sin(angle),
+    lng: lng + (distMiles / (69 * Math.cos(lat * Math.PI / 180))) * Math.cos(angle),
+  }
+}
+
 // Returns GeoJSON polygon coordinates approximating a geographic circle
 function makeCircleCoords(centerLng: number, centerLat: number, radiusMiles: number, steps = 64): [number, number][] {
   const radiusLat = radiusMiles / 69.0
@@ -150,6 +163,9 @@ export default function MapPage() {
   // periods, so effects key on hasLocation / grid cell and read this ref.
   const locationRef = useRef(location)
   useEffect(() => { locationRef.current = location }, [location])
+  // Where your own dot is DRAWN (true position, or the fuzzed one) — the
+  // home button flies here so it always centers your visible dot
+  const displayedLocRef = useRef(location)
   const hasLocation = !!location
   // ~1km grid cell — spawn/gym queries only re-run when you actually move
   const gridLat = location ? location.lat.toFixed(2) : null
@@ -278,7 +294,7 @@ export default function MapPage() {
         btn.style.fontSize = '17px'
         btn.textContent = '📍'
         btn.addEventListener('click', () => {
-          const l = locationRef.current
+          const l = displayedLocRef.current ?? locationRef.current
           if (l && map.current) map.current.flyTo({ center: [l.lng, l.lat], zoom: 16, pitch: 30 })
         })
         div.appendChild(btn)
@@ -308,8 +324,51 @@ export default function MapPage() {
       return
     }
 
+    // With location fuzz on, YOUR dot shows the approximate spot others
+    // see (plus a dashed area circle) — so the toggle is visibly real
+    const fuzzOn = !!(profile as any)?.location_fuzz && !!profile?.id
+    const shown = fuzzOn ? fuzzOffset(profile!.id, location.lat, location.lng) : location
+    displayedLocRef.current = shown
+
+    // Approximate-area circle (drawn only while fuzzing)
+    try {
+      const m = map.current
+      if (m.isStyleLoaded()) {
+        const circle = {
+          type: 'FeatureCollection' as const,
+          features: fuzzOn ? [{
+            type: 'Feature' as const,
+            geometry: { type: 'Polygon' as const, coordinates: [makeCircleCoords(shown.lng, shown.lat, 1.0)] },
+            properties: {},
+          }] : [],
+        }
+        if (m.getSource('self-approx')) {
+          (m.getSource('self-approx') as mapboxgl.GeoJSONSource).setData(circle)
+        } else {
+          m.addSource('self-approx', { type: 'geojson', data: circle })
+          m.addLayer({
+            id: 'self-approx-fill',
+            type: 'fill',
+            source: 'self-approx',
+            paint: { 'fill-color': profile?.party === 'democrat' ? '#3b82f6' : '#ef4444', 'fill-opacity': 0.12 },
+          })
+          m.addLayer({
+            id: 'self-approx-line',
+            type: 'line',
+            source: 'self-approx',
+            paint: {
+              'line-color': profile?.party === 'democrat' ? '#60a5fa' : '#f87171',
+              'line-width': 2,
+              'line-dasharray': [2, 2],
+              'line-opacity': 0.7,
+            },
+          })
+        }
+      }
+    } catch {}
+
     if (playerMarkerRef.current) {
-      playerMarkerRef.current.setLngLat([location.lng, location.lat])
+      playerMarkerRef.current.setLngLat([shown.lng, shown.lat])
     } else {
       const color = profile?.show_party === false ? '#f3f4f6'
         : profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
@@ -332,7 +391,7 @@ export default function MapPage() {
       // nearest town hall)
       el.addEventListener('click', () => setSelfSheet(true))
       playerMarkerRef.current = new mapboxgl.Marker({ element: el })
-        .setLngLat([location.lng, location.lat])
+        .setLngLat([shown.lng, shown.lat])
         .addTo(map.current!)
     }
   }, [location, profile, mapPrefs.me])
