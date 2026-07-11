@@ -5,14 +5,16 @@ import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
 import { sfx, buzz } from '@/lib/juice'
 import { ITEMS, type ItemType } from '@/config/items'
+import { SIEGE_ATTACKS, ATTACKS_FOR_PARTY, type SiegeAttackId } from '@/config/siege-attacks'
 
 // Siege Mode: attacking a town hall plays out over the fortified-hall
-// scene. The server's challenge API stays fully authoritative — it is
-// called ONCE per assault and rolls total damage + capture; the player
-// then "spends" that damage budget interactively: swipes hurl rocks and
-// firecrackers along the swipe line, taps deploy little soldiers at the
-// tap spot who charge in and chip the defenses. The assault ends when
-// the server-approved damage has all landed.
+// scene. The server stays fully authoritative twice over:
+//  - /api/gyms/[id]/challenge is called ONCE per 100 FP assault and rolls
+//    total damage + capture; swipes (rocks) and taps (ninjas) spend that
+//    damage budget interactively.
+//  - the three party special buttons call /api/gyms/[id]/strike, which
+//    spends FP and rolls bonus damage server-side; the animations here
+//    just dramatize the number it returns.
 
 interface SiegeGym {
   id: string
@@ -35,6 +37,7 @@ interface Projectile {
 
 interface Soldier {
   id: number
+  kind: 'ninja' | 'poor'
   x: number; y: number     // current position (%)
   tx: number; ty: number   // fight position at the walls (%)
   flip: boolean            // mirror the sprite to face the travel direction
@@ -42,16 +45,87 @@ interface Soldier {
   spawnedAt: number
   lastHit: number
   hits: number
+  maxHits: number
 }
 
 interface Spark { id: number; x: number; y: number; text: string; color: string }
 
+// One special-effect sprite: mounts at (x0,y0)%, glides to (x1,y1)%.
+interface Fx {
+  id: number
+  src?: string          // image sprite
+  src2?: string         // second frame — flaps between src/src2
+  emoji?: string
+  boom?: boolean        // static pop-in explosion instead of flight
+  x0: number; y0: number
+  x1: number; y1: number
+  size: number          // px height (img) or font size (emoji)
+  dur: number
+  spin?: boolean
+  flip?: boolean
+  easeIn?: boolean
+}
+
 const MARCH_MS = 1100          // soldier travel time to the walls
 const SOLDIER_HIT_MS = 850     // time between soldier strikes
-const SOLDIER_MAX_HITS = 5     // strikes before the garrison takes him down
-const MAX_SOLDIERS = 4
+const MAX_SOLDIERS = 4         // ninjas the player can field at once
 const THROW_MS = 420           // projectile flight time
 const THROW_COOLDOWN_MS = 320
+
+const NINJA_RUN = ['/halls/soldier_run1.png', '/halls/soldier_run3.png', '/halls/soldier_run2.png']
+const NINJA_ATK = ['/halls/soldier_atk1.png', '/halls/soldier_atk3.png', '/halls/soldier_atk2.png']
+const POOR_RUN = ['/siege/poor_run1.png', '/siege/poor_run2.png']
+const POOR_ATK = ['/siege/poor_atk.png']
+
+// N-frame flipbook: stacked images alternating opacity via keyframes
+function Flipbook({ frames, cycleMs }: { frames: string[]; cycleMs: number }) {
+  const n = frames.length
+  return (
+    <>
+      {frames.map((src, fi) => (
+        <img key={src + fi} src={src} alt="" draggable={false} style={{
+          position: 'absolute', bottom: 0, left: '50%',
+          height: '100%', width: 'auto', maxWidth: 'none',
+          transform: 'translateX(-50%)',
+          animation: n > 1 ? `sgF${n}_${fi} ${cycleMs}ms steps(1) infinite` : undefined,
+        }} />
+      ))}
+    </>
+  )
+}
+
+function FxItem({ f }: { f: Fx }) {
+  const [fly, setFly] = useState(false)
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setFly(true)))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const inner = f.boom ? (
+    <span style={{ fontSize: f.size, animation: 'sgBoom 0.75s ease-out forwards' }}>{f.emoji ?? '💥'}</span>
+  ) : f.src ? (
+    <span className="block relative" style={{ height: f.size, width: f.size * 1.2 }}>
+      {f.src2 ? (
+        <>
+          <img src={f.src} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_0 240ms steps(1) infinite' }} />
+          <img src={f.src2} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_1 240ms steps(1) infinite' }} />
+        </>
+      ) : (
+        <img src={f.src} alt="" style={{ height: '100%', width: '100%', objectFit: 'contain', animation: f.spin ? `sgSpin ${f.dur}ms linear` : undefined }} />
+      )}
+    </span>
+  ) : (
+    <span style={{ fontSize: f.size, display: 'block', animation: f.spin ? `sgSpin ${f.dur}ms linear` : undefined }}>{f.emoji}</span>
+  )
+  return (
+    <div className="absolute z-20 pointer-events-none" style={{
+      left: `${fly && !f.boom ? f.x1 : f.x0}%`,
+      top: `${fly && !f.boom ? f.y1 : f.y0}%`,
+      transition: f.boom ? undefined : `left ${f.dur}ms ${f.easeIn ? 'ease-in' : 'ease-out'}, top ${f.dur}ms ${f.easeIn ? 'ease-in' : 'ease-out'}`,
+      transform: `translate(-50%, -50%)${f.flip ? ' scaleX(-1)' : ''}`,
+      filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.55))',
+    }}>{inner}</div>
+  )
+}
 
 function SiegePage() {
   const router = useRouter()
@@ -68,14 +142,14 @@ function SiegePage() {
   const [defense, setDefense] = useState(0)
   const [maxDefense, setMaxDefense] = useState(1)
   const [shaking, setShaking] = useState(false)
+  const [bigShake, setBigShake] = useState(false)
   const [banner, setBanner] = useState('')
   const [projectiles, setProjectiles] = useState<Projectile[]>([])
   const [soldiers, setSoldiers] = useState<Soldier[]>([])
-  // The game loop owns the soldier list through this ref and mirrors it to
-  // state for rendering — applying damage inside a setState updater would
-  // double-fire it under StrictMode
-  const soldiersRef = useRef<Soldier[]>([])
   const [sparks, setSparks] = useState<Spark[]>([])
+  const [fx, setFx] = useState<Fx[]>([])
+  const [shockwaves, setShockwaves] = useState<{ id: number; x: number; y: number }[]>([])
+  const [strikeBusy, setStrikeBusy] = useState(false)
   const [result, setResult] = useState<{ captured: boolean; damage: number; remaining: number } | null>(null)
   const [items, setItems] = useState<Record<string, number>>({})
   const [itemBusy, setItemBusy] = useState(false)
@@ -84,15 +158,18 @@ function SiegePage() {
   const stageRef = useRef<HTMLDivElement>(null)
   const pointerRef = useRef<{ x: number; y: number; t: number } | null>(null)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const soldiersRef = useRef<Soldier[]>([])
+  // Special-strike damage pool: server-approved damage that the animation
+  // chips off the bar in pieces
+  const strikePool = useRef({ pending: 0, target: 0, chunk: 0 })
   // Assault bookkeeping lives in refs — pointer handlers and intervals
   // must read live values, not render-time snapshots
   const S = useRef({
-    startDefense: 0,   // defense when the assault began
     budget: 0,         // total defense points this assault removes
     dealt: 0,
     captured: false,
     damage: 0,
-    remaining: 0,
+    remaining: 0,      // authoritative defense after everything lands
     throwCount: 0,
     lastThrow: 0,
     ended: false,
@@ -130,6 +207,7 @@ function SiegePage() {
   const holderColor = gym?.holder_party === 'democrat' ? '#2563eb' : gym?.holder_party === 'republican' ? '#dc2626' : '#9ca3af'
   const myColor = profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
   const samePartyHall = !!gym?.holder_party && gym.holder_party === profile?.party
+  const myAttacks = ATTACKS_FOR_PARTY(profile?.party === 'democrat' ? 'democrat' : 'republican')
 
   function showToast(msg: string) {
     setToast(msg)
@@ -146,32 +224,56 @@ function SiegePage() {
     schedule(850, () => setSparks(s => s.filter(sp => sp.id !== id)))
   }
 
-  function shakeScreen() {
-    setShaking(true)
-    schedule(240, () => setShaking(false))
+  function addFx(f: Omit<Fx, 'id'>, removeAfter: number) {
+    const id = ++idRef.current
+    setFx(prev => [...prev, { ...f, id }])
+    schedule(removeAfter, () => setFx(prev => prev.filter(x => x.id !== id)))
   }
 
-  // ── Damage bookkeeping: every hit spends part of the server's budget ─────
+  function shakeScreen(big = false) {
+    if (big) {
+      setBigShake(true)
+      schedule(500, () => setBigShake(false))
+    } else {
+      setShaking(true)
+      schedule(240, () => setShaking(false))
+    }
+  }
+
+  // ── Assault damage: every hit spends part of the challenge's budget ──────
   function applyDamage(chunk: number, xPct: number, yPct: number) {
     const st = S.current
     if (st.ended || phase !== 'assault') return
-    const dealt = Math.min(st.budget, st.dealt + chunk)
-    const applied = Math.round(dealt - st.dealt)
+    const applied = Math.round(Math.min(st.budget - st.dealt, chunk))
     if (applied <= 0) return
-    st.dealt = dealt
-    setDefense(Math.max(0, Math.round(st.startDefense - dealt)))
+    st.dealt += applied
+    setDefense(prev => Math.max(0, prev - applied))
     addSpark(xPct, yPct, `-${applied.toLocaleString()}`, '#facc15')
     shakeScreen()
     sfx.siegeBlow()
     buzz(30)
-    if (dealt >= st.budget - 0.5) finishAssault()
+    if (st.dealt >= st.budget - 0.5) finishAssault()
+  }
+
+  // ── Strike damage: chips the server-approved special-attack roll ─────────
+  function chipStrike(chunk: number, xPct: number, yPct: number) {
+    const pool = strikePool.current
+    if (pool.pending <= 0) return
+    const d = Math.round(Math.min(chunk, pool.pending))
+    if (d <= 0) return
+    pool.pending -= d
+    setDefense(prev => Math.max(pool.target, prev - d))
+    addSpark(xPct, yPct, `-${d.toLocaleString()}`, '#fbbf24')
+    shakeScreen()
+    sfx.siegeBlow()
+    buzz(35)
   }
 
   function finishAssault() {
     const st = S.current
     if (st.ended) return
     st.ended = true
-    setDefense(st.captured ? 0 : st.remaining)
+    setDefense(st.captured ? 0 : Math.max(1, st.remaining))
     schedule(500, () => {
       setBanner(st.captured ? 'CAPTURED!' : 'DEFENSE HOLDS')
       if (st.captured) sfx.capture()
@@ -182,6 +284,7 @@ function SiegePage() {
       soldiersRef.current = []
       setSoldiers([])
       setProjectiles([])
+      setFx([])
       setResult({ captured: st.captured, damage: st.damage, remaining: st.remaining })
       setPhase('result')
       setBusy(false)
@@ -210,7 +313,6 @@ function SiegePage() {
       }
       refetch()
       const st = S.current
-      st.startDefense = defense
       st.captured = !!data.captured
       st.damage = data.damage ?? 0
       st.remaining = data.defense_remaining ?? 0
@@ -228,6 +330,169 @@ function SiegePage() {
     }
   }
 
+  // ── Party special strikes: server spends FP + rolls damage, we perform ───
+  async function strike(attackId: SiegeAttackId) {
+    const st = S.current
+    if (!gym || strikeBusy || st.ended || st.captured) return
+    if (!location) { showToast('📍 Still finding your location...'); return }
+    const def = SIEGE_ATTACKS[attackId]
+    if ((profile?.fp_balance ?? 0) < def.fp) { showToast(`❌ Need ${def.fp} FP for ${def.name}`); return }
+    setStrikeBusy(true)
+    try {
+      const res = await fetch(`/api/gyms/${gym.id}/strike`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attack: attackId, latitude: location.lat, longitude: location.lng }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(`❌ ${data.message || data.error || 'Strike failed'}`)
+        setStrikeBusy(false)
+        return
+      }
+      refetch()
+      st.remaining = data.defense_remaining
+      const total = playStrike(attackId, data.damage)
+      schedule(total, () => {
+        strikePool.current.pending = 0
+        setDefense(prev => Math.min(prev, Math.max(1, data.defense_remaining)))
+        setStrikeBusy(false)
+      })
+    } catch {
+      showToast('❌ Strike failed')
+      setStrikeBusy(false)
+    }
+  }
+
+  // Choreography per attack — returns total duration ms
+  function playStrike(attackId: SiegeAttackId, damage: number): number {
+    const pool = strikePool.current
+    pool.pending = damage
+    pool.target = Math.max(1, defense - damage)
+    sfx.bell(false)
+
+    if (attackId === 'tired') {
+      // volley of pitchforks raining onto the hall
+      const n = 9
+      pool.chunk = damage / n
+      for (let i = 0; i < n; i++) {
+        const x1 = 30 + Math.random() * 40
+        const y1 = 26 + Math.random() * 14
+        schedule(i * 100, () => {
+          addFx({ src: '/siege/pitchfork.png', x0: 8 + Math.random() * 84, y0: 106, x1, y1, size: 54, dur: 650, spin: true, easeIn: true }, 700)
+          schedule(650, () => chipStrike(pool.chunk, x1, y1 - 4))
+        })
+      }
+      return n * 100 + 900
+    }
+
+    if (attackId === 'poor') {
+      // a furious mob storms the gates
+      const n = 7
+      pool.chunk = damage / (n * 3)
+      for (let i = 0; i < n; i++) {
+        schedule(i * 130, () => {
+          const sx = 6 + Math.random() * 88
+          const tx = 36 + Math.random() * 28
+          const soldier: Soldier = {
+            id: ++idRef.current,
+            kind: 'poor',
+            x: sx, y: 100,
+            tx, ty: 56 + Math.random() * 9,
+            flip: tx < sx,
+            state: 'march',
+            spawnedAt: Date.now(),
+            lastHit: 0,
+            hits: 0,
+            maxHits: 3,
+          }
+          soldiersRef.current = [...soldiersRef.current, soldier]
+          setSoldiers(soldiersRef.current)
+        })
+      }
+      return 5600
+    }
+
+    if (attackId === 'free') {
+      // the huddled masses charge in a cloud of smoke
+      for (let i = 0; i < 6; i++) {
+        schedule(i * 120, () => {
+          addFx({ emoji: '💨', x0: 20 + Math.random() * 60, y0: 100, x1: 25 + Math.random() * 50, y1: 46 + Math.random() * 18, size: 64 + Math.random() * 40, dur: 1400 }, 1900)
+        })
+      }
+      schedule(200, () => {
+        addFx({ src: '/siege/crowd.png', x0: 50, y0: 96, x1: 50, y1: 58, size: 240, dur: 1500 }, 2600)
+      })
+      const chunks = 4
+      pool.chunk = damage / chunks
+      for (let i = 0; i < chunks; i++) {
+        schedule(1500 + i * 220, () => {
+          chipStrike(pool.chunk, 40 + Math.random() * 20, 40 + Math.random() * 14)
+          shakeScreen(true)
+        })
+      }
+      schedule(1500, () => addFx({ boom: true, emoji: '💥', x0: 50, y0: 48, x1: 50, y1: 48, size: 84, dur: 750 }, 800))
+      return 2900
+    }
+
+    if (attackId === 'peace') {
+      // screaming eagles dive on the hall
+      const n = 4
+      pool.chunk = damage / n
+      for (let i = 0; i < n; i++) {
+        const fromLeft = i % 2 === 0
+        const x1 = 38 + Math.random() * 24
+        const y1 = 26 + Math.random() * 12
+        schedule(i * 200, () => {
+          addFx({ src: '/siege/eagle1.png', src2: '/siege/eagle2.png', x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1, y1, size: 66, dur: 950, flip: !fromLeft }, 1050)
+          schedule(950, () => {
+            chipStrike(pool.chunk, x1, y1 - 3)
+            addFx({ boom: true, emoji: '🪶', x0: x1, y0: y1, x1, y1, size: 40, dur: 700 }, 750)
+          })
+        })
+      }
+      return n * 200 + 1200
+    }
+
+    if (attackId === 'strength') {
+      // missile barrage
+      const n = 3
+      pool.chunk = damage / n
+      for (let i = 0; i < n; i++) {
+        const x1 = 36 + i * 12 + Math.random() * 6
+        const y1 = 28 + Math.random() * 10
+        schedule(i * 260, () => {
+          sfx.whoosh?.()
+          addFx({ src: '/siege/missile.png', x0: 20 + i * 30, y0: 110, x1, y1, size: 90, dur: 720, easeIn: true }, 740)
+          schedule(720, () => {
+            addFx({ boom: true, emoji: '💥', x0: x1, y0: y1, x1, y1, size: 92, dur: 750 }, 800)
+            chipStrike(pool.chunk, x1, y1 - 5)
+            shakeScreen(true)
+          })
+        })
+      }
+      return n * 260 + 1100
+    }
+
+    // liberty — Lady Liberty herself drops on the hall
+    pool.chunk = damage / 3
+    addFx({ src: '/siege/statue.png', x0: 50, y0: -30, x1: 50, y1: 36, size: 260, dur: 950, easeIn: true }, 2400)
+    schedule(950, () => {
+      shakeScreen(true)
+      const id = ++idRef.current
+      setShockwaves(w => [...w, { id, x: 50, y: 52 }])
+      schedule(900, () => setShockwaves(w => w.filter(s => s.id !== id)))
+      for (let i = 0; i < 5; i++) {
+        addFx({ emoji: '💨', x0: 50, y0: 52, x1: 22 + i * 14, y1: 46 + Math.random() * 14, size: 52, dur: 800 }, 900)
+      }
+      addFx({ boom: true, emoji: '💥', x0: 50, y0: 44, x1: 50, y1: 44, size: 110, dur: 750 }, 800)
+    })
+    for (let i = 0; i < 3; i++) {
+      schedule(1000 + i * 240, () => chipStrike(pool.chunk, 42 + Math.random() * 16, 38 + Math.random() * 10))
+    }
+    return 2700
+  }
+
   // ── Swipe → rock / firecracker along the swipe line ──────────────────────
   function launchThrow(x0: number, y0: number, x1: number, y1: number) {
     const st = S.current
@@ -241,14 +506,13 @@ function SiegePage() {
     st.throwCount++
     const kind: Projectile['kind'] = st.throwCount % 3 === 0 ? 'firecracker' : 'rock'
 
-    // Extend the swipe vector until it reaches the fortress band (~32% down)
-    const targetY = rect.height * 0.32
+    // Extend the swipe vector until it reaches the fortress band (~34% down)
+    const targetY = rect.height * 0.34
     const k = (targetY - y0) / dirY
-    const endX = Math.max(rect.width * 0.1, Math.min(rect.width * 0.9, x0 + dirX * k))
+    const endX = Math.max(rect.width * 0.15, Math.min(rect.width * 0.85, x0 + dirX * k))
 
     const id = ++idRef.current
     setProjectiles(p => [...p, { id, x0, y0, x1: endX, y1: targetY, kind, launched: false }])
-    // flip to launched on the next frame so the CSS transition runs
     requestAnimationFrame(() => requestAnimationFrame(() =>
       setProjectiles(p => p.map(pr => pr.id === id ? { ...pr, launched: true } : pr))))
 
@@ -261,31 +525,32 @@ function SiegePage() {
     })
   }
 
-  // ── Tap → deploy a soldier at the tap spot ────────────────────────────────
+  // ── Tap → deploy a ninja at the tap spot ──────────────────────────────────
   function deploySoldier(x: number, y: number) {
     const st = S.current
     if (st.ended) return
     const rect = stageRef.current?.getBoundingClientRect()
     if (!rect) return
-    const active = soldiersRef.current.filter(s => s.state !== 'poof')
+    const active = soldiersRef.current.filter(s => s.kind === 'ninja' && s.state !== 'poof')
     if (active.length >= MAX_SOLDIERS) {
-      showToast('⚔️ Squad is maxed — wait for your soldiers to fall')
+      showToast('⚔️ Squad is maxed — wait for your ninjas to fall')
       return
     }
     const sx = (x / rect.width) * 100
-    // charge to the fortress gate area, fanning out a little
-    const tx = 41 + Math.random() * 18
+    const tx = 38 + Math.random() * 24
     const soldier: Soldier = {
       id: ++idRef.current,
+      kind: 'ninja',
       x: sx,
       y: (y / rect.height) * 100,
       tx,
-      ty: 60 + Math.random() * 8,
+      ty: 56 + Math.random() * 9,
       flip: tx < sx, // frames face right — mirror when charging leftward
       state: 'march',
       spawnedAt: Date.now(),
       lastHit: 0,
       hits: 0,
+      maxHits: 5,
     }
     soldiersRef.current = [...soldiersRef.current, soldier]
     setSoldiers(soldiersRef.current)
@@ -301,8 +566,6 @@ function SiegePage() {
       const st = S.current
       let changed = false
       const next = soldiersRef.current.map(s => {
-        // first tick after spawn: set the destination so the CSS transition
-        // animates from the tap point (initial paint) toward the walls
         if (s.state === 'march' && (s.x !== s.tx || s.y !== s.ty)) {
           changed = true
           return { ...s, x: s.tx, y: s.ty }
@@ -313,9 +576,10 @@ function SiegePage() {
         }
         if (s.state === 'fight' && now - s.lastHit >= SOLDIER_HIT_MS && !st.ended) {
           changed = true
-          applyDamage(st.budget * 0.03 * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
+          if (s.kind === 'poor') chipStrike(strikePool.current.chunk, s.tx, s.ty - 6)
+          else applyDamage(st.budget * 0.03 * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
           const hits = s.hits + 1
-          return hits >= SOLDIER_MAX_HITS
+          return hits >= s.maxHits
             ? { ...s, state: 'poof' as const, hits, lastHit: now }
             : { ...s, hits, lastHit: now }
         }
@@ -334,7 +598,7 @@ function SiegePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
-  // ── Pointer input: short + still = tap (soldier), else swipe (throw) ─────
+  // ── Pointer input: short + still = tap (ninja), else swipe (throw) ───────
   function onPointerDown(e: React.PointerEvent) {
     const rect = stageRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -370,7 +634,6 @@ function SiegePage() {
         if (!res.ok) { showToast(`❌ ${data.message || data.error || 'Boost failed'}`); return }
         setItems(prev => ({ ...prev, [itemId]: data.quantity_left }))
         setDefense(data.defense_remaining)
-        setMaxDefense(m => Math.max(m, 1))
         shakeScreen()
         addSpark(50, 30, `-${data.damage.toLocaleString()}`, '#fb923c')
         sfx.siegeBlow()
@@ -444,23 +707,22 @@ function SiegePage() {
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
     >
-      {/* ── The fortified hall — full-screen battlefield ─────────────────── */}
-      {/* blurred cover copy fills the letterbox; the sharp scene sits on top
-          zoomed OUT (contain) so the whole fortress is in view */}
-      <div className="absolute inset-0" style={{ animation: shaking ? 'sgShake 0.24s ease-in-out' : undefined }}>
+      {/* ── The fortified hall — smaller, dead center of the screen ───────── */}
+      <div className="absolute inset-0" style={{ animation: bigShake ? 'sgShakeBig 0.5s ease-in-out' : shaking ? 'sgShake 0.24s ease-in-out' : undefined }}>
+        {/* blurred cover copy fills everything behind the zoomed-out scene */}
         <div className="absolute inset-0" style={{
           backgroundImage: 'url(/halls/hall_battle.webp)',
           backgroundSize: 'cover', backgroundPosition: 'center 30%',
-          filter: 'blur(22px) brightness(0.45)', transform: 'scale(1.1)',
+          filter: 'blur(24px) brightness(0.38)', transform: 'scale(1.1)',
         }} />
         <div className="absolute inset-0" style={{
           backgroundImage: 'url(/halls/hall_battle.webp)',
-          backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center 42%',
+          backgroundSize: 'auto 58%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center 30%',
         }} />
       </div>
       {/* readability gradients top + bottom */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'linear-gradient(180deg, rgba(5,8,18,0.62) 0%, transparent 22%, transparent 68%, rgba(5,8,18,0.66) 100%)',
+        background: 'linear-gradient(180deg, rgba(5,8,18,0.62) 0%, transparent 20%, transparent 66%, rgba(5,8,18,0.72) 100%)',
       }} />
 
       {/* ── HUD: defense bar ─────────────────────────────────────────────── */}
@@ -473,9 +735,12 @@ function SiegePage() {
           <div className="h-full transition-all duration-300"
             style={{ width: `${(defense / maxDefense) * 100}%`, background: `linear-gradient(90deg, ${holderColor}, ${holderColor}bb)` }} />
         </div>
-        {gym.holder_username && (
-          <p className="text-gray-300 text-[10px] mt-1 drop-shadow">Held by {gym.holder_username}{gym.holder_party ? ` · ${gym.holder_party === 'democrat' ? 'Democrat' : 'Republican'}` : ''}</p>
-        )}
+        <div className="flex items-center justify-between mt-1">
+          {gym.holder_username
+            ? <p className="text-gray-300 text-[10px] drop-shadow">Held by {gym.holder_username}{gym.holder_party ? ` · ${gym.holder_party === 'democrat' ? 'Democrat' : 'Republican'}` : ''}</p>
+            : <span />}
+          <p className="text-yellow-300 text-[10px] font-bold drop-shadow">⚡ {profile.fp_balance?.toLocaleString()} FP</p>
+        </div>
       </div>
 
       {/* ── banner ───────────────────────────────────────────────────────── */}
@@ -506,7 +771,7 @@ function SiegePage() {
         </div>
       ))}
 
-      {/* ── soldiers ─────────────────────────────────────────────────────── */}
+      {/* ── soldiers (ninjas + the poor) ─────────────────────────────────── */}
       {soldiers.map(s => (
         <div key={s.id} className="absolute z-20 pointer-events-none" style={{
           left: `${s.x}%`,
@@ -517,25 +782,35 @@ function SiegePage() {
           {s.state === 'poof' ? (
             <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>💨</span>
           ) : (
-            // Two stacked pose frames alternating opacity = legs pumping on
-            // the run, katana chopping in the fight
             <span className="block relative" style={{
               width: 56,
-              height: s.state === 'fight' ? 62 : 66,
+              height: s.state === 'fight' ? 60 : 64,
               animation: s.state === 'march' ? 'sgRun 0.34s ease-in-out infinite' : 'sgLunge 0.62s ease-in-out infinite',
-              filter: `drop-shadow(0 0 6px ${myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
+              filter: `drop-shadow(0 0 6px ${s.kind === 'poor' ? '#60a5fa' : myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
             }}>
-              {(s.state === 'fight' ? ['atk1', 'atk2'] : ['run1', 'run2']).map((frame, fi) => (
-                <img key={frame} src={`/halls/soldier_${frame}.png`} alt="" draggable={false} style={{
-                  position: 'absolute', bottom: 0, left: '50%',
-                  height: '100%', width: 'auto', maxWidth: 'none',
-                  transform: 'translateX(-50%)',
-                  animation: `${fi === 0 ? 'sgFrameA' : 'sgFrameB'} ${s.state === 'fight' ? 620 : 340}ms steps(1) infinite`,
-                }} />
-              ))}
+              <Flipbook
+                frames={s.kind === 'poor'
+                  ? (s.state === 'fight' ? POOR_ATK : POOR_RUN)
+                  : (s.state === 'fight' ? NINJA_ATK : NINJA_RUN)}
+                cycleMs={s.state === 'fight' ? 640 : 330}
+              />
             </span>
           )}
         </div>
+      ))}
+
+      {/* ── special-attack fx ────────────────────────────────────────────── */}
+      {fx.map(f => <FxItem key={f.id} f={f} />)}
+
+      {/* ── shockwaves ───────────────────────────────────────────────────── */}
+      {shockwaves.map(w => (
+        <div key={w.id} className="absolute z-20 pointer-events-none rounded-full" style={{
+          left: `${w.x}%`, top: `${w.y}%`,
+          width: 30, height: 30,
+          border: '4px solid rgba(255,255,255,0.85)',
+          transform: 'translate(-50%, -50%)',
+          animation: 'sgShockwave 0.85s ease-out forwards',
+        }} />
       ))}
 
       {/* ── damage sparks ────────────────────────────────────────────────── */}
@@ -545,11 +820,35 @@ function SiegePage() {
         </div>
       ))}
 
-      {/* ── assault hint ─────────────────────────────────────────────────── */}
+      {/* ── assault controls: party strikes + hint ───────────────────────── */}
       {phase === 'assault' && (
-        <div className="absolute bottom-4 left-4 right-4 z-30 pointer-events-none">
-          <p className="text-center text-white/90 text-xs font-bold bg-black/55 backdrop-blur rounded-full px-4 py-2 mx-auto w-max max-w-full">
-            🪨 SWIPE up to hurl rocks · 👆 TAP to deploy soldiers
+        <div className="absolute bottom-3 left-3 right-3 z-30">
+          {!S.current.captured && (
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {myAttacks.map(a => {
+                const afford = (profile.fp_balance ?? 0) >= a.fp
+                return (
+                  <button key={a.id}
+                    onPointerDown={e => e.stopPropagation()}
+                    onPointerUp={e => e.stopPropagation()}
+                    onClick={() => strike(a.id)}
+                    disabled={strikeBusy || !afford}
+                    className="rounded-xl py-2 px-1 text-center transition active:scale-95 disabled:opacity-45 border backdrop-blur"
+                    style={{
+                      background: 'rgba(10,14,26,0.82)',
+                      borderColor: afford ? `${myColor}aa` : '#374151',
+                      boxShadow: afford ? `0 0 12px ${myColor}44` : undefined,
+                    }}>
+                    <div className="text-2xl leading-none">{a.emoji}</div>
+                    <p className="text-white text-[10px] font-black mt-0.5 leading-tight">{a.name}</p>
+                    <p className="text-yellow-300 text-[9px] font-bold">⚡ {a.fp} FP</p>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-center text-white/90 text-xs font-bold bg-black/55 backdrop-blur rounded-full px-4 py-2 mx-auto w-max max-w-full pointer-events-none">
+            🪨 SWIPE up to throw · 👆 TAP to deploy ninjas
           </p>
         </div>
       )}
@@ -575,7 +874,7 @@ function SiegePage() {
                   {busy ? '⏳ ...' : '⚔️ BEGIN ASSAULT (100 FP)'}
                 </button>
                 <p className="text-gray-300 text-xs text-center drop-shadow">
-                  Then: swipe to throw rocks & firecrackers, tap anywhere to release soldiers into the town
+                  Swipe to throw · tap to send ninjas · unleash your party's special attacks from the bottom buttons
                 </p>
                 {!location && (
                   <p className="text-yellow-400 text-xs text-center">📍 Locating you... attack unlocks once your position is found</p>
@@ -602,7 +901,7 @@ function SiegePage() {
               <p className="text-gray-400 text-sm mt-1">
                 {result.captured
                   ? `${gym.city_name} flies your colors now! +50 FP bonus`
-                  : `You dealt ${result.damage.toLocaleString()} damage — ${result.remaining.toLocaleString()} defense remains`}
+                  : `You dealt ${result.damage.toLocaleString()} damage — the hall still stands`}
               </p>
             </div>
             {!result.captured && boostsGrid}
@@ -632,11 +931,17 @@ function SiegePage() {
         @keyframes sgSpark { 0%{transform:translateY(0) scale(0.7);opacity:1} 100%{transform:translateY(-44px) scale(1.15);opacity:0} }
         @keyframes sgSpin { 0%{transform:rotate(0)} 100%{transform:rotate(660deg)} }
         @keyframes sgShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,4px)} 50%{transform:translate(6px,-4px)} 75%{transform:translate(-4px,2px)} }
+        @keyframes sgShakeBig { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-14px,8px)} 35%{transform:translate(12px,-9px)} 55%{transform:translate(-9px,5px)} 75%{transform:translate(6px,-4px)} }
         @keyframes sgRun { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
         @keyframes sgLunge { 0%,100%{transform:translateX(-2px)} 45%{transform:translateX(3px) scale(1.05)} }
-        @keyframes sgFrameA { 0%,49%{opacity:1} 50%,100%{opacity:0} }
-        @keyframes sgFrameB { 0%,49%{opacity:0} 50%,100%{opacity:1} }
         @keyframes sgPoof { 0%{transform:scale(0.7);opacity:1} 100%{transform:scale(1.8) translateY(-14px);opacity:0} }
+        @keyframes sgBoom { 0%{transform:scale(0.2);opacity:0} 20%{transform:scale(1.25);opacity:1} 100%{transform:scale(1.6);opacity:0} }
+        @keyframes sgShockwave { 0%{width:30px;height:30px;opacity:0.9} 100%{width:70vw;height:70vw;opacity:0} }
+        @keyframes sgF2_0 { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+        @keyframes sgF2_1 { 0%,49%{opacity:0} 50%,100%{opacity:1} }
+        @keyframes sgF3_0 { 0%,32%{opacity:1} 33%,100%{opacity:0} }
+        @keyframes sgF3_1 { 0%,32%{opacity:0} 33%,65%{opacity:1} 66%,100%{opacity:0} }
+        @keyframes sgF3_2 { 0%,65%{opacity:0} 66%,100%{opacity:1} }
       `}</style>
     </div>
   )

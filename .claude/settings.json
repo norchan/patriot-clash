@@ -69,7 +69,8 @@
       "mcp__claude_ai_Higgs__media_import_url",
       "Bash(node scripts/build_ouch.mjs)",
       "Bash(python -c ' *)",
-      "Bash(node scripts/build_soldier.mjs)"
+      "Bash(node scripts/build_soldier.mjs)",
+      "Bash(node scripts/build_strike.mjs)"
     ]
   }
 }
