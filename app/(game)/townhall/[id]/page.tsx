@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
-import { Shield, Sword, MessageSquare, ArrowLeft } from 'lucide-react'
+import { Shield, Sword, MessageSquare, ArrowLeft, ChevronDown } from 'lucide-react'
+import HallFeed from '@/components/HallFeed'
 
 interface Gym {
   id: string
@@ -43,6 +44,7 @@ export default function TownHallPage() {
   const [showDefense, setShowDefense] = useState(false)
   const [showMessage, setShowMessage] = useState(false)
   const [showDonate, setShowDonate] = useState(false)
+  const [showCliques, setShowCliques] = useState(false)
   const [donateAmount, setDonateAmount] = useState('')
   const [localCliques, setLocalCliques] = useState<{ id: string; name: string; party: string; member_count: number }[]>([])
 
@@ -199,6 +201,25 @@ export default function TownHallPage() {
         </div>
       </div>
 
+      {/* Attack — directly under the holder's name, enemy/unclaimed halls only */}
+      {(!gym.holder_party || profile?.party !== gym.holder_party) && (
+        <div className="mx-4 mt-3 space-y-2">
+          <button
+            onClick={handleChallenge}
+            disabled={actionLoading || (profile?.fp_balance || 0) < 100 || !inRange}
+            className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition"
+          >
+            <Sword size={18} />
+            {gym.holder_party ? 'Attack Town Hall (100 FP)' : 'Claim Town Hall (100 FP)'}
+          </button>
+          {!inRange && (
+            <p className="text-orange-400 text-xs text-center">
+              📍 Must be within {battleRadius} miles — you are {gym.distance_miles} mi away
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Message */}
       {gym.holder_message && (
         <div className="mx-4 mt-3 bg-gray-900 rounded-xl p-3 border-l-4" style={{ borderColor: partyColor }}>
@@ -212,8 +233,6 @@ export default function TownHallPage() {
         {[
           { label: 'Defense Points', value: gym.defense_points?.toLocaleString() },
           { label: 'Days Held', value: dayHeld },
-          { label: 'Total Captures', value: gym.total_captures },
-          { label: 'Your Distance', value: `${gym.distance_miles} mi` },
         ].map(({ label, value }) => (
           <div key={label} className="bg-gray-900 rounded-xl p-3">
             <p className="text-gray-500 text-xs mb-1">{label}</p>
@@ -221,31 +240,6 @@ export default function TownHallPage() {
           </div>
         ))}
       </div>
-
-      {/* Local cliques */}
-      {localCliques.length > 0 && (
-        <div className="mx-4 mt-3 bg-gray-900 rounded-2xl p-4">
-          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-1">✊ Local Cliques</h3>
-          <p className="text-gray-600 text-xs mb-3">
-            Each clique adds +500 starting defense when its party captures this hall
-          </p>
-          <div className="space-y-2">
-            {localCliques.map(c => {
-              const cColor = c.party === 'democrat' ? '#2563eb' : '#dc2626'
-              return (
-                <button key={c.id} onClick={() => router.push('/cliques')}
-                  className="w-full flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-gray-800 transition text-left">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cColor }} />
-                  <span className="text-white text-sm font-medium flex-1 truncate">{c.name}</span>
-                  <span className="text-gray-500 text-xs flex-shrink-0">
-                    {c.member_count} member{c.member_count !== 1 ? 's' : ''}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Chat room — public to everyone, opens its own page */}
       <div className="mx-4 mt-3">
@@ -256,30 +250,8 @@ export default function TownHallPage() {
       </div>
 
       {/* Actions */}
-      <div className="mx-4 mt-4 space-y-3 pb-6">
-        {/* Attack — only for enemy-held or unclaimed halls */}
-        {(!gym.holder_party || profile?.party !== gym.holder_party) && (
-          <>
-            <button
-              onClick={handleChallenge}
-              disabled={actionLoading || (profile?.fp_balance || 0) < 100 || !inRange}
-              className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition"
-            >
-              <Sword size={18} />
-              {gym.holder_party ? 'Attack Town Hall (100 FP)' : 'Claim Town Hall (100 FP)'}
-            </button>
-            {gym.holder_party && (
-              <p className="text-gray-500 text-xs text-center">
-                Each attack deals 200–400 damage to its {gym.defense_points?.toLocaleString() || 0} defense points — it falls at 0
-              </p>
-            )}
-            {!inRange && (
-              <p className="text-orange-400 text-xs text-center">
-                📍 Must be within {battleRadius} miles — you are {gym.distance_miles} mi away
-              </p>
-            )}
-          </>
-        )}
+      <div className="mx-4 mt-4 space-y-3">
+
 
         {/* Donate — any same-party player can reinforce this hall */}
         {gym.holder_party && profile?.party === gym.holder_party && (
@@ -383,6 +355,45 @@ export default function TownHallPage() {
             )}
           </>
         )}
+      </div>
+
+      {/* Local Cliques — collapsed to one button; tap to expand */}
+      {localCliques.length > 0 && (
+        <div className="mx-4 mt-3 bg-gray-900 rounded-2xl overflow-hidden">
+          <button onClick={() => setShowCliques(v => !v)}
+            className="w-full py-3.5 px-4 flex items-center justify-between text-white font-bold hover:bg-gray-800 transition">
+            <span>✊ Local Cliques</span>
+            <ChevronDown size={18} className={`text-gray-500 transition-transform ${showCliques ? 'rotate-180' : ''}`} />
+          </button>
+          {showCliques && (
+            <div className="px-3 pb-3">
+              <p className="text-gray-600 text-xs mb-2 px-1">
+                Each clique adds +500 starting defense when its party captures this hall
+              </p>
+              <div className="space-y-1">
+                {localCliques.map(c => {
+                  const cColor = c.party === 'democrat' ? '#2563eb' : '#dc2626'
+                  return (
+                    <button key={c.id} onClick={() => router.push('/cliques')}
+                      className="w-full flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-gray-800 transition text-left">
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cColor }} />
+                      <span className="text-white text-sm font-medium flex-1 truncate">{c.name}</span>
+                      <span className="text-gray-500 text-xs flex-shrink-0">
+                        {c.member_count} member{c.member_count !== 1 ? 's' : ''}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Town square — the hall's post thread */}
+      <div className="mx-4 mt-4 pb-8">
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">🏛️ Town Square</h3>
+        <HallFeed gymId={gym.id} />
       </div>
 
       {toast && (
