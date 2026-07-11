@@ -103,7 +103,10 @@ export default function MapPage() {
     return () => clearInterval(iv)
   }, [])
   const [nearbyPlayers, setNearbyPlayers] = useState<NearbyPlayer[]>([])
-  const [showPlayers, setShowPlayers] = useState(true)
+  // "Show on map" dropdown: me = broadcast + own marker, dems/reps = which
+  // nearby players get markers. Persisted so the choice survives reloads.
+  const [showMapMenu, setShowMapMenu] = useState(false)
+  const [mapPrefs, setMapPrefs] = useState({ me: true, dems: true, reps: true })
   const [fpToast, setFpToast] = useState('')
 
   // PvP / player interaction state
@@ -178,21 +181,25 @@ export default function MapPage() {
   }
 
 
-  // Load player toggle preference
+  // Load map-visibility preferences (migrates the old show_players flag)
   useEffect(() => {
-    const saved = localStorage.getItem('show_players')
-    if (saved !== null) setShowPlayers(saved === 'true')
+    try {
+      const saved = localStorage.getItem('map_show_prefs')
+      if (saved) {
+        const p = JSON.parse(saved)
+        setMapPrefs({ me: p.me !== false, dems: p.dems !== false, reps: p.reps !== false })
+      } else if (localStorage.getItem('show_players') === 'false') {
+        setMapPrefs({ me: true, dems: false, reps: false })
+      }
+    } catch {}
   }, [])
 
-  function togglePlayers() {
-    const next = !showPlayers
-    setShowPlayers(next)
-    localStorage.setItem('show_players', String(next))
-    if (!next) {
-      otherPlayerMarkersRef.current.forEach(m => m.remove())
-      otherPlayerMarkersRef.current = []
-      setNearbyPlayers([])
-    }
+  function toggleMapPref(key: 'me' | 'dems' | 'reps') {
+    setMapPrefs(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      localStorage.setItem('map_show_prefs', JSON.stringify(next))
+      return next
+    })
   }
 
   // ── Map initialization (once — must NOT re-run per GPS tick) ─────────────
@@ -227,6 +234,13 @@ export default function MapPage() {
   useEffect(() => {
     if (!map.current || !location) return
 
+    // "Show me on map" off → no own marker (and no broadcast, see below)
+    if (!mapPrefs.me) {
+      playerMarkerRef.current?.remove()
+      playerMarkerRef.current = null
+      return
+    }
+
     if (playerMarkerRef.current) {
       playerMarkerRef.current.setLngLat([location.lng, location.lat])
     } else {
@@ -252,11 +266,11 @@ export default function MapPage() {
         .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(`📍 ${profile?.username || 'You'}`))
         .addTo(map.current!)
     }
-  }, [location, profile])
+  }, [location, profile, mapPrefs.me])
 
-  // ── Broadcast own location every 10s ──────────────────────────────────────
+  // ── Broadcast own location every 10s (unless hiding from the map) ────────
   useEffect(() => {
-    if (!hasLocation) return
+    if (!hasLocation || !mapPrefs.me) return
     const broadcast = () => {
       const loc = locationRef.current
       if (!loc) return
@@ -269,11 +283,13 @@ export default function MapPage() {
     broadcast()
     const interval = setInterval(broadcast, 10000)
     return () => clearInterval(interval)
-  }, [hasLocation])
+  }, [hasLocation, mapPrefs.me])
 
   // ── Fetch & render nearby players every 8s ────────────────────────────────
+  // Always fetch (the dropdown's "Local Players Online" count needs it);
+  // the dems/reps toggles only filter which players get MARKERS.
   useEffect(() => {
-    if (!hasLocation || !showPlayers) return
+    if (!hasLocation) return
 
     const fetchAndRender = async () => {
       const loc = locationRef.current
@@ -289,7 +305,12 @@ export default function MapPage() {
 
         if (!map.current) return
 
-        players.forEach(player => {
+        const visiblePlayers = players.filter(p =>
+          p.party === 'democrat' ? mapPrefs.dems
+            : p.party === 'republican' ? mapPrefs.reps
+            : (mapPrefs.dems || mapPrefs.reps)) // hidden affiliation: show unless everything is off
+
+        visiblePlayers.forEach(player => {
           // White/neutral ring if party is hidden, otherwise party color
           const color = player.party === 'democrat' ? '#2563eb'
             : player.party === 'republican' ? '#dc2626'
@@ -341,7 +362,7 @@ export default function MapPage() {
       otherPlayerMarkersRef.current.forEach(m => m.remove())
       otherPlayerMarkersRef.current = []
     }
-  }, [hasLocation, showPlayers])
+  }, [hasLocation, mapPrefs.dems, mapPrefs.reps])
 
   // ── Poll for incoming PvP challenges every 5s ─────────────────────────────
   useEffect(() => {
@@ -954,20 +975,55 @@ export default function MapPage() {
         <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2">
           <span className="text-white text-xs">👟 {steps.toLocaleString()} steps</span>
         </div>
-        <button
-          onClick={togglePlayers}
-          className={`backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2 transition-all ${
-            showPlayers ? 'bg-blue-900/80 border border-blue-500/60' : 'bg-black/75 border border-transparent'
-          }`}
-        >
-          <span className="text-xs">👥</span>
-          <span className="text-white text-xs font-medium">Players {showPlayers ? 'On' : 'Off'}</span>
-          {showPlayers && nearbyPlayers.length > 0 && (
-            <span className="bg-blue-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
-              {nearbyPlayers.length}
-            </span>
+        <div className="relative">
+          <button
+            onClick={() => setShowMapMenu(v => !v)}
+            className={`backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2 transition-all ${
+              showMapMenu ? 'bg-blue-900/80 border border-blue-500/60' : 'bg-black/75 border border-transparent'
+            }`}
+          >
+            <span className="text-xs">🗺️</span>
+            <span className="text-white text-xs font-medium">Show on map</span>
+            <span className="text-gray-400 text-[9px]">{showMapMenu ? '▲' : '▼'}</span>
+          </button>
+
+          {showMapMenu && (
+            <>
+              {/* Click-away catcher: tapping anywhere outside closes the bubble */}
+              <div className="fixed inset-0 z-0" onClick={() => setShowMapMenu(false)} />
+              <div className="absolute top-full left-0 mt-2 z-10 w-56 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl p-1.5">
+                {([
+                  { key: 'me' as const,   label: '📍 Show me on map' },
+                  { key: 'dems' as const, label: '🔵 Show Democrats' },
+                  { key: 'reps' as const, label: '🔴 Show Republicans' },
+                ]).map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between px-2 py-2">
+                    <span className="text-white text-xs font-medium">{label}</span>
+                    <button
+                      onClick={() => toggleMapPref(key)}
+                      className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
+                        mapPrefs[key] ? 'bg-green-600' : 'bg-gray-700'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                        mapPrefs[key] ? 'left-6' : 'left-0.5'
+                      }`} />
+                      <span className={`absolute inset-0 flex items-center text-[8px] font-black ${
+                        mapPrefs[key] ? 'justify-start pl-1.5 text-white' : 'justify-end pr-1 text-gray-400'
+                      }`}>
+                        {mapPrefs[key] ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  </div>
+                ))}
+                <div className="border-t border-gray-700 mt-1 pt-2 pb-1 px-2 flex items-center justify-between">
+                  <span className="text-gray-400 text-[11px]">Local Players Online:</span>
+                  <span className="text-green-400 text-xs font-bold">{nearbyPlayers.length}</span>
+                </div>
+              </div>
+            </>
           )}
-        </button>
+        </div>
       </div>
 
       {/* ── HUD: Top Right — FP ─────────────────────────────────────────── */}
@@ -983,7 +1039,7 @@ export default function MapPage() {
           <span className="text-white text-xs">{spawnedEnemies.length} enemies nearby</span>
           <div className="w-px h-3 bg-gray-600" />
           <span className="text-white text-xs">{gyms.length} town halls</span>
-          {showPlayers && nearbyPlayers.length > 0 && (
+          {nearbyPlayers.length > 0 && (
             <>
               <div className="w-px h-3 bg-gray-600" />
               <span className="text-blue-300 text-xs">{nearbyPlayers.length} player{nearbyPlayers.length !== 1 ? 's' : ''} nearby</span>
