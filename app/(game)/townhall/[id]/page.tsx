@@ -21,6 +21,8 @@ interface Gym {
   total_captures: number
   distance_miles: string
   radius_miles: number
+  latitude: number
+  longitude: number
 }
 
 const DEFENSE_ITEMS = [
@@ -37,7 +39,16 @@ export default function TownHallPage() {
   const { profile, refetch } = useProfile()
   const { location } = useLocation()
   const [gym, setGym] = useState<Gym | null>(null)
+  const [landmarkUrl, setLandmarkUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Local landmark photo for the hero (Wikipedia lead image; satellite fallback)
+  useEffect(() => {
+    fetch(`/api/gyms/${params.id}`)
+      .then(r => r.json())
+      .then(d => { if (d.gym) setLandmarkUrl(d.gym.landmark_url ?? null) })
+      .catch(() => {})
+  }, [params.id])
   const [actionLoading, setActionLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [toast, setToast] = useState('')
@@ -169,11 +180,21 @@ export default function TownHallPage() {
         <p className="text-gray-500 text-sm">{gym.county} County, {gym.state} • Pop. {gym.population?.toLocaleString()}</p>
       </div>
 
-      {/* Flag hero */}
-      <div className="relative h-36 flex items-center justify-center"
-        style={{ background: `linear-gradient(180deg, ${partyColor}22 0%, transparent 100%)` }}>
-        <div className="text-6xl">{flagEmoji}</div>
-        <div className="absolute bottom-3 left-3 right-3 bg-black/70 rounded-xl p-3 flex items-center justify-between">
+      {/* Landmark hero — a photo of something local, holder banner on top */}
+      <div className="relative h-44 overflow-hidden">
+        <img
+          src={landmarkUrl
+            ?? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${gym.longitude},${gym.latitude},13,0/640x360?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`}
+          alt={`${gym.city_name} landmark`}
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={e => {
+            // broken Wikipedia URL → drop to the satellite view
+            const fallback = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${gym.longitude},${gym.latitude},13,0/640x360?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
+            if ((e.target as HTMLImageElement).src !== fallback) (e.target as HTMLImageElement).src = fallback
+          }}
+        />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${partyColor}22 0%, transparent 35%, rgba(3,7,18,0.55) 100%)` }} />
+        <div className="absolute bottom-3 left-3 right-3 bg-black/70 backdrop-blur-sm rounded-xl p-3 flex items-center justify-between">
           <div>
             {gym.holder_username
               ? <>

@@ -88,7 +88,10 @@
       "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://news.google.com/rss/search?q=%22Mankato%22%20Minnesota%20when%3A1d&hl=en-US&gl=US&ceid=US:en\")",
       "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://news.google.com/rss/search?q=Minnesota%20news%20when%3A1d&hl=en-US&gl=US&ceid=US:en\")",
       "Bash(git commit -q -m ' *)",
-      "Bash(rm -rf \"app/\\(game\\)/townhall/[id]/chat\" \"app/api/gyms/[id]/chat\")"
+      "Bash(rm -rf \"app/\\(game\\)/townhall/[id]/chat\" \"app/api/gyms/[id]/chat\")",
+      "Bash(node scripts/landmarks.mjs)",
+      "Bash(curl -s -m 10 -A \"PoliticsGoBot/1.0\" \"https://en.wikipedia.org/api/rest_v1/page/summary/Lakeville,%20Minnesota\")",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\('thumbnail:',j.thumbnail?.source\\);console.log\\('original:',j.originalimage?.source\\)}\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat"

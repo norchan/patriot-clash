@@ -14,7 +14,7 @@ export async function GET(
 
     const { data: gym } = await admin
       .from('gyms')
-      .select('id, city_name, state, holder_id, holder_party, defense_points, radius_miles, latitude, longitude')
+      .select('id, city_name, state, holder_id, holder_party, defense_points, radius_miles, latitude, longitude, landmark_url')
       .eq('id', id)
       .single()
 
