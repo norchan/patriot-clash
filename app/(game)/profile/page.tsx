@@ -1,9 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
-import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare, Share2, Bell } from 'lucide-react'
+import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare, Share2, Bell } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
 
@@ -93,7 +92,6 @@ function resizeAlbumImage(file: File): Promise<string> {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { signOut } = useClerk()
   const { profile, loading, refetch } = useProfile()
   const [battles, setBattles] = useState<BattleRecord[]>([])
   const [battlesLoading, setBattlesLoading] = useState(true)
@@ -436,7 +434,8 @@ export default function ProfilePage() {
               </button>
             )}
           </div>
-          <div className="flex flex-col gap-1 self-start">
+          {/* mt-11 clears the global menu button fixed in this corner */}
+          <div className="flex flex-col gap-1 self-start mt-11">
             <button onClick={() => router.push('/notifications')}
               className="p-2 text-gray-400 hover:text-white relative" aria-label="Notifications">
               <Bell size={20} />
@@ -449,10 +448,6 @@ export default function ProfilePage() {
             <button onClick={() => router.push('/messages')}
               className="p-2 text-gray-400 hover:text-white" aria-label="Messages">
               <MessageSquare size={20} />
-            </button>
-            <button onClick={() => signOut(() => router.push('/sign-in'))}
-              className="p-2 text-gray-500 hover:text-gray-300" aria-label="Sign out">
-              <LogOut size={20} />
             </button>
           </div>
         </div>

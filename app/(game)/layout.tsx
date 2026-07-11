@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell } from 'lucide-react'
+import { useClerk } from '@clerk/nextjs'
+import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut } from 'lucide-react'
 
 const navItems = [
   { href: '/map',      label: 'Map',      icon: Map },
@@ -22,6 +23,7 @@ const menuItems = [
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { signOut } = useClerk()
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
@@ -45,12 +47,19 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
                 <button
                   key={href}
                   onClick={() => { setMenuOpen(false); router.push(href) }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-200 hover:bg-gray-800 transition border-b border-gray-800 last:border-0"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-200 hover:bg-gray-800 transition border-b border-gray-800"
                 >
                   <Icon size={16} className="text-gray-400" />
                   <span className="text-sm font-medium">{label}</span>
                 </button>
               ))}
+              <button
+                onClick={() => { setMenuOpen(false); signOut(() => router.push('/sign-in')) }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-red-950/40 transition"
+              >
+                <LogOut size={16} />
+                <span className="text-sm font-medium">Log Out</span>
+              </button>
             </div>
           </>
         )}

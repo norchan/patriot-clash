@@ -75,7 +75,15 @@ export async function POST(req: NextRequest) {
       .single()
     if (error) throw error
 
-    return NextResponse.json({ photo })
+    // Their first-ever photo doubles as the profile picture when they
+    // don't have one yet
+    let avatarSet = false
+    if ((count ?? 0) === 0 && !(profile as any).avatar_url) {
+      await admin.from('profiles').update({ avatar_url: url }).eq('id', profile.id)
+      avatarSet = true
+    }
+
+    return NextResponse.json({ photo, avatar_set: avatarSet })
   } catch (err: any) {
     if (err instanceof Response) return err
     console.error('POST /api/profile/photos error:', err)

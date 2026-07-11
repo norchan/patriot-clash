@@ -1139,10 +1139,12 @@ export default function MapPage() {
       {/* ── HUD: Top Left ───────────────────────────────────────────────── */}
       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
         <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full" style={{ background: partyColor }} />
+          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: partyColor }} />
           <span className="text-white text-xs font-semibold">
             {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
           </span>
+          <div className="w-px h-3 bg-gray-600" />
+          <span className="text-yellow-400 text-xs font-bold">⚡ {profile?.fp_balance?.toLocaleString() || 0}</span>
         </div>
         <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2">
           <span className="text-white text-xs">👟 {steps.toLocaleString()} steps</span>
@@ -1220,13 +1222,6 @@ export default function MapPage() {
               </div>
             </>
           )}
-        </div>
-      </div>
-
-      {/* ── HUD: Top Right — FP ─────────────────────────────────────────── */}
-      <div className="absolute top-4 right-14 z-20">
-        <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2">
-          <span className="text-yellow-400 text-xs font-bold">⚡ {profile?.fp_balance?.toLocaleString() || 0} FP</span>
         </div>
       </div>
 
