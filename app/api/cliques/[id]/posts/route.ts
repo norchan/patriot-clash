@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation'
 
 // Clique feed — MEMBERS ONLY, both read and write. Posts can carry text,
 // an image (meme), or both.
@@ -62,6 +63,20 @@ export async function POST(
 
     const { content, image } = await req.json()
     const text = (content ?? '').trim()
+
+    const textVerdict = await moderateText(text)
+    if (!textVerdict.allowed) {
+      return NextResponse.json({ error: textVerdict.reason ?? 'Post rejected' }, { status: 400 })
+    }
+    if (image) {
+      const imgVerdict = await moderateImage(image, 'post_image')
+      if (!imgVerdict.allowed) {
+        if (imgVerdict.csamSuspected) {
+          await recordCsamSuspect(admin, { profileId: profile.id, targetType: 'clique_post_image', details: imgVerdict.details })
+        }
+        return NextResponse.json({ error: imgVerdict.reason ?? 'Image rejected' }, { status: 400 })
+      }
+    }
 
     let imageUrl: string | null = null
     if (image) {

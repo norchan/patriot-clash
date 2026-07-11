@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, MessageCircle, Share, Trash2 } from 'lucide-react'
-import { VoteButtons, LinkCard, sharePost, timeAgo, partyColor, type HallPost } from '@/components/HallFeed'
+import { ArrowLeft, MessageCircle, Share, Trash2, Flag } from 'lucide-react'
+import { VoteButtons, LinkCard, sharePost, reportTarget, timeAgo, partyColor, type HallPost } from '@/components/HallFeed'
 
 interface HallComment {
   id: string
@@ -34,6 +34,8 @@ export default function HallPostPage() {
   const [replyTo, setReplyTo] = useState<HallComment | null>(null)
   const [posting, setPosting] = useState(false)
   const [shared, setShared] = useState(false)
+  const [reportedPost, setReportedPost] = useState(false)
+  const [reportedComments, setReportedComments] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetch(`/api/hall-posts/${postId}`)
@@ -133,6 +135,17 @@ export default function HallPostPage() {
             className="text-gray-500 hover:text-blue-400 text-[11px] font-bold transition">
             Reply
           </button>
+          {!c.is_mine && (
+            <button
+              onClick={() => {
+                if (reportedComments.has(c.id)) return
+                reportTarget('hall_comment', c.id, c.profile_id)
+                setReportedComments(prev => new Set(prev).add(c.id))
+              }}
+              className={`text-[11px] font-bold transition ${reportedComments.has(c.id) ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}>
+              {reportedComments.has(c.id) ? 'Reported' : <Flag size={12} />}
+            </button>
+          )}
         </div>
       </div>
       {childrenOf(c.id).map(child => <Comment key={child.id} c={child} depth={depth + 1} />)}
@@ -182,6 +195,17 @@ export default function HallPostPage() {
             className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
             <Share size={15} /><span className="text-xs font-bold">{shared ? 'Copied!' : 'Share'}</span>
           </button>
+          {!post.is_mine && (
+            <button
+              onClick={() => {
+                if (reportedPost) return
+                reportTarget('hall_post', post.id, post.profile_id)
+                setReportedPost(true)
+              }}
+              className={`flex items-center gap-1 transition ${reportedPost ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}>
+              <Flag size={14} /><span className="text-xs font-bold">{reportedPost ? 'Reported' : 'Report'}</span>
+            </button>
+          )}
         </div>
       </div>
 

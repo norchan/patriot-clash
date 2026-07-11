@@ -15,7 +15,7 @@ export async function GET(
 
     const [{ data: post }, { data: comments }] = await Promise.all([
       admin.from('hall_posts')
-        .select('id, gym_id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at')
+        .select('id, gym_id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, hidden')
         .eq('id', postId).maybeSingle(),
       admin.from('hall_comments')
         .select('id, parent_id, profile_id, content, score, created_at')
@@ -24,6 +24,10 @@ export async function GET(
         .limit(300),
     ])
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    // Community-hidden posts stay visible only to their author
+    if (post.hidden && post.profile_id !== profile.id) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    }
 
     const authorIds = [...new Set([post.profile_id, ...(comments ?? []).map(c => c.profile_id)])]
     const commentIds = (comments ?? []).map(c => c.id)

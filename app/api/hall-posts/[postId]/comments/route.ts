@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { moderateText } from '@/lib/moderation'
 
 // POST /api/hall-posts/[postId]/comments { content, parent_id? } — reply to
 // the post, or to another comment (parent_id), Reddit style.
@@ -16,6 +17,11 @@ export async function POST(
     const text = (content ?? '').trim()
     if (!text) return NextResponse.json({ error: 'Say something' }, { status: 400 })
     if (text.length > 800) return NextResponse.json({ error: 'Comment too long (800 max)' }, { status: 400 })
+
+    const verdict = await moderateText(text)
+    if (!verdict.allowed) {
+      return NextResponse.json({ error: verdict.reason ?? 'Comment rejected' }, { status: 400 })
+    }
 
     const { data: post } = await admin.from('hall_posts').select('id, comment_count').eq('id', postId).maybeSingle()
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })

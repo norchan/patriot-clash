@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { moderateImage, recordCsamSuspect } from '@/lib/moderation'
 
 const MAX_PHOTOS = 12
 
@@ -36,6 +37,16 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(match[2], 'base64')
     if (buffer.length > 3 * 1024 * 1024) {
       return NextResponse.json({ error: 'Image too large (max 3 MB)' }, { status: 400 })
+    }
+
+    // Screen before anything touches storage. Album photos use the adult-
+    // allowed policy (nudity OK, sexual acts not) when that switch is on.
+    const verdict = await moderateImage(image, 'album')
+    if (!verdict.allowed) {
+      if (verdict.csamSuspected) {
+        await recordCsamSuspect(admin, { profileId: profile.id, targetType: 'profile_photo', details: verdict.details })
+      }
+      return NextResponse.json({ error: verdict.reason ?? 'Image rejected' }, { status: 400 })
     }
 
     const { count } = await admin

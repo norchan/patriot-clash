@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown } from 'lucide-react'
+import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown, Flag } from 'lucide-react'
 
 // Town hall discussion feed — looks like X, votes like Reddit.
 // Tapping a post opens /townhall/[gymId]/post/[postId] with the reply thread.
@@ -79,6 +79,17 @@ export function LinkCard({ post }: { post: { link_url: string | null; link_title
   )
 }
 
+// Community report — one per player per target; 3 reports auto-hide a post
+export async function reportTarget(targetType: string, targetId: string, reportedProfileId?: string) {
+  try {
+    await fetch('/api/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_type: targetType, target_id: targetId, reported_profile_id: reportedProfileId }),
+    })
+  } catch {}
+}
+
 export function sharePost(gymId: string, post: { id: string; content: string | null }) {
   const url = `${window.location.origin}/townhall/${gymId}/post/${post.id}`
   if (navigator.share) {
@@ -96,6 +107,7 @@ export default function HallFeed({ gymId }: { gymId: string }) {
   const [draftImage, setDraftImage] = useState<string | null>(null)
   const [posting, setPosting] = useState(false)
   const [shared, setShared] = useState('')
+  const [reported, setReported] = useState<Set<string>>(new Set())
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -226,6 +238,18 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                       <Share size={14} />
                       <span className="text-[11px] font-bold">{shared === p.id ? 'Copied!' : 'Share'}</span>
                     </button>
+                    {!p.is_mine && (
+                      <button className={`flex items-center gap-1 transition ${reported.has(p.id) ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}
+                        onClick={e => {
+                          e.stopPropagation()
+                          if (reported.has(p.id)) return
+                          reportTarget('hall_post', p.id, p.profile_id)
+                          setReported(prev => new Set(prev).add(p.id))
+                        }}>
+                        <Flag size={13} />
+                        <span className="text-[11px] font-bold">{reported.has(p.id) ? 'Reported' : ''}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

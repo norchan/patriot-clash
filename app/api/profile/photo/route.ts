@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { moderateImage, recordCsamSuspect } from '@/lib/moderation'
 
 // POST /api/profile/photo — upload a profile photo (base64 data URL).
 // The client resizes to 256x256 before sending, so payloads stay small.
@@ -18,6 +19,15 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(match[2], 'base64')
     if (buffer.length > 1.5 * 1024 * 1024) {
       return NextResponse.json({ error: 'Image too large (max 1.5 MB)' }, { status: 400 })
+    }
+
+    // Avatars are always SFW — they show on the public map
+    const verdict = await moderateImage(image, 'avatar')
+    if (!verdict.allowed) {
+      if (verdict.csamSuspected) {
+        await recordCsamSuspect(admin, { profileId: profile.id, targetType: 'avatar', details: verdict.details })
+      }
+      return NextResponse.json({ error: verdict.reason ?? 'Image rejected' }, { status: 400 })
     }
 
     const path = `${profile.id}.jpg`

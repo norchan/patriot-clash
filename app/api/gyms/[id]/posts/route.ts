@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fetchLinkPreview, firstUrl } from '@/lib/link-preview'
+import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation'
 
 // Town hall discussion feed — public to every player (halls are the public
 // squares of the game). Posts carry text, an uploaded image, or a link
@@ -21,6 +22,7 @@ export async function GET(
       .from('hall_posts')
       .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at')
       .eq('gym_id', id)
+      .eq('hidden', false)
       .order('created_at', { ascending: false })
       .limit(80)
 
@@ -67,6 +69,21 @@ export async function POST(
     const text = (content ?? '').trim()
     if (text.length > 1000) {
       return NextResponse.json({ error: 'Post is too long (1000 characters max)' }, { status: 400 })
+    }
+
+    // Screen text + image before anything is stored (Town Square is public)
+    const textVerdict = await moderateText(text)
+    if (!textVerdict.allowed) {
+      return NextResponse.json({ error: textVerdict.reason ?? 'Post rejected' }, { status: 400 })
+    }
+    if (image) {
+      const imgVerdict = await moderateImage(image, 'post_image')
+      if (!imgVerdict.allowed) {
+        if (imgVerdict.csamSuspected) {
+          await recordCsamSuspect(admin, { profileId: profile.id, targetType: 'hall_post_image', details: imgVerdict.details })
+        }
+        return NextResponse.json({ error: imgVerdict.reason ?? 'Image rejected' }, { status: 400 })
+      }
     }
 
     // Uploaded image (meme/photo) — same pipeline as clique posts
