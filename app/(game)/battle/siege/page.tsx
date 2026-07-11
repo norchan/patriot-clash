@@ -37,6 +37,7 @@ interface Soldier {
   id: number
   x: number; y: number     // current position (%)
   tx: number; ty: number   // fight position at the walls (%)
+  flip: boolean            // mirror the sprite to face the travel direction
   state: 'march' | 'fight' | 'poof'
   spawnedAt: number
   lastHit: number
@@ -271,13 +272,16 @@ function SiegePage() {
       showToast('⚔️ Squad is maxed — wait for your soldiers to fall')
       return
     }
+    const sx = (x / rect.width) * 100
+    // charge to the fortress gate area, fanning out a little
+    const tx = 41 + Math.random() * 18
     const soldier: Soldier = {
       id: ++idRef.current,
-      x: (x / rect.width) * 100,
+      x: sx,
       y: (y / rect.height) * 100,
-      // charge to the fortress gate area, fanning out a little
-      tx: 41 + Math.random() * 18,
+      tx,
       ty: 60 + Math.random() * 8,
+      flip: tx > sx, // base art leans left — mirror when charging rightward
       state: 'march',
       spawnedAt: Date.now(),
       lastHit: 0,
@@ -505,11 +509,15 @@ function SiegePage() {
           {s.state === 'poof' ? (
             <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>💨</span>
           ) : (
-            <span className="block" style={{
-              fontSize: s.state === 'fight' ? 24 : 28,
-              animation: s.state === 'fight' ? 'sgFight 0.45s ease-in-out infinite' : 'sgRun 0.3s ease-in-out infinite',
-              filter: `drop-shadow(0 0 5px ${myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
-            }}>💂</span>
+            <span className="block" style={{ transform: s.flip ? 'scaleX(-1)' : undefined }}>
+              <img src="/halls/soldier.png" alt="" draggable={false} style={{
+                height: s.state === 'fight' ? 58 : 62,
+                width: 'auto',
+                transformOrigin: '50% 90%',
+                animation: s.state === 'fight' ? 'sgSlash 0.5s ease-in-out infinite' : 'sgRun 0.28s ease-in-out infinite',
+                filter: `drop-shadow(0 0 6px ${myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
+              }} />
+            </span>
           )}
         </div>
       ))}
@@ -609,7 +617,7 @@ function SiegePage() {
         @keyframes sgSpin { 0%{transform:rotate(0)} 100%{transform:rotate(660deg)} }
         @keyframes sgShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,4px)} 50%{transform:translate(6px,-4px)} 75%{transform:translate(-4px,2px)} }
         @keyframes sgRun { 0%,100%{transform:translateY(0) rotate(-4deg)} 50%{transform:translateY(-4px) rotate(4deg)} }
-        @keyframes sgFight { 0%,100%{transform:translateX(-2px) rotate(-8deg)} 50%{transform:translateX(3px) rotate(10deg) scale(1.1)} }
+        @keyframes sgSlash { 0%,100%{transform:rotate(-14deg)} 45%{transform:rotate(22deg) scale(1.07)} }
         @keyframes sgPoof { 0%{transform:scale(0.7);opacity:1} 100%{transform:scale(1.8) translateY(-14px);opacity:0} }
       `}</style>
     </div>
