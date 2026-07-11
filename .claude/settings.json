@@ -70,7 +70,14 @@
       "Bash(node scripts/build_ouch.mjs)",
       "Bash(python -c ' *)",
       "Bash(node scripts/build_soldier.mjs)",
-      "Bash(node scripts/build_strike.mjs)"
+      "Bash(node scripts/build_strike.mjs)",
+      "Bash(node scripts/reddit_townsquare.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/126.0.0.0 Safari/537.36\" \"https://www.reddit.com/r/democrats/hot.json?limit=5&raw_json=1\")",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"https://www.reddit.com/r/democrats/hot.json?limit=5&raw_json=1\" -UserAgent \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/126.0.0.0 Safari/537.36\" -UseBasicParsing -TimeoutSec 20; Write-Output \"STATUS: $\\($r.StatusCode\\) LEN: $\\($r.Content.Length\\)\" } catch { Write-Output \"FAILED: $\\($_.Exception.Message\\)\" })",
+      "Bash(curl -s -m 15 -A \"Mozilla/5.0\" \"https://rl.bloat.cat/r/democrats/hot\")",
+      "Bash(curl -s -m 15 -A Mozilla/5.0 https://rl.bloat.cat/r/democrats/hot -o __TRACKED_VAR__/redlib.html)",
+      "Bash(curl -s -m 15 -A \"Mozilla/5.0\" \"https://rl.bloat.cat/r/democrats/hot\" -o /tmp/redlib.html)",
+      "Read(//tmp/**)"
     ]
   }
 }

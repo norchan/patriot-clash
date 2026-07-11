@@ -18,10 +18,38 @@ interface RedditPost {
   subreddit: string
 }
 
-async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
+// Reddit requires OAuth for API access. App-only (client_credentials)
+// token from a free "script" app created at reddit.com/prefs/apps.
+async function getRedditToken(): Promise<string | null> {
+  const id = process.env.REDDIT_CLIENT_ID
+  const secret = process.env.REDDIT_CLIENT_SECRET
+  if (!id || !secret) return null
   try {
-    const res = await fetch(`https://www.reddit.com/r/${sub}/hot.json?limit=40&raw_json=1`, {
-      headers: { 'User-Agent': 'web:politicsgo.app:v1.0 (town square bot)' },
+    const res = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'web:politicsgo.app:v1.0 (town square bot)',
+      },
+      body: 'grant_type=client_credentials',
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.access_token ?? null
+  } catch {
+    return null
+  }
+}
+
+async function fetchSubreddit(sub: string, token: string): Promise<RedditPost[]> {
+  try {
+    const res = await fetch(`https://oauth.reddit.com/r/${sub}/hot?limit=40&raw_json=1`, {
+      headers: {
+        Authorization: `bearer ${token}`,
+        'User-Agent': 'web:politicsgo.app:v1.0 (town square bot)',
+      },
       cache: 'no-store',
     })
     if (!res.ok) return []
@@ -62,12 +90,16 @@ export async function GET(req: NextRequest) {
 
   const admin = createSupabaseAdminClient()
 
+  const token = await getRedditToken()
+  if (!token) {
+    return NextResponse.json({ error: 'REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET missing or invalid' }, { status: 500 })
+  }
   const [repPosts, demPosts] = await Promise.all([
-    fetchSubreddit('Republican'),
-    fetchSubreddit('democrats'),
+    fetchSubreddit('Republican', token),
+    fetchSubreddit('democrats', token),
   ])
   if (repPosts.length === 0 && demPosts.length === 0) {
-    return NextResponse.json({ error: 'Reddit returned nothing (possibly blocked)' }, { status: 502 })
+    return NextResponse.json({ error: 'Reddit returned nothing' }, { status: 502 })
   }
 
   const [{ data: bots }, { data: gyms }] = await Promise.all([
