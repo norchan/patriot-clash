@@ -106,31 +106,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'No gyms or bots found' }, { status: 500 })
   }
 
-  let inserted = 0
-  for (const gym of gyms) {
-    // What has already been shared here — never repost the same link
-    const { data: existing } = await admin
-      .from('hall_posts')
-      .select('link_url')
-      .eq('gym_id', gym.id)
-      .not('link_url', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(300)
-    const seen = new Set((existing ?? []).map(e => e.link_url))
+  // Thousands of halls — this must be a handful of batched queries, not a
+  // per-hall loop (the sequential version blew the 60s function limit).
+  // Dedupe is scoped to links in TODAY'S pool: one .in() query answers
+  // "which halls already have which of these links".
+  const poolLinks = [...new Set([...repPosts, ...demPosts].map(p => p.link))]
+  const { data: existing } = await admin
+    .from('hall_posts')
+    .select('gym_id, link_url')
+    .in('link_url', poolLinks)
+    .limit(50000)
+  const seen = new Set((existing ?? []).map(e => `${e.gym_id}|${e.link_url}`))
 
-    // One fresh headline per party per run, per hall
+  const rows: any[] = []
+  for (const gym of gyms) {
     const picks: { post: NewsItem; party: 'democrat' | 'republican' }[] = []
-    const freshRep = shuffle(repPosts).find(p => !seen.has(p.link))
-    const freshDem = shuffle(demPosts).find(p => !seen.has(p.link))
+    const freshRep = shuffle(repPosts).find(p => !seen.has(`${gym.id}|${p.link}`))
+    const freshDem = shuffle(demPosts).find(p => !seen.has(`${gym.id}|${p.link}`))
     if (freshRep && repBots.length) picks.push({ post: freshRep, party: 'republican' })
     if (freshDem && demBots.length) picks.push({ post: freshDem, party: 'democrat' })
 
     for (const { post, party } of picks) {
       const pool = party === 'democrat' ? demBots : repBots
       const bot = pool[Math.floor(Math.random() * pool.length)]
-      // stagger timestamps over the past 8 hours so feeds look alive
-      const createdAt = new Date(Date.now() - Math.random() * 8 * 3600 * 1000).toISOString()
-      const { error } = await admin.from('hall_posts').insert({
+      seen.add(`${gym.id}|${post.link}`)
+      rows.push({
         gym_id: gym.id,
         profile_id: bot.id,
         content: post.title,
@@ -139,10 +139,16 @@ export async function GET(req: NextRequest) {
         link_image: post.image,
         link_domain: post.domain,
         score: Math.floor(Math.random() * 12),
-        created_at: createdAt,
+        // stagger timestamps over the past 8 hours so feeds look alive
+        created_at: new Date(Date.now() - Math.random() * 8 * 3600 * 1000).toISOString(),
       })
-      if (!error) inserted++
     }
+  }
+
+  let inserted = 0
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await admin.from('hall_posts').insert(rows.slice(i, i + 500))
+    if (!error) inserted += Math.min(500, rows.length - i)
   }
 
   return NextResponse.json({
