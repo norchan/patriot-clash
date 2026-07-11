@@ -173,7 +173,6 @@ function BattleContent() {
       setEnemy(e)
       setEnemyHp(e.hp)
       setMaxHp(e.hp)
-      setVideoFailed(false)
       setDialogLine(`A wild ${e.name} appeared!`)
     }
   }, [enemyId, profile])
