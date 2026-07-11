@@ -10,10 +10,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireProfile()
+    const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
     const since = req.nextUrl.searchParams.get('since')
+
+    // This GET is polled while a player has the room open, so it doubles as
+    // the presence heartbeat that powers the "who's here" list.
+    await admin.from('gym_chat_presence')
+      .upsert({ gym_id: id, profile_id: profile.id, last_seen: new Date().toISOString() })
 
     let q = admin
       .from('gym_chat')
@@ -23,10 +28,21 @@ export async function GET(
       .limit(80)
     if (since) q = q.gt('created_at', since)
 
-    const { data: rows } = await q
+    // Active users = seen in the room within the last 70 seconds
+    const cutoff = new Date(Date.now() - 70_000).toISOString()
+    const [{ data: rows }, { data: present }] = await Promise.all([
+      q,
+      admin.from('gym_chat_presence')
+        .select('profile_id')
+        .eq('gym_id', id)
+        .gte('last_seen', cutoff),
+    ])
     const msgs = (rows ?? []).reverse()
 
-    const ids = [...new Set(msgs.map(m => m.profile_id))]
+    const ids = [...new Set([
+      ...msgs.map(m => m.profile_id),
+      ...(present ?? []).map(p => p.profile_id),
+    ])]
     const { data: authors } = ids.length
       ? await admin.from('profiles').select('id, username, avatar_url, party').in('id', ids)
       : { data: [] as any[] }
@@ -41,6 +57,12 @@ export async function GET(
         username: byId[m.profile_id]?.username ?? 'Player',
         avatar_url: byId[m.profile_id]?.avatar_url ?? null,
         party: byId[m.profile_id]?.party ?? null,
+      })),
+      users: (present ?? []).map(p => ({
+        id: p.profile_id,
+        username: byId[p.profile_id]?.username ?? 'Player',
+        avatar_url: byId[p.profile_id]?.avatar_url ?? null,
+        party: byId[p.profile_id]?.party ?? null,
       })),
     })
 

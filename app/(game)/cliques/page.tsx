@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
+import CliqueFeed from '@/components/CliqueFeed'
 
 interface Clique {
   id: string
@@ -41,6 +42,7 @@ export default function CliquesPage() {
   const [pendingRequests, setPendingRequests] = useState<PendingMember[]>([])
   const [isCreator, setIsCreator] = useState(false)
   const [search, setSearch] = useState('')
+  const [showBrowse, setShowBrowse] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
@@ -256,6 +258,14 @@ export default function CliquesPage() {
         </div>
       )}
 
+      {/* Clique chat — shown inline for members right under their clique info */}
+      {myCliqueId && (
+        <div className="mx-4 mb-4">
+          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">💬 Clique Chat</h3>
+          <CliqueFeed cliqueId={myCliqueId} partyColor={partyColor} isCreator={isCreator} />
+        </div>
+      )}
+
       {/* Create — hidden while you're in a clique (leave first) */}
       {!myCliqueId && (
       <div className="mx-4 mb-4">
@@ -317,8 +327,23 @@ export default function CliquesPage() {
       </div>
       )}
 
+      {/* Members: collapse the browse list into a "find other cliques" toggle
+          below the chat — no need to shop for cliques while you're in one */}
+      {myCliqueId && !showBrowse && (
+        <div className="mx-4 mb-4">
+          <button onClick={() => setShowBrowse(true)}
+            className="w-full py-2.5 rounded-xl text-sm font-bold bg-gray-900 text-gray-400 border border-gray-800 hover:text-white transition">
+            🔍 Find other {partyName} cliques
+          </button>
+        </div>
+      )}
+
       {/* Search + list */}
+      {(!myCliqueId || showBrowse) && (
       <div className="mx-4">
+        {myCliqueId && (
+          <button onClick={() => setShowBrowse(false)} className="text-gray-500 text-xs mb-2">← Hide</button>
+        )}
         <input
           type="text" value={search}
           onChange={e => setSearch(e.target.value)}
@@ -367,6 +392,7 @@ export default function CliquesPage() {
           </div>
         )}
       </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto">
