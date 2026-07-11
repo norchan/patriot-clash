@@ -174,11 +174,15 @@ export default function MapPage() {
       const inner = el.querySelector('.em-scale') as HTMLElement | null
       if (inner) inner.style.transform = `scale(${scale})`
     })
-    // Town halls stay visible at every zoom (they're the landmarks of the
-    // game) — the building just shrinks toward half size at state zoom
-    const gymScale = Math.max(0.5, Math.min(1, 0.5 + (z - 8) * 0.125))
+    // Town halls: full size when zoomed into a town circle (z12+), shrink
+    // fast as you pull back, and disappear entirely past city zoom — the
+    // party-colored zone circles carry the story from state level out
+    const showHalls = z >= 9
+    const gymScale = Math.max(0.45, Math.min(1, 0.45 + (z - 9) * 0.183))
     gymMarkersRef.current.forEach(mk => {
-      const inner = mk.getElement().querySelector('.gh-scale') as HTMLElement | null
+      const el = mk.getElement()
+      el.style.display = showHalls ? '' : 'none'
+      const inner = el.querySelector('.gh-scale') as HTMLElement | null
       if (inner) inner.style.transform = `scale(${gymScale})`
     })
     otherPlayerMarkersRef.current.forEach(mk => { mk.getElement().style.display = showPlayerMk ? '' : 'none' })
