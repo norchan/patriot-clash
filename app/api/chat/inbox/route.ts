@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
         sender_id: m.sender_id,
         sender_username: senderMap[m.sender_id]?.username ?? 'Player',
         sender_avatar: senderMap[m.sender_id]?.avatar_url ?? null,
-        preview: m.content.slice(0, 80),
+        preview: (m.content ?? '📷 Photo').slice(0, 80),
         created_at: m.created_at,
       })),
     })

@@ -126,7 +126,7 @@ export default function MapPage() {
   const [album, setAlbum] = useState<{ title: string; photos: { id: string; url: string }[] } | null>(null)
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null)
   const [activeChatUsername, setActiveChatUsername] = useState('')
-  const [chatMessages, setChatMessages] = useState<{ id: string; sender_id: string; content: string; created_at: string }[]>([])
+  const [chatMessages, setChatMessages] = useState<{ id: string; sender_id: string; content: string | null; image_url?: string | null; created_at: string }[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatSending, setChatSending] = useState(false)
   const chatBoxRef = useRef<HTMLDivElement>(null)
@@ -1352,13 +1352,14 @@ export default function MapPage() {
                 const isMe = msg.sender_id === profile?.id
                 return (
                   <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className="max-w-[75%] px-3 py-1.5 rounded-xl text-sm text-white"
+                    <div className="max-w-[75%] rounded-xl text-sm text-white overflow-hidden"
                       style={{
                         background: isMe ? '#1d4ed8' : '#1f2937',
                         borderBottomRightRadius: isMe ? 4 : undefined,
                         borderBottomLeftRadius: isMe ? undefined : 4,
                       }}>
-                      {msg.content}
+                      {msg.image_url && <img src={msg.image_url} alt="" className="w-full max-h-48 object-cover" />}
+                      {msg.content && <div className="px-3 py-1.5">{msg.content}</div>}
                     </div>
                   </div>
                 )

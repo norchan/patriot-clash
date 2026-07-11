@@ -59,7 +59,7 @@ export async function GET(_req: NextRequest) {
           username: other.username ?? 'Player',
           avatar_url: other.avatar_url ?? null,
           party: other.show_party === false ? null : other.party,
-          last_message: m.content.slice(0, 90),
+          last_message: (m.content ?? '📷 Photo').slice(0, 90),
           last_from_me: m.sender_id === profile.id,
           last_at: m.created_at,
         }

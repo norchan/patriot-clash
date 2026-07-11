@@ -1,10 +1,35 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Camera, Image as ImageIcon, X } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
+import AlbumViewer from '@/components/AlbumViewer'
 
-interface Msg { id: string; sender_id: string; content: string; created_at: string }
+interface Msg { id: string; sender_id: string; content: string | null; image_url: string | null; created_at: string }
+
+// Shrink photos for sending; GIFs pass through untouched (canvas would
+// freeze the animation) as long as they fit the size cap.
+function prepareImage(file: File): Promise<string | null> {
+  return new Promise(resolve => {
+    if (file.type === 'image/gif') {
+      if (file.size > 3.5 * 1024 * 1024) return resolve(null)
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(file)
+      return
+    }
+    createImageBitmap(file).then(bmp => {
+      const max = 1280
+      const scale = Math.min(1, max / Math.max(bmp.width, bmp.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(bmp.width * scale)
+      canvas.height = Math.round(bmp.height * scale)
+      canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/webp', 0.85))
+    }).catch(() => resolve(null))
+  })
+}
 
 export default function MessageThreadPage() {
   const router = useRouter()
@@ -15,9 +40,13 @@ export default function MessageThreadPage() {
   const [other, setOther] = useState<{ username: string; avatar_url: string | null; party: string | null } | null>(null)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
+  const [draftImage, setDraftImage] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [viewer, setViewer] = useState<string | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const stickBottom = useRef(true)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
 
   // Who am I talking to
   useEffect(() => {
@@ -47,21 +76,29 @@ export default function MessageThreadPage() {
     if (stickBottom.current) boxRef.current?.scrollTo({ top: boxRef.current.scrollHeight })
   }, [messages])
 
+  async function pickFile(file: File) {
+    const dataUrl = await prepareImage(file)
+    if (dataUrl) setDraftImage(dataUrl)
+  }
+
   async function send() {
     const content = input.trim()
-    if (!content || sending) return
+    if ((!content && !draftImage) || sending) return
     setSending(true)
     try {
       const res = await fetch(`/api/chat/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, image: draftImage }),
       })
       const data = await res.json()
-      if (data.message) {
+      if (res.ok && data.message) {
         setMessages(prev => [...prev, data.message])
         setInput('')
+        setDraftImage(null)
         stickBottom.current = true
+      } else if (data.error) {
+        alert(data.error)
       }
     } catch {}
     setSending(false)
@@ -104,15 +141,22 @@ export default function MessageThreadPage() {
           const isMe = m.sender_id === profile?.id
           return (
             <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className="max-w-[78%] px-3 py-2 rounded-2xl text-sm text-white break-words"
+              <div className="max-w-[78%] rounded-2xl text-sm text-white break-words overflow-hidden"
                 style={{
                   background: isMe ? '#1d4ed8' : '#1f2937',
                   borderBottomRightRadius: isMe ? 6 : undefined,
                   borderBottomLeftRadius: isMe ? undefined : 6,
                 }}>
-                {m.content}
-                <div className={`text-[9px] mt-0.5 ${isMe ? 'text-blue-300/70 text-right' : 'text-gray-500'}`}>
-                  {new Date(m.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                {m.image_url && (
+                  <img src={m.image_url} alt="" loading="lazy"
+                    onClick={() => setViewer(m.image_url)}
+                    className="w-full max-h-72 object-cover cursor-pointer" />
+                )}
+                <div className={m.image_url && !m.content ? 'px-2 pb-1' : 'px-3 py-2'}>
+                  {m.content}
+                  <div className={`text-[9px] mt-0.5 ${isMe ? 'text-blue-300/70 text-right' : 'text-gray-500'}`}>
+                    {new Date(m.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -121,21 +165,51 @@ export default function MessageThreadPage() {
       </div>
 
       {/* Composer */}
-      <div className="flex gap-2 p-3 border-t border-gray-800 flex-shrink-0">
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Type a message..."
-          maxLength={500}
-          className="flex-1 bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 outline-none placeholder-gray-600 border border-transparent focus:border-blue-700 transition"
-        />
-        <button onClick={send} disabled={sending || !input.trim()}
-          className="px-4 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm rounded-xl font-bold transition">
-          Send
-        </button>
+      <div className="p-3 border-t border-gray-800 flex-shrink-0">
+        {draftImage && (
+          <div className="relative inline-block mb-2">
+            <img src={draftImage} alt="" className="h-24 rounded-xl object-cover border border-gray-700" />
+            <button onClick={() => setDraftImage(null)}
+              className="absolute -top-2 -right-2 bg-gray-800 border border-gray-600 rounded-full p-1 text-white">
+              <X size={12} />
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2 items-center">
+          {/* Camera: opens the device camera directly on phones */}
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden
+            onChange={e => { e.target.files?.[0] && pickFile(e.target.files[0]); e.target.value = '' }} />
+          <button onClick={() => cameraRef.current?.click()}
+            className="p-2.5 rounded-xl bg-gray-800 text-gray-300 hover:text-white transition flex-shrink-0" title="Take a photo">
+            <Camera size={18} />
+          </button>
+          {/* Gallery: photos + GIFs */}
+          <input ref={galleryRef} type="file" accept="image/*" hidden
+            onChange={e => { e.target.files?.[0] && pickFile(e.target.files[0]); e.target.value = '' }} />
+          <button onClick={() => galleryRef.current?.click()}
+            className="p-2.5 rounded-xl bg-gray-800 text-gray-300 hover:text-white transition flex-shrink-0" title="Send a picture or GIF">
+            <ImageIcon size={18} />
+          </button>
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder={draftImage ? 'Add a caption...' : 'Type a message...'}
+            maxLength={500}
+            className="flex-1 min-w-0 bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 outline-none placeholder-gray-600 border border-transparent focus:border-blue-700 transition"
+          />
+          <button onClick={send} disabled={sending || (!input.trim() && !draftImage)}
+            className="px-4 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm rounded-xl font-bold transition flex-shrink-0">
+            Send
+          </button>
+        </div>
       </div>
+
+      {/* Fullscreen image viewer */}
+      {viewer && (
+        <AlbumViewer photos={[{ id: 'img', url: viewer }]} title={other?.username} onClose={() => setViewer(null)} />
+      )}
     </div>
   )
 }

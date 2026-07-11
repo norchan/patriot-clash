@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { isBlockedEitherWay } from '@/lib/blocks'
+import { notify } from '@/lib/notify'
 
 const FP_STAKE = 50
 
@@ -82,6 +83,16 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('pvp_challenges insert error:', error)
       return NextResponse.json({ error: 'Failed to create challenge' }, { status: 500 })
+    }
+
+    if (!isBot) {
+      await notify(admin, {
+        profileId: defender.id,
+        type: 'pvp',
+        title: `⚔️ ${profile.username} challenged you!`,
+        body: `${FP_STAKE} FP at stake — open the map to accept`,
+        link: '/map',
+      })
     }
 
     return NextResponse.json({ id: challenge.id, status: challenge.status, defender_username: defender.username })

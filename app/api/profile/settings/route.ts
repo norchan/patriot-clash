@@ -15,6 +15,15 @@ export async function PATCH(req: NextRequest) {
     for (const key of allowed) {
       if (key in body) updates[key] = body[key]
     }
+    // Notification preferences: { dm?: bool, pvp?: bool, social?: bool } —
+    // merged over the existing prefs; false mutes that type
+    if ('notification_prefs' in body && typeof body.notification_prefs === 'object' && body.notification_prefs) {
+      const clean: Record<string, boolean> = { ...((profile as any).notification_prefs ?? {}) }
+      for (const k of ['dm', 'pvp', 'social', 'system']) {
+        if (k in body.notification_prefs) clean[k] = !!body.notification_prefs[k]
+      }
+      updates.notification_prefs = clean
+    }
     // Fighter designs are validated against the allowed option sets
     if ('fighter' in body) {
       updates.fighter = sanitizeFighter(body.fighter, profile.id)

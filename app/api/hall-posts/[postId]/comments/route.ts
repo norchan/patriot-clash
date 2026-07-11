@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { moderateText } from '@/lib/moderation'
+import { notify } from '@/lib/notify'
 
 // POST /api/hall-posts/[postId]/comments { content, parent_id? } — reply to
 // the post, or to another comment (parent_id), Reddit style.
@@ -23,12 +24,14 @@ export async function POST(
       return NextResponse.json({ error: verdict.reason ?? 'Comment rejected' }, { status: 400 })
     }
 
-    const { data: post } = await admin.from('hall_posts').select('id, comment_count').eq('id', postId).maybeSingle()
+    const { data: post } = await admin.from('hall_posts').select('id, gym_id, profile_id, comment_count').eq('id', postId).maybeSingle()
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
 
+    let parentAuthor: string | null = null
     if (parent_id) {
-      const { data: parent } = await admin.from('hall_comments').select('id').eq('id', parent_id).eq('post_id', postId).maybeSingle()
+      const { data: parent } = await admin.from('hall_comments').select('id, profile_id').eq('id', parent_id).eq('post_id', postId).maybeSingle()
       if (!parent) return NextResponse.json({ error: 'Parent comment not found' }, { status: 404 })
+      parentAuthor = parent.profile_id
     }
 
     const { data: comment, error } = await admin
@@ -39,6 +42,30 @@ export async function POST(
     if (error) throw error
 
     await admin.from('hall_posts').update({ comment_count: post.comment_count + 1 }).eq('id', postId)
+
+    // Tell the post author (and the parent commenter on replies) — notify()
+    // itself skips bots, muted types, and we skip self-replies here
+    const link = `/townhall/${post.gym_id}/post/${postId}`
+    if (post.profile_id !== profile.id) {
+      await notify(admin, {
+        profileId: post.profile_id,
+        type: 'social',
+        title: `💬 ${profile.username} commented on your post`,
+        body: text.slice(0, 120),
+        link,
+        dedupeUnreadLink: true,
+      })
+    }
+    if (parentAuthor && parentAuthor !== profile.id && parentAuthor !== post.profile_id) {
+      await notify(admin, {
+        profileId: parentAuthor,
+        type: 'social',
+        title: `↪️ ${profile.username} replied to your comment`,
+        body: text.slice(0, 120),
+        link,
+        dedupeUnreadLink: true,
+      })
+    }
 
     return NextResponse.json({
       comment: {

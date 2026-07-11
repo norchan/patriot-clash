@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
-import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare, Share2 } from 'lucide-react'
+import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare, Share2, Bell } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
 
@@ -113,6 +113,27 @@ export default function ProfilePage() {
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
   const [sharedPost, setSharedPost] = useState('')
+  const [unreadNotifs, setUnreadNotifs] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/notifications')
+      .then(r => r.json())
+      .then(d => setUnreadNotifs(d.unread ?? 0))
+      .catch(() => {})
+  }, [])
+
+  async function toggleNotifPref(key: 'dm' | 'pvp' | 'social', val: boolean) {
+    setToggling(`notif_${key}`)
+    try {
+      await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_prefs: { [key]: !val } }),
+      })
+      await refetch()
+    } catch {}
+    setToggling(null)
+  }
 
   async function votePost(post: Post, v: number) {
     setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: (p.score ?? 0) + v - (p.my_vote ?? 0), my_vote: v } : p))
@@ -409,6 +430,15 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="flex flex-col gap-1 self-start">
+            <button onClick={() => router.push('/notifications')}
+              className="p-2 text-gray-400 hover:text-white relative" aria-label="Notifications">
+              <Bell size={20} />
+              {unreadNotifs > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                  {unreadNotifs > 99 ? '99+' : unreadNotifs}
+                </span>
+              )}
+            </button>
             <button onClick={() => router.push('/messages')}
               className="p-2 text-gray-400 hover:text-white" aria-label="Messages">
               <MessageSquare size={20} />
@@ -625,6 +655,40 @@ export default function ProfilePage() {
               </div>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Notification preferences */}
+      <div className="mx-4 mt-3">
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-800">
+            <span className="text-gray-400 text-xs uppercase tracking-wider">🔔 Notifications</span>
+          </div>
+          {([
+            { key: 'dm' as const,     label: 'Direct Messages',   sub: 'When someone messages you' },
+            { key: 'pvp' as const,    label: 'Battle Challenges', sub: 'When someone challenges you to PvP' },
+            { key: 'social' as const, label: 'Comments & Replies', sub: 'When someone responds to your posts' },
+          ]).map(({ key, label, sub }) => {
+            const val = ((profile as any)?.notification_prefs ?? {})[key] !== false
+            return (
+              <button
+                key={key}
+                onClick={() => toggleNotifPref(key, val)}
+                disabled={toggling === `notif_${key}`}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800 transition border-b border-gray-800 last:border-0 disabled:opacity-50"
+              >
+                <div className="text-left">
+                  <div className="text-white text-sm font-medium">{label}</div>
+                  <div className="text-gray-500 text-xs">{sub}</div>
+                </div>
+                <div className="ml-3 flex-shrink-0 w-10 h-6 rounded-full relative transition-colors"
+                  style={{ background: val ? '#16a34a' : '#374151' }}>
+                  <div className="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all"
+                    style={{ left: val ? 22 : 4 }} />
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
 
