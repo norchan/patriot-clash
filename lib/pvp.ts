@@ -37,19 +37,28 @@ export interface FightLog {
   dFighter: FighterDesign
 }
 
-// Move ladder — every few levels unlocks a bigger move
+// Every move is available to EVERYONE — your level decides how hard each
+// one lands, not which ones you can throw.
 export const MOVES: { move: Move; label: string; mult: number; minLevel: number; w: number }[] = [
-  { move: 'jab',      label: 'Jab',          mult: 0.60, minLevel: 1,  w: 3.0 },
-  { move: 'cross',    label: 'Cross',        mult: 0.85, minLevel: 1,  w: 2.6 },
-  { move: 'hook',     label: 'Hook (3-tap combo)', mult: 1.05, minLevel: 2,  w: 2.0 },
-  { move: 'kick',     label: 'Kick (swipe ➡)', mult: 1.25, minLevel: 4,  w: 1.8 },
-  { move: 'jumpkick', label: 'Jump Kick (swipe ⬆)', mult: 1.50, minLevel: 7,  w: 1.1 },
-  { move: 'uppercut', label: 'Uppercut (combo finisher)', mult: 1.65, minLevel: 9,  w: 0.9 },
-  { move: 'special',  label: 'SPECIAL (full meter)', mult: 2.10, minLevel: 12, w: 0.5 },
+  { move: 'jab',      label: 'Jab',          mult: 0.60, minLevel: 1, w: 3.0 },
+  { move: 'cross',    label: 'Cross',        mult: 0.85, minLevel: 1, w: 2.6 },
+  { move: 'hook',     label: 'Hook (3-tap combo)', mult: 1.05, minLevel: 1, w: 2.0 },
+  { move: 'kick',     label: 'Kick (swipe ➡)', mult: 1.25, minLevel: 1, w: 1.8 },
+  { move: 'jumpkick', label: 'Jump Kick (swipe ⬆)', mult: 1.50, minLevel: 1, w: 1.1 },
+  { move: 'uppercut', label: 'Uppercut (combo finisher)', mult: 1.65, minLevel: 1, w: 0.9 },
+  { move: 'special',  label: 'SPECIAL (full meter)', mult: 2.10, minLevel: 1, w: 0.5 },
 ]
 
 export function movesForLevel(level: number) {
   return MOVES.filter(m => m.minLevel <= level)
+}
+
+// Damage is a pure function of the attacker's LEVEL and the move: level 1
+// jabs sting, level 30 jabs hurt. Shared by both live-fight modes so
+// human-vs-human and human-vs-bot hit identically.
+export function strikeDamage(level: number, mult: number): number {
+  const base = 6 + Math.min(30, Math.max(1, level)) * 0.3
+  return Math.max(1, Math.round(base * mult * (0.85 + Math.random() * 0.3)))
 }
 
 // ── Interactive fight settlement ─────────────────────────────────────────────
@@ -69,16 +78,19 @@ export type ResolveResult =
 const int = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : NaN
 
 // Validates a submitted fight outcome, transfers the stakes with rollback on
-// partial failure, and records the completed fight. The challenge row must
-// currently be 'accepted' (armed); claiming it to 'resolving' is atomic, so
-// a fight can only ever be settled once.
+// partial failure, and records the completed fight. EITHER participant can
+// submit (in realtime fights both clients know the result); myHp/foeHp are
+// from the SUBMITTER's perspective. The challenge row must currently be
+// 'accepted' (armed); claiming it to 'resolving' is atomic, so a fight can
+// only ever be settled once — the second submitter gets a 409.
 export async function settleInteractiveFight(
   admin: SupabaseClient,
   challenge: {
     id: string; challenger_id: string; defender_id: string
     fp_stake: number; accepted_at: string | null
   },
-  raw: any
+  raw: any,
+  submitterIsChallenger: boolean
 ): Promise<ResolveResult> {
   const cancel = async () => {
     await admin.from('pvp_challenges').update({ status: 'cancelled' }).eq('id', challenge.id)
@@ -108,8 +120,9 @@ export async function settleInteractiveFight(
   // Winner must be consistent with the HP story
   if (sub.won && !(sub.foeHp === 0 || sub.myHp > sub.foeHp)) return bad('inconsistent outcome')
   if (!sub.won && !(sub.myHp === 0 || sub.foeHp >= sub.myHp)) return bad('inconsistent outcome')
-  // Damage-rate ceiling: even perfect play can't exceed ~9 dmg/sec
-  if (100 - sub.foeHp > sub.duration * 9 + 15) return bad('impossible damage output')
+  // Damage-rate ceiling: bounds cheating without tripping on a max-level
+  // kick-spammer (~30 dmg/sec at level 30)
+  if (100 - sub.foeHp > sub.duration * 32 + 20) return bad('impossible damage output')
   if (sub.counts.taps > sub.duration * 6) return bad('impossible input rate')
 
   // Wall-clock check: the fight must have actually taken the time it claims
@@ -142,8 +155,13 @@ export async function settleInteractiveFight(
     return { ok: false, status: 404, error: 'Player profile not found' }
   }
 
-  const winner = sub.won ? challenger : defender
-  const loser  = sub.won ? defender : challenger
+  // Map the submitter's perspective onto challenger/defender
+  const me  = submitterIsChallenger ? challenger : defender
+  const foe = submitterIsChallenger ? defender : challenger
+  const winner = sub.won ? me : foe
+  const loser  = sub.won ? foe : me
+  const challengerHp = submitterIsChallenger ? sub.myHp : sub.foeHp
+  const defenderHp   = submitterIsChallenger ? sub.foeHp : sub.myHp
 
   // Challenging is free: the loser forfeits up to the stake, or everything
   // they have if that's less (balance floors at zero — never negative).
@@ -186,10 +204,10 @@ export async function settleInteractiveFight(
     version: 3 as const,
     mode: 'interactive' as const,
     duration: sub.duration,
-    winner: sub.won ? 'c' : 'd',
+    winner: winner.id === challenger.id ? 'c' : 'd',
     endedBy: sub.myHp === 0 || sub.foeHp === 0 ? 'ko' : 'bell',
-    chp: sub.myHp,
-    dhp: sub.foeHp,
+    chp: challengerHp,
+    dhp: defenderHp,
     counts: sub.counts,
     cLevel: fighterLevel(challenger.total_battles_won ?? 0),
     dLevel: fighterLevel(defender.total_battles_won ?? 0),
@@ -200,8 +218,8 @@ export async function settleInteractiveFight(
   const { error: saveErr } = await admin.from('pvp_challenges').update({
     status: 'completed',
     winner_id: winner.id,
-    challenger_hp_remaining: sub.myHp,
-    defender_hp_remaining:   sub.foeHp,
+    challenger_hp_remaining: challengerHp,
+    defender_hp_remaining:   defenderHp,
     turns_played: sub.counts.taps + sub.counts.kicks + sub.counts.jumpkicks + sub.counts.specials,
     battle_log: battleLog,
   }).eq('id', challenge.id)
@@ -238,8 +256,8 @@ export async function settleInteractiveFight(
       winner_id: winner.id,
       challenger_id: challenge.challenger_id,
       defender_id: challenge.defender_id,
-      challenger_hp_remaining: sub.myHp,
-      defender_hp_remaining: sub.foeHp,
+      challenger_hp_remaining: challengerHp,
+      defender_hp_remaining: defenderHp,
       fp_stake: paid,
       battle_log: battleLog,
     },

@@ -6,8 +6,9 @@ import { type FighterPose } from '@/components/FighterRig'
 import FighterSprite from '@/components/FighterSprite'
 import { defaultFighter, sanitizeFighter, fighterStats } from '@/lib/fighter'
 import type { FighterDesign } from '@/lib/fighter'
-import { MOVES, movesForLevel, type Move } from '@/lib/pvp'
+import { MOVES, movesForLevel, strikeDamage, type Move } from '@/lib/pvp'
 import { sfx, buzz } from '@/lib/juice'
+import { createSupabaseBrowserClient } from '@/lib/supabase-client'
 
 // ── Types matching lib/pvp.ts FightLog v2 ───────────────────────────────────
 interface FightEvent {
@@ -54,6 +55,8 @@ interface ChallengeData {
   defender_level?: number
   challenger_fighter?: FighterDesign
   defender_fighter?: FighterDesign
+  challenger_is_bot?: boolean
+  defender_is_bot?: boolean
 }
 
 interface ChatMessage { id: string; sender_id: string; content: string; created_at: string }
@@ -124,8 +127,9 @@ function StreetFightPage() {
           ? (data.battle_log?.version === 2 ? 'intro' : 'done')
           : p)
       } else if (data.status === 'accepted') {
-        // Armed: the challenger fights it live; the defender waits for news
-        if (profileRef.current && data.challenger_id === profileRef.current) {
+        // Armed: BOTH participants fight it live in real time
+        if (profileRef.current &&
+          (data.challenger_id === profileRef.current || data.defender_id === profileRef.current)) {
           if (pollRef.current) clearInterval(pollRef.current)
           setPhase(p => (p === 'loading' || p === 'waiting') ? 'intro' : p)
         } else {
@@ -161,7 +165,12 @@ function StreetFightPage() {
 
   const log = challenge?.battle_log
   const validLog = log && log.version === 2 && Array.isArray(log.events)
-  const isLive = challenge?.status === 'accepted' && !!profile && challenge.challenger_id === profile.id
+  const isLive = challenge?.status === 'accepted' && !!profile
+    && (challenge.challenger_id === profile.id || challenge.defender_id === profile.id)
+  const oppIsBot = isChallenger ? !!challenge?.defender_is_bot : !!challenge?.challenger_is_bot
+  // Human opponents fight in REAL TIME over a Supabase channel; bots (and
+  // human opponents who never show up) are fought as AI at their level
+  const realtime = isLive && !oppIsBot
   const myFighter: FighterDesign = validLog
     ? sanitizeFighter(isChallenger ? log!.cFighter : log!.dFighter, profile?.id ?? 'me')
     : sanitizeFighter(isChallenger ? challenge?.challenger_fighter : challenge?.defender_fighter, profile?.id ?? 'me')
@@ -369,24 +378,29 @@ function StreetFightPage() {
   // blocking during the strike absorbs almost everything. Server validates
   // the submitted outcome before any FP moves.
   const TAP_CD = 380, KICK_CD = 750, JUMP_CD = 950, SPECIAL_CD = 600
+  const DODGE_MS = 600, DODGE_CD = 950
   const [meter, setMeter] = useState(0)
   const [telegraph, setTelegraph] = useState(false)
   const [hint, setHint] = useState('')
   const [submitErr, setSubmitErr] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [awaitingOpp, setAwaitingOpp] = useState(false)
   const liveStarted = useRef(false)
+  const channelRef = useRef<ReturnType<ReturnType<typeof createSupabaseBrowserClient>['channel']> | null>(null)
   const L = useRef({
-    startAt: 0, over: false, myCd: 0, tapAlt: false,
+    startAt: 0, liveAt: 0, over: false, myCd: 0, tapAlt: false,
     comboN: 0, lastHit: 0, lastTouch: 0,
     blockHeld: false, blockTimer: 0 as ReturnType<typeof setTimeout> | 0,
+    dodgeUntil: 0, dodgeCd: 0,
     touchX: 0, touchY: 0, touchT: 0,
     foeNextAt: 0, foeWindupAt: 0, foeMove: 'jab' as Move,
+    synced: false, ghost: false, attackSeq: 0,
     lastResult: { won: false },
     counts: { taps: 0, kicks: 0, jumpkicks: 0, blocks: 0, combos: 0, specials: 0 },
     myHp: 100, foeHp: 100, meter: 0,
   })
-  const myStats = fighterStats(myLevel)
   const foeStats = fighterStats(foeLevel)
+  const myRole = isChallenger ? 'c' : 'd'
 
   function flashHint(msg: string) {
     setHint(msg)
@@ -401,13 +415,119 @@ function StreetFightPage() {
     const t1 = setTimeout(() => { setBanner('FIGHT!'); sfx.bell(true) }, 900)
     const t2 = setTimeout(() => {
       setBanner('')
-      L.current.startAt = Date.now()
-      L.current.foeNextAt = Date.now() + 1600
+      L.current.liveAt = Date.now()
+      if (!realtime) {
+        // Bot fight: clock starts now and the AI wakes up
+        L.current.startAt = Date.now()
+        L.current.foeNextAt = Date.now() + 1600
+      }
       setPhase('live')
     }, 1500)
     timersRef.current.push(t1, t2)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLive, phase, profile?.id])
+
+  // ── Realtime channel: two humans exchange moves live ──────────────────────
+  // Each client is authoritative for its OWN fighter: when the opponent's
+  // attack arrives, WE resolve it against our block/dodge state and broadcast
+  // the result back, so there's never a disputed damage roll.
+  useEffect(() => {
+    if (phase !== 'live' || !realtime || !challengeId) return
+    const S = L.current
+    const supabase = createSupabaseBrowserClient()
+    const ch = supabase.channel(`fight-${challengeId}`, {
+      config: { presence: { key: myRole }, broadcast: { self: false } },
+    })
+    channelRef.current = ch
+
+    const applyIncomingAttack = (p: { seq: number; move: Move }) => {
+      if (S.over) return
+      const def = MOVES.find(m => m.move === p.move)!
+      const heavy = def.mult > 1
+      const now = Date.now()
+      setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
+      setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
+      setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
+
+      let result: 'hit' | 'blocked' | 'dodged' = 'hit'
+      let dmg = 0
+      if (now < S.dodgeUntil) {
+        result = 'dodged'
+        addSpark(false, 'DODGED!', '#4ade80')
+        sfx.whoosh()
+      } else if (S.blockHeld) {
+        result = 'blocked'
+        dmg = Math.max(0, Math.floor(strikeDamage(foeLevel, def.mult) * 0.15))
+        S.counts.blocks++
+        addSpark(false, 'BLOCKED!', '#93c5fd')
+        sfx.block(); buzz(15)
+      } else {
+        dmg = strikeDamage(foeLevel, def.mult)
+        setMyPose('hit'); reel(false); addBurst(false, heavy)
+        addSpark(false, `-${dmg}`, '#f87171')
+        if (p.move === 'kick' || p.move === 'jumpkick') sfx.kick()
+        else sfx.punch(heavy)
+        setShake(true); setTimeout(() => setShake(false), 170)
+        setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
+      }
+      const t = S.startAt ? (now - S.startAt) / 1000 : 0
+      if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1) // no KO before 14s
+      S.myHp = Math.max(0, S.myHp - dmg)
+      setMyHp(S.myHp)
+      ch.send({ type: 'broadcast', event: 'result', payload: { seq: p.seq, result, dmg, hp: S.myHp } })
+      if (S.myHp === 0) endFight(false, true)
+    }
+
+    const applyMyAttackResult = (p: { seq: number; result: 'hit' | 'blocked' | 'dodged'; dmg: number; hp: number }) => {
+      if (S.over) return
+      S.foeHp = Math.max(0, Math.min(100, p.hp))
+      setFoeHp(S.foeHp)
+      if (p.result === 'hit') {
+        setFoePose('hit'); reel(true); addBurst(true, p.dmg >= 10)
+        addSpark(true, `-${p.dmg}`, '#facc15')
+        S.meter = Math.min(100, S.meter + p.dmg * 1.7)
+        setMeter(S.meter)
+        if (p.dmg >= 10) { bumpCrowd(); sfx.crowd(0.3) }
+        setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
+      } else if (p.result === 'blocked') {
+        setFoePose('block')
+        addSpark(true, 'BLOCK', '#93c5fd'); sfx.block()
+        setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
+      } else {
+        setFoePose('dodge')
+        addSpark(true, 'MISS', '#9ca3af'); sfx.whoosh()
+        setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
+      }
+      if (S.foeHp === 0) endFight(true, true)
+    }
+
+    ch
+      .on('broadcast', { event: 'move' }, ({ payload }) => applyIncomingAttack(payload))
+      .on('broadcast', { event: 'result' }, ({ payload }) => applyMyAttackResult(payload))
+      .on('presence', { event: 'sync' }, () => {
+        const roles = Object.keys(ch.presenceState())
+        const both = roles.includes('c') && roles.includes('d')
+        if (both && !S.synced && !S.ghost) {
+          S.synced = true
+          S.startAt = Date.now()
+          setAwaitingOpp(false)
+          setBanner('FIGHT!')
+          sfx.bell(true)
+          setTimeout(() => setBanner(''), 800)
+        }
+      })
+      .subscribe(async status => {
+        if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() })
+      })
+
+    if (!S.synced) setAwaitingOpp(true)
+
+    return () => {
+      channelRef.current = null
+      supabase.removeChannel(ch)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, realtime, challengeId])
 
   function foeInterval() {
     const base = Math.max(950, 2300 - foeLevel * 70)
@@ -453,6 +573,13 @@ function StreetFightPage() {
           setPhase('done')
           return
         }
+        if (res.status === 409) {
+          // Opponent's client already settled it — just show the result
+          setSubmitting(false)
+          await fetchChallenge()
+          setPhase('done')
+          return
+        }
         // Validation rejections won't change on retry
         setSubmitting(false)
         setSubmitErr(data.error || 'Could not save the fight result')
@@ -463,14 +590,32 @@ function StreetFightPage() {
     setSubmitErr('Network error — the fight result could not be saved')
   }
 
-  // Player attack (shared by taps, swipes, keys, and the special button)
+  // Jump back — full dodge window; any attack arriving during it misses
+  function playerDodge() {
+    const S = L.current
+    if (phase !== 'live' || S.over || S.blockHeld) return
+    const now = Date.now()
+    if (now < S.dodgeCd) return
+    S.dodgeUntil = now + DODGE_MS
+    S.dodgeCd = now + DODGE_CD
+    setMyPose('dodge')
+    setMyReeling(true)
+    sfx.whoosh(); buzz(8)
+    setTimeout(() => {
+      setMyReeling(false)
+      if (!L.current.over && Date.now() >= L.current.dodgeUntil) setMyPose('idle')
+    }, 320)
+    setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, DODGE_MS)
+  }
+
+  // Player attack (shared by taps, swipes, keys, and the special button).
+  // Every move is available at every level — damage scales with YOUR level.
   function playerStrike(move: Move) {
     const S = L.current
     if (phase !== 'live' || S.over || S.blockHeld) return
     const now = Date.now()
-    if (now < S.myCd) return
-    const def = MOVES.find(m => m.move === move)!
-    if (myLevel < def.minLevel) { flashHint(`🔒 ${def.label.split(' (')[0]} unlocks at Lv.${def.minLevel}`); return }
+    if (now < S.myCd || now < S.dodgeUntil) return
+    if (realtime && !S.ghost && !S.synced) { flashHint(`⏳ Waiting for ${theirUsername ?? 'opponent'} to enter...`); return }
     if (move === 'special') {
       if (S.meter < 100) { flashHint('⚡ Land hits to charge your special'); return }
       S.meter = 0
@@ -487,8 +632,8 @@ function StreetFightPage() {
       S.comboN = now - S.lastHit < 1100 ? S.comboN + 1 : 1
       S.lastHit = now
       S.counts.taps++
-      if (S.comboN % 3 === 0 && myLevel >= 2) {
-        actual = myLevel >= 9 ? 'uppercut' : 'hook'
+      if (S.comboN % 3 === 0) {
+        actual = S.comboN % 6 === 0 ? 'uppercut' : 'hook'
         S.counts.combos++
         setComboText(`${S.comboN} HIT COMBO!`)
         setTimeout(() => setComboText(''), 900)
@@ -503,7 +648,15 @@ function StreetFightPage() {
     setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
     setMoveText(`YOU: ${MOVE_LABELS[actual]}`)
 
-    // Impact resolves a beat later, against the DEFENDER'S real stats
+    // REALTIME: send the attack — the opponent's client resolves it against
+    // their live block/dodge state and answers with the result
+    if (realtime && !S.ghost) {
+      const seq = ++S.attackSeq
+      channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { seq, move: actual } })
+      return
+    }
+
+    // AI mode: impact resolves a beat later against the foe's stats
     setTimeout(() => {
       if (S.over) return
       const mult = MOVES.find(m => m.move === actual)!.mult
@@ -513,7 +666,7 @@ function StreetFightPage() {
       else if (roll < foeStats.dodgeChance + foeStats.blockChance) result = 'blocked'
       let dmg = 0
       if (result !== 'dodged') {
-        dmg = Math.max(1, Math.round((7 + myStats.strength * 0.15) * mult * (0.85 + Math.random() * 0.3)))
+        dmg = strikeDamage(myLevel, mult)
         if (result === 'blocked') dmg = Math.max(1, Math.floor(dmg * 0.25))
       }
       const t = (Date.now() - S.startAt) / 1000
@@ -538,16 +691,36 @@ function StreetFightPage() {
     }, 120)
   }
 
-  // Game tick: clock, bell, and the foe's AI (telegraphed attacks)
+  // Game tick: clock, bell, ghost fallback, and the AI foe (bots + no-shows)
   useEffect(() => {
     if (phase !== 'live') return
     const S = L.current
     const iv = setInterval(() => {
       if (S.over) return
       const now = Date.now()
+
+      // Realtime fight not synced yet: freeze the clock and wait. If the
+      // opponent never enters the ring, their AI ghost steps in.
+      if (realtime && !S.ghost && !S.synced) {
+        if (now - S.liveAt > 20_000) {
+          S.ghost = true
+          S.startAt = now
+          S.foeNextAt = now + 1400
+          setAwaitingOpp(false)
+          flashHint(`${theirUsername ?? 'Opponent'} didn't show — fighting their fighter`)
+          setBanner('FIGHT!')
+          sfx.bell(true)
+          setTimeout(() => setBanner(''), 800)
+        }
+        return
+      }
+
       const t = (now - S.startAt) / 1000
       setClock(Math.max(0, Math.ceil(30 - t)))
       if (t >= 30) { endFight(S.myHp > S.foeHp, false); return }
+
+      // AI opponent only (bots / ghosts) — humans attack via the channel
+      if (realtime && !S.ghost) return
 
       if (S.foeWindupAt && now >= S.foeWindupAt) {
         // Strike lands
@@ -558,8 +731,12 @@ function StreetFightPage() {
         setFoePose(MOVE_POSE[S.foeMove]); setFoeAttacking(true)
         setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
         setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[S.foeMove]}`)
-        let dmg = Math.max(1, Math.round((7 + foeStats.strength * 0.15) * def.mult * (0.85 + Math.random() * 0.3)))
-        if (S.blockHeld) {
+        let dmg = strikeDamage(foeLevel, def.mult)
+        if (now < S.dodgeUntil) {
+          dmg = 0
+          addSpark(false, 'DODGED!', '#4ade80')
+          sfx.whoosh()
+        } else if (S.blockHeld) {
           dmg = Math.max(0, Math.floor(dmg * 0.15))
           S.counts.blocks++
           addSpark(false, 'BLOCKED!', '#93c5fd')
@@ -578,7 +755,7 @@ function StreetFightPage() {
         if (S.myHp === 0) { endFight(false, true); return }
         S.foeNextAt = now + foeInterval()
       } else if (!S.foeWindupAt && now >= S.foeNextAt) {
-        // Wind up: telegraphed — block NOW to absorb it
+        // Wind up: telegraphed — block or jump back NOW
         const pool = movesForLevel(foeLevel)
         S.foeMove = pool[Math.floor(Math.random() * pool.length)].move
         S.foeWindupAt = now + Math.max(380, 650 - foeLevel * 9)
@@ -613,7 +790,8 @@ function StreetFightPage() {
     }
     const dx = x - S.touchX, dy = y - S.touchY
     if (dy < -35 && Math.abs(dy) > Math.abs(dx)) playerStrike('jumpkick')
-    else if (Math.abs(dx) > 40) playerStrike('kick') // swipe either way = kick
+    else if (dx < -40) playerDodge()                // swipe BACK = jump back
+    else if (dx > 40) playerStrike('kick')          // swipe toward foe = kick
     else playerStrike('jab')
   }
   useEffect(() => {
@@ -623,6 +801,7 @@ function StreetFightPage() {
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); playerStrike('jab') }
       if (e.key === 'ArrowRight' || e.key === 'd') playerStrike('kick')
       if (e.key === 'ArrowUp' || e.key === 'w') playerStrike('jumpkick')
+      if (e.key === 'ArrowLeft' || e.key === 'a') playerDodge()
       if (e.key === 'f') playerStrike('special')
       if (e.key === 'ArrowDown' || e.key === 's') { L.current.blockHeld = true; setMyPose('block') }
     }
@@ -927,6 +1106,17 @@ function StreetFightPage() {
           </div>
         )}
 
+        {/* waiting for the human opponent to enter the ring */}
+        {phase === 'live' && awaitingOpp && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none bg-black/40">
+            <div className="text-center">
+              <div className="text-4xl mb-2 animate-pulse">🥊</div>
+              <p className="text-white font-black text-lg">Waiting for {theirUsername ?? 'opponent'}...</p>
+              <p className="text-gray-400 text-xs mt-1">Fight starts when they step in (20s max)</p>
+            </div>
+          </div>
+        )}
+
         {/* hint flash (locked moves, meter) */}
         {hint && (
           <div className="absolute bottom-20 left-0 right-0 text-center z-20 pointer-events-none">
@@ -959,9 +1149,9 @@ function StreetFightPage() {
           <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
         ) : phase === 'live' ? (
           <div className="text-center space-y-1">
-            <p className="text-white/80 text-xs font-bold">👊 TAP to punch — 3 fast taps = combo finisher</p>
-            <p className="text-gray-400 text-[11px]">🦵 SWIPE across = kick{myLevel < 4 ? ' (Lv.4)' : ''} · 🚀 SWIPE UP = jump kick{myLevel < 7 ? ' (Lv.7)' : ''} · 🛡️ HOLD = block</p>
-            <p className="text-gray-600 text-[10px]">Block when you see ⚠️ — it absorbs almost everything</p>
+            <p className="text-white/80 text-xs font-bold">👊 TAP punch · 3 fast taps = combo finisher</p>
+            <p className="text-gray-400 text-[11px]">🦵 SWIPE ➡ kick · 🚀 SWIPE ⬆ jump kick · 🏃 SWIPE ⬅ jump back · 🛡️ HOLD block</p>
+            <p className="text-gray-600 text-[10px]">Jump back or block when you see ⚠️ — your level powers your damage</p>
           </div>
         ) : phase !== 'done' ? (
           <p className="text-gray-600 text-xs text-center">🥊 Street fight in progress — one round, 30 seconds</p>

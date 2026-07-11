@@ -42,8 +42,8 @@ export async function GET(
     // levels and designs before the first punch
     if (challenge.status === 'accepted') {
       const [{ data: c }, { data: d }] = await Promise.all([
-        admin.from('profiles').select('id, total_battles_won, fighter').eq('id', challenge.challenger_id).single(),
-        admin.from('profiles').select('id, total_battles_won, fighter').eq('id', challenge.defender_id).single(),
+        admin.from('profiles').select('id, total_battles_won, fighter, clerk_user_id').eq('id', challenge.challenger_id).single(),
+        admin.from('profiles').select('id, total_battles_won, fighter, clerk_user_id').eq('id', challenge.defender_id).single(),
       ])
       return NextResponse.json({
         ...challenge,
@@ -51,6 +51,8 @@ export async function GET(
         defender_level: fighterLevel(d?.total_battles_won ?? 0),
         challenger_fighter: sanitizeFighter(c?.fighter, challenge.challenger_id),
         defender_fighter: sanitizeFighter(d?.fighter, challenge.defender_id),
+        challenger_is_bot: !!c?.clerk_user_id?.startsWith('bot_'),
+        defender_is_bot: !!d?.clerk_user_id?.startsWith('bot_'),
       })
     }
 

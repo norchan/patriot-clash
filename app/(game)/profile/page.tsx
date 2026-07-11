@@ -125,13 +125,14 @@ export default function ProfilePage() {
   useEffect(() => {
     // Today's steps: prefer the live local count, fall back to the server record
     const now = new Date()
-    const key = `steps_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const local = parseInt((typeof window !== 'undefined' && localStorage.getItem(key)) || '0', 10)
-    setTodaySteps(local)
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    try {
+      const saved = JSON.parse(localStorage.getItem(`stepsv2_${todayStr}`) || 'null')
+      if (saved) setTodaySteps(Math.max(saved.motion || 0, Math.round((saved.gpsMeters || 0) * 1.31)))
+    } catch {}
     fetch('/api/steps')
       .then(r => r.json())
       .then(d => {
-        const todayStr = key.replace('steps_', '')
         const rec = (d.steps ?? []).find((s: any) => s.record_date === todayStr)
         const server = rec?.step_count ?? 0
         setTodaySteps(prev => Math.max(prev ?? 0, server))
@@ -443,7 +444,7 @@ export default function ProfilePage() {
             <p className="text-green-400 font-black text-2xl leading-tight">{(todaySteps ?? 0).toLocaleString()}</p>
           </div>
           <div className="text-right">
-            <p className="text-gray-600 text-[10px]">Earns FP as you walk</p>
+            <p className="text-gray-600 text-[10px]">Counts while the app is open</p>
             <p className="text-gray-400 text-xs">10 FP / 500 steps</p>
           </div>
         </div>
