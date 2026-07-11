@@ -5,8 +5,9 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // =============================================================================
 // POST /api/steps
 // Called by the mobile app to sync step count from device pedometer.
-// Awards FP: 100 FP per 50 steps (no daily cap — see award_step_fp in
-// Supabase), plus a 500 FP daily bonus on first sync of the day.
+// Awards FP: 100 FP per 150 steps (no flat FP cap — the 30k/day step
+// clamp below is the ceiling; see award_step_fp in Supabase), plus a
+// 1000 FP daily bonus on first sync of the day.
 // =============================================================================
 export async function POST(req: NextRequest) {
   try {

@@ -477,7 +477,7 @@ export default function ProfilePage() {
           </div>
           <div className="text-right">
             <p className="text-gray-600 text-[10px]">Counts while the app is open</p>
-            <p className="text-gray-400 text-xs">10 FP / 500 steps</p>
+            <p className="text-gray-400 text-xs">100 FP / 150 steps</p>
           </div>
         </div>
       </div>

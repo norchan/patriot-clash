@@ -64,7 +64,7 @@ public/
 | `/api/profile` | GET | Current player profile |
 | `/api/profile/onboard` | POST | Set party (democrat/republican) |
 | `/api/shop/checkout` | POST | Create Stripe Checkout Session |
-| `/api/steps` | GET, POST | Sync steps; award FP (10 FP/500 steps, 200/day cap, +10 daily login bonus) |
+| `/api/steps` | GET, POST | Sync steps; award FP (100 FP/150 steps, 30k steps/day clamp, +1000 daily login bonus) |
 | `/api/webhooks/clerk` | POST | Create Supabase profile on `user.created` (svix-verified) |
 | `/api/webhooks/stripe` | POST | Fulfill FP on `checkout.session.completed` (idempotent) |
 
