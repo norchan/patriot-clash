@@ -35,7 +35,7 @@ export async function GET(
       clique = c
     }
 
-    const [{ data: posts }, { count: hallsHeld }] = await Promise.all([
+    const [{ data: posts }, { count: hallsHeld }, { data: photos }] = await Promise.all([
       admin
         .from('profile_posts')
         .select('id, content, created_at')
@@ -45,6 +45,8 @@ export async function GET(
       // Halls held is computed live — the counter column lags for bots that
       // were garrisoned by seeding rather than by capturing
       admin.from('gyms').select('id', { count: 'exact', head: true }).eq('holder_id', id),
+      admin.from('profile_photos').select('id, url').eq('profile_id', id)
+        .order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
     ])
 
     return NextResponse.json({
@@ -61,6 +63,11 @@ export async function GET(
       },
       clique,
       posts: posts ?? [],
+      // Album: the avatar first, then any extra photos
+      photos: [
+        ...(player.avatar_url ? [{ id: 'avatar', url: player.avatar_url }] : []),
+        ...(photos ?? []),
+      ],
     })
 
   } catch (err: any) {

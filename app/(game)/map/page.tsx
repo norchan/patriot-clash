@@ -8,6 +8,7 @@ import { getRandomEnemy } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import AlbumViewer from '@/components/AlbumViewer'
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
 
@@ -115,6 +116,7 @@ export default function MapPage() {
   // Chat state
   const [incomingMsg, setIncomingMsg] = useState<{ sender_id: string; sender_username: string; sender_avatar: string | null; preview: string } | null>(null)
   const lastInboxRef = useRef(new Date(Date.now() - 60 * 1000).toISOString())
+  const [album, setAlbum] = useState<{ title: string; photos: { id: string; url: string }[] } | null>(null)
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null)
   const [activeChatUsername, setActiveChatUsername] = useState('')
   const [chatMessages, setChatMessages] = useState<{ id: string; sender_id: string; content: string; created_at: string }[]>([])
@@ -484,6 +486,19 @@ export default function MapPage() {
   useEffect(() => {
     chatBoxRef.current?.scrollTo({ top: chatBoxRef.current.scrollHeight, behavior: 'smooth' })
   }, [chatMessages])
+
+  // ── Open a player's photo album (avatar + any extra photos) ───────────────
+  async function openPlayerAlbum(player: NearbyPlayer) {
+    // Show the avatar immediately, then fetch the full album
+    setAlbum({ title: player.username, photos: player.avatar_url ? [{ id: 'avatar', url: player.avatar_url }] : [] })
+    try {
+      const res = await fetch(`/api/players/${player.profile_id}/profile`)
+      const data = await res.json()
+      if (Array.isArray(data.photos) && data.photos.length) {
+        setAlbum({ title: player.username, photos: data.photos })
+      }
+    } catch {}
+  }
 
   // ── Start a chat with a player (opens the chat overlay directly) ──────────
   function startChat(player: NearbyPlayer) {
@@ -993,17 +1008,23 @@ export default function MapPage() {
       {/* ── Selected player bottom sheet ──────────────────────────────────── */}
       {selectedPlayer && !sentChallenge && (
         <div className="absolute bottom-20 left-4 right-4 z-30 bg-gray-900 rounded-2xl p-4 border border-gray-700 shadow-2xl">
-          {/* Player header */}
+          {/* Player header — big tappable photo opens their album */}
           <div className="flex items-center gap-3 mb-4">
             {selectedPlayer.avatar_url ? (
-              <img src={selectedPlayer.avatar_url} alt={selectedPlayer.username}
-                className="w-12 h-12 rounded-full object-cover border-2"
-                style={{
-                  borderColor: selectedPlayer.party === 'democrat' ? '#3b82f6'
-                    : selectedPlayer.party === 'republican' ? '#ef4444' : '#e5e7eb',
-                }} />
+              <button onClick={() => openPlayerAlbum(selectedPlayer)}
+                className="relative flex-shrink-0 active:scale-95 transition">
+                <img src={selectedPlayer.avatar_url} alt={selectedPlayer.username}
+                  className="w-24 h-24 rounded-2xl object-cover border-2"
+                  style={{
+                    borderColor: selectedPlayer.party === 'democrat' ? '#3b82f6'
+                      : selectedPlayer.party === 'republican' ? '#ef4444' : '#e5e7eb',
+                  }} />
+                <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                  🔍 View
+                </span>
+              </button>
             ) : (
-              <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+              <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0"
                 style={{
                   background: selectedPlayer.party === 'democrat' ? '#1e3a8a'
                     : selectedPlayer.party === 'republican' ? '#7f1d1d' : '#1f2937',
@@ -1013,13 +1034,13 @@ export default function MapPage() {
                 {selectedPlayer.party === 'democrat' ? '🔵' : selectedPlayer.party === 'republican' ? '🔴' : '⚪'}
               </div>
             )}
-            <div>
-              <div className="text-white font-bold">{selectedPlayer.username}</div>
+            <div className="min-w-0">
+              <div className="text-white font-bold text-lg truncate">{selectedPlayer.username}</div>
               <div className="text-gray-400 text-xs">
                 {selectedPlayer.party ? selectedPlayer.party.charAt(0).toUpperCase() + selectedPlayer.party.slice(1) : 'Affiliation hidden'}
               </div>
             </div>
-            <button onClick={() => setSelectedPlayer(null)} className="ml-auto text-gray-500 hover:text-white text-xl leading-none">✕</button>
+            <button onClick={() => setSelectedPlayer(null)} className="ml-auto self-start text-gray-500 hover:text-white text-xl leading-none">✕</button>
           </div>
 
           <div className="space-y-2">
@@ -1134,6 +1155,11 @@ export default function MapPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Photo album lightbox ──────────────────────────────────────────── */}
+      {album && (
+        <AlbumViewer photos={album.photos} title={album.title} onClose={() => setAlbum(null)} />
       )}
 
       {/* ── Active chat overlay ───────────────────────────────────────────── */}

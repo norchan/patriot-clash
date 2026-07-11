@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
-import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X } from 'lucide-react'
+import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus } from 'lucide-react'
+import AlbumViewer from '@/components/AlbumViewer'
 
 interface BattleRecord {
   id: string
@@ -69,6 +70,24 @@ function resizeImage(file: File): Promise<string> {
   })
 }
 
+// Album photos keep their aspect ratio, just downscaled to a sane max
+function resizeAlbumImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const max = 1200
+      const scale = Math.min(1, max / Math.max(img.width, img.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/webp', 0.85))
+    }
+    img.onerror = reject
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const { signOut } = useClerk()
@@ -91,6 +110,10 @@ export default function ProfilePage() {
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
   const [todaySteps, setTodaySteps] = useState<number | null>(null)
+  const [albumPhotos, setAlbumPhotos] = useState<{ id: string; url: string }[]>([])
+  const [addingPhoto, setAddingPhoto] = useState(false)
+  const [viewerStart, setViewerStart] = useState<number | null>(null)
+  const albumInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/posts')
@@ -157,6 +180,40 @@ export default function ProfilePage() {
     } catch {}
     setUploading(false)
   }
+
+  // Album: extra photos beyond the avatar
+  useEffect(() => {
+    fetch('/api/profile/photos')
+      .then(r => r.json())
+      .then(d => setAlbumPhotos(d.photos ?? []))
+      .catch(() => {})
+  }, [])
+
+  async function addAlbumPhoto(file: File) {
+    setAddingPhoto(true)
+    try {
+      const dataUrl = await resizeAlbumImage(file)
+      const res = await fetch('/api/profile/photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      })
+      const d = await res.json()
+      if (res.ok) setAlbumPhotos(p => [...p, d.photo])
+    } catch {}
+    setAddingPhoto(false)
+  }
+
+  async function deleteAlbumPhoto(id: string) {
+    const res = await fetch(`/api/profile/photos?id=${id}`, { method: 'DELETE' })
+    if (res.ok) setAlbumPhotos(p => p.filter(x => x.id !== id))
+  }
+
+  // The full album = avatar first, then extra photos
+  const fullAlbum = [
+    ...(profile?.avatar_url ? [{ id: 'avatar', url: profile.avatar_url }] : []),
+    ...albumPhotos,
+  ]
 
   async function publishPost() {
     if (!postText.trim()) return
@@ -343,8 +400,40 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Today's steps */}
+      {/* Photo album */}
       <div className="px-4 mt-2">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-gray-400 text-xs uppercase tracking-wider">My Photos</h3>
+          <span className="text-gray-600 text-xs">{fullAlbum.length}/13</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {fullAlbum.map((ph, idx) => (
+            <div key={ph.id} className="relative aspect-square">
+              <button onClick={() => setViewerStart(idx)}
+                className="w-full h-full rounded-xl overflow-hidden border border-gray-800 active:scale-95 transition">
+                <img src={ph.url} alt="" className="w-full h-full object-cover" />
+              </button>
+              {ph.id === 'avatar'
+                ? <span className="absolute top-1 left-1 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">Main</span>
+                : (
+                  <button onClick={() => deleteAlbumPhoto(ph.id)}
+                    className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1"><X size={11} /></button>
+                )}
+            </div>
+          ))}
+          {albumPhotos.length < 12 && (
+            <button onClick={() => albumInputRef.current?.click()} disabled={addingPhoto}
+              className="aspect-square rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center text-gray-500 hover:border-gray-500 hover:text-gray-300 transition disabled:opacity-50">
+              {addingPhoto ? <span className="text-xs">...</span> : <><Plus size={22} /><span className="text-[10px] mt-0.5">Add photo</span></>}
+            </button>
+          )}
+        </div>
+        <input ref={albumInputRef} type="file" accept="image/*" hidden
+          onChange={e => e.target.files?.[0] && addAlbumPhoto(e.target.files[0])} />
+      </div>
+
+      {/* Today's steps */}
+      <div className="px-4 mt-3">
         <div className="bg-gray-900 rounded-2xl p-4 flex items-center gap-3">
           <div className="w-11 h-11 rounded-full bg-green-500/15 flex items-center justify-center">
             <Footprints size={20} className="text-green-400" />
@@ -571,6 +660,10 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {viewerStart !== null && (
+        <AlbumViewer photos={fullAlbum} start={viewerStart} title="My Photos" onClose={() => setViewerStart(null)} />
+      )}
     </div>
   )
 }

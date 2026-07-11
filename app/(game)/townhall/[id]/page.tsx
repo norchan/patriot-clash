@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
 import { Shield, Sword, MessageSquare, ArrowLeft } from 'lucide-react'
+import TownHallChat from '@/components/TownHallChat'
 
 interface Gym {
   id: string
@@ -246,6 +247,11 @@ export default function TownHallPage() {
           </div>
         </div>
       )}
+
+      {/* Chat room — public to everyone */}
+      <div className="mx-4 mt-3">
+        <TownHallChat gymId={gym.id} cityName={gym.city_name} myId={profile?.id} />
+      </div>
 
       {/* Actions */}
       <div className="mx-4 mt-4 space-y-3 pb-6">
