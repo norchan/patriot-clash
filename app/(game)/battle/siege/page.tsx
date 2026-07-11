@@ -68,9 +68,21 @@ interface Fx {
 
 const MARCH_MS = 1100          // soldier travel time to the walls
 const SOLDIER_HIT_MS = 850     // time between soldier strikes
-const MAX_SOLDIERS = 4         // ninjas the player can field at once
 const THROW_MS = 420           // projectile flight time
 const THROW_COOLDOWN_MS = 320
+
+// The hall sits dead center of the base map; attacks aim here
+const HALL_X = 50
+const HALL_Y = 47
+
+// Corner defense turrets (screen %). Every tick they may pick off a ninja —
+// the closer he is to a turret, the deadlier. Unlimited ninjas, but the
+// defenses terminate some of them: WHERE you drop them is the skill.
+const DEFENSE_GUNS = [
+  { x: 18, y: 30 }, { x: 82, y: 30 },
+  { x: 18, y: 62 }, { x: 82, y: 62 },
+]
+const KILL_BASE = { march: 0.022, fight: 0.028 } // per 200ms tick
 
 const NINJA_RUN = ['/halls/soldier_run1.png', '/halls/soldier_run3.png', '/halls/soldier_run2.png']
 const NINJA_ATK = ['/halls/soldier_atk1.png', '/halls/soldier_atk3.png', '/halls/soldier_atk2.png']
@@ -376,8 +388,8 @@ function SiegePage() {
       const n = 9
       pool.chunk = damage / n
       for (let i = 0; i < n; i++) {
-        const x1 = 30 + Math.random() * 40
-        const y1 = 26 + Math.random() * 14
+        const x1 = 35 + Math.random() * 30
+        const y1 = 38 + Math.random() * 12
         schedule(i * 100, () => {
           addFx({ src: '/siege/pitchfork.png', x0: 8 + Math.random() * 84, y0: 106, x1, y1, size: 54, dur: 650, spin: true, easeIn: true }, 700)
           schedule(650, () => chipStrike(pool.chunk, x1, y1 - 4))
@@ -393,12 +405,12 @@ function SiegePage() {
       for (let i = 0; i < n; i++) {
         schedule(i * 130, () => {
           const sx = 6 + Math.random() * 88
-          const tx = 36 + Math.random() * 28
+          const tx = HALL_X - 10 + Math.random() * 20
           const soldier: Soldier = {
             id: ++idRef.current,
             kind: 'poor',
             x: sx, y: 100,
-            tx, ty: 56 + Math.random() * 9,
+            tx, ty: HALL_Y + 4 + Math.random() * 8,
             flip: tx < sx,
             state: 'march',
             spawnedAt: Date.now(),
@@ -417,21 +429,21 @@ function SiegePage() {
       // the huddled masses charge in a cloud of smoke
       for (let i = 0; i < 6; i++) {
         schedule(i * 120, () => {
-          addFx({ emoji: '💨', x0: 20 + Math.random() * 60, y0: 100, x1: 25 + Math.random() * 50, y1: 46 + Math.random() * 18, size: 64 + Math.random() * 40, dur: 1400 }, 1900)
+          addFx({ emoji: '💨', x0: 20 + Math.random() * 60, y0: 100, x1: 30 + Math.random() * 40, y1: 42 + Math.random() * 16, size: 64 + Math.random() * 40, dur: 1400 }, 1900)
         })
       }
       schedule(200, () => {
-        addFx({ src: '/siege/crowd.png', x0: 50, y0: 96, x1: 50, y1: 58, size: 240, dur: 1500 }, 2600)
+        addFx({ src: '/siege/crowd.png', x0: 50, y0: 96, x1: 50, y1: 56, size: 240, dur: 1500 }, 2600)
       })
       const chunks = 4
       pool.chunk = damage / chunks
       for (let i = 0; i < chunks; i++) {
         schedule(1500 + i * 220, () => {
-          chipStrike(pool.chunk, 40 + Math.random() * 20, 40 + Math.random() * 14)
+          chipStrike(pool.chunk, 42 + Math.random() * 16, 40 + Math.random() * 12)
           shakeScreen(true)
         })
       }
-      schedule(1500, () => addFx({ boom: true, emoji: '💥', x0: 50, y0: 48, x1: 50, y1: 48, size: 84, dur: 750 }, 800))
+      schedule(1500, () => addFx({ boom: true, emoji: '💥', x0: 50, y0: 46, x1: 50, y1: 46, size: 84, dur: 750 }, 800))
       return 2900
     }
 
@@ -441,8 +453,8 @@ function SiegePage() {
       pool.chunk = damage / n
       for (let i = 0; i < n; i++) {
         const fromLeft = i % 2 === 0
-        const x1 = 38 + Math.random() * 24
-        const y1 = 26 + Math.random() * 12
+        const x1 = 40 + Math.random() * 20
+        const y1 = 38 + Math.random() * 10
         schedule(i * 200, () => {
           addFx({ src: '/siege/eagle1.png', src2: '/siege/eagle2.png', x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1, y1, size: 66, dur: 950, flip: !fromLeft }, 1050)
           schedule(950, () => {
@@ -459,8 +471,8 @@ function SiegePage() {
       const n = 3
       pool.chunk = damage / n
       for (let i = 0; i < n; i++) {
-        const x1 = 36 + i * 12 + Math.random() * 6
-        const y1 = 28 + Math.random() * 10
+        const x1 = 40 + i * 10 + Math.random() * 4
+        const y1 = 40 + Math.random() * 8
         schedule(i * 260, () => {
           sfx.whoosh?.()
           addFx({ src: '/siege/missile.png', x0: 20 + i * 30, y0: 110, x1, y1, size: 90, dur: 720, easeIn: true }, 740)
@@ -476,19 +488,19 @@ function SiegePage() {
 
     // liberty — Lady Liberty herself drops on the hall
     pool.chunk = damage / 3
-    addFx({ src: '/siege/statue.png', x0: 50, y0: -30, x1: 50, y1: 36, size: 260, dur: 950, easeIn: true }, 2400)
+    addFx({ src: '/siege/statue.png', x0: 50, y0: -30, x1: 50, y1: 42, size: 240, dur: 950, easeIn: true }, 2400)
     schedule(950, () => {
       shakeScreen(true)
       const id = ++idRef.current
-      setShockwaves(w => [...w, { id, x: 50, y: 52 }])
+      setShockwaves(w => [...w, { id, x: 50, y: 50 }])
       schedule(900, () => setShockwaves(w => w.filter(s => s.id !== id)))
       for (let i = 0; i < 5; i++) {
-        addFx({ emoji: '💨', x0: 50, y0: 52, x1: 22 + i * 14, y1: 46 + Math.random() * 14, size: 52, dur: 800 }, 900)
+        addFx({ emoji: '💨', x0: 50, y0: 50, x1: 26 + i * 12, y1: 44 + Math.random() * 12, size: 52, dur: 800 }, 900)
       }
-      addFx({ boom: true, emoji: '💥', x0: 50, y0: 44, x1: 50, y1: 44, size: 110, dur: 750 }, 800)
+      addFx({ boom: true, emoji: '💥', x0: 50, y0: 42, x1: 50, y1: 42, size: 110, dur: 750 }, 800)
     })
     for (let i = 0; i < 3; i++) {
-      schedule(1000 + i * 240, () => chipStrike(pool.chunk, 42 + Math.random() * 16, 38 + Math.random() * 10))
+      schedule(1000 + i * 240, () => chipStrike(pool.chunk, 42 + Math.random() * 16, 40 + Math.random() * 10))
     }
     return 2700
   }
@@ -506,10 +518,10 @@ function SiegePage() {
     st.throwCount++
     const kind: Projectile['kind'] = st.throwCount % 3 === 0 ? 'firecracker' : 'rock'
 
-    // Extend the swipe vector until it reaches the fortress band (~34% down)
-    const targetY = rect.height * 0.34
+    // Extend the swipe vector until it reaches the hall band at center map
+    const targetY = rect.height * (HALL_Y / 100 - 0.02)
     const k = (targetY - y0) / dirY
-    const endX = Math.max(rect.width * 0.15, Math.min(rect.width * 0.85, x0 + dirX * k))
+    const endX = Math.max(rect.width * 0.2, Math.min(rect.width * 0.8, x0 + dirX * k))
 
     const id = ++idRef.current
     setProjectiles(p => [...p, { id, x0, y0, x1: endX, y1: targetY, kind, launched: false }])
@@ -531,20 +543,16 @@ function SiegePage() {
     if (st.ended) return
     const rect = stageRef.current?.getBoundingClientRect()
     if (!rect) return
-    const active = soldiersRef.current.filter(s => s.kind === 'ninja' && s.state !== 'poof')
-    if (active.length >= MAX_SOLDIERS) {
-      showToast('⚔️ Squad is maxed — wait for your ninjas to fall')
-      return
-    }
+    // Unlimited ninjas — the base's defenses thin the horde instead
     const sx = (x / rect.width) * 100
-    const tx = 38 + Math.random() * 24
+    const tx = HALL_X - 8 + Math.random() * 16
     const soldier: Soldier = {
       id: ++idRef.current,
       kind: 'ninja',
       x: sx,
       y: (y / rect.height) * 100,
       tx,
-      ty: 56 + Math.random() * 9,
+      ty: HALL_Y + 4 + Math.random() * 8,
       flip: tx < sx, // frames face right — mirror when charging leftward
       state: 'march',
       spawnedAt: Date.now(),
@@ -566,6 +574,22 @@ function SiegePage() {
       const st = S.current
       let changed = false
       const next = soldiersRef.current.map(s => {
+        // Base defenses fire on ninjas: per-tick death roll scaled by how
+        // close he is to the nearest turret — placement is the skill
+        if (s.kind === 'ninja' && (s.state === 'march' || s.state === 'fight')) {
+          // approximate live position: use start point early in the march
+          const px = s.state === 'fight' || now - s.spawnedAt > MARCH_MS / 2 ? s.tx : s.x
+          const py = s.state === 'fight' || now - s.spawnedAt > MARCH_MS / 2 ? s.ty : s.y
+          const dist = Math.min(...DEFENSE_GUNS.map(g => Math.hypot(px - g.x, py - g.y)))
+          const danger = Math.max(0.4, Math.min(1.8, 1.7 - dist / 35))
+          if (Math.random() < KILL_BASE[s.state] * danger) {
+            changed = true
+            const gun = DEFENSE_GUNS.reduce((a, b) => Math.hypot(px - a.x, py - a.y) < Math.hypot(px - b.x, py - b.y) ? a : b)
+            addFx({ emoji: '⚫', x0: gun.x, y0: gun.y, x1: px, y1: py, size: 16, dur: 260, easeIn: true }, 280)
+            schedule(260, () => addFx({ boom: true, emoji: '💥', x0: px, y0: py, x1: px, y1: py, size: 42, dur: 700 }, 750))
+            return { ...s, state: 'poof' as const, hits: s.maxHits, lastHit: now }
+          }
+        }
         if (s.state === 'march' && (s.x !== s.tx || s.y !== s.ty)) {
           changed = true
           return { ...s, x: s.tx, y: s.ty }
@@ -591,7 +615,7 @@ function SiegePage() {
       }
       // slow trickle so an abandoned assault still converges to its result
       if (!st.ended && st.dealt > 0 && now - st.lastThrow > 6000) {
-        applyDamage(st.budget * 0.01, 48 + Math.random() * 8, 30)
+        applyDamage(st.budget * 0.01, 46 + Math.random() * 8, 42)
       }
     }, 200)
     return () => clearInterval(iv)
@@ -635,7 +659,7 @@ function SiegePage() {
         setItems(prev => ({ ...prev, [itemId]: data.quantity_left }))
         setDefense(data.defense_remaining)
         shakeScreen()
-        addSpark(50, 30, `-${data.damage.toLocaleString()}`, '#fb923c')
+        addSpark(50, 42, `-${data.damage.toLocaleString()}`, '#fb923c')
         sfx.siegeBlow()
         buzz([60, 30, 60])
         if (data.defense_remaining <= 1) showToast('💥 Defense shattered — finish it with an assault!')
@@ -707,22 +731,16 @@ function SiegePage() {
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
     >
-      {/* ── The fortified hall — smaller, dead center of the screen ───────── */}
-      <div className="absolute inset-0" style={{ animation: bigShake ? 'sgShakeBig 0.5s ease-in-out' : shaking ? 'sgShake 0.24s ease-in-out' : undefined }}>
-        {/* blurred cover copy fills everything behind the zoomed-out scene */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'url(/halls/hall_battle.webp)',
-          backgroundSize: 'cover', backgroundPosition: 'center 30%',
-          filter: 'blur(24px) brightness(0.38)', transform: 'scale(1.1)',
-        }} />
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'url(/halls/hall_battle.webp)',
-          backgroundSize: 'auto 58%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center 30%',
-        }} />
-      </div>
+      {/* ── The base map — 9:16 aerial, fills the whole screen, hall at the
+             center X ─────────────────────────────────────────────────────── */}
+      <div className="absolute inset-0" style={{
+        backgroundImage: 'url(/halls/hall_battle2.webp)',
+        backgroundSize: 'cover', backgroundPosition: 'center',
+        animation: bigShake ? 'sgShakeBig 0.5s ease-in-out' : shaking ? 'sgShake 0.24s ease-in-out' : undefined,
+      }} />
       {/* readability gradients top + bottom */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'linear-gradient(180deg, rgba(5,8,18,0.62) 0%, transparent 20%, transparent 66%, rgba(5,8,18,0.72) 100%)',
+        background: 'linear-gradient(180deg, rgba(5,8,18,0.55) 0%, transparent 16%, transparent 72%, rgba(5,8,18,0.6) 100%)',
       }} />
 
       {/* ── HUD: defense bar ─────────────────────────────────────────────── */}
@@ -848,7 +866,7 @@ function SiegePage() {
             </div>
           )}
           <p className="text-center text-white/90 text-xs font-bold bg-black/55 backdrop-blur rounded-full px-4 py-2 mx-auto w-max max-w-full pointer-events-none">
-            🪨 SWIPE up to throw · 👆 TAP to deploy ninjas
+            🪨 SWIPE to throw · 👆 TAP for ninjas (unlimited) — dodge the turrets!
           </p>
         </div>
       )}

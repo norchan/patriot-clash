@@ -80,7 +80,9 @@
       "Read(//tmp/**)",
       "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://moxie.foxnews.com/google-publisher/politics.xml\")",
       "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://www.theguardian.com/us-news/us-politics/rss\")",
-      "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://nypost.com/politics/feed/\")"
+      "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://nypost.com/politics/feed/\")",
+      "Bash(git rm *)",
+      "Bash(node -)"
     ]
   }
 }
