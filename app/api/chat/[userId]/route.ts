@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { requireProfile } from '@/lib/auth'
+import { generateBotReply } from '@/lib/bot-chat'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { isBlockedEitherWay } from '@/lib/blocks'
 import { moderateImage, recordCsamSuspect } from '@/lib/moderation'
@@ -56,7 +58,7 @@ export async function POST(
     // a block (either direction) — unwanted senders are handled by snoozing
     // or blocking them.
     const [{ data: receiver }, blocked] = await Promise.all([
-      admin.from('profiles').select('id').eq('id', userId).single(),
+      admin.from('profiles').select('id, clerk_user_id').eq('id', userId).single(),
       isBlockedEitherWay(admin, profile.id, userId),
     ])
 
@@ -121,6 +123,11 @@ export async function POST(
       link: `/messages/${profile.id}`,
       dedupeUnreadLink: true,
     })
+
+    // Bots text back — generated after the response so sends stay instant
+    if (receiver.clerk_user_id?.startsWith('bot')) {
+      after(() => generateBotReply(admin, userId, profile.id, convId))
+    }
 
     return NextResponse.json({ message })
 
