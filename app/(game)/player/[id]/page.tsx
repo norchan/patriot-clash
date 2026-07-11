@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
+import AlbumViewer from '@/components/AlbumViewer'
 
 interface PublicProfile {
   id: string
@@ -31,6 +32,8 @@ export default function PublicProfilePage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null)
   const [clique, setClique] = useState<Clique | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [photos, setPhotos] = useState<{ id: string; url: string }[]>([])
+  const [viewerOpen, setViewerOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -41,6 +44,9 @@ export default function PublicProfilePage() {
           setProfile(d.profile)
           setClique(d.clique)
           setPosts(d.posts ?? [])
+          setPhotos(Array.isArray(d.photos) && d.photos.length
+            ? d.photos
+            : d.profile.avatar_url ? [{ id: 'avatar', url: d.profile.avatar_url }] : [])
         }
       })
       .catch(() => {})
@@ -80,34 +86,44 @@ export default function PublicProfilePage() {
         <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-400 mb-4 hover:text-white">
           <ArrowLeft size={16} /><span className="text-sm">Back</span>
         </button>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-center text-center">
           {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt={profile.username}
-              className="w-16 h-16 rounded-full object-cover border-[3px] flex-shrink-0"
-              style={{ borderColor: partyColor }} />
+            <button onClick={() => setViewerOpen(true)}
+              className="relative active:scale-[0.98] transition"
+              aria-label="View photo fullscreen">
+              <img src={profile.avatar_url} alt={profile.username}
+                className="w-44 h-44 rounded-3xl object-cover border-4 shadow-2xl"
+                style={{ borderColor: partyColor, boxShadow: `0 10px 40px ${partyColor}44` }} />
+              <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                🔍 Tap to view
+              </span>
+            </button>
           ) : (
-            <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl border-[3px] flex-shrink-0"
+            <div className="w-44 h-44 rounded-3xl flex items-center justify-center text-7xl border-4"
               style={{ borderColor: partyColor, background: `${partyColor}33` }}>
               {partyEmoji}
             </div>
           )}
-          <div>
-            <h1 className="text-white font-bold text-xl">{profile.username}</h1>
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-block mt-1"
-              style={{ background: `${partyColor}33`, color: partyColor }}>
-              {partyName}
-            </span>
-            {clique && (
-              <div className="mt-1.5">
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1"
-                  style={{ background: `${cliquePartyColor}1a`, color: cliquePartyColor, border: `1px solid ${cliquePartyColor}44` }}>
-                  ✊ {clique.name} · {clique.party === 'democrat' ? 'Democrat' : 'Republican'} Clique
-                </span>
-              </div>
-            )}
-          </div>
+          <h1 className="text-white font-bold text-2xl mt-3">{profile.username}</h1>
+          <span className="text-xs px-2.5 py-1 rounded-full font-medium inline-block mt-1.5"
+            style={{ background: `${partyColor}33`, color: partyColor }}>
+            {partyName}
+          </span>
+          {clique && (
+            <div className="mt-2">
+              <span className="text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1"
+                style={{ background: `${cliquePartyColor}1a`, color: cliquePartyColor, border: `1px solid ${cliquePartyColor}44` }}>
+                ✊ {clique.name} · {clique.party === 'democrat' ? 'Democrat' : 'Republican'} Clique
+              </span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Fullscreen photo viewer (avatar + any extra album photos) */}
+      {viewerOpen && photos.length > 0 && (
+        <AlbumViewer photos={photos} title={profile.username} onClose={() => setViewerOpen(false)} />
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mx-4">
