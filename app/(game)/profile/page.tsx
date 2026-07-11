@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
-import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus } from 'lucide-react'
+import { LogOut, Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 
 interface BattleRecord {
@@ -380,10 +380,16 @@ export default function ProfilePage() {
               </button>
             )}
           </div>
-          <button onClick={() => signOut(() => router.push('/sign-in'))}
-            className="p-2 text-gray-500 hover:text-gray-300">
-            <LogOut size={20} />
-          </button>
+          <div className="flex flex-col gap-1 self-start">
+            <button onClick={() => router.push('/messages')}
+              className="p-2 text-gray-400 hover:text-white" aria-label="Messages">
+              <MessageSquare size={20} />
+            </button>
+            <button onClick={() => signOut(() => router.push('/sign-in'))}
+              className="p-2 text-gray-500 hover:text-gray-300" aria-label="Sign out">
+              <LogOut size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Rank progress bar */}

@@ -117,6 +117,12 @@ export default function PublicProfilePage() {
               </span>
             </div>
           )}
+          <button
+            onClick={() => router.push(`/messages/${profile.id}`)}
+            className="mt-4 w-full max-w-xs py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700"
+          >
+            💬 Direct Message
+          </button>
         </div>
       </div>
 
