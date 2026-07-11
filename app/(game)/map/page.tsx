@@ -86,6 +86,7 @@ interface NearbyPlayer {
   lng: number
   allow_messages: boolean
   avatar_url: string | null
+  approx?: boolean // marker is offset ~1 mi from their true spot
 }
 
 interface IncomingChallenge {
@@ -1288,6 +1289,9 @@ export default function MapPage() {
             <div className="min-w-0">
               <div className="text-white font-bold text-lg truncate">{profile?.username}</div>
               <div className="text-gray-400 text-xs">That's you! 📍</div>
+              <div className={`text-[11px] mt-0.5 ${(profile as any)?.location_fuzz ? 'text-yellow-500/90' : 'text-green-500/90'}`}>
+                {(profile as any)?.location_fuzz ? '≈ Others see this approximate spot' : '📍 Others see your exact location'}
+              </div>
             </div>
             <button onClick={() => setSelfSheet(false)} className="ml-auto self-start text-gray-500 hover:text-white text-xl leading-none">✕</button>
           </div>
@@ -1349,6 +1353,9 @@ export default function MapPage() {
               <div className="text-white font-bold text-lg truncate">{selectedPlayer.username}</div>
               <div className="text-gray-400 text-xs">
                 {selectedPlayer.party ? selectedPlayer.party.charAt(0).toUpperCase() + selectedPlayer.party.slice(1) : 'Affiliation hidden'}
+              </div>
+              <div className={`text-[11px] mt-0.5 ${selectedPlayer.approx ? 'text-yellow-500/90' : 'text-green-500/90'}`}>
+                {selectedPlayer.approx ? '≈ Approximate location (~1 mi)' : '📍 Exact location'}
               </div>
             </div>
             <button onClick={() => setSelectedPlayer(null)} className="ml-auto self-start text-gray-500 hover:text-white text-xl leading-none">✕</button>
