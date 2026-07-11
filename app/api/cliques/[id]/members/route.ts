@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { deleteCliqueIfEmpty } from '@/lib/cliques'
 
 // POST /api/cliques/[id]/members — creator-only member management:
 //   { profile_id, action: 'approve' | 'deny' | 'remove' }
@@ -55,6 +56,7 @@ export async function POST(
         .eq('id', profile_id)
         .eq('clique_id', id)
       if (error) throw error
+      await deleteCliqueIfEmpty(admin, id)
     }
 
     return NextResponse.json({ success: true })
