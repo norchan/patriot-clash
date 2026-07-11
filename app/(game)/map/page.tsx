@@ -106,7 +106,11 @@ export default function MapPage() {
   // "Show on map" dropdown: me = broadcast + own marker, dems/reps = which
   // nearby players get markers. Persisted so the choice survives reloads.
   const [showMapMenu, setShowMapMenu] = useState(false)
-  const [mapPrefs, setMapPrefs] = useState({ me: true, dems: true, reps: true })
+  const [mapPrefs, setMapPrefs] = useState({ me: true, dems: true, reps: true, sprites: true })
+  // The map's zoom handler closes over applyZoomVisibility once at init —
+  // it must read prefs through a ref or it would see the initial state forever
+  const mapPrefsRef = useRef(mapPrefs)
+  useEffect(() => { mapPrefsRef.current = mapPrefs }, [mapPrefs])
   const [fpToast, setFpToast] = useState('')
 
   // PvP / player interaction state
@@ -159,7 +163,7 @@ export default function MapPage() {
     const m = map.current
     if (!m) return
     const z = m.getZoom()
-    const showEnemies = z >= 11   // enemies: only at neighborhood zoom
+    const showEnemies = z >= 11 && mapPrefsRef.current.sprites // enemies: only at neighborhood zoom, and only if not toggled off
     const showPlayerMk = z >= 9   // players: city zoom
     // Enemies shrink as you zoom out so they stay in scale with player dots
     // (full size only at z15+, down to ~30% at z11)
@@ -187,14 +191,18 @@ export default function MapPage() {
       const saved = localStorage.getItem('map_show_prefs')
       if (saved) {
         const p = JSON.parse(saved)
-        setMapPrefs({ me: p.me !== false, dems: p.dems !== false, reps: p.reps !== false })
+        setMapPrefs({ me: p.me !== false, dems: p.dems !== false, reps: p.reps !== false, sprites: p.sprites !== false })
       } else if (localStorage.getItem('show_players') === 'false') {
-        setMapPrefs({ me: true, dems: false, reps: false })
+        setMapPrefs({ me: true, dems: false, reps: false, sprites: true })
       }
     } catch {}
   }, [])
 
-  function toggleMapPref(key: 'me' | 'dems' | 'reps') {
+  // Re-run marker visibility when the sprites switch flips (zoom handler
+  // only fires on zoom, not on toggle)
+  useEffect(() => { applyZoomVisibility() }, [mapPrefs.sprites]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleMapPref(key: 'me' | 'dems' | 'reps' | 'sprites') {
     setMapPrefs(prev => {
       const next = { ...prev, [key]: !prev[key] }
       localStorage.setItem('map_show_prefs', JSON.stringify(next))
@@ -993,9 +1001,10 @@ export default function MapPage() {
               <div className="fixed inset-0 z-0" onClick={() => setShowMapMenu(false)} />
               <div className="absolute top-full left-0 mt-2 z-10 w-56 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl p-1.5">
                 {([
-                  { key: 'me' as const,   label: '📍 Show me on map' },
-                  { key: 'dems' as const, label: '🔵 Show Democrats' },
-                  { key: 'reps' as const, label: '🔴 Show Republicans' },
+                  { key: 'me' as const,      label: '📍 Show me on map' },
+                  { key: 'dems' as const,    label: '🔵 Show Democrats' },
+                  { key: 'reps' as const,    label: '🔴 Show Republicans' },
+                  { key: 'sprites' as const, label: '👾 Show Sprites' },
                 ]).map(({ key, label }) => (
                   <div key={key} className="flex items-center justify-between px-2 py-2">
                     <span className="text-white text-xs font-medium">{label}</span>
