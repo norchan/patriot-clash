@@ -137,8 +137,11 @@ export default function MapPage() {
   const gymMarkersRef = useRef<mapboxgl.Marker[]>([])
   const enemyMarkersRef = useRef<mapboxgl.Marker[]>([])
   const playerMarkerRef = useRef<mapboxgl.Marker | null>(null)
-  const otherPlayerMarkersRef = useRef<mapboxgl.Marker[]>([])
+  // Keyed by profile_id so refreshes UPDATE markers in place — tearing down
+  // and rebuilding dozens of avatar <img> markers every poll caused real lag
+  const otherPlayerMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const mapInitialized = useRef(false)
+  const zoomRafPending = useRef(false)
 
   // Latest GPS fix, readable inside long-lived intervals. watchPosition
   // delivers a NEW location object every tick — keying effects on it tears
@@ -160,6 +163,17 @@ export default function MapPage() {
   // as you zoom out. Hide them past zoom thresholds: zoomed to state level,
   // only the party-colored zone circles remain.
   function applyZoomVisibility() {
+    // Coalesce to one pass per frame — 'zoom' fires continuously while
+    // pinching and this walks every marker on the map
+    if (zoomRafPending.current) return
+    zoomRafPending.current = true
+    requestAnimationFrame(() => {
+      zoomRafPending.current = false
+      applyZoomVisibilityNow()
+    })
+  }
+
+  function applyZoomVisibilityNow() {
     const m = map.current
     if (!m) return
     const z = m.getZoom()
@@ -334,9 +348,6 @@ export default function MapPage() {
         const players: NearbyPlayer[] = data.players ?? []
         setNearbyPlayers(players)
 
-        otherPlayerMarkersRef.current.forEach(m => m.remove())
-        otherPlayerMarkersRef.current = []
-
         if (!map.current) return
 
         const visiblePlayers = players.filter(p =>
@@ -344,7 +355,22 @@ export default function MapPage() {
             : p.party === 'republican' ? mapPrefs.reps
             : (mapPrefs.dems || mapPrefs.reps)) // hidden affiliation: show unless everything is off
 
+        // Diff against existing markers: move the ones that stayed, drop the
+        // ones that left, create only the genuinely new
+        const keep = new Set(visiblePlayers.map(p => p.profile_id))
+        for (const [id, mk] of otherPlayerMarkersRef.current) {
+          if (!keep.has(id)) {
+            mk.remove()
+            otherPlayerMarkersRef.current.delete(id)
+          }
+        }
+
         visiblePlayers.forEach(player => {
+          const existing = otherPlayerMarkersRef.current.get(player.profile_id)
+          if (existing) {
+            existing.setLngLat([player.lng, player.lat])
+            return
+          }
           // White/neutral ring if party is hidden, otherwise party color
           const color = player.party === 'democrat' ? '#2563eb'
             : player.party === 'republican' ? '#dc2626'
@@ -381,7 +407,7 @@ export default function MapPage() {
           const marker = new mapboxgl.Marker({ element: el, anchor: 'top' })
             .setLngLat([player.lng, player.lat])
             .addTo(map.current!)
-          otherPlayerMarkersRef.current.push(marker)
+          otherPlayerMarkersRef.current.set(player.profile_id, marker)
         })
         applyZoomVisibility()
       } catch {
@@ -394,7 +420,7 @@ export default function MapPage() {
     return () => {
       clearInterval(interval)
       otherPlayerMarkersRef.current.forEach(m => m.remove())
-      otherPlayerMarkersRef.current = []
+      otherPlayerMarkersRef.current = new Map()
     }
   }, [hasLocation, mapPrefs.dems, mapPrefs.reps])
 
@@ -712,7 +738,12 @@ export default function MapPage() {
       // every gyms refetch
       gymMarkersRef.current.forEach(m => m.remove())
       gymMarkersRef.current = []
-      gyms.forEach(gym => {
+      // HTML markers are the expensive part — only the 25 nearest halls get
+      // one; the rest still show as party-colored zone circles
+      const markerGyms = [...gyms]
+        .sort((a, b) => parseFloat(a.distance_miles) - parseFloat(b.distance_miles))
+        .slice(0, 25)
+      markerGyms.forEach(gym => {
         const partyColor = gym.holder_party === 'democrat' ? '#2563eb'
           : gym.holder_party === 'republican' ? '#dc2626' : '#6b7280'
         const flagEmoji = gym.holder_party === 'democrat' ? '🔵'

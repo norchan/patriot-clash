@@ -86,7 +86,8 @@
       "Bash(node scripts/add_mn_halls.mjs)",
       "Bash(node scripts/add_wi_halls.mjs)",
       "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://news.google.com/rss/search?q=%22Mankato%22%20Minnesota%20when%3A1d&hl=en-US&gl=US&ceid=US:en\")",
-      "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://news.google.com/rss/search?q=Minnesota%20news%20when%3A1d&hl=en-US&gl=US&ceid=US:en\")"
+      "Bash(curl -s -m 10 -A \"Mozilla/5.0 \\(compatible; PoliticsGoBot/1.0\\)\" \"https://news.google.com/rss/search?q=Minnesota%20news%20when%3A1d&hl=en-US&gl=US&ceid=US:en\")",
+      "Bash(git commit -q -m ' *)"
     ]
   }
 }

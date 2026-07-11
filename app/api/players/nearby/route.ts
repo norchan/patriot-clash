@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
     }
 
     const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-    // ~30 mile bounding box (0.44 deg lat, slightly wider for lng at lower US latitudes)
-    const delta = 0.44
+    // ~15 mile bounding box — tighter visibility keeps marker counts (and
+    // phone render cost) down now that halls are dense
+    const delta = 0.22
 
     // Blocks and locations are independent — run them in parallel (this is
     // the hottest polled endpoint in the app)
@@ -87,9 +88,11 @@ export async function GET(req: NextRequest) {
     // circle. Which bots and where is seeded by hall id, so the same crew
     // guards the same hall at stable positions.
     const { data: nearbyHalls } = await admin
-      .rpc('gyms_near', { p_lat: lat, p_lng: lng, p_miles: 30 })
+      .rpc('gyms_near', { p_lat: lat, p_lng: lng, p_miles: 15 })
 
-    const halls = (nearbyHalls ?? []).slice(0, 6) // nearest 6 zones
+    // Nearest 3 zones only — with halls now packed tight, 6 zones × 24 bots
+    // flooded phones with ~144 markers and caused real lag
+    const halls = (nearbyHalls ?? []).slice(0, 3)
     if (halls.length > 0) {
       const { data: allBots } = await admin
         .from('profiles')
@@ -121,8 +124,8 @@ export async function GET(req: NextRequest) {
       for (const hall of halls) {
         const usedAvatars = new Set<string>()
         const crew = [
-          ...pickForHall(repBots, hall.id, 12, usedAvatars),
-          ...pickForHall(demBots, hall.id, 12, usedAvatars),
+          ...pickForHall(repBots, hall.id, 8, usedAvatars),
+          ...pickForHall(demBots, hall.id, 8, usedAvatars),
         ]
         crew.forEach((bot, i) => {
           placed.add(bot.id)
