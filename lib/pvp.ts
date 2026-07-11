@@ -142,51 +142,44 @@ export async function settleInteractiveFight(
     return { ok: false, status: 404, error: 'Player profile not found' }
   }
 
-  // Bot treasury refill: bots must always be able to pay out a win
-  if (defender.clerk_user_id?.startsWith('bot_') && defender.fp_balance < challenge.fp_stake) {
-    await admin.rpc('grant_fp', {
-      p_profile_id: defender.id, p_amount: 5000,
-      p_type: 'battle_reward', p_reference_type: 'pvp_battle',
-      p_description: 'Bot treasury refill',
-    })
-    defender.fp_balance += 5000
-  }
-
-  if (challenger.fp_balance < challenge.fp_stake || defender.fp_balance < challenge.fp_stake) {
-    await cancel()
-    return { ok: false, status: 400, error: 'Insufficient FP — challenge cancelled' }
-  }
-
   const winner = sub.won ? challenger : defender
   const loser  = sub.won ? defender : challenger
 
-  // Debit the loser first and check — supabase rpc() returns errors rather
-  // than throwing, and an unchecked failure here would mint FP
-  const { error: spendErr } = await admin.rpc('spend_fp', {
-    p_profile_id: loser.id, p_amount: challenge.fp_stake,
-    p_type: 'gym_attack', p_reference_type: 'pvp_battle',
-    p_description: `Lost PvP vs ${winner.username}`,
-  })
-  if (spendErr) {
-    console.error('pvp spend_fp failed:', spendErr)
-    await cancel()
-    return { ok: false, status: 500, error: 'FP transfer failed — challenge cancelled' }
-  }
+  // Challenging is free: the loser forfeits up to the stake, or everything
+  // they have if that's less (balance floors at zero — never negative).
+  const potAmount = Math.max(0, Math.min(challenge.fp_stake, loser.fp_balance))
 
-  const { error: grantErr } = await admin.rpc('grant_fp', {
-    p_profile_id: winner.id, p_amount: challenge.fp_stake,
-    p_type: 'battle_reward', p_reference_type: 'pvp_battle',
-    p_description: `Won PvP vs ${loser.username}`,
-  })
-  if (grantErr) {
-    console.error('pvp grant_fp failed, refunding loser:', grantErr)
-    await admin.rpc('grant_fp', {
-      p_profile_id: loser.id, p_amount: challenge.fp_stake,
-      p_type: 'battle_reward', p_reference_type: 'pvp_battle',
-      p_description: 'PvP stake refund (transfer failed)',
+  let paid = 0
+  if (potAmount > 0) {
+    // Debit the loser first and check — supabase rpc() returns errors rather
+    // than throwing, and an unchecked failure here would mint FP
+    const { error: spendErr } = await admin.rpc('spend_fp', {
+      p_profile_id: loser.id, p_amount: potAmount,
+      p_type: 'gym_attack', p_reference_type: 'pvp_battle',
+      p_description: `Lost PvP vs ${winner.username}`,
     })
-    await cancel()
-    return { ok: false, status: 500, error: 'FP transfer failed — challenge cancelled' }
+    if (spendErr) {
+      console.error('pvp spend_fp failed:', spendErr)
+      await cancel()
+      return { ok: false, status: 500, error: 'FP transfer failed — challenge cancelled' }
+    }
+    paid = potAmount
+
+    const { error: grantErr } = await admin.rpc('grant_fp', {
+      p_profile_id: winner.id, p_amount: potAmount,
+      p_type: 'battle_reward', p_reference_type: 'pvp_battle',
+      p_description: `Won PvP vs ${loser.username}`,
+    })
+    if (grantErr) {
+      console.error('pvp grant_fp failed, refunding loser:', grantErr)
+      await admin.rpc('grant_fp', {
+        p_profile_id: loser.id, p_amount: potAmount,
+        p_type: 'battle_reward', p_reference_type: 'pvp_battle',
+        p_description: 'PvP stake refund (transfer failed)',
+      })
+      await cancel()
+      return { ok: false, status: 500, error: 'FP transfer failed — challenge cancelled' }
+    }
   }
 
   const battleLog = {
@@ -215,16 +208,18 @@ export async function settleInteractiveFight(
 
   if (saveErr) {
     console.error('pvp result save failed, rolling back stake:', saveErr)
-    await admin.rpc('grant_fp', {
-      p_profile_id: loser.id, p_amount: challenge.fp_stake,
-      p_type: 'battle_reward', p_reference_type: 'pvp_battle',
-      p_description: 'PvP stake refund (result save failed)',
-    })
-    await admin.rpc('spend_fp', {
-      p_profile_id: winner.id, p_amount: challenge.fp_stake,
-      p_type: 'gym_attack', p_reference_type: 'pvp_battle',
-      p_description: 'PvP stake clawback (result save failed)',
-    })
+    if (paid > 0) {
+      await admin.rpc('grant_fp', {
+        p_profile_id: loser.id, p_amount: paid,
+        p_type: 'battle_reward', p_reference_type: 'pvp_battle',
+        p_description: 'PvP stake refund (result save failed)',
+      })
+      await admin.rpc('spend_fp', {
+        p_profile_id: winner.id, p_amount: paid,
+        p_type: 'gym_attack', p_reference_type: 'pvp_battle',
+        p_description: 'PvP stake clawback (result save failed)',
+      })
+    }
     await cancel()
     return { ok: false, status: 500, error: `Could not save fight result: ${saveErr.message}` }
   }
@@ -245,7 +240,7 @@ export async function settleInteractiveFight(
       defender_id: challenge.defender_id,
       challenger_hp_remaining: sub.myHp,
       defender_hp_remaining: sub.foeHp,
-      fp_stake: challenge.fp_stake,
+      fp_stake: paid,
       battle_log: battleLog,
     },
   }

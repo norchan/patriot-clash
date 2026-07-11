@@ -100,31 +100,48 @@ export async function GET(req: NextRequest) {
       const demBots = (allBots ?? []).filter(b => b.party === 'democrat')
       const placed = new Set<string>()
 
-      const pickForHall = (pool: any[], hallId: string, count: number) =>
-        pool
+      // Pick a crew for a hall, skipping any bot whose avatar is already used
+      // in this hall so no two visible bots share a picture.
+      const pickForHall = (pool: any[], hallId: string, count: number, usedAvatars: Set<string>) => {
+        const ranked = pool
           .map(b => ({ b, r: seededRand(`${b.id}|${hallId}`) }))
           .sort((x, y) => x.r - y.r)
-          .filter(({ b }) => !placed.has(b.id) && !hiddenIds.has(b.id))
-          .slice(0, count)
-          .map(({ b }) => b)
+        const crew: any[] = []
+        for (const { b } of ranked) {
+          if (crew.length >= count) break
+          if (placed.has(b.id) || hiddenIds.has(b.id)) continue
+          const av = b.avatar_url ?? b.id // fall back to id so null avatars aren't all "same"
+          if (usedAvatars.has(av)) continue
+          usedAvatars.add(av)
+          crew.push(b)
+        }
+        return crew
+      }
 
       for (const hall of halls) {
-        const crew = [...pickForHall(repBots, hall.id, 12), ...pickForHall(demBots, hall.id, 12)]
-        for (const bot of crew) {
+        const usedAvatars = new Set<string>()
+        const crew = [
+          ...pickForHall(repBots, hall.id, 12, usedAvatars),
+          ...pickForHall(demBots, hall.id, 12, usedAvatars),
+        ]
+        crew.forEach((bot, i) => {
           placed.add(bot.id)
-          const angle = seededRand(`${bot.id}|${hall.id}|a`) * Math.PI * 2
-          // Inside the hall's 5-mile circle: 0.3 to 4.3 miles from center
-          const distMiles = 0.3 + seededRand(`${bot.id}|${hall.id}|d`) * 4
+          // Two independent hashes → a genuinely scattered point. sqrt on the
+          // radius spreads bots evenly across the DISC instead of bunching
+          // them into a ring (the old "swirl"); the extra index term breaks
+          // up correlation between similar bot ids.
+          const angle = seededRand(`${bot.id}|${hall.id}|ang|${i}`) * Math.PI * 2
+          const distMiles = 0.25 + Math.sqrt(seededRand(`${bot.id}|${hall.id}|rad|${i}`)) * 4.2
           players.push({
             profile_id: bot.id,
             username: bot.username,
             party: bot.party,
             lat: hall.latitude + (distMiles / 69) * Math.sin(angle),
             lng: hall.longitude + (distMiles / (69 * Math.cos(hall.latitude * Math.PI / 180))) * Math.cos(angle),
-            allow_messages: false,
+            allow_messages: true,
             avatar_url: bot.avatar_url ?? null,
           })
-        }
+        })
       }
     }
 

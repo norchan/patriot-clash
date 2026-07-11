@@ -49,19 +49,19 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid message' }, { status: 400 })
     }
 
-    // Open messaging: anyone can message anyone UNLESS blocked (either way)
-    // or the receiver is incognito (allow_messages off). Receivers deal with
-    // unwanted senders via snooze (client-side) or block.
+    // Direct messages: anyone you can see, you can message. The only wall is
+    // a block (either direction) — unwanted senders are handled by snoozing
+    // or blocking them.
     const [{ data: receiver }, blocked] = await Promise.all([
-      admin.from('profiles').select('allow_messages').eq('id', userId).single(),
+      admin.from('profiles').select('id').eq('id', userId).single(),
       isBlockedEitherWay(admin, profile.id, userId),
     ])
 
     if (blocked) {
       return NextResponse.json({ error: 'Cannot message this player' }, { status: 403 })
     }
-    if (!receiver || receiver.allow_messages === false) {
-      return NextResponse.json({ error: 'That player is incognito — messages off' }, { status: 403 })
+    if (!receiver) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
     }
 
     const convId = conversationId(profile.id, userId)

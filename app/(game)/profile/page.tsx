@@ -90,11 +90,29 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
+  const [todaySteps, setTodaySteps] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/posts')
       .then(r => r.json())
       .then(d => setPosts(d.posts ?? []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    // Today's steps: prefer the live local count, fall back to the server record
+    const now = new Date()
+    const key = `steps_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const local = parseInt((typeof window !== 'undefined' && localStorage.getItem(key)) || '0', 10)
+    setTodaySteps(local)
+    fetch('/api/steps')
+      .then(r => r.json())
+      .then(d => {
+        const todayStr = key.replace('steps_', '')
+        const rec = (d.steps ?? []).find((s: any) => s.record_date === todayStr)
+        const server = rec?.step_count ?? 0
+        setTodaySteps(prev => Math.max(prev ?? 0, server))
+      })
       .catch(() => {})
   }, [])
 
@@ -325,8 +343,25 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Stats grid */}
+      {/* Today's steps */}
       <div className="px-4 mt-2">
+        <div className="bg-gray-900 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-green-500/15 flex items-center justify-center">
+            <Footprints size={20} className="text-green-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-gray-500 text-xs">Steps today · resets at midnight</p>
+            <p className="text-green-400 font-black text-2xl leading-tight">{(todaySteps ?? 0).toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-gray-600 text-[10px]">Earns FP as you walk</p>
+            <p className="text-gray-400 text-xs">10 FP / 500 steps</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      <div className="px-4 mt-3">
         <div className="grid grid-cols-2 gap-3">
           {[
             { icon: <Zap size={18} className="text-yellow-400" />,    label: 'Fighting Points', value: profile?.fp_balance?.toLocaleString() || '0',        color: 'text-yellow-400' },

@@ -24,9 +24,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cannot challenge yourself' }, { status: 400 })
     }
 
-    if (profile.fp_balance < FP_STAKE) {
-      return NextResponse.json({ error: 'INSUFFICIENT_FP', message: `Need ${FP_STAKE} FP to challenge` }, { status: 400 })
-    }
+    // Challenging is FREE — the loser pays afterward (up to FP_STAKE, or
+    // everything they have if that's less). So no pre-fight balance gate.
 
     // Blocked players cannot challenge each other
     if (await isBlockedEitherWay(admin, profile.id, defender_id)) {
@@ -43,12 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 })
     }
 
-    // Bots always accept and get their treasury refilled by the resolver, so
-    // only human defenders need the balance pre-check
     const isBot = defender.clerk_user_id?.startsWith('bot_')
-    if (!isBot && defender.fp_balance < FP_STAKE) {
-      return NextResponse.json({ error: 'Opponent does not have enough FP' }, { status: 400 })
-    }
 
     // Block duplicate pending challenges between these two players
     const { data: existing } = await admin

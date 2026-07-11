@@ -34,12 +34,12 @@ export async function POST(req: NextRequest) {
 
     const { data: existingRec } = await admin
       .from('step_records')
-      .select('steps')
+      .select('step_count')
       .eq('profile_id', profile.id)
       .eq('record_date', recordDate)
       .maybeSingle()
 
-    const prevSteps = existingRec?.steps ?? 0
+    const prevSteps = existingRec?.step_count ?? 0
     const cappedSteps = Math.max(
       prevSteps,
       Math.min(steps, DAILY_CAP, prevSteps + PER_SYNC_CAP)

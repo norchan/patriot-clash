@@ -1038,19 +1038,17 @@ export default function MapPage() {
                 className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
               >
-                {challengeLoading ? '⏳ Sending...' : '⚔️ Challenge to Battle (50 FP)'}
+                {challengeLoading ? '⏳ Sending...' : '⚔️ Challenge to Battle (free)'}
               </button>
             )}
 
-            {/* Message — only if they allow messages */}
-            {selectedPlayer.allow_messages && (
-              <button
-                onClick={() => startChat(selectedPlayer)}
-                className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700"
-              >
-                💬 Send Message
-              </button>
-            )}
+            {/* Direct Message — anyone you can see, you can message */}
+            <button
+              onClick={() => startChat(selectedPlayer)}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700"
+            >
+              💬 Direct Message
+            </button>
 
             {/* Block */}
             <button
