@@ -134,7 +134,7 @@ export default function MapPage() {
   // Map refs
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
-  const gymMarkersRef = useRef<mapboxgl.Marker[]>([])
+  const gymMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const enemyMarkersRef = useRef<mapboxgl.Marker[]>([])
   const playerMarkerRef = useRef<mapboxgl.Marker | null>(null)
   // Keyed by profile_id so refreshes UPDATE markers in place — tearing down
@@ -733,17 +733,41 @@ export default function MapPage() {
         })
       }
 
-      // ── Gym label markers (HTML, always above vector layers) ────────────────
-      // Remove the previous set first — markers otherwise accumulate on
-      // every gyms refetch
-      gymMarkersRef.current.forEach(m => m.remove())
-      gymMarkersRef.current = []
-      // HTML markers are the expensive part — only the 25 nearest halls get
-      // one; the rest still show as party-colored zone circles
-      const markerGyms = [...gyms]
-        .sort((a, b) => parseFloat(a.distance_miles) - parseFloat(b.distance_miles))
-        .slice(0, 25)
-      markerGyms.forEach(gym => {
+      renderGymMarkers()
+    }
+
+    // ── Gym building markers (HTML, expensive) ──────────────────────────────
+    // Rendered for halls in the CURRENT VIEW (up to 30, nearest to the view
+    // center first) and refreshed on pan/zoom — every circle you can see
+    // gets its building, but off-screen halls cost nothing. (The old
+    // nearest-25-to-the-player cap left far-off circles building-less.)
+    const renderGymMarkers = () => {
+      const m = map.current
+      if (!m) return
+      const b = m.getBounds()
+      if (!b) return
+      const padLat = (b.getNorth() - b.getSouth()) * 0.15
+      const padLng = (b.getEast() - b.getWest()) * 0.15
+      const c = m.getCenter()
+      const visible = gyms
+        .filter(g =>
+          g.latitude > b.getSouth() - padLat && g.latitude < b.getNorth() + padLat &&
+          g.longitude > b.getWest() - padLng && g.longitude < b.getEast() + padLng)
+        .sort((a, g) =>
+          Math.hypot(a.latitude - c.lat, a.longitude - c.lng) -
+          Math.hypot(g.latitude - c.lat, g.longitude - c.lng))
+        .slice(0, 30)
+
+      const keep = new Set(visible.map(g => g.id))
+      for (const [id, mk] of gymMarkersRef.current) {
+        if (!keep.has(id)) {
+          mk.remove()
+          gymMarkersRef.current.delete(id)
+        }
+      }
+
+      visible.forEach(gym => {
+        if (gymMarkersRef.current.has(gym.id)) return
         const partyColor = gym.holder_party === 'democrat' ? '#2563eb'
           : gym.holder_party === 'republican' ? '#dc2626' : '#6b7280'
         const flagEmoji = gym.holder_party === 'democrat' ? '🔵'
@@ -776,7 +800,7 @@ export default function MapPage() {
         const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
           .setLngLat([gym.longitude, gym.latitude])
           .addTo(map.current!)
-        gymMarkersRef.current.push(marker)
+        gymMarkersRef.current.set(gym.id, marker)
       })
       applyZoomVisibility()
     }
@@ -789,11 +813,13 @@ export default function MapPage() {
     } else {
       map.current.once('idle', addGyms)
     }
+    map.current.on('moveend', renderGymMarkers)
 
     return () => {
       map.current?.off('idle', addGyms)
+      map.current?.off('moveend', renderGymMarkers)
       gymMarkersRef.current.forEach(m => m.remove())
-      gymMarkersRef.current = []
+      gymMarkersRef.current = new Map()
     }
   }, [gyms, router])
 
