@@ -1,16 +1,13 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Settings, Image as ImageIcon, X } from 'lucide-react'
+import { ArrowLeft, Settings } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { BANNERS } from '@/config/banners'
+import CliqueFeed from '@/components/CliqueFeed'
 
 interface Member { id: string; username: string; avatar_url: string | null; total_battles_won: number }
 interface Pending { id: string; username: string; avatar_url: string | null }
-interface Post {
-  id: string; profile_id: string; content: string | null; image_url: string | null
-  created_at: string; username: string; avatar_url: string | null; is_mine: boolean
-}
 interface Clique {
   id: string; name: string; party: 'democrat' | 'republican'; gym_id: string | null
   creator_id: string; join_policy: 'open' | 'request'; banner_url: string | null
@@ -30,15 +27,10 @@ export default function CliquePage() {
   const [memberCount, setMemberCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  const [posts, setPosts] = useState<Post[]>([])
-  const [draft, setDraft] = useState('')
-  const [draftImage, setDraftImage] = useState<string | null>(null)
-  const [posting, setPosting] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [busy, setBusy] = useState(false)
   const [requested, setRequested] = useState(false)
   const [toast, setToast] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
 
@@ -49,49 +41,9 @@ export default function CliquePage() {
     setClique(d.clique); setGym(d.gym); setMembers(d.members ?? []); setPending(d.pending ?? [])
     setIsMember(d.is_member); setIsCreator(d.is_creator); setMemberCount(d.member_count ?? 0)
     setLoading(false)
-    if (d.is_member) {
-      const pr = await fetch(`/api/cliques/${params.id}/posts`)
-      const pd = await pr.json()
-      if (pr.ok) setPosts(pd.posts ?? [])
-    }
   }, [params.id])
 
   useEffect(() => { load() }, [load])
-
-  async function pickImage(file: File) {
-    if (file.size > 6 * 1024 * 1024) { showToast('❌ Image too large (6 MB max)'); return }
-    // Downscale in the browser so uploads stay small
-    const bmp = await createImageBitmap(file)
-    const max = 1000
-    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(bmp.width * scale)
-    canvas.height = Math.round(bmp.height * scale)
-    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
-    setDraftImage(canvas.toDataURL('image/webp', 0.85))
-  }
-
-  async function submitPost() {
-    if (posting || (!draft.trim() && !draftImage)) return
-    setPosting(true)
-    try {
-      const res = await fetch(`/api/cliques/${params.id}/posts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: draft.trim(), image: draftImage }),
-      })
-      const d = await res.json()
-      if (!res.ok) { showToast(`❌ ${d.error || 'Post failed'}`); return }
-      setPosts(p => [d.post, ...p])
-      setDraft(''); setDraftImage(null)
-    } catch { showToast('❌ Post failed') }
-    finally { setPosting(false) }
-  }
-
-  async function deletePost(id: string) {
-    const res = await fetch(`/api/cliques/${params.id}/posts?post=${id}`, { method: 'DELETE' })
-    if (res.ok) setPosts(p => p.filter(x => x.id !== id))
-  }
 
   async function saveSettings(updates: { join_policy?: string; banner_url?: string | null }) {
     setBusy(true)
@@ -266,57 +218,9 @@ export default function CliquePage() {
         )
       ) : (
         <>
-          {/* Composer */}
-          <div className="mx-4 mt-3 bg-gray-900 rounded-2xl p-3">
-            <textarea value={draft} onChange={e => setDraft(e.target.value)}
-              placeholder="Post to your clique..." rows={2} maxLength={800}
-              className="w-full bg-transparent text-white text-sm placeholder-gray-600 resize-none outline-none" />
-            {draftImage && (
-              <div className="relative mt-2">
-                <img src={draftImage} alt="" className="rounded-lg max-h-52 w-full object-cover" />
-                <button onClick={() => setDraftImage(null)}
-                  className="absolute top-2 right-2 bg-black/70 rounded-full p-1 text-white"><X size={14} /></button>
-              </div>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              <input ref={fileRef} type="file" accept="image/*" hidden
-                onChange={e => e.target.files?.[0] && pickImage(e.target.files[0])} />
-              <button onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-1 text-gray-400 text-xs font-bold px-2 py-1.5 rounded-lg bg-gray-800">
-                <ImageIcon size={14} /> Meme
-              </button>
-              <span className="text-gray-700 text-[10px] flex-1">{draft.length}/800</span>
-              <button onClick={submitPost} disabled={posting || (!draft.trim() && !draftImage)}
-                className="text-xs font-bold px-4 py-1.5 rounded-lg text-white disabled:opacity-40"
-                style={{ background: partyColor }}>
-                {posting ? '...' : 'Post'}
-              </button>
-            </div>
-          </div>
-
-          {/* Feed */}
-          <div className="mx-4 mt-3 space-y-2">
-            {posts.length === 0 && (
-              <p className="text-gray-600 text-xs text-center py-8">No posts yet — say something.</p>
-            )}
-            {posts.map(p => (
-              <div key={p.id} className="bg-gray-900 rounded-2xl p-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  {p.avatar_url
-                    ? <img src={p.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-                    : <div className="w-6 h-6 rounded-full" style={{ background: partyColor }} />}
-                  <span className="text-white text-xs font-bold">{p.username}</span>
-                  <span className="text-gray-600 text-[10px] flex-1">
-                    {new Date(p.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </span>
-                  {(p.is_mine || isCreator) && (
-                    <button onClick={() => deletePost(p.id)} className="text-gray-600 hover:text-red-400"><X size={13} /></button>
-                  )}
-                </div>
-                {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
-                {p.image_url && <img src={p.image_url} alt="" className="rounded-xl mt-2 w-full object-cover max-h-96" />}
-              </div>
-            ))}
+          {/* Live chat */}
+          <div className="mx-4 mt-3">
+            <CliqueFeed cliqueId={String(params.id)} partyColor={partyColor} isCreator={isCreator} />
           </div>
 
           {/* Members */}

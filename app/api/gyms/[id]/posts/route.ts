@@ -8,23 +8,31 @@ import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation
 // squares of the game). Posts carry text, an uploaded image, or a link
 // with a scraped preview card.
 
-// GET /api/gyms/[id]/posts — newest first, with the caller's vote
+// GET /api/gyms/[id]/posts?sort=top|new — top (default) is the most
+// upvoted of the last 24 hours; new is latest-first
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
+    const sort = req.nextUrl.searchParams.get('sort') === 'new' ? 'new' : 'top'
 
-    const { data: posts } = await admin
+    let q = admin
       .from('hall_posts')
       .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at')
       .eq('gym_id', id)
       .eq('hidden', false)
-      .order('created_at', { ascending: false })
-      .limit(80)
+    if (sort === 'top') {
+      q = q.gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: false })
+    } else {
+      q = q.order('created_at', { ascending: false })
+    }
+    const { data: posts } = await q.limit(80)
 
     if (!posts?.length) return NextResponse.json({ posts: [] })
 

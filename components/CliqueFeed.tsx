@@ -1,32 +1,48 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Image as ImageIcon, X, Share } from 'lucide-react'
-import { VoteButtons } from '@/components/HallFeed'
+import { Image as ImageIcon, X, Send } from 'lucide-react'
 
-interface Post {
+interface Msg {
   id: string; profile_id: string; content: string | null; image_url: string | null
-  score: number; my_vote: number
   created_at: string; username: string; avatar_url: string | null; is_mine: boolean
 }
 
-// Members-only clique feed (text + meme posts), same format as Town Square
-// posts: X-style cards with Reddit-style vote pills and share.
+// Twitch-style username colors — seeded by name so everyone sees the same one
+const CHAT_COLORS = ['#ff6b6b', '#f59e0b', '#22c55e', '#38bdf8', '#a78bfa', '#f472b6', '#34d399', '#fb923c', '#e879f9', '#60a5fa']
+function nameColor(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0
+  return CHAT_COLORS[Math.abs(h) % CHAT_COLORS.length]
+}
+
+// Members-only LIVE CHAT (Kick/Twitch style): a streaming feed of compact
+// lines, newest at the bottom, polled every 3s. Replaces the old post feed.
 export default function CliqueFeed({ cliqueId, partyColor, isCreator }: {
   cliqueId: string; partyColor: string; isCreator: boolean
 }) {
-  const [posts, setPosts] = useState<Post[]>([])
+  const [msgs, setMsgs] = useState<Msg[]>([])
   const [draft, setDraft] = useState('')
   const [draftImage, setDraftImage] = useState<string | null>(null)
   const [posting, setPosting] = useState(false)
-  const [shared, setShared] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const stickBottom = useRef(true)
 
   useEffect(() => {
-    fetch(`/api/cliques/${cliqueId}/posts`)
-      .then(r => r.json())
-      .then(d => setPosts(d.posts ?? []))
-      .catch(() => {})
+    const poll = () => {
+      fetch(`/api/cliques/${cliqueId}/posts`)
+        .then(r => r.json())
+        .then(d => { if (d.posts) setMsgs([...d.posts].reverse()) }) // ascending: oldest → newest
+        .catch(() => {})
+    }
+    poll()
+    const iv = setInterval(poll, 3000)
+    return () => clearInterval(iv)
   }, [cliqueId])
+
+  useEffect(() => {
+    if (stickBottom.current) boxRef.current?.scrollTo({ top: boxRef.current.scrollHeight })
+  }, [msgs])
 
   async function pickImage(file: File) {
     if (file.size > 6 * 1024 * 1024) return
@@ -40,7 +56,7 @@ export default function CliqueFeed({ cliqueId, partyColor, isCreator }: {
     setDraftImage(canvas.toDataURL('image/webp', 0.85))
   }
 
-  async function submit() {
+  async function send() {
     if (posting || (!draft.trim() && !draftImage)) return
     setPosting(true)
     try {
@@ -50,105 +66,93 @@ export default function CliqueFeed({ cliqueId, partyColor, isCreator }: {
         body: JSON.stringify({ content: draft.trim(), image: draftImage }),
       })
       const d = await res.json()
-      if (res.ok) { setPosts(p => [d.post, ...p]); setDraft(''); setDraftImage(null) }
+      if (res.ok) {
+        setMsgs(p => [...p, d.post])
+        setDraft(''); setDraftImage(null)
+        stickBottom.current = true
+      }
     } catch {}
     setPosting(false)
   }
 
   async function del(id: string) {
     const res = await fetch(`/api/cliques/${cliqueId}/posts?post=${id}`, { method: 'DELETE' })
-    if (res.ok) setPosts(p => p.filter(x => x.id !== id))
-  }
-
-  async function vote(post: Post, v: number) {
-    setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: p.score + v - p.my_vote, my_vote: v } : p))
-    try {
-      const res = await fetch('/api/posts/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'clique', post_id: post.id, vote: v }),
-      })
-      const d = await res.json()
-      if (res.ok) setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: d.score, my_vote: d.my_vote } : p))
-    } catch {}
-  }
-
-  function share(post: Post) {
-    const url = `${window.location.origin}/cliques/${cliqueId}`
-    if (navigator.share) {
-      navigator.share({ title: 'PoliticsGo Clique', text: post.content?.slice(0, 100) ?? 'Check out my clique', url }).catch(() => {})
-    } else {
-      navigator.clipboard?.writeText(url)
-    }
-    setShared(post.id)
-    setTimeout(() => setShared(''), 1500)
+    if (res.ok) setMsgs(p => p.filter(x => x.id !== id))
   }
 
   return (
-    <div>
-      {/* Composer */}
-      <div className="bg-gray-900 rounded-2xl p-3">
-        <textarea value={draft} onChange={e => setDraft(e.target.value)}
-          placeholder="Post to your clique..." rows={2} maxLength={800}
-          className="w-full bg-transparent text-white text-sm placeholder-gray-600 resize-none outline-none" />
-        {draftImage && (
-          <div className="relative mt-2">
-            <img src={draftImage} alt="" className="rounded-lg max-h-52 w-full object-cover" />
-            <button onClick={() => setDraftImage(null)}
-              className="absolute top-2 right-2 bg-black/70 rounded-full p-1 text-white"><X size={14} /></button>
-          </div>
-        )}
-        <div className="flex items-center gap-2 mt-2">
-          <input ref={fileRef} type="file" accept="image/*" hidden
-            onChange={e => e.target.files?.[0] && pickImage(e.target.files[0])} />
-          <button onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-1 text-gray-400 text-xs font-bold px-2 py-1.5 rounded-lg bg-gray-800">
-            <ImageIcon size={14} /> Meme
-          </button>
-          <span className="text-gray-700 text-[10px] flex-1">{draft.length}/800</span>
-          <button onClick={submit} disabled={posting || (!draft.trim() && !draftImage)}
-            className="text-xs font-bold px-4 py-1.5 rounded-lg text-white disabled:opacity-40"
-            style={{ background: partyColor }}>
-            {posting ? '...' : 'Post'}
-          </button>
-        </div>
+    <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden flex flex-col" style={{ height: 460 }}>
+      {/* header */}
+      <div className="px-3 py-2 border-b border-gray-800 flex items-center gap-2 flex-shrink-0">
+        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+        <span className="text-white text-xs font-bold uppercase tracking-wider">Clique Chat</span>
+        <span className="text-gray-600 text-[10px] ml-auto">{msgs.length} messages</span>
       </div>
 
-      {/* Feed */}
-      <div className="mt-2 divide-y divide-gray-800/80">
-        {posts.length === 0 && (
-          <p className="text-gray-600 text-xs text-center py-8">No posts yet — say something.</p>
-        )}
-        {posts.map(p => (
-          <article key={p.id} className="py-3 px-1">
-            <div className="flex gap-2.5">
-              {p.avatar_url
-                ? <img src={p.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0 border" style={{ borderColor: partyColor }} />
-                : <div className="w-9 h-9 rounded-full flex-shrink-0" style={{ background: `${partyColor}44` }} />}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-white font-bold truncate">{p.username}</span>
-                  <span className="text-gray-600 flex-1">
-                    · {new Date(p.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </span>
-                  {(p.is_mine || isCreator) && (
-                    <button onClick={() => del(p.id)} className="text-gray-600 hover:text-red-400"><X size={13} /></button>
-                  )}
-                </div>
-                {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words mt-0.5">{p.content}</p>}
-                {p.image_url && <img src={p.image_url} alt="" className="rounded-xl mt-2 w-full object-cover max-h-96 border border-gray-800" />}
-                <div className="flex items-center gap-4 mt-2">
-                  <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => vote(p, v)} />
-                  <button className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition"
-                    onClick={() => share(p)}>
-                    <Share size={14} />
-                    <span className="text-[11px] font-bold">{shared === p.id ? 'Copied!' : 'Share'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </article>
+      {/* stream */}
+      <div ref={boxRef}
+        onScroll={() => {
+          const el = boxRef.current
+          if (el) stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+        }}
+        className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        {msgs.length === 0 ? (
+          <p className="text-gray-600 text-xs text-center py-10">Dead chat 💀 — say something.</p>
+        ) : msgs.map(m => (
+          <div key={m.id} className="group text-sm leading-snug break-words">
+            <span className="align-middle">
+              {m.avatar_url && (
+                <img src={m.avatar_url} alt="" className="inline w-4.5 h-4.5 w-[18px] h-[18px] rounded-full object-cover mr-1.5 align-text-bottom" />
+              )}
+              <span className="font-bold" style={{ color: m.is_mine ? partyColor : nameColor(m.username) }}>
+                {m.username}
+              </span>
+              {m.content && <span className="text-gray-200">: {m.content}</span>}
+            </span>
+            {m.image_url && (
+              <img src={m.image_url} alt="" className="block rounded-lg mt-1 max-h-40 max-w-[70%] object-cover border border-gray-800" />
+            )}
+            {(m.is_mine || isCreator) && (
+              <button onClick={() => del(m.id)}
+                className="ml-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition align-middle">
+                <X size={11} className="inline" />
+              </button>
+            )}
+          </div>
         ))}
+      </div>
+
+      {/* composer */}
+      {draftImage && (
+        <div className="px-3 pt-2 flex-shrink-0">
+          <div className="relative inline-block">
+            <img src={draftImage} alt="" className="h-16 rounded-lg object-cover border border-gray-700" />
+            <button onClick={() => setDraftImage(null)}
+              className="absolute -top-1.5 -right-1.5 bg-gray-800 border border-gray-600 rounded-full p-0.5 text-white"><X size={10} /></button>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center gap-2 p-2 border-t border-gray-800 flex-shrink-0">
+        <input ref={fileRef} type="file" accept="image/*" hidden
+          onChange={e => { e.target.files?.[0] && pickImage(e.target.files[0]); e.target.value = '' }} />
+        <button onClick={() => fileRef.current?.click()}
+          className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition flex-shrink-0">
+          <ImageIcon size={15} />
+        </button>
+        <input
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder="Send a message..."
+          maxLength={800}
+          className="flex-1 min-w-0 bg-gray-800 text-white text-sm rounded-lg px-3 py-2 outline-none placeholder-gray-600 border border-transparent transition"
+          style={{ borderColor: draft ? `${partyColor}66` : undefined }}
+        />
+        <button onClick={send} disabled={posting || (!draft.trim() && !draftImage)}
+          className="p-2 rounded-lg text-white disabled:opacity-40 transition flex-shrink-0"
+          style={{ background: partyColor }}>
+          <Send size={15} />
+        </button>
       </div>
     </div>
   )

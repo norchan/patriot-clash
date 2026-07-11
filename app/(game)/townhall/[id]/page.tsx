@@ -404,8 +404,8 @@ export default function TownHallPage() {
       )}
 
       {/* Town square — the hall's post thread */}
-      <div className="mx-4 mt-4 pb-8">
-        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">🏛️ Town Square</h3>
+      <div className="mx-4 mt-5 pb-8">
+        <h2 className="text-white font-black text-lg uppercase tracking-[0.2em] text-center mb-3">🏛️ Town Square</h2>
         <HallFeed gymId={gym.id} />
       </div>
 

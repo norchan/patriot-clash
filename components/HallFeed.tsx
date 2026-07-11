@@ -108,15 +108,17 @@ export default function HallFeed({ gymId }: { gymId: string }) {
   const [posting, setPosting] = useState(false)
   const [shared, setShared] = useState('')
   const [reported, setReported] = useState<Set<string>>(new Set())
+  const [sort, setSort] = useState<'top' | 'new'>('top')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetch(`/api/gyms/${gymId}/posts`)
+    setLoaded(false)
+    fetch(`/api/gyms/${gymId}/posts?sort=${sort}`)
       .then(r => r.json())
       .then(d => setPosts(d.posts ?? []))
       .catch(() => {})
       .finally(() => setLoaded(true))
-  }, [gymId])
+  }, [gymId, sort])
 
   async function pickImage(file: File) {
     if (file.size > 6 * 1024 * 1024) return
@@ -192,6 +194,22 @@ export default function HallFeed({ gymId }: { gymId: string }) {
             {posting ? '...' : 'Post'}
           </button>
         </div>
+      </div>
+
+      {/* Sort tabs: Top (24h, default) | Latest */}
+      <div className="flex gap-2 mt-2 mb-1">
+        {([
+          { key: 'top' as const, label: '🔥 Top Today' },
+          { key: 'new' as const, label: '🕐 Latest' },
+        ]).map(t => (
+          <button key={t.key}
+            onClick={() => setSort(t.key)}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
+              sort === t.key ? 'bg-blue-600 text-white' : 'bg-gray-900 text-gray-500 hover:text-gray-300 border border-gray-800'
+            }`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Feed — X-style flat cards divided by hairlines */}
