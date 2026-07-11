@@ -92,7 +92,7 @@ function Missile({ p, onDeflect }: { p: Projectile; onDeflect?: (id: number) => 
       onPointerDown={p.side === 'foe' && onDeflect && !p.deflected ? (e => { e.stopPropagation(); onDeflect(p.id) }) : undefined}
       style={{
         position: 'absolute', left: p.x0, top: p.y0, zIndex: 30,
-        fontSize: p.side === 'foe' ? 30 : 26,
+        fontSize: p.side === 'foe' ? 30 : 40,
         transform: p.deflected
           ? `translate(${dx * 0.4 + (Math.random() > 0.5 ? 220 : -220)}px, ${dy * 0.4 - 120}px) rotate(720deg) scale(0.6)`
           : fly

@@ -487,7 +487,7 @@ function SiegePage() {
           transform: 'translate(-50%, -50%)',
         }}>
           <span className="block" style={{
-            fontSize: p.kind === 'firecracker' ? 30 : 26,
+            fontSize: p.kind === 'firecracker' ? 46 : 40,
             animation: `sgSpin ${THROW_MS}ms linear`,
             filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.6))',
           }}>{p.kind === 'firecracker' ? '🧨' : '🪨'}</span>
