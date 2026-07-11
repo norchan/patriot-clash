@@ -281,7 +281,7 @@ function SiegePage() {
       y: (y / rect.height) * 100,
       tx,
       ty: 60 + Math.random() * 8,
-      flip: tx > sx, // base art leans left — mirror when charging rightward
+      flip: tx < sx, // frames face right — mirror when charging leftward
       state: 'march',
       spawnedAt: Date.now(),
       lastHit: 0,
@@ -445,11 +445,19 @@ function SiegePage() {
       onPointerUp={onPointerUp}
     >
       {/* ── The fortified hall — full-screen battlefield ─────────────────── */}
-      <div className="absolute inset-0" style={{
-        backgroundImage: 'url(/halls/hall_battle.webp)',
-        backgroundSize: 'cover', backgroundPosition: 'center 30%',
-        animation: shaking ? 'sgShake 0.24s ease-in-out' : undefined,
-      }} />
+      {/* blurred cover copy fills the letterbox; the sharp scene sits on top
+          zoomed OUT (contain) so the whole fortress is in view */}
+      <div className="absolute inset-0" style={{ animation: shaking ? 'sgShake 0.24s ease-in-out' : undefined }}>
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'url(/halls/hall_battle.webp)',
+          backgroundSize: 'cover', backgroundPosition: 'center 30%',
+          filter: 'blur(22px) brightness(0.45)', transform: 'scale(1.1)',
+        }} />
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'url(/halls/hall_battle.webp)',
+          backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center 42%',
+        }} />
+      </div>
       {/* readability gradients top + bottom */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: 'linear-gradient(180deg, rgba(5,8,18,0.62) 0%, transparent 22%, transparent 68%, rgba(5,8,18,0.66) 100%)',
@@ -504,19 +512,27 @@ function SiegePage() {
           left: `${s.x}%`,
           top: `${s.y}%`,
           transition: s.state === 'march' ? `left ${MARCH_MS}ms linear, top ${MARCH_MS}ms linear` : undefined,
-          transform: 'translate(-50%, -90%)',
+          transform: `translate(-50%, -90%)${s.flip ? ' scaleX(-1)' : ''}`,
         }}>
           {s.state === 'poof' ? (
             <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>💨</span>
           ) : (
-            <span className="block" style={{ transform: s.flip ? 'scaleX(-1)' : undefined }}>
-              <img src="/halls/soldier.png" alt="" draggable={false} style={{
-                height: s.state === 'fight' ? 58 : 62,
-                width: 'auto',
-                transformOrigin: '50% 90%',
-                animation: s.state === 'fight' ? 'sgSlash 0.5s ease-in-out infinite' : 'sgRun 0.28s ease-in-out infinite',
-                filter: `drop-shadow(0 0 6px ${myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
-              }} />
+            // Two stacked pose frames alternating opacity = legs pumping on
+            // the run, katana chopping in the fight
+            <span className="block relative" style={{
+              width: 56,
+              height: s.state === 'fight' ? 62 : 66,
+              animation: s.state === 'march' ? 'sgRun 0.34s ease-in-out infinite' : 'sgLunge 0.62s ease-in-out infinite',
+              filter: `drop-shadow(0 0 6px ${myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
+            }}>
+              {(s.state === 'fight' ? ['atk1', 'atk2'] : ['run1', 'run2']).map((frame, fi) => (
+                <img key={frame} src={`/halls/soldier_${frame}.png`} alt="" draggable={false} style={{
+                  position: 'absolute', bottom: 0, left: '50%',
+                  height: '100%', width: 'auto', maxWidth: 'none',
+                  transform: 'translateX(-50%)',
+                  animation: `${fi === 0 ? 'sgFrameA' : 'sgFrameB'} ${s.state === 'fight' ? 620 : 340}ms steps(1) infinite`,
+                }} />
+              ))}
             </span>
           )}
         </div>
@@ -616,8 +632,10 @@ function SiegePage() {
         @keyframes sgSpark { 0%{transform:translateY(0) scale(0.7);opacity:1} 100%{transform:translateY(-44px) scale(1.15);opacity:0} }
         @keyframes sgSpin { 0%{transform:rotate(0)} 100%{transform:rotate(660deg)} }
         @keyframes sgShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,4px)} 50%{transform:translate(6px,-4px)} 75%{transform:translate(-4px,2px)} }
-        @keyframes sgRun { 0%,100%{transform:translateY(0) rotate(-4deg)} 50%{transform:translateY(-4px) rotate(4deg)} }
-        @keyframes sgSlash { 0%,100%{transform:rotate(-14deg)} 45%{transform:rotate(22deg) scale(1.07)} }
+        @keyframes sgRun { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        @keyframes sgLunge { 0%,100%{transform:translateX(-2px)} 45%{transform:translateX(3px) scale(1.05)} }
+        @keyframes sgFrameA { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+        @keyframes sgFrameB { 0%,49%{opacity:0} 50%,100%{opacity:1} }
         @keyframes sgPoof { 0%{transform:scale(0.7);opacity:1} 100%{transform:scale(1.8) translateY(-14px);opacity:0} }
       `}</style>
     </div>
