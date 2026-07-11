@@ -36,6 +36,22 @@ export default function MapSettingsPage() {
   const { profile, loading, refetch } = useProfile()
   const [saving, setSaving] = useState(false)
   const [current, setCurrent] = useState<string>('everyone')
+  const [fuzzBusy, setFuzzBusy] = useState(false)
+  const locationFuzz = !!(profile as any)?.location_fuzz
+
+  async function toggleFuzz() {
+    if (fuzzBusy) return
+    setFuzzBusy(true)
+    try {
+      await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_fuzz: !locationFuzz }),
+      })
+      await refetch()
+    } catch {}
+    setFuzzBusy(false)
+  }
 
   useEffect(() => {
     if (profile) setCurrent((profile as any).map_visibility ?? 'everyone')
@@ -103,6 +119,25 @@ export default function MapSettingsPage() {
               </button>
             )
           })}
+        </div>
+
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-1 px-1 mt-6">Location accuracy</h3>
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+          <button
+            onClick={toggleFuzz}
+            disabled={fuzzBusy}
+            className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-800/40 transition disabled:opacity-60"
+          >
+            <div className="text-left flex-1 min-w-0">
+              <div className="text-white text-sm font-bold">🎲 Offset my location ~1 mile</div>
+              <div className="text-gray-500 text-xs">Your marker shows about a mile from where you really are (same direction every time). Also in the map's Show-on-map menu.</div>
+            </div>
+            <div className="ml-3 flex-shrink-0 w-12 h-6 rounded-full relative transition-colors"
+              style={{ background: locationFuzz ? '#16a34a' : '#374151' }}>
+              <div className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
+                style={{ left: locationFuzz ? 26 : 2 }} />
+            </div>
+          </button>
         </div>
 
         <div className="mt-4 bg-gray-900/60 border border-gray-800 rounded-xl p-3 flex gap-2.5">

@@ -212,10 +212,29 @@ export default function CliquesPage() {
               Leave
             </button>
           </div>
-          {/* Tap the clique to expand/collapse the member roster */}
+          {/* Tap the clique to expand/collapse the member roster; the town
+              name inside it links to that town hall */}
           <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-white font-bold text-lg">{myClique?.name ?? '...'}</h2>
+              <h2 className="text-white font-bold text-lg">
+                {(() => {
+                  const nm = myClique?.name ?? '...'
+                  const i = nm.lastIndexOf(' — ')
+                  if (i < 0 || !myClique?.gym_id) return nm
+                  return (
+                    <>
+                      {nm.slice(0, i + 3)}
+                      <span
+                        role="link"
+                        onClick={e => { e.stopPropagation(); router.push(`/townhall/${myClique.gym_id}`) }}
+                        className="underline decoration-dotted underline-offset-2 hover:text-blue-300 transition"
+                      >
+                        {nm.slice(i + 3)}
+                      </span>
+                    </>
+                  )
+                })()}
+              </h2>
               <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
             </div>
             <p className="text-gray-500 text-xs">
@@ -378,7 +397,24 @@ export default function CliquesPage() {
                   ✊
                 </div>
                 <button onClick={() => router.push(`/cliques/${c.id}`)} className="flex-1 min-w-0 text-left">
-                  <p className="text-white text-sm font-bold truncate">{c.name}</p>
+                  <p className="text-white text-sm font-bold truncate">
+                    {(() => {
+                      const i = c.name.lastIndexOf(' — ')
+                      if (i < 0 || !c.gym_id) return c.name
+                      return (
+                        <>
+                          {c.name.slice(0, i + 3)}
+                          <span
+                            role="link"
+                            onClick={e => { e.stopPropagation(); router.push(`/townhall/${c.gym_id}`) }}
+                            className="underline decoration-dotted underline-offset-2 hover:text-blue-300 transition"
+                          >
+                            {c.name.slice(i + 3)}
+                          </span>
+                        </>
+                      )
+                    })()}
+                  </p>
                   <p className="text-gray-500 text-xs">
                     {c.member_count} member{c.member_count !== 1 ? 's' : ''}
                     {c.join_policy === 'open' ? ' · 🚪 Open' : ' · 🔒 Request'}

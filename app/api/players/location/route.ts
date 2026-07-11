@@ -27,13 +27,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'lat and lng must be numbers' }, { status: 400 })
     }
 
+    // Location fuzz: broadcast a position ~1 mile off in a STABLE direction
+    // derived from the profile id — stable so the marker doesn't teleport
+    // every 10s and can't be averaged back to the true spot
+    let outLat = lat, outLng = lng
+    if ((profile as any).location_fuzz) {
+      let h = 0
+      for (const ch of profile.id) h = (Math.imul(31, h) + ch.charCodeAt(0)) | 0
+      const angle = (Math.abs(h) / 2147483647) * Math.PI * 2
+      const distMiles = 0.8 + (Math.abs(Math.imul(h, 2654435761)) / 2147483647) * 0.4 // 0.8–1.2 mi
+      outLat = lat + (distMiles / 69) * Math.sin(angle)
+      outLng = lng + (distMiles / (69 * Math.cos(lat * Math.PI / 180))) * Math.cos(angle)
+    }
+
     await admin.from('player_locations').upsert(
       {
         profile_id: profile.id,
         username: profile.username,
         party: profile.party,
-        lat,
-        lng,
+        lat: outLat,
+        lng: outLng,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'profile_id' }

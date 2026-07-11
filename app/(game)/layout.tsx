@@ -5,13 +5,14 @@ import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings
 
 const navItems = [
   { href: '/map',      label: 'Map',      icon: Map },
-  { href: '/townhall', label: 'Halls',    icon: Building2 },
+  { href: '/profile',  label: 'Profile',  icon: User },
   { href: '/cliques',  label: 'Cliques',  icon: Users },
   { href: '/messages', label: 'Messages', icon: MessageSquare },
   { href: '/shop',     label: 'Shop',     icon: ShoppingBag },
 ]
 
 const menuItems = [
+  { href: '/townhall',         label: 'Halls',         icon: Building2 },
   { href: '/profile',          label: 'Profile',       icon: User },
   { href: '/profile#settings', label: 'Settings',      icon: Settings },
   { href: '/notifications',    label: 'Notifications', icon: Bell },

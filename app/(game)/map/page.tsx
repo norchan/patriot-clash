@@ -221,6 +221,24 @@ export default function MapPage() {
   // only fires on zoom, not on toggle)
   useEffect(() => { applyZoomVisibility() }, [mapPrefs.sprites]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Location fuzz is a SERVER setting (it changes what others see), shared
+  // with the Map Settings page — both menus read/write the same flag
+  const [fuzzBusy, setFuzzBusy] = useState(false)
+  const locationFuzz = !!(profile as any)?.location_fuzz
+  async function toggleFuzz() {
+    if (fuzzBusy) return
+    setFuzzBusy(true)
+    try {
+      await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_fuzz: !locationFuzz }),
+      })
+      await refetch()
+    } catch {}
+    setFuzzBusy(false)
+  }
+
   function toggleMapPref(key: 'me' | 'dems' | 'reps' | 'sprites') {
     setMapPrefs(prev => {
       const next = { ...prev, [key]: !prev[key] }
@@ -1111,6 +1129,25 @@ export default function MapPage() {
                     </button>
                   </div>
                 ))}
+                <div className="flex items-center justify-between px-2 py-2">
+                  <span className="text-white text-xs font-medium">🎲 Offset location ~1 mi</span>
+                  <button
+                    onClick={toggleFuzz}
+                    disabled={fuzzBusy}
+                    className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 disabled:opacity-60 ${
+                      locationFuzz ? 'bg-green-600' : 'bg-gray-700'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                      locationFuzz ? 'left-6' : 'left-0.5'
+                    }`} />
+                    <span className={`absolute inset-0 flex items-center text-[8px] font-black ${
+                      locationFuzz ? 'justify-start pl-1.5 text-white' : 'justify-end pr-1 text-gray-400'
+                    }`}>
+                      {locationFuzz ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                </div>
                 <button
                   onClick={() => { setShowMapMenu(false); router.push('/settings/map') }}
                   className="w-full text-left px-2 py-2 mt-1 border-t border-gray-700 text-blue-400 hover:text-blue-300 text-xs font-bold transition">
