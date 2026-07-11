@@ -122,6 +122,13 @@ export default function ProfilePage() {
       .catch(() => {})
   }, [])
 
+  // Menu "Settings" deep link: /profile#settings scrolls to the settings card
+  useEffect(() => {
+    if (!loading && window.location.hash === '#settings') {
+      setTimeout(() => document.getElementById('settings')?.scrollIntoView({ behavior: 'smooth' }), 150)
+    }
+  }, [loading])
+
   async function toggleNotifPref(key: 'dm' | 'pvp' | 'social', val: boolean) {
     setToggling(`notif_${key}`)
     try {
@@ -610,7 +617,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Settings */}
-      <div className="mx-4 mt-4">
+      <div id="settings" className="mx-4 mt-4 scroll-mt-16">
         <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Settings</h3>
         <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800">
           {(

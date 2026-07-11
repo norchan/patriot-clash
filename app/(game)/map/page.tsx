@@ -115,6 +115,7 @@ export default function MapPage() {
 
   // PvP / player interaction state
   const [selectedPlayer, setSelectedPlayer] = useState<NearbyPlayer | null>(null)
+  const [selfSheet, setSelfSheet] = useState(false)
   const [incomingChallenge, setIncomingChallenge] = useState<IncomingChallenge | null>(null)
   const [sentChallenge, setSentChallenge] = useState<{ id: string; opponentName: string } | null>(null)
   const [challengeLoading, setChallengeLoading] = useState(false)
@@ -309,9 +310,11 @@ export default function MapPage() {
           cursor: pointer;
         `
       }
+      // Tapping your own dot opens the self sheet (profile / messages /
+      // nearest town hall)
+      el.addEventListener('click', () => setSelfSheet(true))
       playerMarkerRef.current = new mapboxgl.Marker({ element: el })
         .setLngLat([location.lng, location.lat])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(`📍 ${profile?.username || 'You'}`))
         .addTo(map.current!)
     }
   }, [location, profile, mapPrefs.me])
@@ -1168,8 +1171,52 @@ export default function MapPage() {
         </div>
       )}
 
+      {/* ── Your own dot's bottom sheet ───────────────────────────────────── */}
+      {selfSheet && (
+        <div className="absolute bottom-20 left-4 right-4 z-30 bg-gray-900 rounded-2xl p-4 border border-gray-700 shadow-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="w-14 h-14 rounded-2xl object-cover border-2"
+                style={{ borderColor: partyColor }} />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border-2"
+                style={{ borderColor: partyColor, background: `${partyColor}33` }}>
+                {profile?.party === 'democrat' ? '🔵' : '🔴'}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="text-white font-bold text-lg truncate">{profile?.username}</div>
+              <div className="text-gray-400 text-xs">That's you! 📍</div>
+            </div>
+            <button onClick={() => setSelfSheet(false)} className="ml-auto self-start text-gray-500 hover:text-white text-xl leading-none">✕</button>
+          </div>
+          <div className="space-y-2">
+            <button
+              onClick={() => router.push('/profile')}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-gray-800 hover:bg-gray-700 border border-gray-700">
+              👤 My Profile
+            </button>
+            <button
+              onClick={() => router.push('/messages')}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700">
+              💬 My Messages
+            </button>
+            <button
+              onClick={() => {
+                const nearest = [...gyms].sort((a, b) => parseFloat(a.distance_miles) - parseFloat(b.distance_miles))[0]
+                if (nearest) router.push(`/townhall/${nearest.id}`)
+                else showPvpToast('🏛️ No town halls in range yet')
+              }}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95"
+              style={{ background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)` }}>
+              🏛️ Local Town Hall
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Selected player bottom sheet ──────────────────────────────────── */}
-      {selectedPlayer && !sentChallenge && (
+      {selectedPlayer && !sentChallenge && !selfSheet && (
         <div className="absolute bottom-20 left-4 right-4 z-30 bg-gray-900 rounded-2xl p-4 border border-gray-700 shadow-2xl">
           {/* Player header — big tappable photo opens their album */}
           <div className="flex items-center gap-3 mb-4">
