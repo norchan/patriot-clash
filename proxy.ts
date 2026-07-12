@@ -6,6 +6,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/welcome',
+  '/.well-known(.*)', // Android TWA domain verification (assetlinks.json)
   '/api/public(.*)', // guest preview world data (anonymized)
   '/api/webhooks/clerk',
   '/api/webhooks/stripe',
