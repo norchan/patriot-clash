@@ -29,6 +29,8 @@ const STATE_NAMES: Record<string, string> = {
 // Rotating flavors so the same town gets variety across days
 const EVENT_QUERIES = [
   '(concert OR "live music" OR show OR tour)',
+  '(summer festival OR county fair OR carnival OR fireworks)',
+  '(farmers market OR "concert in the park" OR "food truck" OR "outdoor movie")',
   '(festival OR fair OR parade OR celebration)',
   '(high school OR college) sports (game OR team OR championship)',
   '(event OR fundraiser OR market OR "grand opening" OR community)',

@@ -120,6 +120,9 @@ export async function GET(req: NextRequest) {
   const statePools: Record<string, NewsItem[]> = {}
   await mapLimit(states, 8, async s => { statePools[s] = await gnews(`${STATE_NAMES[s]} news when:1d`) })
 
+  // National major news from the Associated Press, shared by every hall
+  const apPool = await gnews('Associated Press when:1d')
+
   // ── City pools: rotating batch — every run city-scans the next slice ─────
   const sorted = [...gyms].sort((a, b) => a.id.localeCompare(b.id))
   const nBatches = Math.max(1, Math.ceil(sorted.length / CITY_BATCH))
@@ -150,8 +153,9 @@ export async function GET(req: NextRequest) {
   for (const gym of gyms) {
     const cityItems = shuffle(cityPools.get(gym.id) ?? [])
     const stateItems = shuffle(statePools[gym.state] ?? [])
+    const apItems = shuffle(apPool).slice(0, 2) // national AP major news
     const picks: NewsItem[] = []
-    for (const item of [...cityItems, ...stateItems]) {
+    for (const item of [...cityItems, ...apItems, ...stateItems]) {
       if (picks.length >= 2) break
       if (seen.has(`${gym.id}|${item.link}`)) continue
       if (picks.some(p => p.link === item.link)) continue

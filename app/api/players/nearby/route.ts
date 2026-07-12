@@ -94,55 +94,33 @@ export async function GET(req: NextRequest) {
     })
 
     // ── Garrison bots ────────────────────────────────────────────────────
-    // Every town hall zone has 4 bots from EACH party stationed inside its
-    // circle. Which bots and where is seeded by hall id, so the same crew
-    // guards the same hall at stable positions.
+    // Each bot has ONE home town hall (home_gym_id) and is only shown inside
+    // that hall's circle — so a bot you see is always a resident whose clique
+    // belongs to that same hall. Positions are seeded so they stay stable.
     const { data: nearbyHalls } = await admin
       .rpc('gyms_near', { p_lat: lat, p_lng: lng, p_miles: 15 })
 
-    // Nearest 3 zones only — with halls now packed tight, 6 zones × 24 bots
-    // flooded phones with ~144 markers and caused real lag
+    // Nearest 3 zones only, to keep marker counts (and phone render cost) sane
     const halls = (nearbyHalls ?? []).slice(0, 3)
     if (halls.length > 0) {
-      const { data: allBots } = await admin
+      const hallIds = halls.map((h: any) => h.id)
+      const { data: residents } = await admin
         .from('profiles')
-        .select('id, username, party, avatar_url')
-        .like('clerk_user_id', 'bot\\_%')
+        .select('id, username, party, avatar_url, home_gym_id')
+        .in('home_gym_id', hallIds)
+        .like('clerk_user_id', 'bot%')
 
-      const repBots = (allBots ?? []).filter(b => b.party === 'republican')
-      const demBots = (allBots ?? []).filter(b => b.party === 'democrat')
-      const placed = new Set<string>()
-
-      // Pick a crew for a hall, skipping any bot whose avatar is already used
-      // in this hall so no two visible bots share a picture.
-      const pickForHall = (pool: any[], hallId: string, count: number, usedAvatars: Set<string>) => {
-        const ranked = pool
-          .map(b => ({ b, r: seededRand(`${b.id}|${hallId}`) }))
-          .sort((x, y) => x.r - y.r)
-        const crew: any[] = []
-        for (const { b } of ranked) {
-          if (crew.length >= count) break
-          if (placed.has(b.id) || hiddenIds.has(b.id)) continue
-          const av = b.avatar_url ?? b.id // fall back to id so null avatars aren't all "same"
-          if (usedAvatars.has(av)) continue
-          usedAvatars.add(av)
-          crew.push(b)
-        }
-        return crew
+      const byHall: Record<string, any[]> = {}
+      for (const b of residents ?? []) {
+        if (hiddenIds.has(b.id)) continue
+        ;(byHall[b.home_gym_id] ??= []).push(b)
       }
 
       for (const hall of halls) {
-        const usedAvatars = new Set<string>()
-        const crew = [
-          ...pickForHall(repBots, hall.id, 8, usedAvatars),
-          ...pickForHall(demBots, hall.id, 8, usedAvatars),
-        ]
+        const crew = (byHall[hall.id] ?? []).slice(0, 16)
         crew.forEach((bot, i) => {
-          placed.add(bot.id)
-          // Two independent hashes → a genuinely scattered point. sqrt on the
-          // radius spreads bots evenly across the DISC instead of bunching
-          // them into a ring (the old "swirl"); the extra index term breaks
-          // up correlation between similar bot ids.
+          // Two independent hashes → a scattered point; sqrt on the radius
+          // spreads bots evenly across the disc instead of a ring.
           const angle = seededRand(`${bot.id}|${hall.id}|ang|${i}`) * Math.PI * 2
           const distMiles = 0.25 + Math.sqrt(seededRand(`${bot.id}|${hall.id}|rad|${i}`)) * 4.2
           players.push({

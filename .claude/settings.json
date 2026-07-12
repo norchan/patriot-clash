@@ -140,7 +140,8 @@
       "Bash(curl -s -o gems_trans.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260712_215923_6211dc7f-8cfe-4932-8def-5d52c3a2d2a3.png\")",
       "Bash(node -e \"const sharp=require\\('c:/Users/Micha/patriot-clash/node_modules/sharp'\\); sharp\\('gems_trans.png'\\).metadata\\(\\).then\\(m=>console.log\\('size',m.width,'x',m.height,'hasAlpha',m.hasAlpha\\)\\)\")",
       "Bash(cat)",
-      "Bash(node check.cjs)"
+      "Bash(node check.cjs)",
+      "Bash(node scripts/rehome_bots.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
