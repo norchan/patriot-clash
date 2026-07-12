@@ -6,7 +6,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/welcome',
-  '/explore', // public, crawlable content page (AdSense review + SEO)
+  '/explore(.*)', // public, crawlable content pages (AdSense review + SEO)
   '/.well-known(.*)', // Android TWA domain verification (assetlinks.json)
   '/ads.txt', // AdSense ads.txt (must return 200, not a redirect)
   '/robots.txt',

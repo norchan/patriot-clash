@@ -7,6 +7,10 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // posts) instead of only the login wall. Revalidates every 5 minutes.
 export const revalidate = 300
 
+function slugify(city: string, state: string): string {
+  return `${city}-${state}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
 export const metadata: Metadata = {
   title: 'Explore PoliticsGo — town halls & town squares across America',
   description:
@@ -130,15 +134,15 @@ export default async function ExplorePage() {
           </p>
           <div className="flex flex-wrap gap-2">
             {halls.map(g => (
-              <span key={g.id}
-                className="text-sm rounded-full border border-gray-800 bg-gray-900 px-3 py-1.5 text-gray-300">
+              <Link key={g.id} href={`/explore/${slugify(g.city_name, g.state)}`}
+                className="text-sm rounded-full border border-gray-800 bg-gray-900 px-3 py-1.5 text-gray-300 hover:bg-gray-800 hover:text-white transition">
                 🏛️ {g.city_name}, {g.state}
                 {g.holder_party && (
                   <span className={g.holder_party === 'democrat' ? 'text-blue-400' : 'text-red-400'}>
                     {' '}· held by {g.holder_party === 'democrat' ? 'Democrats' : 'Republicans'}
                   </span>
                 )}
-              </span>
+              </Link>
             ))}
           </div>
         </section>
