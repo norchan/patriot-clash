@@ -1457,6 +1457,11 @@ export default function MapPage() {
                 <p className="text-white text-sm font-bold truncate">{incomingMsg.sender_username}</p>
                 <p className="text-gray-400 text-xs truncate">{incomingMsg.preview}</p>
               </div>
+              {/* Dismiss — closes the bubble without snoozing or blocking */}
+              <button onClick={() => setIncomingMsg(null)}
+                className="text-gray-500 hover:text-white text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">
+                ✕
+              </button>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <button onClick={replyToMsg}
