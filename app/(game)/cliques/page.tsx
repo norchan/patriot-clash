@@ -205,42 +205,42 @@ export default function CliquesPage() {
       {/* My click */}
       {myCliqueId && (
         <div className="mx-4 mb-4 bg-gray-900 rounded-2xl border p-4" style={{ borderColor: `${partyColor}66` }}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs uppercase tracking-wider" style={{ color: partyColor }}>Your Clique</span>
-            <button onClick={leaveClique} disabled={busy}
-              className="text-xs text-gray-500 hover:text-red-400 transition disabled:opacity-50">
-              Leave
-            </button>
-          </div>
-          {/* Tap the clique to expand/collapse the member roster; the town
-              name inside it links to that town hall */}
-          <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-white font-bold text-lg">
-                {(() => {
-                  const nm = myClique?.name ?? '...'
-                  const i = nm.lastIndexOf(' — ')
-                  if (i < 0 || !myClique?.gym_id) return nm
-                  return (
-                    <>
-                      {nm.slice(0, i + 3)}
-                      <span
-                        role="link"
-                        onClick={e => { e.stopPropagation(); router.push(`/townhall/${myClique.gym_id}`) }}
-                        className="underline decoration-dotted underline-offset-2 hover:text-blue-300 transition"
-                      >
-                        {nm.slice(i + 3)}
-                      </span>
-                    </>
-                  )
-                })()}
-              </h2>
-              <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
-            </div>
-            <p className="text-gray-500 text-xs">
-              {myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''} · tap to {showMembers ? 'hide' : 'see'} members
-            </p>
-          </button>
+          {(() => {
+            const nm = myClique?.name ?? '...'
+            const sep = nm.lastIndexOf(' — ')
+            const cliqueName = sep >= 0 ? nm.slice(0, sep) : nm
+            const townName = sep >= 0 ? nm.slice(sep + 3) : null
+            return (
+              <>
+                {/* In place of a "Your Clique" label: the clique name, with
+                    its town hall as a tappable link */}
+                <div className="flex items-start justify-between mb-2">
+                  <div className="min-w-0">
+                    <h2 className="text-white font-black text-lg truncate">{cliqueName}</h2>
+                    {townName && myClique?.gym_id && (
+                      <button
+                        onClick={() => router.push(`/townhall/${myClique.gym_id}`)}
+                        className="text-xs font-medium hover:opacity-80 transition flex items-center gap-1"
+                        style={{ color: partyColor }}>
+                        🏛️ {townName}
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={leaveClique} disabled={busy}
+                    className="text-xs text-gray-500 hover:text-red-400 transition disabled:opacity-50 flex-shrink-0 ml-2">
+                    Leave
+                  </button>
+                </div>
+                {/* Tap to expand/collapse the member roster */}
+                <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2 flex items-center justify-between">
+                  <p className="text-gray-500 text-xs">
+                    {myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''} · tap to {showMembers ? 'hide' : 'see'} members
+                  </p>
+                  <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+              </>
+            )
+          })()}
 
           {/* pending join requests (creator only) */}
           {isCreator && pendingRequests.length > 0 && (

@@ -53,7 +53,7 @@ export default function ActivePlayersPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="px-4 pt-4 pb-3 border-b border-gray-800 flex items-center gap-3">
+      <div className="pl-4 pr-14 pt-4 pb-3 border-b border-gray-800 flex items-center gap-3">
         <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>
         <h1 className="text-white font-bold text-lg flex items-center gap-2">
           <Radar size={18} className="text-green-400" /> Active Players

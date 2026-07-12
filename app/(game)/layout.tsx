@@ -27,16 +27,20 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter()
   const { signOut } = useClerk()
   const [menuOpen, setMenuOpen] = useState(false)
-  // Battle screens are immersive — no global menu button or ads over the action
+  // Immersive full-screen surfaces — no global menu button or ads over the
+  // action: the battle screens and an actual slot machine (/arcade/slots/<id>,
+  // but NOT the /arcade/slots chooser).
   const onBattleScreen = pathname.startsWith('/battle')
-  const showAds = ADS_ENABLED && !onBattleScreen
+  const onSlotMachine = /^\/arcade\/slots\/[^/]+$/.test(pathname)
+  const immersive = onBattleScreen || onSlotMachine
+  const showAds = ADS_ENABLED && !immersive
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col max-w-md mx-auto relative">
       {/* ── Global menu — upper right corner of the GAME COLUMN, every page
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
-      {!onBattleScreen && (
+      {!immersive && (
       <div className="fixed top-3 z-[80]" style={{ right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}

@@ -12,7 +12,7 @@ export default function SlotsChooser() {
   return (
     <div className="min-h-screen text-white relative"
       style={{ background: 'radial-gradient(ellipse at 50% 0%, #2a0a4a 0%, #0a0616 60%, #050208 100%)', fontFamily: 'ui-monospace, monospace' }}>
-      <div className="px-4 pt-4 pb-2 flex items-center gap-3">
+      <div className="pl-4 pr-14 pt-4 pb-2 flex items-center gap-3">
         <button onClick={() => router.push('/arcade')} className="text-purple-300 hover:text-white transition">
           <ArrowLeft size={18} />
         </button>

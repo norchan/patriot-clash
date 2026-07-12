@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, use, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Minus, Plus, Volume2, VolumeX } from 'lucide-react'
-import { getMachine, BET_OPTIONS, REELS, ROWS, WILD, SCATTER } from '@/config/slots'
+import { getMachine, BET_OPTIONS, REELS, ROWS, WILD, SCATTER, BG_SPOTS } from '@/config/slots'
 import { useProfile } from '@/hooks/useProfile'
 import * as sfx from '@/lib/slot-sfx'
 
@@ -212,6 +212,22 @@ export default function SlotMachinePage({ params }: { params: Promise<{ machine:
 
   return (
     <div className="min-h-screen text-white relative select-none overflow-hidden" style={{ background: m.bg, fontFamily: 'ui-monospace, monospace' }}>
+      {/* themed background art — fills the empty space with the machine's world */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        {BG_SPOTS.map((s, i) => (
+          <span key={i} className="absolute"
+            style={{ top: `${s.top}%`, left: `${s.left}%`, transform: `rotate(${s.rot}deg)`, opacity: 0.14 }}>
+            <span className="block" style={{
+              fontSize: s.size,
+              filter: `drop-shadow(0 0 10px ${m.accent})`,
+              animation: `bgfloat ${5 + (i % 4)}s ease-in-out ${s.delay}s infinite`,
+            }}>
+              {m.bgIcons[i % m.bgIcons.length]}
+            </span>
+          </span>
+        ))}
+      </div>
+
       {/* header */}
       <div className="px-4 pt-4 pb-1 flex items-center gap-3 relative z-20">
         <button onClick={() => router.push('/arcade/slots')} className="text-white/70 hover:text-white transition"><ArrowLeft size={18} /></button>
@@ -336,6 +352,7 @@ export default function SlotMachinePage({ params }: { params: Promise<{ machine:
         @keyframes bannerPop { 0% { transform: scale(0.4); opacity: 0 } 60% { transform: scale(1.15) } 100% { transform: scale(1); opacity: 1 } }
         @keyframes landbounce { 0% { transform: translateY(-14%) } 60% { transform: translateY(4%) } 100% { transform: translateY(0) } }
         @keyframes cellglow { 0%,100% { transform: scale(1) } 50% { transform: scale(1.14) } }
+        @keyframes bgfloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-12px) } }
       `}</style>
     </div>
   )

@@ -52,7 +52,8 @@ export interface SlotMachine {
   bg: string
   reelBg: string
   frame: string
-  symbols: SlotSymbol[] // 8: [wild, scatter, 6 pays]
+  symbols: SlotSymbol[]  // 8: [wild, scatter, 6 pays]
+  bgIcons: string[]      // scattered themed art behind the reels
 }
 
 export const MACHINES: SlotMachine[] = [
@@ -69,6 +70,7 @@ export const MACHINES: SlotMachine[] = [
       { emoji: '🎆', label: 'BONUS' },
       { emoji: '7️⃣' }, { emoji: '💎' }, { emoji: '🔔' }, { emoji: '🎰' }, { emoji: '🍋' }, { emoji: '🍒' },
     ],
+    bgIcons: ['⭐', '🎆', '🎇', '🦅', '🪙', '7️⃣', '💎', '🔔'],
   },
   {
     id: 'golden-dragon',
@@ -83,6 +85,7 @@ export const MACHINES: SlotMachine[] = [
       { emoji: '🧧', label: 'BONUS' },
       { emoji: '🐉' }, { emoji: '🏮' }, { emoji: '🥁' }, { emoji: '🪙' }, { emoji: '🎋' }, { emoji: '🍊' },
     ],
+    bgIcons: ['🐉', '🐲', '🏮', '🧧', '🪙', '🥁', '☯️', '🎋'],
   },
   {
     id: 'piggy-payday',
@@ -97,7 +100,27 @@ export const MACHINES: SlotMachine[] = [
       { emoji: '🐽', label: 'BONUS' },
       { emoji: '🐷' }, { emoji: '💰' }, { emoji: '👑' }, { emoji: '💵' }, { emoji: '🪙' }, { emoji: '🍭' },
     ],
+    bgIcons: ['🐷', '🪙', '💰', '💵', '🐽', '🐖', '🪙', '💲'],
   },
+]
+
+// Fixed scatter of decorative background art (deterministic so it doesn't
+// reshuffle every render). Cycles through a machine's bgIcons.
+export const BG_SPOTS: { top: number; left: number; size: number; rot: number; delay: number }[] = [
+  { top: 6, left: 8, size: 46, rot: -18, delay: 0 },
+  { top: 10, left: 82, size: 38, rot: 14, delay: 1.2 },
+  { top: 20, left: 46, size: 30, rot: 8, delay: 2.1 },
+  { top: 30, left: 14, size: 34, rot: 22, delay: 0.6 },
+  { top: 33, left: 88, size: 44, rot: -12, delay: 1.7 },
+  { top: 46, left: 4, size: 40, rot: -8, delay: 2.6 },
+  { top: 50, left: 70, size: 30, rot: 18, delay: 0.9 },
+  { top: 58, left: 34, size: 26, rot: -22, delay: 3.0 },
+  { top: 64, left: 90, size: 38, rot: 10, delay: 1.4 },
+  { top: 70, left: 10, size: 44, rot: 16, delay: 2.2 },
+  { top: 76, left: 54, size: 30, rot: -14, delay: 0.4 },
+  { top: 82, left: 78, size: 40, rot: 20, delay: 1.9 },
+  { top: 88, left: 24, size: 34, rot: -10, delay: 2.8 },
+  { top: 92, left: 64, size: 28, rot: 12, delay: 0.7 },
 ]
 
 export function getMachine(id: string): SlotMachine | undefined {
