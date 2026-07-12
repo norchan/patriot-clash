@@ -274,10 +274,16 @@ export default function MapPage() {
     if (!loc || !mapContainer.current || mapInitialized.current) return
     mapInitialized.current = true
 
+    // Open the camera on the position the map SHOWS for you — with location
+    // fuzz on, that's the offset spot, not your true GPS position
+    const fuzzOn = !!(profile as any)?.location_fuzz && !!profile?.id
+    const startAt = fuzzOn ? fuzzOffset(profile!.id, loc.lat, loc.lng) : loc
+    displayedLocRef.current = startAt
+
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [loc.lng, loc.lat],
+      center: [startAt.lng, startAt.lat],
       zoom: 16,
       pitch: 30,
     })

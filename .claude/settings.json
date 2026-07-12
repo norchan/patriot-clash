@@ -96,7 +96,12 @@
       "Bash(sed -n '/async function loadBlocked/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")",
       "Bash(sed -n '/async function unblock/,/^  }/p' \"app/\\(game\\)/profile/page.tsx\")",
       "Read(//c/Users/Micha/patriot-clash/public/sprites/**)",
-      "Bash(powershell -NonInteractive -Command \"Move-Item -Force public\\\\sprites\\\\champ_blue_kick.webp.tmp public\\\\sprites\\\\champ_blue_kick.webp; Write-Output 'blue replaced'\")"
+      "Bash(powershell -NonInteractive -Command \"Move-Item -Force public\\\\sprites\\\\champ_blue_kick.webp.tmp public\\\\sprites\\\\champ_blue_kick.webp; Write-Output 'blue replaced'\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} -> %{redirect_url}\\\\n\" -H \"Accept: text/html\" -H \"Sec-Fetch-Dest: document\" https://politicsgo.app/map)",
+      "Bash(curl -s \"https://politicsgo.app/api/public/world?lat=44.32&lng=-93.95\")",
+      "Bash(nslookup politicsgo.net 8.8.8.8)",
+      "Bash(curl -s -o /dev/null -w \"politicsgo.net -> %{http_code} %{redirect_url}\\\\n\" -m 15 https://politicsgo.net)",
+      "Bash(curl -s -o /dev/null -w \"https politicsgo.net -> %{http_code}\\\\n\" -m 15 https://politicsgo.net)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat"
