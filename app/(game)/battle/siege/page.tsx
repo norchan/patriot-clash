@@ -79,9 +79,13 @@ const HALL_Y = 47
 // Corner defense turrets (screen %). Every tick they may pick off a ninja —
 // the closer he is to a turret, the deadlier. Unlimited ninjas, but the
 // defenses terminate some of them: WHERE you drop them is the skill.
+// Ring of towers around the central keep (matches the base art) — ninjas
+// charging the center must run this gauntlet
 const DEFENSE_GUNS = [
-  { x: 18, y: 30 }, { x: 82, y: 30 },
-  { x: 18, y: 62 }, { x: 82, y: 62 },
+  { x: 50, y: 33 },
+  { x: 33, y: 43 }, { x: 67, y: 43 },
+  { x: 33, y: 55 }, { x: 67, y: 55 },
+  { x: 50, y: 62 },
 ]
 const KILL_BASE = { march: 0.022, fight: 0.028 } // per 200ms tick
 
