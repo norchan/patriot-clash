@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
+const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
 
 export const metadata: Metadata = {
   title: 'PoliticsGo',
@@ -48,6 +50,14 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           {children}
+          {ADSENSE_CLIENT && (
+            <Script
+              async
+              strategy="afterInteractive"
+              crossOrigin="anonymous"
+              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+            />
+          )}
         </body>
       </html>
     </ClerkProvider>

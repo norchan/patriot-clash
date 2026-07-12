@@ -112,7 +112,8 @@
       "Bash(grep -E \"/active|local-events\" /tmp/build.log)"
     ],
     "additionalDirectories": [
-      "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat"
+      "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
+      "\\tmp"
     ]
   }
 }

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut, Radar } from 'lucide-react'
+import AdBanner, { ADS_ENABLED, AD_BAR_HEIGHT } from '@/components/AdBanner'
 
 const navItems = [
   { href: '/map',      label: 'Map',      icon: Map },
@@ -26,8 +27,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter()
   const { signOut } = useClerk()
   const [menuOpen, setMenuOpen] = useState(false)
-  // Battle screens are immersive — no global menu button over the action
+  // Battle screens are immersive — no global menu button or ads over the action
   const onBattleScreen = pathname.startsWith('/battle')
+  const showAds = ADS_ENABLED && !onBattleScreen
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col max-w-md mx-auto relative">
@@ -70,9 +72,13 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       </div>
       )}
 
-      <main className="flex-1 pb-20 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: showAds ? `calc(5rem + ${AD_BAR_HEIGHT}px)` : '5rem' }}>
         {children}
       </main>
+
+      {/* Fixed ad banner — every page except immersive battle screens */}
+      {showAds && <AdBanner />}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-gray-900 border-t border-gray-800 z-50">
         <div className="flex">
           {navItems.map(({ href, label, icon: Icon }) => {

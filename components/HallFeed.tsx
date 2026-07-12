@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown, Flag } from 'lucide-react'
+import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown, Flag, EyeOff } from 'lucide-react'
+import { useProfile } from '@/hooks/useProfile'
 
 // Town hall discussion feed — looks like X, votes like Reddit.
 // Tapping a post opens /townhall/[gymId]/post/[postId] with the reply thread.
@@ -23,6 +24,7 @@ export interface HallPost {
   party: 'democrat' | 'republican' | null
   my_vote: number
   is_mine: boolean
+  nsfw?: boolean
 }
 
 export function timeAgo(iso: string): string {
@@ -101,13 +103,17 @@ export function sharePost(gymId: string, post: { id: string; content: string | n
 
 export default function HallFeed({ gymId }: { gymId: string }) {
   const router = useRouter()
+  const { profile } = useProfile()
+  const showNsfw = !!(profile as any)?.show_nsfw
   const [posts, setPosts] = useState<HallPost[]>([])
   const [loaded, setLoaded] = useState(false)
   const [draft, setDraft] = useState('')
   const [draftImage, setDraftImage] = useState<string | null>(null)
+  const [draftNsfw, setDraftNsfw] = useState(false)
   const [posting, setPosting] = useState(false)
   const [shared, setShared] = useState('')
   const [reported, setReported] = useState<Set<string>>(new Set())
+  const [revealed, setRevealed] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<'top' | 'new'>('top')
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -139,10 +145,10 @@ export default function HallFeed({ gymId }: { gymId: string }) {
       const res = await fetch(`/api/gyms/${gymId}/posts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: draft.trim(), image: draftImage }),
+        body: JSON.stringify({ content: draft.trim(), image: draftImage, nsfw: draftNsfw }),
       })
       const d = await res.json()
-      if (res.ok) { setPosts(p => [d.post, ...p]); setDraft(''); setDraftImage(null) }
+      if (res.ok) { setPosts(p => [d.post, ...p]); setDraft(''); setDraftImage(null); setDraftNsfw(false) }
     } catch {}
     setPosting(false)
   }
@@ -188,7 +194,13 @@ export default function HallFeed({ gymId }: { gymId: string }) {
             className="flex items-center gap-1 text-gray-400 text-xs font-bold px-2 py-1.5 rounded-lg bg-gray-800">
             <ImageIcon size={14} /> Photo
           </button>
-          <span className="text-gray-700 text-[10px] flex-1">Links get a preview automatically</span>
+          <button onClick={() => setDraftNsfw(v => !v)}
+            className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-lg transition ${
+              draftNsfw ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400'
+            }`}>
+            <EyeOff size={13} /> NSFW
+          </button>
+          <span className="text-gray-700 text-[10px] flex-1"> </span>
           <button onClick={submit} disabled={posting || (!draft.trim() && !draftImage)}
             className="text-xs font-bold px-4 py-1.5 rounded-lg text-white bg-blue-600 disabled:opacity-40">
             {posting ? '...' : 'Post'}
@@ -235,14 +247,33 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                   <div className="flex items-center gap-1.5 text-xs">
                     <span className="text-white font-bold truncate">{p.username}</span>
                     <span className="text-gray-600">· {timeAgo(p.created_at)}</span>
+                    {p.nsfw && <span className="text-pink-400 font-black text-[9px] tracking-wide border border-pink-500/50 rounded px-1">NSFW</span>}
                   </div>
-                  {p.content && (
-                    <p className="text-gray-200 text-sm whitespace-pre-wrap break-words mt-0.5">{p.content}</p>
-                  )}
-                  {p.image_url && (
-                    <img src={p.image_url} alt="" className="rounded-xl mt-2 w-full object-cover max-h-80 border border-gray-800" />
-                  )}
-                  <LinkCard post={p} />
+                  {(() => {
+                    const hidden = !!p.nsfw && !showNsfw && !revealed.has(p.id)
+                    return (
+                      <div className="relative">
+                        <div className={hidden ? 'blur-md pointer-events-none select-none' : ''}>
+                          {p.content && (
+                            <p className="text-gray-200 text-sm whitespace-pre-wrap break-words mt-0.5">{p.content}</p>
+                          )}
+                          {p.image_url && (
+                            <img src={p.image_url} alt="" className="rounded-xl mt-2 w-full object-cover max-h-80 border border-gray-800" />
+                          )}
+                          <LinkCard post={p} />
+                        </div>
+                        {hidden && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setRevealed(prev => new Set(prev).add(p.id)) }}
+                            className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
+                            <EyeOff size={20} className="text-pink-300" />
+                            <span className="text-pink-200 text-xs font-bold">Sensitive content</span>
+                            <span className="text-gray-400 text-[10px]">Tap to view · turn on NSFW in Settings</span>
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {/* Action row */}
                   <div className="flex items-center gap-4 mt-2">
                     <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => vote(p, v)} />
