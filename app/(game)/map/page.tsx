@@ -879,7 +879,7 @@ export default function MapPage() {
       }
       if (nearestGym && !arcadeMarkersRef.current.has(nearestGym.id)) {
         const g = nearestGym
-        const arcLng = g.longitude - 0.0034 / Math.cos(g.latitude * Math.PI / 180) // ~0.23 mi west
+        const arcLng = g.longitude - 0.0062 / Math.cos(g.latitude * Math.PI / 180) // ~0.43 mi west
         const el = document.createElement('div')
         el.innerHTML = `
           <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">

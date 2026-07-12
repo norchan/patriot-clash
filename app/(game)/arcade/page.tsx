@@ -60,7 +60,7 @@ export default function ArcadePage() {
           style={{ color: '#f472b6' }}>
           ★ INSERT COIN ★
         </p>
-        <p className="text-gray-500 text-[11px] mt-1">Free to play · same arcade from every town hall</p>
+        <p className="text-gray-500 text-[11px] mt-1">Free to play · Earn FP!</p>
       </div>
 
       {/* cabinet stack — three centered buttons */}

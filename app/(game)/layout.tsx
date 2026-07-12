@@ -25,12 +25,15 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter()
   const { signOut } = useClerk()
   const [menuOpen, setMenuOpen] = useState(false)
+  // Battle screens are immersive — no global menu button over the action
+  const onBattleScreen = pathname.startsWith('/battle')
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col max-w-md mx-auto relative">
-      {/* ── Global menu — upper right corner of the GAME COLUMN, every page.
-             fixed is viewport-relative, so compute the column's right edge
-             (max-w-md = 28rem) instead of hugging the screen edge on PC ── */}
+      {/* ── Global menu — upper right corner of the GAME COLUMN, every page
+             (hidden on immersive battle screens). fixed is viewport-relative,
+             so compute the column's right edge (max-w-md = 28rem) ── */}
+      {!onBattleScreen && (
       <div className="fixed top-3 z-[80]" style={{ right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
@@ -64,6 +67,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
           </>
         )}
       </div>
+      )}
 
       <main className="flex-1 pb-20 overflow-y-auto">
         {children}
