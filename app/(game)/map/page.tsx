@@ -1238,7 +1238,11 @@ export default function MapPage() {
             {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
           </span>
           <div className="w-px h-3 bg-gray-600" />
-          <span className="text-yellow-400 text-xs font-bold">⚡ {profile?.fp_balance?.toLocaleString() || 0}</span>
+          {/* Tap FP → shop */}
+          <button onClick={() => router.push('/shop')}
+            className="text-yellow-400 text-xs font-bold hover:text-yellow-300 active:scale-95 transition">
+            ⚡ {profile?.fp_balance?.toLocaleString() || 0}
+          </button>
         </div>
         <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2">
           <span className="text-white text-xs">👟 {steps.toLocaleString()} steps</span>

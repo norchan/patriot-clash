@@ -6,20 +6,21 @@ import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings
 import AdBanner, { ADS_ENABLED, AD_BAR_HEIGHT } from '@/components/AdBanner'
 
 const navItems = [
-  { href: '/map',      label: 'Map',      icon: Map },
-  { href: '/profile',  label: 'Profile',  icon: User },
-  { href: '/cliques',  label: 'Cliques',  icon: Users },
-  { href: '/messages', label: 'Messages', icon: MessageSquare },
-  { href: '/shop',     label: 'Shop',     icon: ShoppingBag },
+  { href: '/map',            label: 'Map',       icon: Map },
+  { href: '/profile',        label: 'Profile',   icon: User },
+  { href: '/cliques',        label: 'Cliques',   icon: Users },
+  { href: '/messages',       label: 'Messages',  icon: MessageSquare },
+  { href: '/townhall/nearest', label: 'Town Hall', icon: Building2 },
 ]
 
 const menuItems = [
-  { href: '/townhall',         label: 'Halls',          icon: Building2 },
-  { href: '/active',           label: 'Active Players', icon: Radar },
-  { href: '/profile',          label: 'Profile',        icon: User },
-  { href: '/settings',         label: 'Settings',       icon: Settings },
-  { href: '/notifications',    label: 'Notifications',  icon: Bell },
-  { href: '/shop',             label: 'Shop',           icon: ShoppingBag },
+  { href: '/notifications', label: 'Notifications',  icon: Bell },
+  { href: '/shop',          label: 'Shop',           icon: ShoppingBag },
+  { href: '/active',        label: 'Active Players', icon: Radar },
+  { href: '/cliques',       label: 'Active Cliques', icon: Users },
+  { href: '/townhall',      label: 'Active Halls',   icon: Building2 },
+  { href: '/profile',       label: 'Profile',        icon: User },
+  { href: '/settings',      label: 'Settings',       icon: Settings },
 ]
 
 export default function GameLayout({ children }: { children: React.ReactNode }) {
@@ -32,7 +33,8 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   // but NOT the /arcade/slots chooser).
   const onBattleScreen = pathname.startsWith('/battle')
   const onSlotMachine = /^\/arcade\/slots\/[^/]+$/.test(pathname)
-  const immersive = onBattleScreen || onSlotMachine
+  const onTetKris = pathname === '/arcade/tetkris'
+  const immersive = onBattleScreen || onSlotMachine || onTetKris
   const showAds = ADS_ENABLED && !immersive
 
   return (
