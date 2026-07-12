@@ -884,7 +884,7 @@ export default function MapPage() {
         el.innerHTML = `
           <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
             <img src="/arcade.png" alt="Arcade" draggable="false" style="
-              width:72px;height:auto;pointer-events:none;
+              width:58px;height:auto;pointer-events:none;
               filter:drop-shadow(0 0 6px #a855f7) drop-shadow(0 3px 5px rgba(0,0,0,0.6));" />
           </div>`
         el.style.cursor = 'pointer'
