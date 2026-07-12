@@ -193,6 +193,22 @@ export default function MapPage() {
     }, 200)
     return () => clearInterval(iv)
   }, [])
+
+  // Fly to a spot and drop a temporary pin (used by DM popups).
+  function focusSpot(lat: number, lng: number) {
+    if (!map.current) return
+    map.current.flyTo({ center: [lng, lat], zoom: 15.5, pitch: 30 })
+    const el = document.createElement('div')
+    el.textContent = '📍'; el.style.fontSize = '34px'; el.style.filter = 'drop-shadow(0 0 6px rgba(0,0,0,0.6))'
+    const mk = new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([lng, lat]).addTo(map.current)
+    setTimeout(() => mk.remove(), 9000)
+  }
+  // A nearby player's spot + distance from us, if we can see them on the map.
+  function playerSpot(id: string): { lat: number; lng: number; dist: number | null } | null {
+    const p = nearbyPlayers.find(n => n.profile_id === id)
+    if (!p) return null
+    return { lat: p.lat, lng: p.lng, dist: location ? milesBetween(location.lat, location.lng, p.lat, p.lng) : null }
+  }
   // Where your own dot is DRAWN (true position, or the fuzzed one) — the
   // home button flies here so it always centers your visible dot
   const displayedLocRef = useRef(location)
@@ -1511,7 +1527,22 @@ export default function MapPage() {
                 ? <img src={incomingMsg.sender_avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-blue-700 flex-shrink-0" />
                 : <div className="w-10 h-10 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">💬</div>}
               <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-bold truncate">{incomingMsg.sender_username}</p>
+                <div className="flex items-center gap-2">
+                  {/* name → profile */}
+                  <button onClick={() => router.push(`/player/${incomingMsg.sender_id}`)}
+                    className="text-white text-sm font-bold truncate hover:underline">{incomingMsg.sender_username}</button>
+                  {/* distance → their spot on the map */}
+                  {(() => {
+                    const spot = playerSpot(incomingMsg.sender_id)
+                    if (!spot || spot.dist == null) return null
+                    return (
+                      <button onClick={() => { setIncomingMsg(null); focusSpot(spot.lat, spot.lng) }}
+                        className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex-shrink-0">
+                        📍 {spot.dist < 0.1 ? 'here' : `${spot.dist.toFixed(1)} mi`}
+                      </button>
+                    )
+                  })()}
+                </div>
                 <p className="text-gray-400 text-xs truncate">{incomingMsg.preview}</p>
               </div>
               {/* Dismiss — closes the bubble without snoozing or blocking */}
@@ -1548,11 +1579,24 @@ export default function MapPage() {
         <div className="absolute bottom-20 left-0 right-0 z-30 px-4">
           <div className="bg-gray-900 rounded-2xl border border-blue-800 shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-400" />
-                <span className="text-white text-sm font-bold">{activeChatUsername}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                {/* name → profile */}
+                <button onClick={() => router.push(`/player/${activeChatUserId}`)}
+                  className="text-white text-sm font-bold truncate hover:underline">{activeChatUsername}</button>
+                {/* distance → their spot on the map */}
+                {(() => {
+                  const spot = playerSpot(activeChatUserId)
+                  if (!spot || spot.dist == null) return null
+                  return (
+                    <button onClick={() => focusSpot(spot.lat, spot.lng)}
+                      className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-0.5 flex-shrink-0">
+                      📍 {spot.dist < 0.1 ? 'here' : `${spot.dist.toFixed(1)} mi`}
+                    </button>
+                  )
+                })()}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <button onClick={() => blockPlayer(activeChatUserId, activeChatUsername)}
                   className="text-gray-600 hover:text-red-400 text-xs transition px-2 py-1">
                   🚫 Block

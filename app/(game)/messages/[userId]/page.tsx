@@ -3,7 +3,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Camera, Image as ImageIcon, X, MapPin } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
+import { useLocation } from '@/hooks/useLocation'
 import AlbumViewer from '@/components/AlbumViewer'
+
+function milesBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3958.8
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
 
 interface Msg { id: string; sender_id: string; content: string | null; image_url: string | null; created_at: string }
 
@@ -36,6 +45,7 @@ export default function MessageThreadPage() {
   const params = useParams()
   const userId = params.userId as string
   const { profile } = useProfile()
+  const { location } = useLocation()
 
   const [other, setOther] = useState<{ username: string; avatar_url: string | null; party: string | null } | null>(null)
   const [otherLoc, setOtherLoc] = useState<{ lat: number; lng: number } | null>(null)
@@ -130,7 +140,8 @@ export default function MessageThreadPage() {
           <button onClick={() => router.push(`/map?flat=${otherLoc.lat}&flng=${otherLoc.lng}`)}
             className="ml-auto flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 transition flex-shrink-0"
             title="View on map">
-            <MapPin size={14} /> View on map
+            <MapPin size={14} />
+            {location ? (() => { const d = milesBetween(location.lat, location.lng, otherLoc.lat, otherLoc.lng); return d < 0.1 ? 'here' : `${d.toFixed(1)} mi` })() : 'View on map'}
           </button>
         )}
       </div>
