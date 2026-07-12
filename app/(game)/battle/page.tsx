@@ -148,6 +148,7 @@ function BattleContent() {
   const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'charge' | 'faint'>('idle')
   const [spriteKey, setSpriteKey] = useState(0)
   const ouchMissing = useRef(false)                  // no _ouch.png for this enemy
+  const [throwGone, setThrowGone] = useState(false)  // no _throw.png → single-frame
 
   // Projectiles + effects
   const [projectiles, setProjectiles] = useState<Projectile[]>([])
@@ -210,6 +211,9 @@ function BattleContent() {
       @keyframes splatFade { 0%{opacity:0.95; transform:scale(0.7)} 25%{opacity:0.9; transform:scale(1.05)} 100%{opacity:0; transform:scale(1.15)} }
       @keyframes starTwinkle { 0%,100%{opacity:0.3} 50%{opacity:0.9} }
       @keyframes boomPop { 0%{transform:scale(0.3);opacity:1} 100%{transform:scale(2.4);opacity:0} }
+      /* Constant cock-and-throw: hold the wind-up, snap to the release, repeat */
+      @keyframes throwCycleA { 0%,52%{opacity:1} 60%,86%{opacity:0} 94%,100%{opacity:1} }
+      @keyframes throwCycleB { 0%,52%{opacity:0} 60%,86%{opacity:1} 94%,100%{opacity:0} }
     `
     document.head.appendChild(s)
   }, [])
@@ -221,6 +225,8 @@ function BattleContent() {
     const e = enemyId ? getEnemyById(enemyId) : getRandomEnemy(opponentParty)
     if (e) {
       setEnemy(e)
+      setThrowGone(false)  // assume a _throw frame until an onError proves otherwise
+      ouchMissing.current = false
       setEnemyHp(e.hp)
       setMaxHp(e.hp)
       S.current.enemyHp = e.hp
@@ -527,6 +533,10 @@ function BattleContent() {
   const enemyLevel = TIER_LEVELS[enemy.tier as keyof typeof TIER_LEVELS]
   const enemyTint = enemy.party === 'democrat' ? ['#60a5fa', '#2563eb'] : ['#f87171', '#dc2626']
   const ouchSrc = enemy.image.replace('.png', '_ouch.png')
+  const throwSrc = enemy.image.replace('.png', '_throw.png')
+  // Sprites with a _throw frame constantly cock-and-throw; a hit briefly
+  // holds the release (follow-through) pose
+  const hasThrow = !throwGone
 
   const animDefs = {
     idle:   { css: 'pokeIdle',  dur: 2400, iter: 'infinite', fill: 'none' },
@@ -639,16 +649,35 @@ function BattleContent() {
             background: `radial-gradient(ellipse 60% 60% at 50% 55%, ${enemyTint[0]}40 0%, ${enemyTint[1]}18 48%, transparent 72%)`,
             filter: 'blur(4px)',
           }} />
-          <img
-            src={ouch ? ouchSrc : enemy.image}
-            alt={enemy.name}
-            draggable={false}
-            onError={() => { ouchMissing.current = true; setOuch(false) }}
-            style={{
-              width: '100%', height: '100%', objectFit: 'contain', display: 'block', position: 'relative',
-              filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
-            }}
-          />
+          {hasThrow && !(ouch && !ouchMissing.current) ? (
+            // Two-frame cock-and-throw crossfade
+            <>
+              <img src={enemy.image} alt={enemy.name} draggable={false}
+                style={{
+                  width: '100%', height: '100%', objectFit: 'contain', position: 'absolute', inset: 0,
+                  animation: 'throwCycleA 1150ms ease-in-out infinite',
+                  filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
+                }} />
+              <img src={throwSrc} alt="" draggable={false}
+                onError={() => setThrowGone(true)}
+                style={{
+                  width: '100%', height: '100%', objectFit: 'contain', position: 'absolute', inset: 0,
+                  animation: 'throwCycleB 1150ms ease-in-out infinite',
+                  filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
+                }} />
+            </>
+          ) : (
+            <img
+              src={ouch && !ouchMissing.current ? ouchSrc : enemy.image}
+              alt={enemy.name}
+              draggable={false}
+              onError={() => { ouchMissing.current = true; setOuch(false) }}
+              style={{
+                width: '100%', height: '100%', objectFit: 'contain', display: 'block', position: 'relative',
+                filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
+              }}
+            />
+          )}
           {ouch && (
             <div style={{
               position: 'absolute', top: '-4%', right: '-6%',
