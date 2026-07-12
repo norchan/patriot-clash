@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
@@ -12,6 +12,40 @@ export default function SettingsPage() {
   const [toggling, setToggling] = useState<string | null>(null)
   const [blockedPlayers, setBlockedPlayers] = useState<BlockedPlayer[]>([])
   const [showBlocked, setShowBlocked] = useState(false)
+  const [partyStatus, setPartyStatus] = useState<{ can_change: boolean; days_left: number } | null>(null)
+  const [switchingParty, setSwitchingParty] = useState(false)
+  const [partyMsg, setPartyMsg] = useState('')
+
+  useEffect(() => {
+    fetch('/api/profile/party').then(r => r.json())
+      .then(d => setPartyStatus({ can_change: !!d.can_change, days_left: d.days_left ?? 0 }))
+      .catch(() => {})
+  }, [profile?.party])
+
+  async function switchParty() {
+    if (!profile || switchingParty) return
+    const to = profile.party === 'democrat' ? 'republican' : 'democrat'
+    if (!confirm(`Switch to ${to === 'democrat' ? 'Democrat' : 'Republican'}? This leaves your current clique, and you won't be able to switch again for 30 days.`)) return
+    setSwitchingParty(true)
+    setPartyMsg('')
+    try {
+      const res = await fetch('/api/profile/party', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ party: to }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        setPartyMsg(`✅ You're now a ${to === 'democrat' ? 'Democrat' : 'Republican'}!`)
+        await refetch()
+        setPartyStatus({ can_change: false, days_left: 30 })
+      } else {
+        setPartyMsg(`❌ ${d.error ?? 'Could not switch'}`)
+        if (typeof d.days_left === 'number') setPartyStatus({ can_change: false, days_left: d.days_left })
+      }
+    } catch { setPartyMsg('❌ Could not switch') }
+    setSwitchingParty(false)
+  }
 
   async function toggleSetting(key: 'allow_pvp_messages' | 'allow_messages' | 'show_party' | 'show_nsfw', current: boolean) {
     setToggling(key)
@@ -80,6 +114,34 @@ export default function SettingsPage() {
           <ArrowLeft size={18} />
         </button>
         <h1 className="text-white font-bold text-lg">⚙️ Settings</h1>
+      </div>
+
+      {/* Party — switchable once every 30 days */}
+      <div className="mx-4 mt-4">
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Party</h3>
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-white text-sm font-bold flex items-center gap-2">
+                <span>{profile?.party === 'democrat' ? '🔵' : '🔴'}</span>
+                {profile?.party === 'democrat' ? 'Democrat' : 'Republican'}
+              </div>
+              <div className="text-gray-500 text-xs mt-0.5">
+                {partyStatus && !partyStatus.can_change
+                  ? `Switch again in ${partyStatus.days_left} day${partyStatus.days_left !== 1 ? 's' : ''}`
+                  : 'You can switch parties once a month'}
+              </div>
+            </div>
+            <button
+              onClick={switchParty}
+              disabled={switchingParty || (partyStatus ? !partyStatus.can_change : false)}
+              className="text-xs font-bold px-3 py-2 rounded-xl text-white transition active:scale-95 disabled:opacity-40"
+              style={{ background: profile?.party === 'democrat' ? '#dc2626' : '#2563eb' }}>
+              {switchingParty ? '...' : `Switch to ${profile?.party === 'democrat' ? 'Republican' : 'Democrat'}`}
+            </button>
+          </div>
+          {partyMsg && <p className="text-xs mt-3 text-gray-300">{partyMsg}</p>}
+        </div>
       </div>
 
       {/* Map settings link */}
