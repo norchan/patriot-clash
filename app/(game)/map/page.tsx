@@ -150,6 +150,8 @@ export default function MapPage() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const gymMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  // Arcade markers sit just west of each hall; every one opens /arcade
+  const arcadeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const enemyMarkersRef = useRef<mapboxgl.Marker[]>([])
   const playerMarkerRef = useRef<mapboxgl.Marker | null>(null)
   // Keyed by profile_id so refreshes UPDATE markers in place — tearing down
@@ -216,6 +218,15 @@ export default function MapPage() {
       el.style.display = showHalls ? '' : 'none'
       const inner = el.querySelector('.gh-scale') as HTMLElement | null
       if (inner) inner.style.transform = `scale(${gymScale})`
+    })
+    // Arcades stay small and vanish quickly on zoom-out (only close-in, z13+)
+    const showArcades = z >= 13
+    const arcadeScale = Math.max(0.5, Math.min(0.85, 0.5 + (z - 13) * 0.12))
+    arcadeMarkersRef.current.forEach(mk => {
+      const el = mk.getElement()
+      el.style.display = showArcades ? '' : 'none'
+      const inner = el.querySelector('.arc-scale') as HTMLElement | null
+      if (inner) inner.style.transform = `scale(${arcadeScale})`
     })
     otherPlayerMarkersRef.current.forEach(mk => { mk.getElement().style.display = showPlayerMk ? '' : 'none' })
   }
@@ -852,6 +863,32 @@ export default function MapPage() {
           gymMarkersRef.current.delete(id)
         }
       }
+      for (const [id, mk] of arcadeMarkersRef.current) {
+        if (!keep.has(id)) {
+          mk.remove()
+          arcadeMarkersRef.current.delete(id)
+        }
+      }
+
+      // Arcade — small building just west of each hall, opens the arcade
+      visible.forEach(gym => {
+        if (arcadeMarkersRef.current.has(gym.id)) return
+        const arcLng = gym.longitude - 0.0016 / Math.cos(gym.latitude * Math.PI / 180) // ~0.1 mi west
+        const el = document.createElement('div')
+        el.innerHTML = `
+          <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
+            <img src="/arcade.webp" alt="Arcade" draggable="false" style="
+              width:38px;height:auto;pointer-events:none;
+              filter:drop-shadow(0 0 5px #a855f7) drop-shadow(0 2px 4px rgba(0,0,0,0.6));" />
+          </div>`
+        el.style.cursor = 'pointer'
+        el.title = 'Arcade'
+        el.addEventListener('click', () => router.push('/arcade'))
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([arcLng, gym.latitude])
+          .addTo(map.current!)
+        arcadeMarkersRef.current.set(gym.id, marker)
+      })
 
       visible.forEach(gym => {
         if (gymMarkersRef.current.has(gym.id)) return
@@ -907,6 +944,8 @@ export default function MapPage() {
       map.current?.off('moveend', renderGymMarkers)
       gymMarkersRef.current.forEach(m => m.remove())
       gymMarkersRef.current = new Map()
+      arcadeMarkersRef.current.forEach(m => m.remove())
+      arcadeMarkersRef.current = new Map()
     }
   }, [gyms, router])
 

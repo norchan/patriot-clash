@@ -370,6 +370,15 @@ export default function TownHallPage() {
         )}
       </div>
 
+      {/* Arcade — every hall links to the one shared arcade */}
+      <div className="mx-4 mt-3">
+        <button onClick={() => router.push('/arcade')}
+          className="w-full py-3 rounded-xl font-bold text-white transition flex items-center justify-center gap-2 border"
+          style={{ background: 'linear-gradient(180deg, rgba(88,28,135,0.5), rgba(30,10,60,0.6))', borderColor: '#a855f7' }}>
+          🕹️ Enter the Arcade
+        </button>
+      </div>
+
       {/* Local Cliques — collapsed to one button; tap to expand */}
       {localCliques.length > 0 && (
         <div className="mx-4 mt-3 bg-gray-900 rounded-2xl overflow-hidden">
