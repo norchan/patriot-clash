@@ -18,6 +18,7 @@ interface GameEntry {
 const GAMES: GameEntry[] = [
   { id: 'slots',          name: 'Slots Salute',   tagline: '3 machines · bet FP · match 3 to win big',    emoji: '🎰', color: '#facc15', href: '/arcade/slots' },
   { id: 'tetkris',        name: 'Tet-Kris',       tagline: 'Stack the blocks, clear rows, earn FP',       emoji: '🧱', color: '#c084fc', href: '/arcade/tetkris' },
+  { id: 'landslide',      name: 'Landslide',      tagline: 'Match 3 gems, cascade, win a landslide of FP', emoji: '💎', color: '#f472b6', href: '/arcade/landslide' },
   { id: 'ballot-blaster', name: 'Ballot Blaster', tagline: 'Blast the fake ballots, save the real ones', emoji: '👾', color: '#a855f7' },
   { id: 'coin-rush',      name: 'FP Coin Rush',   tagline: 'Grab the falling coins before time runs out', emoji: '🪙', color: '#f59e0b' },
   { id: 'whack-a-pol',    name: 'Whack-a-Pol',    tagline: 'Bonk the pols popping out of the swamp',      emoji: '🔨', color: '#22c55e' },

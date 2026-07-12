@@ -34,7 +34,8 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const onBattleScreen = pathname.startsWith('/battle')
   const onSlotMachine = /^\/arcade\/slots\/[^/]+$/.test(pathname)
   const onTetKris = pathname === '/arcade/tetkris'
-  const immersive = onBattleScreen || onSlotMachine || onTetKris
+  const onLandslide = pathname === '/arcade/landslide'
+  const immersive = onBattleScreen || onSlotMachine || onTetKris || onLandslide
   const showAds = ADS_ENABLED && !immersive
 
   return (
