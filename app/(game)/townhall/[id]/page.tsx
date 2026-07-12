@@ -379,11 +379,20 @@ export default function TownHallPage() {
         </button>
       </div>
 
+      {/* Local Players — jump to the nearby active-players list */}
+      <div className="mx-4 mt-3">
+        <button onClick={() => router.push('/active')}
+          className="w-full py-3 rounded-xl font-bold text-white transition flex items-center justify-center gap-2 border"
+          style={{ background: 'linear-gradient(180deg, rgba(6,78,59,0.5), rgba(6,40,30,0.6))', borderColor: '#34d399' }}>
+          ✊ Local Players
+        </button>
+      </div>
+
       {/* Local Cliques — collapsed to one button; tap to expand */}
       {localCliques.length > 0 && (
         <div className="mx-4 mt-3 bg-gray-900 rounded-2xl overflow-hidden">
           <button onClick={() => setShowCliques(v => !v)}
-            className="w-full py-3.5 px-4 flex items-center justify-between text-white font-bold hover:bg-gray-800 transition">
+            className="w-full py-3.5 px-4 flex items-center justify-center gap-2 text-white font-bold hover:bg-gray-800 transition">
             <span>✊ Local Cliques</span>
             <ChevronDown size={18} className={`text-gray-500 transition-transform ${showCliques ? 'rotate-180' : ''}`} />
           </button>
