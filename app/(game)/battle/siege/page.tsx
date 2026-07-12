@@ -3,8 +3,8 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
-import { sfx, buzz } from '@/lib/juice'
-import { ITEMS, type ItemType } from '@/config/items'
+import { sfx, buzz, siegeMusic } from '@/lib/juice'
+import { fighterLevel } from '@/lib/fighter'
 import { SIEGE_ATTACKS, ATTACKS_FOR_PARTY, type SiegeAttackId } from '@/config/siege-attacks'
 
 // Siege Mode: attacking a town hall plays out over the fortified-hall
@@ -70,6 +70,7 @@ const MARCH_MS = 1100          // soldier travel time to the walls
 const SOLDIER_HIT_MS = 850     // time between soldier strikes
 const THROW_MS = 420           // projectile flight time
 const THROW_COOLDOWN_MS = 320
+const ASSAULT_MAX_MS = 12000   // hard cap: an assault lasts at most 12 seconds
 
 // The hall sits dead center of the base map; attacks aim here
 const HALL_X = 50
@@ -163,8 +164,11 @@ function SiegePage() {
   const [shockwaves, setShockwaves] = useState<{ id: number; x: number; y: number }[]>([])
   const [strikeBusy, setStrikeBusy] = useState(false)
   const [result, setResult] = useState<{ captured: boolean; damage: number; remaining: number } | null>(null)
-  const [items, setItems] = useState<Record<string, number>>({})
-  const [itemBusy, setItemBusy] = useState(false)
+
+  // Higher-level attackers field deadlier, hardier ninjas
+  const playerLevel = fighterLevel(profile?.total_battles_won ?? 0)
+  const ninjaPower = 1 + Math.min(1.5, (playerLevel - 1) * 0.12)  // +12%/level, cap +150%
+  const ninjaMaxHits = 4 + Math.min(6, Math.floor(playerLevel / 2)) // survive more turret shots
 
   const idRef = useRef(0)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -187,7 +191,7 @@ function SiegePage() {
     ended: false,
   })
 
-  useEffect(() => () => { timersRef.current.forEach(clearTimeout) }, [])
+  useEffect(() => () => { timersRef.current.forEach(clearTimeout); siegeMusic.stop() }, [])
 
   useEffect(() => {
     if (!gymId) return
@@ -203,18 +207,6 @@ function SiegePage() {
       })
       .catch(() => {})
   }, [gymId])
-
-  // Boost inventory — also claims the daily free firecracker
-  useEffect(() => {
-    fetch('/api/items')
-      .then(r => r.json())
-      .then(d => {
-        if (d.items) setItems(d.items)
-        if (d.free_granted) showToast('🎁 Daily free Firecracker added to your bag!')
-      })
-      .catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const holderColor = gym?.holder_party === 'democrat' ? '#2563eb' : gym?.holder_party === 'republican' ? '#dc2626' : '#9ca3af'
   const myColor = profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
@@ -259,7 +251,12 @@ function SiegePage() {
     const applied = Math.round(Math.min(st.budget - st.dealt, chunk))
     if (applied <= 0) return
     st.dealt += applied
-    setDefense(prev => Math.max(0, prev - applied))
+    setDefense(prev => {
+      const next = Math.max(0, prev - applied)
+      // Captured hall drained to zero → end the fight immediately
+      if (next <= 0 && st.captured && !st.ended) finishAssault()
+      return next
+    })
     addSpark(xPct, yPct, `-${applied.toLocaleString()}`, '#facc15')
     shakeScreen()
     sfx.siegeBlow()
@@ -285,6 +282,7 @@ function SiegePage() {
     const st = S.current
     if (st.ended) return
     st.ended = true
+    siegeMusic.stop()
     setDefense(st.captured ? 0 : Math.max(1, st.remaining))
     schedule(500, () => {
       setBanner(st.captured ? 'CAPTURED!' : 'DEFENSE HOLDS')
@@ -335,7 +333,10 @@ function SiegePage() {
       setPhase('assault')
       setBanner('ASSAULT!')
       sfx.bell(true)
+      siegeMusic.start()
       schedule(800, () => setBanner(''))
+      // Hard 12s cap — whatever's left of the budget lands and the fight ends
+      schedule(ASSAULT_MAX_MS, () => { if (!S.current.ended) finishAssault() })
     } catch {
       showToast('❌ Attack failed')
       setBusy(false)
@@ -558,7 +559,7 @@ function SiegePage() {
       spawnedAt: Date.now(),
       lastHit: 0,
       hits: 0,
-      maxHits: 5,
+      maxHits: ninjaMaxHits, // higher-level players' ninjas survive longer
     }
     soldiersRef.current = [...soldiersRef.current, soldier]
     setSoldiers(soldiersRef.current)
@@ -601,7 +602,7 @@ function SiegePage() {
         if (s.state === 'fight' && now - s.lastHit >= SOLDIER_HIT_MS && !st.ended) {
           changed = true
           if (s.kind === 'poor') chipStrike(strikePool.current.chunk, s.tx, s.ty - 6)
-          else applyDamage(st.budget * 0.03 * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
+          else applyDamage(st.budget * 0.03 * ninjaPower * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
           const hits = s.hits + 1
           return hits >= s.maxHits
             ? { ...s, state: 'poof' as const, hits, lastHit: now }
@@ -642,43 +643,6 @@ function SiegePage() {
     else launchThrow(start.x, start.y, x, y)
   }
 
-  async function useBoost(itemId: ItemType) {
-    if (!gym || itemBusy) return
-    const def = ITEMS.find(i => i.id === itemId)!
-    setItemBusy(true)
-    try {
-      if ((items[itemId] ?? 0) > 0) {
-        if (!location) { showToast('📍 Still finding your location...'); return }
-        const res = await fetch(`/api/gyms/${gym.id}/boost`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ item: itemId, latitude: location.lat, longitude: location.lng }),
-        })
-        const data = await res.json()
-        if (!res.ok) { showToast(`❌ ${data.message || data.error || 'Boost failed'}`); return }
-        setItems(prev => ({ ...prev, [itemId]: data.quantity_left }))
-        setDefense(data.defense_remaining)
-        shakeScreen()
-        addSpark(50, 42, `-${data.damage.toLocaleString()}`, '#fb923c')
-        sfx.siegeBlow()
-        buzz([60, 30, 60])
-        if (data.defense_remaining <= 1) showToast('💥 Defense shattered — finish it with an assault!')
-      } else {
-        const res = await fetch('/api/items/buy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ item: itemId }),
-        })
-        const data = await res.json()
-        if (!res.ok) { showToast(`❌ ${data.error || 'Purchase failed'}`); return }
-        setItems(prev => ({ ...prev, [itemId]: data.quantity }))
-        refetch()
-        showToast(`${def.emoji} ${def.name} added — tap again to use it!`)
-      }
-    } catch { showToast('❌ Boost failed') }
-    finally { setItemBusy(false) }
-  }
-
   if (phase === 'loading' || !profile) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -696,38 +660,11 @@ function SiegePage() {
     )
   }
 
-  const boostsGrid = (
-    <div>
-      <p className="text-gray-400 text-[10px] uppercase tracking-wider mb-1.5 text-center">💥 Battle Boosts — instant damage</p>
-      <div className="grid grid-cols-3 gap-2">
-        {ITEMS.map(it => {
-          const qty = items[it.id] ?? 0
-          return (
-            <button key={it.id} onClick={() => useBoost(it.id)} disabled={itemBusy}
-              className="bg-gray-900/90 border rounded-xl py-2 px-1 text-center transition active:scale-95 disabled:opacity-50"
-              style={{ borderColor: qty > 0 ? '#f59e0b66' : '#374151' }}>
-              <div className="text-2xl leading-none relative inline-block">
-                {it.emoji}
-                {qty > 0 && (
-                  <span className="absolute -top-1.5 -right-3 bg-amber-500 text-black text-[9px] font-black rounded-full px-1.5 py-0.5">{qty}</span>
-                )}
-              </div>
-              <p className="text-white text-[10px] font-bold mt-1">{it.name}</p>
-              <p className={`text-[9px] ${qty > 0 ? 'text-amber-400' : 'text-gray-500'}`}>
-                {qty > 0 ? `💥 -${it.damage.toLocaleString()} def` : `Buy · ${it.price} FP`}
-              </p>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-
   return (
     <div
       ref={stageRef}
       className="relative overflow-hidden select-none bg-gray-950"
-      style={{ height: '100dvh', touchAction: 'none' }}
+      style={{ height: 'calc(100dvh - 5rem)', touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
     >
@@ -838,44 +775,46 @@ function SiegePage() {
         </div>
       ))}
 
-      {/* ── assault controls: party strikes + hint ───────────────────────── */}
+      {/* ── assault controls: party SPECIAL ATTACKS + hint ───────────────── */}
       {phase === 'assault' && (
-        <div className="absolute bottom-3 left-3 right-3 z-30">
-          {!S.current.captured && (
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              {myAttacks.map(a => {
-                const afford = (profile.fp_balance ?? 0) >= a.fp
-                return (
-                  <button key={a.id}
-                    onPointerDown={e => e.stopPropagation()}
-                    onPointerUp={e => e.stopPropagation()}
-                    onClick={() => strike(a.id)}
-                    disabled={strikeBusy || !afford}
-                    className="rounded-xl py-2 px-1 text-center transition active:scale-95 disabled:opacity-45 border backdrop-blur"
-                    style={{
-                      background: 'rgba(10,14,26,0.82)',
-                      borderColor: afford ? `${myColor}aa` : '#374151',
-                      boxShadow: afford ? `0 0 12px ${myColor}44` : undefined,
-                    }}>
-                    <div className="text-2xl leading-none">{a.emoji}</div>
-                    <p className="text-white text-[10px] font-black mt-0.5 leading-tight">{a.name}</p>
-                    <p className="text-yellow-300 text-[9px] font-bold">⚡ {a.fp} FP</p>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-          <p className="text-center text-white/90 text-xs font-bold bg-black/55 backdrop-blur rounded-full px-4 py-2 mx-auto w-max max-w-full pointer-events-none">
-            🪨 SWIPE to throw · 👆 TAP for ninjas (unlimited) — dodge the turrets!
+        <div className="absolute bottom-3 left-3 right-3 z-30"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <p className="text-center text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1 drop-shadow">
+            ⚡ Special Attacks
+          </p>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {myAttacks.map(a => {
+              const afford = (profile.fp_balance ?? 0) >= a.fp
+              return (
+                <button key={a.id}
+                  onPointerDown={e => e.stopPropagation()}
+                  onPointerUp={e => e.stopPropagation()}
+                  onClick={() => strike(a.id)}
+                  disabled={strikeBusy || !afford}
+                  className="rounded-xl py-2 px-1 text-center transition active:scale-95 disabled:opacity-45 border backdrop-blur"
+                  style={{
+                    background: 'rgba(10,14,26,0.85)',
+                    borderColor: afford ? `${myColor}` : '#374151',
+                    boxShadow: afford ? `0 0 14px ${myColor}66` : undefined,
+                  }}>
+                  <div className="text-2xl leading-none">{a.emoji}</div>
+                  <p className="text-white text-[10px] font-black mt-0.5 leading-tight">{a.name}</p>
+                  <p className="text-yellow-300 text-[9px] font-bold">⚡ {a.fp} FP</p>
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-center text-white/90 text-xs font-bold bg-black/55 backdrop-blur rounded-full px-4 py-1.5 mx-auto w-max max-w-full pointer-events-none">
+            🪨 SWIPE to throw · 👆 TAP for ninjas — dodge the turrets!
           </p>
         </div>
       )}
 
       {/* ── READY overlay ────────────────────────────────────────────────── */}
       {phase === 'ready' && (
-        <div className="absolute inset-0 z-40 bg-black/55 flex items-end justify-center p-4 pb-8">
-          <div className="w-full max-w-md space-y-3">
-            {!samePartyHall && boostsGrid}
+        <div className="absolute inset-x-0 bottom-0 z-40 p-4 pb-8"
+          style={{ background: 'linear-gradient(0deg, rgba(3,7,18,0.92) 40%, transparent 100%)' }}>
+          <div className="w-full max-w-md mx-auto space-y-2.5">
             {samePartyHall ? (
               <div className="bg-gray-900/95 rounded-2xl p-4 text-center border border-gray-700">
                 <p className="text-gray-200 text-sm mb-3">Your party holds this hall — donate to defend it instead!</p>
@@ -891,17 +830,14 @@ function SiegePage() {
                   className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black text-lg transition active:scale-95 shadow-2xl">
                   {busy ? '⏳ ...' : '⚔️ BEGIN ASSAULT (100 FP)'}
                 </button>
-                <p className="text-gray-300 text-xs text-center drop-shadow">
-                  Swipe to throw · tap to send ninjas · unleash your party's special attacks from the bottom buttons
-                </p>
                 {!location && (
                   <p className="text-yellow-400 text-xs text-center">📍 Locating you... attack unlocks once your position is found</p>
                 )}
               </>
             )}
-            <button onClick={() => router.back()}
+            <button onClick={() => router.push(`/townhall/${gym.id}`)}
               className="w-full py-3 bg-gray-900/90 border border-gray-700 text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-800 transition">
-              ← Retreat
+              🏛️ Back to Town Hall
             </button>
           </div>
         </div>
@@ -909,7 +845,7 @@ function SiegePage() {
 
       {/* ── RESULT overlay ───────────────────────────────────────────────── */}
       {phase === 'result' && result && (
-        <div className="absolute inset-0 z-40 bg-black/60 flex items-end justify-center p-4 pb-8">
+        <div className="absolute inset-0 z-40 bg-black/60 flex items-center justify-center p-4">
           <div className="w-full max-w-md space-y-3">
             <div className="bg-gray-900/95 rounded-2xl p-5 text-center border border-gray-700">
               <div className="text-5xl mb-1">{result.captured ? '🏛️' : '🛡️'}</div>
@@ -922,17 +858,34 @@ function SiegePage() {
                   : `You dealt ${result.damage.toLocaleString()} damage — the hall still stands`}
               </p>
             </div>
-            {!result.captured && boostsGrid}
-            {!result.captured && (
+
+            {result.captured ? (
+              // Freshly captured — fortify it before rivals counterattack
+              <>
+                <p className="text-gray-300 text-xs text-center px-2">
+                  🛡️ It's yours now — but rivals can attack it. Reinforce your defenses before they do!
+                </p>
+                <button onClick={() => router.push(`/townhall/${gym.id}`)}
+                  className="w-full py-4 rounded-xl font-black text-white transition active:scale-95"
+                  style={{ background: myColor }}>
+                  🛡️ Add Defenses / Defense Points
+                </button>
+              </>
+            ) : (
               <button onClick={() => setPhase('ready')}
                 disabled={(profile.fp_balance ?? 0) < 100}
                 className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black transition active:scale-95">
                 ⚔️ ATTACK AGAIN (100 FP)
               </button>
             )}
-            <button onClick={() => router.push('/map')}
+
+            <button onClick={() => router.push(`/townhall/${gym.id}`)}
               className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition">
-              Back to Map
+              🏛️ Back to Town Hall
+            </button>
+            <button onClick={() => router.push('/map')}
+              className="w-full py-2.5 bg-gray-900/80 border border-gray-700 text-gray-400 rounded-xl font-bold text-sm hover:bg-gray-800 transition">
+              🗺️ Back to Map
             </button>
           </div>
         </div>

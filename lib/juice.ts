@@ -77,6 +77,53 @@ function burst({ dur, gain = 0.3, delay = 0, filter }: BurstOpts) {
   src.start(t); src.stop(t + dur + 0.02)
 }
 
+// ── Siege battle loop: a driving war-drum + brass-swell bed ─────────────────
+// Synthesized, looped via setInterval; call siegeMusic.start() when the
+// assault begins and .stop() when it ends. Self-contained (no files).
+let siegeTimer: ReturnType<typeof setInterval> | null = null
+let siegeBed: { osc: OscillatorNode; gain: GainNode } | null = null
+export const siegeMusic = {
+  start() {
+    const c = ac(); if (!c || !master || siegeTimer) return
+    // low droning brass pad for tension
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.type = 'sawtooth'
+    osc.frequency.value = 82 // low E
+    const lp = c.createBiquadFilter()
+    lp.type = 'lowpass'; lp.frequency.value = 320; lp.Q.value = 0.7
+    g.gain.value = 0.05
+    osc.connect(lp).connect(g).connect(master)
+    osc.start()
+    siegeBed = { osc, gain: g }
+
+    // war-drum pattern: BOOM . boom boom . at ~132bpm (16th grid)
+    const pattern = [1, 0, 0, 0.5, 0, 0, 1, 0, 0, 0.5, 0.5, 0, 1, 0, 0.6, 0]
+    let step = 0
+    siegeTimer = setInterval(() => {
+      const hit = pattern[step % pattern.length]
+      if (hit > 0) {
+        tone({ freq: 130, endFreq: 44, dur: 0.18, type: 'sine', gain: 0.5 * hit })
+        burst({ dur: 0.05, gain: 0.12 * hit, filter: { type: 'lowpass', freq: 1600, endFreq: 300 } })
+      }
+      // brass stab on the downbeat of every other bar
+      if (step % 32 === 0) tone({ freq: 165, endFreq: 220, dur: 0.5, type: 'sawtooth', gain: 0.1 })
+      step++
+    }, 118) // ~16th at 132bpm
+  },
+  stop() {
+    if (siegeTimer) { clearInterval(siegeTimer); siegeTimer = null }
+    if (siegeBed) {
+      try {
+        const c = ac()
+        if (c) siegeBed.gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.3)
+        siegeBed.osc.stop((c?.currentTime ?? 0) + 0.35)
+      } catch { /* noop */ }
+      siegeBed = null
+    }
+  },
+}
+
 // ── Haptics ──────────────────────────────────────────────────────────────────
 export function buzz(pattern: number | number[]) {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
