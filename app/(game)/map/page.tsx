@@ -219,9 +219,10 @@ export default function MapPage() {
       const inner = el.querySelector('.gh-scale') as HTMLElement | null
       if (inner) inner.style.transform = `scale(${gymScale})`
     })
-    // Arcades stay small and vanish quickly on zoom-out (only close-in, z13+)
-    const showArcades = z >= 13
-    const arcadeScale = Math.max(0.5, Math.min(0.85, 0.5 + (z - 13) * 0.12))
+    // Arcades GROW slightly as you zoom out, then vanish below neighborhood
+    // zoom (z12) so they never linger at city scale
+    const showArcades = z >= 12
+    const arcadeScale = Math.max(0.85, Math.min(1.4, 1.4 - (z - 12) * 0.13))
     arcadeMarkersRef.current.forEach(mk => {
       const el = mk.getElement()
       el.style.display = showArcades ? '' : 'none'
@@ -877,9 +878,9 @@ export default function MapPage() {
         const el = document.createElement('div')
         el.innerHTML = `
           <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
-            <img src="/arcade.webp" alt="Arcade" draggable="false" style="
-              width:52px;height:auto;pointer-events:none;
-              filter:drop-shadow(0 0 5px #a855f7) drop-shadow(0 2px 4px rgba(0,0,0,0.6));" />
+            <img src="/arcade.png" alt="Arcade" draggable="false" style="
+              width:72px;height:auto;pointer-events:none;
+              filter:drop-shadow(0 0 6px #a855f7) drop-shadow(0 3px 5px rgba(0,0,0,0.6));" />
           </div>`
         el.style.cursor = 'pointer'
         el.title = 'Arcade'
