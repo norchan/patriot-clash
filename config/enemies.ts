@@ -399,7 +399,7 @@ export const democratEnemies: Enemy[] = [
     fpReward: 72,
     minLevel: 4,
     moves: [
-      { name: 'Pork Barrel', damage: 44, emoji: '🐷' },
+      { name: 'Tampon Toss', damage: 44, emoji: '💊' },
       { name: 'Committee Hearing', damage: 62, emoji: '⚖️' },
       { name: 'Omnibus Bill', damage: 92, emoji: '📚' },
     ]

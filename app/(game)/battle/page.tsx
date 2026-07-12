@@ -52,7 +52,7 @@ const FOE_THROWS: Record<string, { emoji: string; label: string; splat: string }
   palestine:       { emoji: '🍉', label: 'Watermelon',     splat: 'rgba(220,60,60,0.55)' },
   comrade:         { emoji: '🚩', label: 'Red Banner',     splat: 'rgba(200,40,40,0.6)' },
   drag:            { emoji: '💄', label: 'Lipstick Bomb',  splat: 'rgba(219,39,119,0.55)' },
-  senator:         { emoji: '📚', label: 'Omnibus Bill',   splat: 'rgba(59,130,246,0.5)' },
+  senator:         { emoji: '💊', label: 'Tampon',         splat: 'rgba(220,70,90,0.5)' },
 }
 const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot', splat: 'rgba(120,100,80,0.55)' }
 
