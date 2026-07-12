@@ -92,11 +92,15 @@ export async function GET(req: NextRequest) {
       { role: 'user', content: topic },
     ], 60) ?? '')
     if (comment) {
-      await admin.from('hall_comments').insert({ post_id: post.id, profile_id: pick(byParty[party]), content: comment.slice(0, 300), score: Math.floor(Math.random() * 6) })
+      const { data: newC } = await admin.from('hall_comments')
+        .insert({ post_id: post.id, profile_id: pick(byParty[party]), content: comment.slice(0, 300), score: Math.floor(Math.random() * 6) })
+        .select('id').single()
       commented++
-      // 2) reply to a random existing comment (if any)
-      const pool = commentsByPost[post.id]
-      if (pool?.length) {
+      // 2) reply to a random existing comment, or to the one just made so
+      //    every post ends up with a little thread
+      const pool = [...(commentsByPost[post.id] ?? [])]
+      if (newC) pool.push({ id: newC.id, content: comment })
+      if (pool.length) {
         const target = pick(pool)
         const rparty = Math.random() < 0.5 ? 'democrat' : 'republican'
         const rlean = rparty === 'democrat' ? 'a progressive Democrat' : 'a conservative Republican'
