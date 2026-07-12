@@ -188,6 +188,9 @@ export default function WelcomePage() {
             style={{ background: 'linear-gradient(90deg, #2563eb, #7c3aed, #dc2626)' }}>
             ⚔️ JOIN THE FIGHT — FREE
           </button>
+          <a href="/explore" className="block text-center text-gray-400 hover:text-white text-xs mt-2.5 underline">
+            Explore town halls & town squares →
+          </a>
         </div>
       </div>
     </div>
