@@ -130,7 +130,11 @@
       "Bash(curl -s -m 25 \"https://politicsgo.app/explore\")",
       "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/robots.txt\")",
       "Bash(curl -s -m 20 \"https://politicsgo.app/robots.txt\")",
-      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/sitemap.xml\")"
+      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/sitemap.xml\")",
+      "Bash(curl -s -m 25 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/explore/st-peter-mn\")",
+      "Bash(curl -s -m 25 \"https://politicsgo.app/explore/st-peter-mn\")",
+      "Bash(curl -s -m 25 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/explore/mankato-mn\")",
+      "Bash(curl -s -m 30 \"https://politicsgo.app/sitemap.xml\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

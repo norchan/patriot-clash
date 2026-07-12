@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: ['/', '/explore', '/welcome'],
+      allow: ['/', '/explore', '/welcome', '/privacy'],
       disallow: ['/api/', '/map', '/townhall', '/profile', '/messages', '/cliques', '/settings', '/battle', '/arcade'],
     },
     sitemap: 'https://politicsgo.app/sitemap.xml',
