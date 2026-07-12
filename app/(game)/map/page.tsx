@@ -873,12 +873,12 @@ export default function MapPage() {
       // Arcade — small building just west of each hall, opens the arcade
       visible.forEach(gym => {
         if (arcadeMarkersRef.current.has(gym.id)) return
-        const arcLng = gym.longitude - 0.0016 / Math.cos(gym.latitude * Math.PI / 180) // ~0.1 mi west
+        const arcLng = gym.longitude - 0.0034 / Math.cos(gym.latitude * Math.PI / 180) // ~0.23 mi west
         const el = document.createElement('div')
         el.innerHTML = `
           <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
             <img src="/arcade.webp" alt="Arcade" draggable="false" style="
-              width:38px;height:auto;pointer-events:none;
+              width:52px;height:auto;pointer-events:none;
               filter:drop-shadow(0 0 5px #a855f7) drop-shadow(0 2px 4px rgba(0,0,0,0.6));" />
           </div>`
         el.style.cursor = 'pointer'
