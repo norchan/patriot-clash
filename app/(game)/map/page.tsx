@@ -864,17 +864,22 @@ export default function MapPage() {
           gymMarkersRef.current.delete(id)
         }
       }
-      for (const [id, mk] of arcadeMarkersRef.current) {
-        if (!keep.has(id)) {
-          mk.remove()
-          arcadeMarkersRef.current.delete(id)
-        }
-      }
 
-      // Arcade — small building just west of each hall, opens the arcade
-      visible.forEach(gym => {
-        if (arcadeMarkersRef.current.has(gym.id)) return
-        const arcLng = gym.longitude - 0.0034 / Math.cos(gym.latitude * Math.PI / 180) // ~0.23 mi west
+      // ── Arcade — ONE only, next to the hall nearest the PLAYER ────────────
+      const pl = locationRef.current
+      const nearestGym = pl
+        ? gyms.reduce<Gym | null>((best, g) => {
+            const d = Math.hypot(g.latitude - pl.lat, g.longitude - pl.lng)
+            return !best || d < Math.hypot(best.latitude - pl.lat, best.longitude - pl.lng) ? g : best
+          }, null)
+        : null
+      const arcadeKeep = nearestGym ? new Set([nearestGym.id]) : new Set<string>()
+      for (const [id, mk] of arcadeMarkersRef.current) {
+        if (!arcadeKeep.has(id)) { mk.remove(); arcadeMarkersRef.current.delete(id) }
+      }
+      if (nearestGym && !arcadeMarkersRef.current.has(nearestGym.id)) {
+        const g = nearestGym
+        const arcLng = g.longitude - 0.0034 / Math.cos(g.latitude * Math.PI / 180) // ~0.23 mi west
         const el = document.createElement('div')
         el.innerHTML = `
           <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
@@ -886,10 +891,10 @@ export default function MapPage() {
         el.title = 'Arcade'
         el.addEventListener('click', () => router.push('/arcade'))
         const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([arcLng, gym.latitude])
+          .setLngLat([arcLng, g.latitude])
           .addTo(map.current!)
-        arcadeMarkersRef.current.set(gym.id, marker)
-      })
+        arcadeMarkersRef.current.set(g.id, marker)
+      }
 
       visible.forEach(gym => {
         if (gymMarkersRef.current.has(gym.id)) return

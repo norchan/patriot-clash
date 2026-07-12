@@ -16,12 +16,9 @@ interface GameEntry {
 }
 
 const GAMES: GameEntry[] = [
-  { id: 'ballot-blaster', name: 'Ballot Blaster',   tagline: 'Blast the fake ballots, save the real ones', emoji: '👾', color: '#a855f7' },
-  { id: 'flag-flappy',    name: 'Flappy Flag',       tagline: 'Flap through the gauntlet — one tap',        emoji: '🦅', color: '#ef4444' },
-  { id: 'donkey-stomp',   name: 'Donkey Stomp',      tagline: 'Stack the barrels, climb to the top',        emoji: '🫏', color: '#3b82f6' },
-  { id: 'coin-rush',      name: 'FP Coin Rush',      tagline: 'Grab the falling coins before time runs out', emoji: '🪙', color: '#f59e0b' },
-  { id: 'whack-a-pol',    name: 'Whack-a-Pol',       tagline: 'Bonk the pols popping out of the swamp',      emoji: '🔨', color: '#22c55e' },
-  { id: 'brick-breaker',  name: 'Filibuster Breaker', tagline: 'Smash the wall of red tape',                 emoji: '🧱', color: '#ec4899' },
+  { id: 'ballot-blaster', name: 'Ballot Blaster', tagline: 'Blast the fake ballots, save the real ones', emoji: '👾', color: '#a855f7' },
+  { id: 'coin-rush',      name: 'FP Coin Rush',   tagline: 'Grab the falling coins before time runs out', emoji: '🪙', color: '#f59e0b' },
+  { id: 'whack-a-pol',    name: 'Whack-a-Pol',    tagline: 'Bonk the pols popping out of the swamp',      emoji: '🔨', color: '#22c55e' },
 ]
 
 export default function ArcadePage() {
@@ -66,8 +63,8 @@ export default function ArcadePage() {
         <p className="text-gray-500 text-[11px] mt-1">Free to play · same arcade from every town hall</p>
       </div>
 
-      {/* cabinet grid */}
-      <div className="relative z-10 grid grid-cols-2 gap-3 px-4 pb-24 max-w-md mx-auto">
+      {/* cabinet stack — three centered buttons */}
+      <div className="relative z-10 flex flex-col items-center gap-4 px-6 pb-28 max-w-sm mx-auto">
         {GAMES.map(g => {
           const live = !!g.href
           return (
@@ -75,20 +72,20 @@ export default function ArcadePage() {
               key={g.id}
               onClick={() => g.href && router.push(g.href)}
               disabled={!live}
-              className="relative rounded-2xl p-4 text-center transition active:scale-95 overflow-hidden"
+              className="relative w-full rounded-2xl p-5 text-center transition active:scale-95 overflow-hidden"
               style={{
                 background: 'linear-gradient(180deg, rgba(20,12,36,0.9), rgba(8,4,16,0.95))',
                 border: `2px solid ${g.color}`,
-                boxShadow: `0 0 14px ${g.color}55, inset 0 0 20px ${g.color}18`,
-                opacity: live ? 1 : 0.92,
+                boxShadow: `0 0 16px ${g.color}55, inset 0 0 24px ${g.color}18`,
+                opacity: live ? 1 : 0.95,
               }}
             >
-              <div className="text-4xl mb-2" style={{ filter: `drop-shadow(0 0 8px ${g.color})` }}>{g.emoji}</div>
-              <div className="font-black text-sm tracking-wide" style={{ color: g.color }}>{g.name}</div>
-              <div className="text-gray-400 text-[10px] mt-1 leading-tight">{g.tagline}</div>
-              <div className="mt-2 text-[10px] font-black tracking-widest"
+              <div className="text-5xl mb-2" style={{ filter: `drop-shadow(0 0 10px ${g.color})` }}>{g.emoji}</div>
+              <div className="font-black text-lg tracking-wide" style={{ color: g.color }}>{g.name}</div>
+              <div className="text-gray-400 text-xs mt-1 leading-tight">{g.tagline}</div>
+              <div className="mt-2.5 text-xs font-black tracking-[0.2em]"
                 style={{ color: live ? '#4ade80' : '#6b7280' }}>
-                {live ? '▶ PLAY' : 'COMING SOON'}
+                {live ? '▶ PLAY' : '◆ COMING SOON ◆'}
               </div>
             </button>
           )
