@@ -134,7 +134,13 @@
       "Bash(curl -s -m 25 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/explore/st-peter-mn\")",
       "Bash(curl -s -m 25 \"https://politicsgo.app/explore/st-peter-mn\")",
       "Bash(curl -s -m 25 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/explore/mankato-mn\")",
-      "Bash(curl -s -m 30 \"https://politicsgo.app/sitemap.xml\")"
+      "Bash(curl -s -m 30 \"https://politicsgo.app/sitemap.xml\")",
+      "Bash(curl -s -o gems_raw.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260712_215748_d8a16757-3c42-4f45-b23b-b68be518b3ca.png\")",
+      "Bash(node -e \"const s=require\\('fs'\\).statSync\\('gems_raw.png'\\); console.log\\('exists'\\)\")",
+      "Bash(curl -s -o gems_trans.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260712_215923_6211dc7f-8cfe-4932-8def-5d52c3a2d2a3.png\")",
+      "Bash(node -e \"const sharp=require\\('c:/Users/Micha/patriot-clash/node_modules/sharp'\\); sharp\\('gems_trans.png'\\).metadata\\(\\).then\\(m=>console.log\\('size',m.width,'x',m.height,'hasAlpha',m.hasAlpha\\)\\)\")",
+      "Bash(cat)",
+      "Bash(node check.cjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

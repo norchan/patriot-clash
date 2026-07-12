@@ -114,6 +114,9 @@ export default function LandslidePage() {
   const [fpGame, setFpGame] = useState(0)
   const [fpToast, setFpToast] = useState('')
 
+  useEffect(() => {
+    for (let i = 0; i < TYPES; i++) { const im = new Image(); im.src = `/gems/gem${i}.png` }
+  }, [])
   useEffect(() => { if (profile && balance === null) setBalance(profile.fp_balance) }, [profile, balance])
   useEffect(() => {
     const s = parseInt(localStorage.getItem('landslide_level') || '0', 10)
@@ -319,8 +322,6 @@ export default function LandslidePage() {
 function GemView({ g, r, c, cell, selected, removing, onTap }:
   { g: Gem; r: number; c: number; cell: number; selected?: boolean; removing?: boolean; onTap: () => void }) {
   const gem = GEMS[g.type]
-  const pad = Math.max(3, Math.floor(cell * 0.1))
-  const size = cell - pad * 2
   return (
     <button
       onClick={onTap}
@@ -328,19 +329,18 @@ function GemView({ g, r, c, cell, selected, removing, onTap }:
       style={{
         left: c * cell, top: r * cell, width: cell, height: cell,
         transition: removing ? 'transform 0.2s ease, opacity 0.2s ease' : 'top 0.24s cubic-bezier(.3,1.2,.5,1), left 0.15s ease, transform 0.12s ease',
-        transform: removing ? 'scale(0.1)' : selected ? 'scale(1.16)' : 'scale(1)',
+        transform: removing ? 'scale(0.1) rotate(20deg)' : selected ? 'scale(1.16)' : 'scale(1)',
         opacity: removing ? 0 : 1,
         zIndex: selected ? 20 : 10,
       }}>
-      <div style={{
-        position: 'absolute', left: pad, top: pad, width: size, height: size, borderRadius: '30%',
-        background: `radial-gradient(circle at 32% 26%, #ffffffdd, ${gem.main} 46%, ${gem.dark} 100%)`,
-        boxShadow: `inset -3px -5px 10px rgba(0,0,0,0.35), inset 4px 4px 9px rgba(255,255,255,0.5), 0 3px 7px rgba(0,0,0,0.5)${selected ? `, 0 0 14px 3px ${gem.main}` : ''}`,
-        animation: g.isNew ? 'gemPop 0.26s ease-out' : undefined,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: size * 0.4, textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>{gem.glyph}</span>
-      </div>
+      <img src={`/gems/gem${g.type}.png`} alt="" draggable={false}
+        style={{
+          width: '100%', height: '100%', objectFit: 'contain',
+          filter: selected
+            ? `drop-shadow(0 0 12px ${gem.main}) drop-shadow(0 0 4px #fff)`
+            : 'drop-shadow(0 3px 4px rgba(0,0,0,0.55))',
+          animation: g.isNew ? 'gemPop 0.26s ease-out' : undefined,
+        }} />
     </button>
   )
 }
