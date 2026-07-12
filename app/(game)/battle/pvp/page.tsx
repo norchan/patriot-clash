@@ -922,7 +922,8 @@ function StreetFightPage() {
   const theirColor = theirParty === 'democrat' ? '#2563eb' : '#dc2626'
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-950">
+    <div className="flex flex-col bg-gray-950 overflow-hidden overscroll-none"
+      style={{ height: 'calc(100dvh - 5rem)' }}>
       <div className="battle-wipe" />
 
       {/* ══ STREET STAGE ══════════════════════════════════════════════════ */}
