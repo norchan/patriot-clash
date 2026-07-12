@@ -322,6 +322,88 @@ export const democratEnemies: Enemy[] = [
       { name: 'Full Mobilize', damage: 70, emoji: '🗡' },
     ]
   },
+  {
+    id: 'anchor',
+    name: 'Prime Time',
+    description: 'Reporting live, with an agenda',
+    image: '/enemies/democrat/anchor.png',
+    party: 'democrat',
+    tier: 'common',
+    hp: 80,
+    power: 60,
+    fpReward: 24,
+    moves: [
+      { name: 'Breaking News', damage: 25, emoji: '📺' },
+      { name: 'Hot Take', damage: 40, emoji: '🎙️' },
+      { name: 'Fact Check', damage: 54, emoji: '✅' },
+    ]
+  },
+  {
+    id: 'palestine',
+    name: 'The Activist',
+    description: 'A voice for the cause, keffiyeh and all',
+    image: '/enemies/democrat/palestine.png',
+    party: 'democrat',
+    tier: 'common',
+    hp: 78,
+    power: 58,
+    fpReward: 23,
+    moves: [
+      { name: 'Chant Wave', damage: 24, emoji: '📣' },
+      { name: 'Sit-In', damage: 38, emoji: '🪧' },
+      { name: 'Encampment', damage: 52, emoji: '⛺' },
+    ]
+  },
+  {
+    id: 'comrade',
+    name: 'The Comrade',
+    description: 'Seize the means, one hat at a time',
+    image: '/enemies/democrat/comrade.png',
+    party: 'democrat',
+    tier: 'common',
+    hp: 88,
+    power: 63,
+    fpReward: 27,
+    moves: [
+      { name: 'Redistribute', damage: 26, emoji: '☭' },
+      { name: 'Union Strike', damage: 42, emoji: '🚩' },
+      { name: 'Five-Year Plan', damage: 56, emoji: '🏭' },
+    ]
+  },
+  {
+    id: 'drag',
+    name: 'The Diva',
+    description: 'Sashaying into the culture war',
+    image: '/enemies/democrat/drag.png',
+    party: 'democrat',
+    tier: 'rare',
+    hp: 120,
+    power: 80,
+    fpReward: 40,
+    minLevel: 3,
+    moves: [
+      { name: 'Lip Sync', damage: 30, emoji: '💄' },
+      { name: 'Death Drop', damage: 48, emoji: '💅' },
+      { name: 'Story Hour', damage: 66, emoji: '📖' },
+    ]
+  },
+  {
+    id: 'senator',
+    name: 'The Chairman',
+    description: 'Decades of seniority and dark money',
+    image: '/enemies/democrat/senator.png',
+    party: 'democrat',
+    tier: 'legendary',
+    hp: 175,
+    power: 108,
+    fpReward: 72,
+    minLevel: 4,
+    moves: [
+      { name: 'Pork Barrel', damage: 44, emoji: '🐷' },
+      { name: 'Committee Hearing', damage: 62, emoji: '⚖️' },
+      { name: 'Omnibus Bill', damage: 92, emoji: '📚' },
+    ]
+  },
 ]
 
 // Returns enemies BELONGING TO the given party — callers compute the

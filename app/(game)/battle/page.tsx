@@ -48,6 +48,11 @@ const FOE_THROWS: Record<string, { emoji: string; label: string; splat: string }
   preppy:          { emoji: '⛳', label: 'Golf Ball',      splat: 'rgba(134,180,90,0.55)' },
   influencer:      { emoji: '🎤', label: 'Hot Mic',        splat: 'rgba(120,120,130,0.6)' },
   billionaire:     { emoji: '🚀', label: 'Toy Rocket',     splat: 'rgba(251,146,60,0.6)' },
+  anchor:          { emoji: '📺', label: 'Breaking News',  splat: 'rgba(96,165,250,0.55)' },
+  palestine:       { emoji: '🍉', label: 'Watermelon',     splat: 'rgba(220,60,60,0.55)' },
+  comrade:         { emoji: '🚩', label: 'Red Banner',     splat: 'rgba(200,40,40,0.6)' },
+  drag:            { emoji: '💄', label: 'Lipstick Bomb',  splat: 'rgba(219,39,119,0.55)' },
+  senator:         { emoji: '📚', label: 'Omnibus Bill',   splat: 'rgba(59,130,246,0.5)' },
 }
 const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot', splat: 'rgba(120,100,80,0.55)' }
 
