@@ -23,6 +23,12 @@ export default clerkMiddleware(async (auth, request) => {
   if (!userId) {
     const { pathname } = request.nextUrl
     if (request.method === 'GET' && !pathname.startsWith('/api')) {
+      // Serve the welcome page AT the root as a 200 (rewrite, not redirect) so
+      // crawlers — e.g. the AdSense verifier — see the page and its
+      // verification tag directly instead of a 307. Other paths still redirect.
+      if (pathname === '/') {
+        return NextResponse.rewrite(new URL('/welcome', request.url))
+      }
       return NextResponse.redirect(new URL('/welcome', request.url))
     }
     await auth.protect()

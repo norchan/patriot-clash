@@ -116,7 +116,13 @@
       "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' 'https://politicsgo.app/api/cron/hall-chatter?state=MN&limit=50')",
       "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/.well-known/assetlinks.json\")",
       "Bash(curl -s -m 20 \"https://politicsgo.app/.well-known/assetlinks.json\")",
-      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}  type=%{content_type}\\\\n\" \"https://politicsgo.app/.well-known/assetlinks.json\")"
+      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}  type=%{content_type}\\\\n\" \"https://politicsgo.app/.well-known/assetlinks.json\")",
+      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}  type=%{content_type}\\\\n\" \"https://politicsgo.app/ads.txt\")",
+      "Bash(curl -s -m 20 \"https://politicsgo.app/ads.txt\")",
+      "Bash(curl -s -m 25 \"https://politicsgo.app/welcome\")",
+      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code} -> %{redirect_url}\\\\n\" \"https://politicsgo.app/\")",
+      "Bash(curl -s -m 20 \"https://politicsgo.app/\")",
+      "Bash(curl -sL -m 25 \"https://politicsgo.app/\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
