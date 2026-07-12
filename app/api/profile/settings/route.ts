@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest) {
     const admin = createSupabaseAdminClient()
     const body = await req.json()
 
-    const allowed = ['allow_pvp_messages', 'allow_messages', 'show_party', 'location_fuzz', 'show_nsfw']
+    const allowed = ['allow_pvp_messages', 'allow_messages', 'show_party', 'location_fuzz']
     const updates: Record<string, unknown> = {}
     for (const key of allowed) {
       if (key in body) updates[key] = body[key]

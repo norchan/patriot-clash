@@ -73,7 +73,7 @@ export async function POST(
     const admin = createSupabaseAdminClient()
     const { id } = await params
 
-    const { content, image, link_url, nsfw } = await req.json()
+    const { content, image, link_url } = await req.json()
     const text = (content ?? '').trim()
     if (text.length > 1000) {
       return NextResponse.json({ error: 'Post is too long (1000 characters max)' }, { status: 400 })
@@ -130,7 +130,6 @@ export async function POST(
         profile_id: profile.id,
         content: text || null,
         image_url: imageUrl,
-        nsfw: !!nsfw,
         link_url: preview?.url ?? null,
         link_title: preview?.title ?? null,
         link_image: preview?.image ?? null,

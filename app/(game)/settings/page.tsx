@@ -47,7 +47,7 @@ export default function SettingsPage() {
     setSwitchingParty(false)
   }
 
-  async function toggleSetting(key: 'allow_pvp_messages' | 'allow_messages' | 'show_party' | 'show_nsfw', current: boolean) {
+  async function toggleSetting(key: 'allow_pvp_messages' | 'allow_messages' | 'show_party', current: boolean) {
     setToggling(key)
     try {
       await fetch('/api/profile/settings', {
@@ -177,26 +177,6 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Content — 18+ NSFW */}
-      <div className="mx-4 mt-4">
-        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">🔞 Content</h3>
-        <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800">
-          <button
-            onClick={() => toggleSetting('show_nsfw', (profile as any)?.show_nsfw ?? false)}
-            disabled={toggling === 'show_nsfw'}
-            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800 transition disabled:opacity-50">
-            <div className="text-left pr-3">
-              <div className="text-white text-sm font-medium">Show NSFW Content</div>
-              <div className="text-gray-500 text-xs">18+ only. Reveals posts marked NSFW (strong language, nudity) instead of blurring them.</div>
-            </div>
-            <Toggle on={(profile as any)?.show_nsfw ?? false} onColor="#ec4899" />
-          </button>
-        </div>
-        <p className="text-gray-600 text-[11px] mt-2 px-1">
-          PoliticsGo is an 18+ game. Mark your own posts NSFW with the 🔞 button when posting anything explicit.
-        </p>
       </div>
 
       {/* Notifications */}

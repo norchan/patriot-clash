@@ -26,11 +26,15 @@ export interface ModVerdict {
 
 const OK: ModVerdict = { allowed: true }
 
+// The app is ad-supported and rated for everyone, so moderation runs whenever
+// an OpenAI key is present (on by default; set MODERATION_ENABLED=false only
+// for local dev). Adult/nudity content is never allowed — it would violate
+// AdSense/AdMob policy and cost ad revenue.
 function enabled() {
-  return process.env.MODERATION_ENABLED === 'true' && !!process.env.OPENAI_API_KEY
+  return !!process.env.OPENAI_API_KEY && process.env.MODERATION_ENABLED !== 'false'
 }
 function adultAlbums() {
-  return process.env.MODERATION_ADULT_ALBUMS === 'true'
+  return false
 }
 
 async function callModeration(input: any): Promise<any | null> {
