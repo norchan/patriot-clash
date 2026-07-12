@@ -56,8 +56,8 @@ export default function RootLayout({
           {children}
           {ADSENSE_CLIENT && (
             <Script
-              async
-              strategy="afterInteractive"
+              id="adsbygoogle-init"
+              strategy="beforeInteractive"
               crossOrigin="anonymous"
               src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
             />

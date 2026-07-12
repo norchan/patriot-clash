@@ -122,7 +122,9 @@
       "Bash(curl -s -m 25 \"https://politicsgo.app/welcome\")",
       "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code} -> %{redirect_url}\\\\n\" \"https://politicsgo.app/\")",
       "Bash(curl -s -m 20 \"https://politicsgo.app/\")",
-      "Bash(curl -sL -m 25 \"https://politicsgo.app/\")"
+      "Bash(curl -sL -m 25 \"https://politicsgo.app/\")",
+      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/\")",
+      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://politicsgo.app/ads.txt\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
