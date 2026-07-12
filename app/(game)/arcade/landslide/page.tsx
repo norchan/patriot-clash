@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
@@ -226,6 +226,31 @@ export default function LandslidePage() {
     else setSel({ r, c })
   }
 
+  // swipe: press a gem and drag toward a neighbor to swap (tap-select still works)
+  const dragRef = useRef<{ r: number; c: number; x: number; y: number; moved: boolean } | null>(null)
+  const onGemDown = (r: number, c: number, e: React.PointerEvent) => {
+    if (resolving.current || phase !== 'playing') return
+    dragRef.current = { r, c, x: e.clientX, y: e.clientY, moved: false }
+    setSel({ r, c })
+  }
+  const onBoardMove = (e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d || d.moved) return
+    const dx = e.clientX - d.x, dy = e.clientY - d.y
+    if (Math.hypot(dx, dy) < cell * 0.4) return
+    d.moved = true
+    let tr = d.r, tc = d.c
+    if (Math.abs(dx) > Math.abs(dy)) tc += dx > 0 ? 1 : -1
+    else tr += dy > 0 ? 1 : -1
+    dragRef.current = null; setSel(null)
+    if (tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS) trySwap({ r: d.r, c: d.c }, { r: tr, c: tc })
+  }
+  const onBoardUp = () => {
+    const d = dragRef.current
+    if (d && !d.moved) tapCell(d.r, d.c)
+    dragRef.current = null
+  }
+
   const boardPx = COLS * cell
   const pct = Math.min(100, (score / target) * 100)
 
@@ -257,14 +282,15 @@ export default function LandslidePage() {
       {/* board */}
       <div className="flex justify-center mt-3 px-2">
         <div className="relative rounded-2xl p-1.5" style={{ width: boardPx + 12, height: boardPx + 12, background: 'rgba(0,0,0,0.28)', boxShadow: '0 10px 40px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(255,255,255,0.12)' }}>
-          <div className="relative" style={{ width: boardPx, height: boardPx }}>
+          <div className="relative" style={{ width: boardPx, height: boardPx, touchAction: 'none' }}
+            onPointerMove={onBoardMove} onPointerUp={onBoardUp} onPointerLeave={onBoardUp}>
             {boardRef.current.map((row, r) => row.map((g, c) => g && (
               <GemView key={g.id} g={g} r={r} c={c} cell={cell}
                 selected={!!sel && sel.r === r && sel.c === c}
-                onTap={() => tapCell(r, c)} />
+                onDown={e => onGemDown(r, c, e)} />
             )))}
             {removing.map(x => (
-              <GemView key={`x${x.id}`} g={{ id: x.id, type: x.type }} r={x.r} c={x.c} cell={cell} removing onTap={() => {}} />
+              <GemView key={`x${x.id}`} g={{ id: x.id, type: x.type }} r={x.r} c={x.c} cell={cell} removing onDown={() => {}} />
             ))}
           </div>
           {fpToast && (
@@ -319,12 +345,12 @@ export default function LandslidePage() {
   )
 }
 
-function GemView({ g, r, c, cell, selected, removing, onTap }:
-  { g: Gem; r: number; c: number; cell: number; selected?: boolean; removing?: boolean; onTap: () => void }) {
+function GemView({ g, r, c, cell, selected, removing, onDown }:
+  { g: Gem; r: number; c: number; cell: number; selected?: boolean; removing?: boolean; onDown: (e: React.PointerEvent) => void }) {
   const gem = GEMS[g.type]
   return (
     <button
-      onClick={onTap}
+      onPointerDown={onDown}
       className="absolute"
       style={{
         left: c * cell, top: r * cell, width: cell, height: cell,

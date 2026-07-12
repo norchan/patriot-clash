@@ -13,12 +13,13 @@ interface GameEntry {
   emoji: string
   color: string
   href?: string          // set when the game is live
+  iconSrc?: string       // image icon (overrides emoji when set)
 }
 
 const GAMES: GameEntry[] = [
   { id: 'slots',          name: 'Slots Salute',   tagline: '3 machines · bet FP · match 3 to win big',    emoji: '🎰', color: '#facc15', href: '/arcade/slots' },
   { id: 'tetkris',        name: 'Tet-Kris',       tagline: 'Stack the blocks, clear rows, earn FP',       emoji: '🧱', color: '#c084fc', href: '/arcade/tetkris' },
-  { id: 'landslide',      name: 'Landslide',      tagline: 'Match 3 gems, cascade, win a landslide of FP', emoji: '💎', color: '#f472b6', href: '/arcade/landslide' },
+  { id: 'landslide',      name: 'Landslide',      tagline: 'Match 3 gems, cascade, win a landslide of FP', emoji: '💎', color: '#f472b6', href: '/arcade/landslide', iconSrc: '/gems/landslide-icon.png' },
   { id: 'ballot-blaster', name: 'Ballot Blaster', tagline: 'Blast the fake ballots, save the real ones', emoji: '👾', color: '#a855f7' },
   { id: 'coin-rush',      name: 'FP Coin Rush',   tagline: 'Grab the falling coins before time runs out', emoji: '🪙', color: '#f59e0b' },
   { id: 'whack-a-pol',    name: 'Whack-a-Pol',    tagline: 'Bonk the pols popping out of the swamp',      emoji: '🔨', color: '#22c55e' },
@@ -83,7 +84,12 @@ export default function ArcadePage() {
                 opacity: live ? 1 : 0.95,
               }}
             >
-              <div className="text-5xl mb-2" style={{ filter: `drop-shadow(0 0 10px ${g.color})` }}>{g.emoji}</div>
+              {g.iconSrc ? (
+                <img src={g.iconSrc} alt="" className="w-16 h-16 mx-auto mb-2 object-contain"
+                  style={{ filter: `drop-shadow(0 0 10px ${g.color})` }} />
+              ) : (
+                <div className="text-5xl mb-2" style={{ filter: `drop-shadow(0 0 10px ${g.color})` }}>{g.emoji}</div>
+              )}
               <div className="font-black text-lg tracking-wide" style={{ color: g.color }}>{g.name}</div>
               <div className="text-gray-400 text-xs mt-1 leading-tight">{g.tagline}</div>
               <div className="mt-2.5 text-xs font-black tracking-[0.2em]"
