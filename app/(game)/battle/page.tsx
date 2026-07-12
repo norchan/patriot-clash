@@ -5,6 +5,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { getEnemyById, getRandomEnemy } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
 import { THROWS, TIER_DEFENSE } from '@/config/attacks'
+import { fighterLevel } from '@/lib/fighter'
 import { sfx, buzz } from '@/lib/juice'
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -42,6 +43,11 @@ const FOE_THROWS: Record<string, { emoji: string; label: string; splat: string }
   politician_dems: { emoji: '📋', label: 'Regulations',    splat: 'rgba(59,130,246,0.5)' },
   protestor:       { emoji: '🪧', label: 'Protest Sign',   splat: 'rgba(250,204,21,0.5)' },
   purple_hair:     { emoji: '📢', label: 'Megaphone Blast', splat: 'rgba(168,85,247,0.55)' },
+  ice_agent:       { emoji: '🧊', label: 'Ice Block',      splat: 'rgba(147,197,253,0.65)' },
+  soldier_boy:     { emoji: '🥾', label: 'Combat Boot',    splat: 'rgba(120,110,80,0.6)' },
+  preppy:          { emoji: '⛳', label: 'Golf Ball',      splat: 'rgba(134,180,90,0.55)' },
+  influencer:      { emoji: '🎤', label: 'Hot Mic',        splat: 'rgba(120,120,130,0.6)' },
+  billionaire:     { emoji: '🚀', label: 'Toy Rocket',     splat: 'rgba(251,146,60,0.6)' },
 }
 const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot', splat: 'rgba(120,100,80,0.55)' }
 
@@ -144,6 +150,26 @@ function BattleContent() {
   const [missAt, setMissAt] = useState<{ id: number; xPct: number } | null>(null)
   const [dialogLine, setDialogLine] = useState('')
 
+  // ── Level-based difficulty ─────────────────────────────────────────────
+  // Underleveled players face meaner sprites: better dodges, harder counter
+  // hits, and their own throws chip less. The Don is a WALL below level 5.
+  const playerLevel = fighterLevel(profile?.total_battles_won ?? 0)
+  const diff = (() => {
+    if (!enemy) return { dodgeBonus: 0, foeDmgMult: 1, playerDmgMult: 1, donGate: false }
+    const reqLevel = enemy.minLevel ?? (enemy.tier === 'legendary' ? 4 : enemy.tier === 'rare' ? 3 : 1)
+    const donGate = enemy.id === 'politician' && playerLevel < 5
+    const gap = Math.max(0, reqLevel - playerLevel)
+    const lowVsCommon = enemy.tier === 'common' && playerLevel <= 2
+    return {
+      donGate,
+      dodgeBonus: donGate ? 0.32 : Math.min(0.24, gap * 0.08) + (lowVsCommon ? 0.05 : 0),
+      foeDmgMult: donGate ? 2.4 : 1 + Math.min(1.2, gap * 0.35) + (lowVsCommon ? 0.3 : 0),
+      playerDmgMult: donGate ? 0.35 : 1 / (1 + Math.min(1, gap * 0.3)),
+    }
+  })()
+  const diffRef = useRef(diff)
+  diffRef.current = diff
+
   const arenaRef = useRef<HTMLDivElement>(null)
   const S = useRef({
     over: false,
@@ -189,7 +215,13 @@ function BattleContent() {
       setMaxHp(e.hp)
       S.current.enemyHp = e.hp
       S.current.nextFoeThrowAt = Date.now() + 2500
-      setDialogLine(`A wild ${e.name} appeared! Swipe to throw!`)
+      const lvl = fighterLevel(profile.total_battles_won ?? 0)
+      const req = e.minLevel ?? (e.tier === 'legendary' ? 4 : e.tier === 'rare' ? 3 : 1)
+      setDialogLine(e.id === 'politician' && lvl < 5
+        ? `⚠️ ${e.name} is WAY above your level. This will not go well...`
+        : lvl < req
+          ? `⚠️ ${e.name} outclasses you (Lv.${req} fight). Swipe to throw!`
+          : `A wild ${e.name} appeared! Swipe to throw!`)
     }
   }, [enemyId, profile])
 
@@ -248,9 +280,9 @@ function BattleContent() {
     setProjectiles(p => [...p, { id, side: 'mine', emoji: weapon.emoji, x0, y0, x1: endX, y1: enemyCy, dur }])
     sfx.whoosh()
 
-    // The sprite may react and dodge mid-flight
+    // The sprite may react and dodge mid-flight (dodgier vs underleveled)
     const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
-    if (Math.random() < ai.dodge && now > st.dodgeBusyUntil) {
+    if (Math.random() < Math.min(0.92, ai.dodge + diffRef.current.dodgeBonus) && now > st.dodgeBusyUntil) {
       st.dodgeBusyUntil = now + 700
       const cur = enemyXAt(now)
       const hop = cur > 50 ? cur - (18 + Math.random() * 14) : cur + (18 + Math.random() * 14)
@@ -266,9 +298,9 @@ function BattleContent() {
       const exPx = rect.width * (exPct / 100)
       const hitRadius = Math.min(rect.width * 0.13, 78)
       if (Math.abs(endX - exPx) <= hitRadius) {
-        // HIT — comic ouch + damage
+        // HIT — comic ouch + damage (underleveled players chip for less)
         const tierMult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE]
-        const dmg = Math.floor(weapon.damage * (0.8 + Math.random() * 0.4) * tierMult)
+        const dmg = Math.floor(weapon.damage * (0.8 + Math.random() * 0.4) * tierMult * diffRef.current.playerDmgMult)
         S.current.enemyHp = Math.max(0, S.current.enemyHp - dmg)
         setEnemyHp(S.current.enemyHp)
         setMovesUsed(p => [...p, { name: weapon.name, power: weapon.damage, damage: dmg }])
@@ -356,7 +388,7 @@ function BattleContent() {
                 // SPLAT — it landed on you
                 const move = enemy.moves[Math.floor(Math.random() * enemy.moves.length)]
                 const tierScale = ENEMY_DMG_SCALE[enemy.tier as keyof typeof ENEMY_DMG_SCALE] ?? 0.4
-                const dmg = Math.max(1, Math.floor(move.damage * (0.7 + Math.random() * 0.6) * tierScale))
+                const dmg = Math.max(1, Math.floor(move.damage * (0.7 + Math.random() * 0.6) * tierScale * diffRef.current.foeDmgMult))
                 S.current.playerHp = Math.max(0, S.current.playerHp - dmg)
                 setPlayerHp(S.current.playerHp)
                 setSplat({ color: theme.splat, emoji: theme.emoji })

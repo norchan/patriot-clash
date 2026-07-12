@@ -101,7 +101,12 @@
       "Bash(curl -s \"https://politicsgo.app/api/public/world?lat=44.32&lng=-93.95\")",
       "Bash(nslookup politicsgo.net 8.8.8.8)",
       "Bash(curl -s -o /dev/null -w \"politicsgo.net -> %{http_code} %{redirect_url}\\\\n\" -m 15 https://politicsgo.net)",
-      "Bash(curl -s -o /dev/null -w \"https politicsgo.net -> %{http_code}\\\\n\" -m 15 https://politicsgo.net)"
+      "Bash(curl -s -o /dev/null -w \"https politicsgo.net -> %{http_code}\\\\n\" -m 15 https://politicsgo.net)",
+      "Bash(node scripts/metro_rebalance.mjs --dry)",
+      "Bash(node scripts/metro_rebalance.mjs)",
+      "Bash(node scripts/global_thin.mjs)",
+      "Bash(node scripts/build_new_sprites.mjs)",
+      "mcp__claude_ai_Higgs__remove_background"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat"

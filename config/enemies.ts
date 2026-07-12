@@ -10,6 +10,12 @@ export interface Enemy {
   hp: number
   power: number
   fpReward: number
+  // Relative spawn weight WITHIN its tier (default 1). The Don runs 0.35 —
+  // rarest sprite in the game.
+  rarity?: number
+  // Minimum player level to have a real shot; below this the fight scales
+  // brutally against the player (see battle page difficulty scaling)
+  minLevel?: number
   moves: EnemyMove[]
   // Video clips per battle state. Missing states fall back to the idle clip,
   // and enemies with no animations at all fall back to the static image.
@@ -79,13 +85,15 @@ export const republicanEnemies: Enemy[] = [
     },
     party: 'republican',
     tier: 'legendary',
-    hp: 200,
-    power: 120,
-    fpReward: 80,
+    hp: 240,
+    power: 130,
+    fpReward: 150,
+    rarity: 0.35,  // rarest spawn in the game
+    minLevel: 5,   // unbeatable below level 5, tough even after
     moves: [
-      { name: 'Tweet Storm', damage: 45, emoji: '📱' },
-      { name: 'Executive Order', damage: 70, emoji: '📋' },
-      { name: 'MAGA Surge', damage: 100, emoji: '🇺🇸' },
+      { name: 'Tweet Storm', damage: 50, emoji: '📱' },
+      { name: 'Executive Order', damage: 75, emoji: '📋' },
+      { name: 'MAGA Surge', damage: 105, emoji: '🇺🇸' },
     ]
   },
   {
@@ -126,6 +134,89 @@ export const republicanEnemies: Enemy[] = [
       { name: 'Pitchfork Prod', damage: 28, emoji: '🌾' },
       { name: 'Truck Rally', damage: 42, emoji: '🚛' },
       { name: 'Border Patrol', damage: 58, emoji: '🚧' },
+    ]
+  },
+  {
+    id: 'ice_agent',
+    name: 'The Ice Man',
+    description: 'A masked enforcer nobody can identify',
+    image: '/enemies/republican/ice_agent.png',
+    party: 'republican',
+    tier: 'rare',
+    hp: 130,
+    power: 85,
+    fpReward: 45,
+    minLevel: 3,
+    moves: [
+      { name: 'Cold Cuffs', damage: 32, emoji: '🧊' },
+      { name: 'Midnight Raid', damage: 50, emoji: '🚨' },
+      { name: 'Deportation Van', damage: 68, emoji: '🚐' },
+    ]
+  },
+  {
+    id: 'soldier_boy',
+    name: 'Sgt. Stars',
+    description: 'Standing at attention, always',
+    image: '/enemies/republican/soldier_boy.png',
+    party: 'republican',
+    tier: 'rare',
+    hp: 125,
+    power: 82,
+    fpReward: 42,
+    minLevel: 3,
+    moves: [
+      { name: 'Drill Command', damage: 30, emoji: '🪖' },
+      { name: 'Flash Bang', damage: 48, emoji: '💥' },
+      { name: 'Air Support', damage: 66, emoji: '🚁' },
+    ]
+  },
+  {
+    id: 'preppy',
+    name: 'Country Club Chad',
+    description: "Daddy's money and a 9-iron",
+    image: '/enemies/republican/preppy.png',
+    party: 'republican',
+    tier: 'common',
+    hp: 75,
+    power: 55,
+    fpReward: 22,
+    moves: [
+      { name: 'Golf Swing', damage: 24, emoji: '⛳' },
+      { name: 'Trust Fund Flex', damage: 38, emoji: '💳' },
+      { name: 'Yacht Party', damage: 50, emoji: '🛥️' },
+    ]
+  },
+  {
+    id: 'influencer',
+    name: 'Campus Crusader',
+    description: 'Armed with a microphone and a pocket Constitution',
+    image: '/enemies/republican/influencer.png',
+    party: 'republican',
+    tier: 'common',
+    hp: 85,
+    power: 62,
+    fpReward: 26,
+    moves: [
+      { name: 'Debate Me', damage: 26, emoji: '🎤' },
+      { name: 'Gotcha Clip', damage: 40, emoji: '📹' },
+      { name: 'Viral Rant', damage: 55, emoji: '📱' },
+    ]
+  },
+  {
+    id: 'billionaire',
+    name: 'Rocket Man',
+    description: 'The richest man alive, allegedly',
+    image: '/enemies/republican/billionaire.png',
+    party: 'republican',
+    tier: 'legendary',
+    hp: 170,
+    power: 105,
+    fpReward: 70,
+    minLevel: 4,
+    moves: [
+      { name: 'Hostile Takeover', damage: 42, emoji: '💼' },
+      { name: 'Stock Crash', damage: 60, emoji: '📉' },
+      { name: 'Rocket Test', damage: 90, emoji: '🚀' },
     ]
   },
 ]
@@ -253,7 +344,14 @@ export function getRandomEnemy(party: 'democrat' | 'republican'): Enemy {
     pool = enemies.filter(e => e.tier === 'common')
   }
   if (pool.length === 0) pool = enemies
-  return pool[Math.floor(Math.random() * pool.length)]
+  // rarity-weighted pick within the tier (The Don at 0.35 is the rarest)
+  const total = pool.reduce((s, e) => s + (e.rarity ?? 1), 0)
+  let r = Math.random() * total
+  for (const e of pool) {
+    r -= e.rarity ?? 1
+    if (r <= 0) return e
+  }
+  return pool[pool.length - 1]
 }
 
 export function getEnemyById(id: string): Enemy | undefined {
