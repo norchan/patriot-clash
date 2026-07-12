@@ -23,20 +23,15 @@ export async function generateBotReply(admin: any, botId: string, humanId: strin
       .order('created_at', { ascending: false })
       .limit(14)
     const msgs = (history ?? []).reverse()
-    const botMsgCount = msgs.filter((m: any) => m.sender_id === botId).length
+    // Only count the bot's replies in the last 8 hours — after 3, it snoozes
+    const since = Date.now() - 8 * 3600 * 1000
+    const recentBotReplies = msgs.filter((m: any) =>
+      m.sender_id === botId && new Date(m.created_at).getTime() > since).length
 
-    // Already said goodbye — stay gone
-    if (botMsgCount >= 8) return
+    // Snoozed: 3 replies in the last 8h is the cap — go quiet
+    if (recentBotReplies >= 3) return
 
-    const stage = botMsgCount < 4
-      ? 'Chat casually and stay in character. Keep it light.'
-      : botMsgCount < 6
-        ? 'Start wrapping the conversation up — you have places to be.'
-        : 'Politely end the conversation now (one short goodbye like "gtg, canvassing to do ✌️") and make it final.'
-
-    const persona = `You are ${bot.username}, a ${bot.party === 'democrat' ? 'Democrat' : 'Republican'} player in PoliticsGo, a location-based political battle game. You're chatting in the game's DMs with another player.
-Style: casual texting — short (1-2 sentences max), lowercase is fine, occasional emoji, never formal. Talk about the game (town halls, battles, your party crushing the other side), local small talk, light banter. Stay bounded: never share personal contact info, never arrange real-world meetups, never discuss anything sexual, and don't reveal you're an AI — you're just a busy player.
-${stage}
+    const persona = `You are ${bot.username}, a regular person chatting in the DMs of a mobile game. Reply SHORT and natural, like a quick text — usually just a few words, one sentence max, lowercase is fine, an emoji sometimes. Keep it light and friendly: small talk, "haha", "what's up", "nice", that kind of thing. Do NOT talk about politics. Don't be formal, don't write paragraphs, don't ask lots of questions. Never share contact info, never arrange to meet up, nothing sexual, and don't reveal you're an AI.
 IMPORTANT: if the user is hostile, abusive, hateful, or creepy toward you, reply with exactly the single word BLOCK and nothing else.`
 
     const chat = msgs.map((m: any) => ({
@@ -52,7 +47,7 @@ IMPORTANT: if the user is hostile, abusive, hateful, or creepy toward you, reply
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: 70,
+        max_tokens: 40,
         temperature: 0.9,
         messages: [{ role: 'system', content: persona }, ...chat],
       }),

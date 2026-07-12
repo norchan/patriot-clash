@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
-import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut } from 'lucide-react'
+import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut, Radar } from 'lucide-react'
 
 const navItems = [
   { href: '/map',      label: 'Map',      icon: Map },
@@ -13,11 +13,12 @@ const navItems = [
 ]
 
 const menuItems = [
-  { href: '/townhall',         label: 'Halls',         icon: Building2 },
-  { href: '/profile',          label: 'Profile',       icon: User },
-  { href: '/settings',         label: 'Settings',      icon: Settings },
-  { href: '/notifications',    label: 'Notifications', icon: Bell },
-  { href: '/shop',             label: 'Shop',          icon: ShoppingBag },
+  { href: '/townhall',         label: 'Halls',          icon: Building2 },
+  { href: '/active',           label: 'Active Players', icon: Radar },
+  { href: '/profile',          label: 'Profile',        icon: User },
+  { href: '/settings',         label: 'Settings',       icon: Settings },
+  { href: '/notifications',    label: 'Notifications',  icon: Bell },
+  { href: '/shop',             label: 'Shop',           icon: ShoppingBag },
 ]
 
 export default function GameLayout({ children }: { children: React.ReactNode }) {

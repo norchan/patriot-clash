@@ -106,7 +106,10 @@
       "Bash(node scripts/metro_rebalance.mjs)",
       "Bash(node scripts/global_thin.mjs)",
       "Bash(node scripts/build_new_sprites.mjs)",
-      "mcp__claude_ai_Higgs__remove_background"
+      "mcp__claude_ai_Higgs__remove_background",
+      "Bash(node scripts/bot_cliques.mjs)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep -E \"/active|local-events\" /tmp/build.log)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat"
