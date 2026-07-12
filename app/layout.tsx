@@ -5,7 +5,9 @@ import Script from 'next/script'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
-const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+// Public AdSense publisher id (visible in page source anyway) — hardcoded so
+// verification works without extra env setup; env can override.
+const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || 'ca-pub-5293418453940819'
 
 export const metadata: Metadata = {
   title: 'PoliticsGo',
@@ -28,6 +30,8 @@ export const metadata: Metadata = {
   },
   other: {
     'mobile-web-app-capable': 'yes',
+    // AdSense site-ownership verification
+    'google-adsense-account': ADSENSE_CLIENT,
   },
 }
 
