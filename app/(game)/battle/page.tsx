@@ -142,6 +142,8 @@ function BattleContent() {
 
   // Sprite presentation
   const [enemyX, setEnemyX] = useState(50)           // % across the arena
+  const [enemyY, setEnemyY] = useState(0)            // px vertical dodge offset
+  const [fcLeft, setFcLeft] = useState(0)            // firecrackers remaining
   const [ouch, setOuch] = useState(false)            // comic OUCH face
   const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'charge' | 'faint'>('idle')
   const [spriteKey, setSpriteKey] = useState(0)
@@ -182,10 +184,12 @@ function BattleContent() {
     throwCd: 0, nextFoeThrowAt: 0, dodgeBusyUntil: 0,
     // enemy x tween tracking, for hit tests against a MOVING target
     exFrom: 50, exTo: 50, exStart: 0, exDur: 1,
+    ey: 0,  // current vertical dodge offset (px)
     swipe: null as { x: number; y: number; t: number } | null,
     idc: 0,
     throwsMade: 0,
     hitCount: 0,
+    fcLeft: 0,  // firecrackers remaining this battle
   })
   const startTime = useRef(Date.now())
 
@@ -195,10 +199,11 @@ function BattleContent() {
     const s = document.createElement('style')
     s.id = 'battle-kf2'
     s.textContent = `
-      @keyframes pokeIdle { 0%,100%{transform:translateY(0) rotate(0)} 25%{transform:translateY(-10px) rotate(-2deg)} 75%{transform:translateY(-4px) rotate(1.5deg)} }
-      @keyframes pokeLowHp { 0%,100%{transform:translateY(0) rotate(-5deg) scale(0.97)} 50%{transform:translateY(-7px) rotate(5deg) scale(1.02)} }
-      @keyframes pokeHit { 0%{transform:translateX(0)} 20%{transform:translateX(12px) rotate(4deg)} 45%{transform:translateX(-9px) rotate(-4deg)} 70%{transform:translateX(5px)} 100%{transform:translateX(0)} }
-      @keyframes pokeChrg { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12); filter:brightness(1.8)} }
+      /* Constant throwing motion: bob → wind up (lean back, twist) → snap forward */
+      @keyframes pokeIdle { 0%,100%{transform:translateY(0) rotate(0) scaleX(1)} 30%{transform:translateY(-6px) rotate(-7deg) scaleX(0.96)} 46%{transform:translateY(-3px) rotate(9deg) scaleX(1.04)} 60%{transform:translateY(0) rotate(2deg)} }
+      @keyframes pokeLowHp { 0%,100%{transform:translateY(0) rotate(-8deg) scale(0.97)} 35%{transform:translateY(-5px) rotate(6deg) scale(1.03)} 55%{transform:translateY(0) rotate(-3deg)} }
+      @keyframes pokeHit { 0%{transform:translateX(0)} 20%{transform:translateX(14px) rotate(6deg)} 45%{transform:translateX(-11px) rotate(-6deg)} 70%{transform:translateX(6px)} 100%{transform:translateX(0)} }
+      @keyframes pokeChrg { 0%{transform:rotate(0) translateX(0)} 35%{transform:rotate(-14deg) translateX(-10px)} 70%{transform:rotate(16deg) translateX(14px); filter:brightness(1.5)} 100%{transform:rotate(0) translateX(0)} }
       @keyframes pokeFaint { 0%{transform:translateY(0) rotate(0);opacity:1} 20%{transform:translateY(18px) rotate(14deg);opacity:0.85} 100%{transform:translateY(160px) rotate(42deg);opacity:0} }
       @keyframes screenShake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-12px,-5px) rotate(-1deg)} 30%{transform:translate(12px,5px) rotate(1deg)} 50%{transform:translate(-7px,-3px)} 70%{transform:translate(7px,3px)} 85%{transform:translate(-3px,0)} }
       @keyframes dmgFloat { 0%{transform:translateX(-50%) translateY(0);opacity:1} 100%{transform:translateX(-50%) translateY(-60px);opacity:0} }
@@ -222,11 +227,15 @@ function BattleContent() {
       S.current.nextFoeThrowAt = Date.now() + 2500
       const lvl = fighterLevel(profile.total_battles_won ?? 0)
       const req = e.minLevel ?? (e.tier === 'legendary' ? 4 : e.tier === 'rare' ? 3 : 1)
+      // Firecracker allowance: 3 at low levels → 10 at the highest
+      const fc = Math.max(3, Math.min(10, 3 + Math.floor((lvl - 1) * 0.5)))
+      S.current.fcLeft = fc
+      setFcLeft(fc)
       setDialogLine(e.id === 'politician' && lvl < 5
         ? `⚠️ ${e.name} is WAY above your level. This will not go well...`
         : lvl < req
-          ? `⚠️ ${e.name} outclasses you (Lv.${req} fight). Swipe to throw!`
-          : `A wild ${e.name} appeared! Swipe to throw!`)
+          ? `⚠️ ${e.name} outclasses you (Lv.${req} fight). TAP rocks · SWIPE firecrackers!`
+          : `A wild ${e.name} appeared! TAP for rocks · SWIPE for firecrackers!`)
     }
   }, [enemyId, profile])
 
@@ -245,7 +254,7 @@ function BattleContent() {
     setTimeout(() => setDmgNums(p => p.filter(d => d.id !== id)), 1000)
   }
 
-  function moveEnemyTo(x: number, dur = 380) {
+  function moveEnemyTo(x: number, dur = 380, y?: number) {
     const st = S.current
     const now = Date.now()
     st.exFrom = enemyXAt(now)
@@ -253,6 +262,18 @@ function BattleContent() {
     st.exStart = now
     st.exDur = dur
     setEnemyX(st.exTo)
+    // Vertical dodge too — the sprite juks in all directions
+    if (y !== undefined) {
+      st.ey = Math.max(-32, Math.min(70, y))
+      setEnemyY(st.ey)
+    }
+  }
+  // A quick evasive juke in a random direction (used when a throw is incoming)
+  function jukeEnemy(dur = 300) {
+    const cur = enemyXAt(Date.now())
+    const dx = (Math.random() < 0.5 ? -1 : 1) * (16 + Math.random() * 16)
+    const dy = -24 + Math.random() * 88
+    moveEnemyTo(cur + dx, dur, dy)
   }
   function enemyXAt(t: number) {
     const st = S.current
@@ -260,24 +281,27 @@ function BattleContent() {
     return st.exFrom + (st.exTo - st.exFrom) * k
   }
 
-  // ── Player throw: swipe toward the sprite ─────────────────────────────────
-  function launchThrow(x0: number, y0: number, x1: number, y1: number) {
+  // ── Player throw: TAP = rock (auto-aim), SWIPE up = firecracker (aimed) ────
+  function launchThrow(x0: number, y0: number, x1: number, y1: number, kind: keyof typeof THROWS) {
     const st = S.current
     if (st.over || phase !== 'fighting' || !enemy || !arenaRef.current) return
     const now = Date.now()
     if (now < st.throwCd) return
-    const dy = y1 - y0
-    if (dy > -25) return // must swipe toward the sprite (upward)
-    st.throwCd = now + 380
+    st.throwCd = now + 300
 
     const rect = arenaRef.current.getBoundingClientRect()
-    const enemyCy = rect.height * 0.30 // sprite band
-    // extend the swipe vector until it reaches the sprite's height
-    const dirX = (x1 - x0), dirY = dy
-    const scale = (enemyCy - y0) / dirY
-    const endX = x0 + dirX * scale
+    // The sprite band tracks its live vertical dodge offset
+    const enemyCy = rect.height * 0.30 + st.ey
+    let endX: number
+    if (kind === 'firecracker') {
+      // aim along the swipe vector
+      const dirY = (y1 - y0) || -1
+      endX = x0 + (x1 - x0) * ((enemyCy - y0) / dirY)
+    } else {
+      // rocks auto-aim at the sprite's current x
+      endX = rect.width * (enemyXAt(now) / 100)
+    }
 
-    const kind: keyof typeof THROWS = st.throwsMade % 3 === 2 ? 'firecracker' : 'rock'
     st.throwsMade++
     const weapon = THROWS[kind]
     const id = ++st.idc
@@ -285,13 +309,11 @@ function BattleContent() {
     setProjectiles(p => [...p, { id, side: 'mine', emoji: weapon.emoji, x0, y0, x1: endX, y1: enemyCy, dur }])
     sfx.whoosh()
 
-    // The sprite may react and dodge mid-flight (dodgier vs underleveled)
+    // The sprite may juke mid-flight in ANY direction (dodgier vs underleveled)
     const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
     if (Math.random() < Math.min(0.92, ai.dodge + diffRef.current.dodgeBonus) && now > st.dodgeBusyUntil) {
-      st.dodgeBusyUntil = now + 700
-      const cur = enemyXAt(now)
-      const hop = cur > 50 ? cur - (18 + Math.random() * 14) : cur + (18 + Math.random() * 14)
-      setTimeout(() => { if (!S.current.over) moveEnemyTo(hop, 330) }, 90)
+      st.dodgeBusyUntil = now + 620
+      setTimeout(() => { if (!S.current.over) jukeEnemy(300) }, 80)
     }
 
     // Resolve at impact time against the sprite's LIVE position
@@ -302,7 +324,11 @@ function BattleContent() {
       const exPct = enemyXAt(impactT)
       const exPx = rect.width * (exPct / 100)
       const hitRadius = Math.min(rect.width * 0.13, 78)
-      if (Math.abs(endX - exPx) <= hitRadius) {
+      // Vertical dodge counts too: the projectile aimed at enemyCy (launch),
+      // the sprite may have juked up/down since
+      const nowCy = rect.height * 0.30 + S.current.ey
+      const vGap = Math.abs(nowCy - enemyCy)
+      if (Math.abs(endX - exPx) <= hitRadius && vGap <= 64) {
         // HIT — comic ouch + damage (underleveled players chip for less)
         const tierMult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE]
         const dmg = Math.floor(weapon.damage * (0.8 + Math.random() * 0.4) * tierMult * diffRef.current.playerDmgMult)
@@ -363,9 +389,9 @@ function BattleContent() {
       if (st.over || !arenaRef.current) return
       const now = Date.now()
 
-      // idle wander
-      if (now > st.dodgeBusyUntil && Math.random() < 0.25) {
-        moveEnemyTo(20 + Math.random() * 60, 500)
+      // idle wander — roams in all directions
+      if (now > st.dodgeBusyUntil && Math.random() < 0.3) {
+        moveEnemyTo(20 + Math.random() * 60, 520, -20 + Math.random() * 80)
       }
 
       // themed counterattack
@@ -430,7 +456,7 @@ function BattleContent() {
     setTimeout(() => setProjectiles(p => p.filter(x => x.id !== id)), 460)
   }
 
-  // ── Input: swipe (touch) and drag (mouse) both throw ───────────────────────
+  // ── Input: TAP = rock, SWIPE up = firecracker (limited by level) ───────────
   function onPointerDown(e: React.PointerEvent) {
     if (phase !== 'fighting' || !arenaRef.current) return
     const rect = arenaRef.current.getBoundingClientRect()
@@ -443,7 +469,23 @@ function BattleContent() {
     const rect = arenaRef.current.getBoundingClientRect()
     const x1 = e.clientX - rect.left
     const y1 = e.clientY - rect.top
-    launchThrow(sw.x, sw.y, x1, y1)
+    const dist = Math.hypot(x1 - sw.x, y1 - sw.y)
+    const isSwipe = dist > 26 && (y1 - sw.y) < -18 // meaningful upward drag
+
+    if (isSwipe) {
+      // Firecracker — bigger hit, but rationed by level
+      if (S.current.fcLeft <= 0) {
+        setDialogLine('🧨 Out of firecrackers! Tap to keep throwing rocks.')
+        launchThrow(sw.x, sw.y, x1, y1, 'rock')
+        return
+      }
+      S.current.fcLeft--
+      setFcLeft(S.current.fcLeft)
+      launchThrow(sw.x, sw.y, x1, y1, 'firecracker')
+    } else {
+      // Tap — rock, straight at the sprite
+      launchThrow(sw.x, sw.y, x1, y1, 'rock')
+    }
   }
 
   // ── API ────────────────────────────────────────────────────────────────────
@@ -564,11 +606,11 @@ function BattleContent() {
         </button>
       )}
 
-      {/* ── The sprite — smaller, and it MOVES to dodge ─────────────────────── */}
+      {/* ── The sprite — smaller, juking in all directions ──────────────────── */}
       <div style={{
-        position: 'absolute', top: '17%', left: `${enemyX}%`, zIndex: 5,
-        transform: 'translateX(-50%)',
-        transition: `left ${S.current.exDur}ms ease-out`,
+        position: 'absolute', top: '15%', left: `${enemyX}%`, zIndex: 5,
+        transform: `translateX(-50%) translateY(${enemyY}px)`,
+        transition: `left ${S.current.exDur}ms ease-out, transform ${S.current.exDur}ms ease-out`,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         pointerEvents: 'none',
       }}>
@@ -585,8 +627,8 @@ function BattleContent() {
         <div
           key={spriteKey}
           style={{
-            width: 'min(46vw, 195px)',
-            aspectRatio: '1 / 1',
+            width: 'min(30vw, 130px)',
+            aspectRatio: '3 / 4.2',
             position: 'relative',
             animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
             transformOrigin: 'bottom center',
@@ -693,8 +735,8 @@ function BattleContent() {
           background: 'linear-gradient(0deg, rgba(4,8,14,0.9) 0%, transparent 100%)',
           pointerEvents: 'none',
         }}>
-          <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 700 }}>
-            🪨 SWIPE at {enemy.name} to throw · ✋ TAP their {(FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW).emoji} to swat it
+          <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700 }}>
+            👆 TAP = 🪨 rock · ☝️ SWIPE up = 🧨 {fcLeft} left · TAP their {(FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW).emoji} to swat
           </span>
         </div>
       )}

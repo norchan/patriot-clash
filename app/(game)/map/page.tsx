@@ -1139,7 +1139,7 @@ export default function MapPage() {
   }
 
   return (
-    <div className="relative h-screen overflow-hidden">
+    <div className="relative overflow-hidden" style={{ height: 'calc(100dvh - 5rem)' }}>
       <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
 
       {/* ── HUD: Top Left ───────────────────────────────────────────────── */}
