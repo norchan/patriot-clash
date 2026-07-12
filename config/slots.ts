@@ -37,9 +37,10 @@ export const PAYS: Record<number, [number, number, number]> = {
 // Scatter pay (×bet) by count.
 export const SCATTER_PAY: Record<number, number> = { 3: 1, 4: 5, 5: 25 }
 
-// Global tuning knob — see scripts/slots_rtp.mjs. Scales every payout so the
-// return-to-player lands near 88%.
-export const RTP_SCALAR = 0.5
+// Global tuning knob — see scripts/slots_rtp.mjs. Scales every payout. Kept
+// just under 1.0 return-to-player: generous, bigger wins, but still a slight
+// house edge so slots can't be farmed as an infinite FP printer.
+export const RTP_SCALAR = 0.56
 
 export interface SlotSymbol { emoji: string; label?: string }
 

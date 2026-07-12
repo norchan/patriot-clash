@@ -7,7 +7,7 @@ const W = [3, 4, 6, 8, 11, 14, 18, 22]
 const WT = W.reduce((a, b) => a + b, 0)
 const PAYS = { 2: [0.5, 2.0, 8.0], 3: [0.3, 1.2, 5.0], 4: [0.2, 0.8, 3.0], 5: [0.12, 0.5, 2.0], 6: [0.08, 0.3, 1.0], 7: [0.05, 0.2, 0.6] }
 const SCATTER_PAY = { 3: 1, 4: 5, 5: 25 }
-const TARGET = 0.88
+const TARGET = 0.97
 
 const pick = () => { let r = Math.random() * WT; for (let i = 0; i < W.length; i++) { r -= W[i]; if (r < 0) return i } return 7 }
 const grid = () => Array.from({ length: REELS }, () => Array.from({ length: ROWS }, pick))

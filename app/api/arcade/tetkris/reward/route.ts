@@ -6,8 +6,8 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // The client reports game EVENTS (lines cleared, level reached); the server
 // decides the FP so it can't be spoofed, and caps every grant. Free to play —
 // no bet is deducted; Tet-Kris only pays out.
-const LINE_FP = [0, 5, 14, 26, 55] // by simultaneous lines (0..4)
-const MAX_PER_REQUEST = 5000
+const LINE_FP = [0, 30, 80, 150, 300] // FP by simultaneous lines (0..4)
+const MAX_PER_REQUEST = 8000
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       award = Math.floor(LINE_FP[n] * (1 + level * 0.15))
     } else if (body.event === 'level') {
       // passing a level pays a scaling bonus
-      award = 80 + level * 40
+      award = 300 + level * 120
     } else {
       return NextResponse.json({ error: 'Invalid event' }, { status: 400 })
     }
