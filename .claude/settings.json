@@ -109,7 +109,8 @@
       "mcp__claude_ai_Higgs__remove_background",
       "Bash(node scripts/bot_cliques.mjs)",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(grep -E \"/active|local-events\" /tmp/build.log)"
+      "Bash(grep -E \"/active|local-events\" /tmp/build.log)",
+      "Bash(node scripts/slots_rtp.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

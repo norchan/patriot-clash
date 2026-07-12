@@ -32,20 +32,22 @@ export default function SlotsChooser() {
         {MACHINES.map(m => (
           <button key={m.id}
             onClick={() => router.push(`/arcade/slots/${m.id}`)}
-            className="relative w-full rounded-2xl p-5 text-center transition active:scale-95 overflow-hidden"
-            style={{
-              background: 'linear-gradient(180deg, rgba(20,12,36,0.92), rgba(8,4,16,0.96))',
-              border: `2px solid ${m.accent}`,
-              boxShadow: `0 0 16px ${m.accent}55, inset 0 0 24px ${m.accent}18`,
-            }}>
-            <div className="flex justify-center gap-1 mb-2 text-4xl" style={{ filter: `drop-shadow(0 0 8px ${m.accent})` }}>
-              <span>{m.symbols[0].emoji}</span>
-              <span>{m.symbols[2].emoji}</span>
-              <span>{m.symbols[1].emoji}</span>
+            className="relative w-full rounded-2xl p-1 text-center transition active:scale-95 overflow-hidden"
+            style={{ background: m.frame, boxShadow: `0 0 20px ${m.accent}66` }}>
+            <div className="rounded-xl px-5 py-4 overflow-hidden" style={{ background: m.bg }}>
+              <div className="flex justify-center gap-1.5 mb-2 text-4xl" style={{ filter: `drop-shadow(0 0 8px ${m.accent})` }}>
+                <span>{m.symbols[2].emoji}</span>
+                <span className="text-5xl">{m.symbols[0].emoji}</span>
+                <span>{m.symbols[3].emoji}</span>
+              </div>
+              <div className="font-black text-xl tracking-wide" style={{ color: '#fff', textShadow: `0 0 12px ${m.accent}` }}>{m.name}</div>
+              <div className="text-white/60 text-xs mt-1 leading-tight">{m.subtitle}</div>
+              <div className="flex items-center justify-center gap-2 mt-2 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full" style={{ background: `${m.accent}33`, color: m.accent }}>243 WAYS</span>
+                <span className="px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-300">FREE SPINS</span>
+              </div>
+              <div className="mt-2.5 text-sm font-black tracking-[0.2em] text-green-400">▶ PLAY</div>
             </div>
-            <div className="font-black text-lg tracking-wide" style={{ color: m.accent }}>{m.name}</div>
-            <div className="text-gray-400 text-xs mt-1 leading-tight">{m.subtitle}</div>
-            <div className="mt-2.5 text-xs font-black tracking-[0.2em] text-green-400">▶ PLAY</div>
           </button>
         ))}
         <p className="text-gray-500 text-[11px] text-center mt-1">Bet 5–100 FP · Match 3 to win big 💥</p>

@@ -66,3 +66,52 @@ export function lose() {
   tone(160, 0, 0.18, 'sine', 0.05)
   tone(120, 0.05, 0.22, 'sine', 0.04)
 }
+
+// Bright ding when a scatter/bonus symbol lands (rising per scatter)
+export function scatterLand(n: number) {
+  const base = 700 + Math.min(n, 5) * 120
+  tone(base, 0, 0.18, 'triangle', 0.11)
+  tone(base * 1.5, 0.04, 0.22, 'sine', 0.08)
+}
+
+// Tension riser — reels are "just one away" from the bonus
+export function anticipation(durMs = 1600) {
+  const c = ac(); if (!c) return
+  const t0 = c.currentTime
+  const osc = c.createOscillator()
+  const g = c.createGain()
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(200, t0)
+  osc.frequency.exponentialRampToValueAtTime(900, t0 + durMs / 1000)
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.1)
+  g.gain.setValueAtTime(0.06, t0 + durMs / 1000 - 0.1)
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + durMs / 1000)
+  osc.connect(g).connect(c.destination)
+  osc.start(t0)
+  osc.stop(t0 + durMs / 1000 + 0.05)
+}
+
+// Quick tick used while a win amount counts up
+export function coinTick() {
+  tone(1200 + Math.random() * 300, 0, 0.04, 'square', 0.05)
+}
+
+// Free-spins trigger fanfare
+export function freeSpinsFanfare() {
+  const notes = [392, 523, 659, 784, 1047]
+  notes.forEach((f, i) => tone(f, i * 0.12, 0.3, 'triangle', 0.1))
+  ;[261, 329, 392].forEach(f => tone(f, 0, 0.9, 'sawtooth', 0.03))
+}
+
+// Escalating celebration — level 1 (big), 2 (mega), 3 (epic)
+export function bigWin(level: number) {
+  const seqs = [
+    [523, 659, 784, 1047],
+    [523, 659, 784, 1047, 1319, 1568],
+    [523, 659, 784, 1047, 1319, 1568, 2093, 2637],
+  ]
+  const notes = seqs[Math.min(level, 3) - 1] ?? seqs[0]
+  notes.forEach((f, i) => tone(f, i * 0.09, 0.26, 'square', 0.09))
+  ;[131, 165, 196].forEach(f => tone(f, 0, 0.8 + level * 0.2, 'sawtooth', 0.03))
+}
