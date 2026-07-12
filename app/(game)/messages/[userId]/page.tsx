@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Camera, Image as ImageIcon, X } from 'lucide-react'
+import { ArrowLeft, Camera, Image as ImageIcon, X, MapPin } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import AlbumViewer from '@/components/AlbumViewer'
 
@@ -38,6 +38,7 @@ export default function MessageThreadPage() {
   const { profile } = useProfile()
 
   const [other, setOther] = useState<{ username: string; avatar_url: string | null; party: string | null } | null>(null)
+  const [otherLoc, setOtherLoc] = useState<{ lat: number; lng: number } | null>(null)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [draftImage, setDraftImage] = useState<string | null>(null)
@@ -54,6 +55,7 @@ export default function MessageThreadPage() {
       .then(r => r.json())
       .then(d => {
         if (d.profile) setOther({ username: d.profile.username, avatar_url: d.profile.avatar_url, party: d.profile.party })
+        if (d.location) setOtherLoc({ lat: d.location.lat, lng: d.location.lng })
       })
       .catch(() => {})
   }, [userId])
@@ -124,6 +126,13 @@ export default function MessageThreadPage() {
           )}
           <span className="text-white font-bold text-sm truncate">{other?.username ?? '...'}</span>
         </button>
+        {otherLoc && (
+          <button onClick={() => router.push(`/map?flat=${otherLoc.lat}&flng=${otherLoc.lng}`)}
+            className="ml-auto flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 transition flex-shrink-0"
+            title="View on map">
+            <MapPin size={14} /> View on map
+          </button>
+        )}
       </div>
 
       {/* Thread */}

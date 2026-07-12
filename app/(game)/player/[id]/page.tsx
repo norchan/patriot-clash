@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Share } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MapPin } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
 import { useLocation } from '@/hooks/useLocation'
+import { useProfile } from '@/hooks/useProfile'
 
 interface PublicProfile {
   id: string
@@ -32,8 +33,12 @@ export default function PublicProfilePage() {
   const router = useRouter()
   const params = useParams()
   const { location } = useLocation()
+  const { profile: viewer } = useProfile()
   const [profile, setProfile] = useState<PublicProfile | null>(null)
   const [clique, setClique] = useState<Clique | null>(null)
+  const [playerLoc, setPlayerLoc] = useState<{ lat: number; lng: number } | null>(null)
+  const [challenging, setChallenging] = useState(false)
+  const [challengeMsg, setChallengeMsg] = useState('')
   const [posts, setPosts] = useState<Post[]>([])
   const [photos, setPhotos] = useState<{ id: string; url: string }[]>([])
   const [viewerOpen, setViewerOpen] = useState(false)
@@ -51,6 +56,29 @@ export default function PublicProfilePage() {
       const d = await res.json()
       if (res.ok) setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: d.score, my_vote: d.my_vote } : p))
     } catch {}
+  }
+
+  async function challenge() {
+    if (!profile || challenging) return
+    setChallenging(true)
+    setChallengeMsg('')
+    try {
+      const res = await fetch('/api/pvp/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defender_id: profile.id }),
+      })
+      const d = await res.json()
+      if (res.ok && (d.status === 'accepted' || d.status === 'completed')) {
+        router.push(`/battle/pvp?id=${d.id}`)
+        return
+      } else if (res.ok) {
+        setChallengeMsg(`⚔️ Challenge sent to ${profile.username}!`)
+      } else {
+        setChallengeMsg(`❌ ${d.error ?? d.message ?? 'Could not challenge'}`)
+      }
+    } catch { setChallengeMsg('❌ Could not challenge') }
+    setChallenging(false)
   }
 
   function sharePost(post: Post) {
@@ -74,6 +102,7 @@ export default function PublicProfilePage() {
         if (d.profile) {
           setProfile(d.profile)
           setClique(d.clique)
+          setPlayerLoc(d.location ? { lat: d.location.lat, lng: d.location.lng } : null)
           setPosts(d.posts ?? [])
           setPhotos(Array.isArray(d.photos) && d.photos.length
             ? d.photos
@@ -171,12 +200,39 @@ export default function PublicProfilePage() {
               </span>
             </div>
           )}
-          <button
-            onClick={() => router.push(`/messages/${profile.id}`)}
-            className="mt-4 w-full max-w-xs py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700"
-          >
-            💬 Direct Message
-          </button>
+          <div className="mt-4 w-full max-w-xs space-y-2">
+            <button
+              onClick={() => router.push(`/messages/${profile.id}`)}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700"
+            >
+              💬 Direct Message
+            </button>
+            {/* Challenge + View on map — hidden on your own profile */}
+            {viewer?.id !== profile.id && (
+              <div className="flex gap-2">
+                <button
+                  onClick={challenge}
+                  disabled={challenging || (viewer ? viewer.fp_balance < 50 : false)}
+                  className="flex-1 py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                >
+                  <Swords size={16} /> {challenging ? 'Sending...' : 'Challenge'}
+                </button>
+                {playerLoc && (
+                  <button
+                    onClick={() => router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
+                    className="flex-1 py-3 rounded-xl font-bold text-white transition active:scale-95 bg-gray-800 hover:bg-gray-700 border border-gray-700 flex items-center justify-center gap-1.5"
+                  >
+                    <MapPin size={16} /> View on Map
+                  </button>
+                )}
+              </div>
+            )}
+            {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
+            {viewer && viewer.id !== profile.id && viewer.fp_balance < 50 && (
+              <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
+            )}
+          </div>
         </div>
       </div>
 

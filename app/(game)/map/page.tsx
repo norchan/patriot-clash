@@ -1427,11 +1427,11 @@ export default function MapPage() {
             >
               👤 View Profile
             </button>
-            {/* Battle — only if both parties are visible and different */}
-            {selectedPlayer.party && profile?.party && selectedPlayer.party !== profile.party && (
+            {/* Battle — anyone can challenge anyone (same party or rival) */}
+            {profile && (
               <button
                 onClick={() => sendChallenge(selectedPlayer)}
-                disabled={challengeLoading || !profile || profile.fp_balance < 50}
+                disabled={challengeLoading || profile.fp_balance < 50}
                 className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
               >
@@ -1456,7 +1456,7 @@ export default function MapPage() {
             </button>
           </div>
 
-          {profile && selectedPlayer.party && selectedPlayer.party !== profile.party && profile.fp_balance < 50 && (
+          {profile && profile.fp_balance < 50 && (
             <p className="text-red-400 text-xs text-center mt-2">Need 50 FP to battle</p>
           )}
         </div>

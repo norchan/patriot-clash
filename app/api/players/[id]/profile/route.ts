@@ -60,6 +60,26 @@ export async function GET(
       clique = c
     }
 
+    // Location for a "View on map" link — only if this player isn't incognito
+    // to the viewer (same rules as the map). Bots return their nearest-hall
+    // spot isn't tracked, so only real players expose a location here.
+    let location: { lat: number; lng: number; approx: boolean } | null = null
+    {
+      const { data: prefs } = await admin
+        .from('profiles').select('map_visibility, location_fuzz').eq('id', id).maybeSingle()
+      const vis = prefs?.map_visibility as string | null
+      const hidden = vis === 'nobody'
+        || (vis === 'hide_from_republicans' && viewer.party === 'republican')
+        || (vis === 'hide_from_democrats' && viewer.party === 'democrat')
+      if (!hidden) {
+        const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+        const { data: loc } = await admin
+          .from('player_locations').select('lat, lng, updated_at').eq('profile_id', id)
+          .gte('updated_at', cutoff).maybeSingle()
+        if (loc) location = { lat: loc.lat, lng: loc.lng, approx: !!prefs?.location_fuzz }
+      }
+    }
+
     const [{ data: posts }, { count: hallsHeld }, { data: photos }] = await Promise.all([
       admin
         .from('profile_posts')
@@ -87,6 +107,7 @@ export async function GET(
         total_captures: player.total_captures,
       },
       clique,
+      location,
       posts: await (async () => {
         const list = posts ?? []
         if (!list.length) return list
