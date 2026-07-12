@@ -15,7 +15,7 @@ export async function GET(
 
     const { data: player } = await admin
       .from('profiles')
-      .select('id, username, party, show_party, avatar_url, clique_id, total_battles_won, total_battles_lost, total_gyms_captured, total_captures, created_at')
+      .select('id, username, party, show_party, avatar_url, clique_id, clerk_user_id, total_battles_won, total_battles_lost, total_gyms_captured, total_captures, created_at')
       .eq('id', id)
       .single()
 
@@ -23,10 +23,35 @@ export async function GET(
       return NextResponse.json({ error: 'Player not found' }, { status: 404 })
     }
 
-    // Click membership is public and reveals party by design — joining a
-    // click is an affiliation statement even if show_party is off
+    const isBot = typeof player.clerk_user_id === 'string' && player.clerk_user_id.startsWith('bot')
+    const lat = parseFloat(_req.nextUrl.searchParams.get('lat') ?? '')
+    const lng = parseFloat(_req.nextUrl.searchParams.get('lng') ?? '')
+
+    // Clique membership is public and reveals party by design. Bots are
+    // "garrison" bots that appear at MANY town halls, so their clique is shown
+    // contextually: the clique tied to the town hall they're being viewed at
+    // (created on demand if that hall doesn't have one yet). Real players use
+    // their actual clique.
     let clique = null
-    if (player.clique_id) {
+    if (isBot && !isNaN(lat) && !isNaN(lng) && player.party) {
+      const { data: near } = await admin.rpc('gyms_near', { p_lat: lat, p_lng: lng, p_miles: 40 })
+      const hall = (near ?? []).sort((a: any, b: any) => parseFloat(a.distance_miles) - parseFloat(b.distance_miles))[0]
+      if (hall) {
+        const { data: existing } = await admin
+          .from('cliques').select('id, name, party, gym_id')
+          .eq('gym_id', hall.id).eq('party', player.party).limit(1).maybeSingle()
+        if (existing) clique = existing
+        else {
+          const label = player.party === 'democrat' ? 'Blue' : 'Red'
+          const { data: created } = await admin.from('cliques').insert({
+            name: `${label} — ${hall.city_name}`, gym_id: hall.id, party: player.party,
+            creator_id: player.id, join_policy: 'open',
+          }).select('id, name, party, gym_id').single()
+          clique = created
+        }
+      }
+    }
+    if (!clique && player.clique_id) {
       const { data: c } = await admin
         .from('cliques')
         .select('id, name, party, gym_id')

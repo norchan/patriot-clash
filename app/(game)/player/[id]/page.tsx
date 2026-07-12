@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Share } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
+import { useLocation } from '@/hooks/useLocation'
 
 interface PublicProfile {
   id: string
@@ -30,6 +31,7 @@ function timeAgo(iso: string): string {
 export default function PublicProfilePage() {
   const router = useRouter()
   const params = useParams()
+  const { location } = useLocation()
   const [profile, setProfile] = useState<PublicProfile | null>(null)
   const [clique, setClique] = useState<Clique | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -63,7 +65,10 @@ export default function PublicProfilePage() {
   }
 
   useEffect(() => {
-    fetch(`/api/players/${params.id}/profile`)
+    // Pass our location so a garrison bot shows the clique of the town hall
+    // we're viewing it near (bots appear at many halls).
+    const loc = location ? `?lat=${location.lat}&lng=${location.lng}` : ''
+    fetch(`/api/players/${params.id}/profile${loc}`)
       .then(r => r.json())
       .then(d => {
         if (d.profile) {
@@ -77,7 +82,7 @@ export default function PublicProfilePage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [params.id])
+  }, [params.id, location?.lat, location?.lng])
 
   if (loading) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
