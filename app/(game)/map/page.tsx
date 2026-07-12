@@ -1276,21 +1276,6 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* ── Bottom info bar ──────────────────────────────────────────────── */}
-      <div className="absolute bottom-6 left-0 right-0 z-20 flex justify-center px-4">
-        <div className="bg-black/75 backdrop-blur rounded-full px-5 py-2.5 flex items-center gap-3">
-          <span className="text-white text-xs">{spawnedEnemies.length} enemies nearby</span>
-          <div className="w-px h-3 bg-gray-600" />
-          <span className="text-white text-xs">{gyms.length} town halls</span>
-          {nearbyPlayers.length > 0 && (
-            <>
-              <div className="w-px h-3 bg-gray-600" />
-              <span className="text-blue-300 text-xs">{nearbyPlayers.length} player{nearbyPlayers.length !== 1 ? 's' : ''} nearby</span>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* ── FP Toast ─────────────────────────────────────────────────────── */}
       {fpToast && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30">
