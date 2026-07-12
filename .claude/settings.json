@@ -112,7 +112,8 @@
       "Bash(grep -E \"/active|local-events\" /tmp/build.log)",
       "Bash(node scripts/slots_rtp.mjs)",
       "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' 'https://politicsgo.app/api/cron/local-buzz?state=MN&limit=60')",
-      "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' 'https://politicsgo.app/api/cron/hall-chatter?state=MN&limit=40')"
+      "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' 'https://politicsgo.app/api/cron/hall-chatter?state=MN&limit=40')",
+      "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' 'https://politicsgo.app/api/cron/hall-chatter?state=MN&limit=50')"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

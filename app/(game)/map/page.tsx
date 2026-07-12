@@ -166,6 +166,33 @@ export default function MapPage() {
   // periods, so effects key on hasLocation / grid cell and read this ref.
   const locationRef = useRef(location)
   useEffect(() => { locationRef.current = location }, [location])
+
+  // Arriving from the Active Players list (/map?flat=&flng=): once the map is
+  // ready, fly to that player's spot and drop a temporary pin.
+  const didFocusRef = useRef(false)
+  useEffect(() => {
+    if (didFocusRef.current) return
+    const sp = new URLSearchParams(window.location.search)
+    const flat = parseFloat(sp.get('flat') ?? '')
+    const flng = parseFloat(sp.get('flng') ?? '')
+    if (isNaN(flat) || isNaN(flng)) return
+    let tries = 0
+    const iv = setInterval(() => {
+      if (++tries > 60) { clearInterval(iv); return }
+      if (!map.current) return
+      clearInterval(iv)
+      didFocusRef.current = true
+      map.current.flyTo({ center: [flng, flat], zoom: 15.5, pitch: 30 })
+      const el = document.createElement('div')
+      el.textContent = '📍'
+      el.style.fontSize = '34px'
+      el.style.filter = 'drop-shadow(0 0 6px rgba(0,0,0,0.6))'
+      const mk = new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([flng, flat]).addTo(map.current)
+      setTimeout(() => mk.remove(), 9000)
+      window.history.replaceState({}, '', '/map')
+    }, 200)
+    return () => clearInterval(iv)
+  }, [])
   // Where your own dot is DRAWN (true position, or the fuzzed one) — the
   // home button flies here so it always centers your visible dot
   const displayedLocRef = useRef(location)

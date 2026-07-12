@@ -39,6 +39,7 @@ export default function CliquesPage() {
   const [myCliqueId, setMyCliqueId] = useState<string | null>(null)
   const [myPendingId, setMyPendingId] = useState<string | null>(null)
   const [myMembers, setMyMembers] = useState<Member[]>([])
+  const [myCliqueInfo, setMyCliqueInfo] = useState<{ name: string; gym_id: string | null; city?: string; state?: string } | null>(null)
   const [pendingRequests, setPendingRequests] = useState<PendingMember[]>([])
   const [isCreator, setIsCreator] = useState(false)
   const [search, setSearch] = useState('')
@@ -78,13 +79,14 @@ export default function CliquesPage() {
 
   // Load my clique's roster + (if creator) pending join requests
   const loadMyClique = useCallback(() => {
-    if (!myCliqueId) { setMyMembers([]); setPendingRequests([]); setIsCreator(false); return }
+    if (!myCliqueId) { setMyMembers([]); setPendingRequests([]); setIsCreator(false); setMyCliqueInfo(null); return }
     fetch(`/api/cliques/${myCliqueId}`)
       .then(r => r.json())
       .then(d => {
         setMyMembers(d.members ?? [])
         setPendingRequests(d.pending ?? [])
         setIsCreator(!!d.is_creator)
+        if (d.clique) setMyCliqueInfo({ name: d.clique.name, gym_id: d.clique.gym_id, city: d.gym?.city_name, state: d.gym?.state })
       })
       .catch(() => {})
   }, [myCliqueId])
@@ -206,10 +208,11 @@ export default function CliquesPage() {
       {myCliqueId && (
         <div className="mx-4 mb-4 bg-gray-900 rounded-2xl border p-4" style={{ borderColor: `${partyColor}66` }}>
           {(() => {
-            const nm = myClique?.name ?? '...'
+            const nm = myCliqueInfo?.name ?? '...'
             const sep = nm.lastIndexOf(' — ')
             const cliqueName = sep >= 0 ? nm.slice(0, sep) : nm
-            const townName = sep >= 0 ? nm.slice(sep + 3) : null
+            const townName = myCliqueInfo?.city ?? (sep >= 0 ? nm.slice(sep + 3) : null)
+            const gymId = myCliqueInfo?.gym_id
             return (
               <>
                 {/* In place of a "Your Clique" label: the clique name, with
@@ -217,9 +220,9 @@ export default function CliquesPage() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="min-w-0">
                     <h2 className="text-white font-black text-lg truncate">{cliqueName}</h2>
-                    {townName && myClique?.gym_id && (
+                    {townName && gymId && (
                       <button
-                        onClick={() => router.push(`/townhall/${myClique.gym_id}`)}
+                        onClick={() => router.push(`/townhall/${gymId}`)}
                         className="text-xs font-medium hover:opacity-80 transition flex items-center gap-1"
                         style={{ color: partyColor }}>
                         🏛️ {townName}

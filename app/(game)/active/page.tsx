@@ -53,12 +53,12 @@ export default function ActivePlayersPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="pl-4 pr-14 pt-4 pb-3 border-b border-gray-800 flex items-center gap-3">
+      <div className="px-4 pt-4 pb-3 border-b border-gray-800 flex items-center gap-3">
         <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>
         <h1 className="text-white font-bold text-lg flex items-center gap-2">
           <Radar size={18} className="text-green-400" /> Active Players
+          <span className="text-green-400 font-bold">{sorted.length}</span>
         </h1>
-        <span className="ml-auto text-green-400 text-sm font-bold">{sorted.length}</span>
       </div>
 
       {!location ? (
@@ -79,31 +79,37 @@ export default function ActivePlayersPage() {
             const color = p.party === 'democrat' ? '#2563eb' : p.party === 'republican' ? '#dc2626' : '#6b7280'
             const dist = location ? milesBetween(location.lat, location.lng, p.lat, p.lng) : 0
             return (
-              <button key={p.profile_id}
-                onClick={() => router.push(`/player/${p.profile_id}`)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-900 transition text-left">
-                {p.avatar_url ? (
-                  <img src={p.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover border-2 flex-shrink-0" style={{ borderColor: color }} />
-                ) : (
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg border-2 flex-shrink-0"
-                    style={{ borderColor: color, background: `${color}22` }}>
-                    {p.party === 'democrat' ? '🔵' : p.party === 'republican' ? '🔴' : '⚪'}
+              <div key={p.profile_id}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-900 transition">
+                {/* Tap the person → their profile */}
+                <button onClick={() => router.push(`/player/${p.profile_id}`)}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                  {p.avatar_url ? (
+                    <img src={p.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover border-2 flex-shrink-0" style={{ borderColor: color }} />
+                  ) : (
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg border-2 flex-shrink-0"
+                      style={{ borderColor: color, background: `${color}22` }}>
+                      {p.party === 'democrat' ? '🔵' : p.party === 'republican' ? '🔴' : '⚪'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-bold text-sm truncate">{p.username}</div>
+                    <div className="text-gray-500 text-xs">
+                      {p.party ? (p.party === 'democrat' ? 'Democrat' : 'Republican') : 'Affiliation hidden'}
+                      {p.party && profile?.party && p.party !== profile.party && <span className="text-red-400"> · rival</span>}
+                    </div>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="text-white font-bold text-sm truncate">{p.username}</div>
-                  <div className="text-gray-500 text-xs">
-                    {p.party ? (p.party === 'democrat' ? 'Democrat' : 'Republican') : 'Affiliation hidden'}
-                    {p.party && profile?.party && p.party !== profile.party && <span className="text-red-400"> · rival</span>}
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
+                </button>
+                {/* Tap the distance → their spot on the map */}
+                <button onClick={() => router.push(`/map?flat=${p.lat}&flng=${p.lng}`)}
+                  className="text-right flex-shrink-0 rounded-lg px-2 py-1 hover:bg-gray-800 transition"
+                  title="Show on map">
                   <div className="text-gray-300 text-xs font-bold">{dist < 0.1 ? 'here' : `${dist.toFixed(1)} mi`}</div>
                   <div className={`text-[10px] ${p.approx ? 'text-yellow-500/80' : 'text-green-500/80'}`}>
-                    {p.approx ? '≈ approx' : '📍 exact'}
+                    {p.approx ? '≈ approx' : '📍 exact'} ›
                   </div>
-                </div>
-              </button>
+                </button>
+              </div>
             )
           })}
         </div>
