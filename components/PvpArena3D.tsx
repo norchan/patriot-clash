@@ -82,7 +82,8 @@ function Crowd() {
           y: 0.55 + r * 0.32,
           z: cz - r * dz + (Math.random() - 0.5) * 0.2,
           phase: Math.random() * Math.PI * 2,
-          body: (Math.random() < 0.5 ? RED : BLUE).clone().offsetHSL(0, 0, (Math.random() - 0.5) * 0.1),
+          // exactly half the crowd in Republican red, half in Democrat blue
+          body: (out.length % 2 === 0 ? RED : BLUE).clone().offsetHSL(0, 0, (Math.random() - 0.5) * 0.08),
           skin: SKIN[(Math.random() * SKIN.length) | 0],
         })
       }
@@ -176,11 +177,13 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
         <Street />
         <Crowd />
         {solo ? (
-          <Fighter prefix={playerPrefix} position={[0, 0, 0.8]} faceY={0} attackKey={playerAttackKey} />
+          // face the camera in the picker
+          <Fighter prefix={playerPrefix} position={[0, 0, 0.8]} faceY={Math.PI} attackKey={playerAttackKey} />
         ) : (
+          // turn the fighters IN toward each other (models front-face is -Z)
           <>
-            <Fighter prefix={playerPrefix} position={[-1.5, 0, 0.8]} faceY={Math.PI / 2} attackKey={playerAttackKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} position={[1.5, 0, 0.8]} faceY={-Math.PI / 2} attackKey={oppAttackKey} />}
+            <Fighter prefix={playerPrefix} position={[-1.5, 0, 0.8]} faceY={-Math.PI / 2} attackKey={playerAttackKey} />
+            {oppPrefix && <Fighter prefix={oppPrefix} position={[1.5, 0, 0.8]} faceY={Math.PI / 2} attackKey={oppAttackKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />
