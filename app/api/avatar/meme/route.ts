@@ -28,7 +28,9 @@ const SIGHT = [
 ]
 
 const EMOJI = {
-  political: ['🦅', '🇺🇸', '🗳️', '🏛️', '📢', '⭐', '🎗️', '🪧', '🐘', '🫏', '🎤', '🍕'],
+  // widely-supported emoji only (no regional-flag or very-new glyphs — they
+  // tofu / show letters on some platforms in SVG)
+  political: ['🦅', '⭐', '🗳️', '🏛️', '📢', '🎖️', '🪧', '🐘', '🎤', '🍕', '🔔', '🤠'],
   animal: ['🐶', '🐱', '🦊', '🐻', '🦁', '🐧', '🦉', '🐢', '🐕', '🐹'],
   sight: ['🗽', '🌉', '🏔️', '🏝️', '🏜️', '🎢', '🌆', '🗿'],
 }

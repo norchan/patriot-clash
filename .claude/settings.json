@@ -155,7 +155,10 @@
       "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code} type=%{content_type} size=%{size_download}\\\\n\" \"https://api.dicebear.com/9.x/lorelei/svg?seed=abc123\")",
       "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code} type=%{content_type}\\\\n\" \"https://api.dicebear.com/9.x/avataaars/svg?seed=xyz789\")",
       "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code} type=%{content_type}\\\\n\" \"https://api.dicebear.com/9.x/bottts/svg?seed=q1\")",
-      "Bash(curl -s -o faces_test.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260713_152018_8fb7473b-616e-4b8c-b7fc-60826615e4cf.png\")"
+      "Bash(curl -s -o faces_test.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260713_152018_8fb7473b-616e-4b8c-b7fc-60826615e4cf.png\")",
+      "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code} type=%{content_type}\\\\n\" \"https://politicsgo.app/api/avatar/meme?seed=testbot1\")",
+      "Bash(curl -s -m 20 \"https://politicsgo.app/api/avatar/meme?seed=testbot1\")",
+      "Bash(git commit -q -m 'meme avatars: drop flag/very-new emoji for universal rendering *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
