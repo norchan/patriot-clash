@@ -46,13 +46,17 @@ export async function GET(req: NextRequest) {
     // Enrich with holder username + per-hall battle radius (gyms_near predates
     // the radius_miles column, so it's merged from the gyms table here)
     const gymIds = gyms.map((g: any) => g.id)
-    let holderMap: Record<string, { username: string; party: string }> = {}
+    let usernameMap: Record<string, string> = {}
     let radiusMap: Record<string, number> = {}
 
     if (gymIds.length > 0) {
-      // Dedupe holder ids (mostly ~20 bots) and fetch radii with pagination —
-      // .in() with 1,000+ UUIDs exceeds URL limits and fails silently
+      // Every hall now has a (bot) holder, so holderIds can be 2,000+. A single
+      // .in() with that many UUIDs exceeds the URL length limit and fails
+      // SILENTLY — which blanks every holder and makes ALL halls look
+      // unclaimed. Chunk the username lookup, and take holder_party straight
+      // from the RPC (authoritative) instead of a profiles join.
       const holderIds = [...new Set(gyms.filter((g: any) => g.holder_id).map((g: any) => g.holder_id))]
+      const chunk = <T,>(a: T[], n: number) => { const o: T[][] = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o }
 
       const fetchAllRadii = async () => {
         const rows: any[] = []
@@ -65,34 +69,24 @@ export async function GET(req: NextRequest) {
           rows.push(...data)
           if (data.length < 1000) break
         }
-        return { data: rows }
+        return rows
       }
 
-      const [{ data: holders }, { data: radii }] = await Promise.all([
-        holderIds.length > 0
-          ? admin.from('profiles').select('id, username, party').in('id', holderIds)
-          : Promise.resolve({ data: [] as any[] }),
+      const [radii, ...holderChunks] = await Promise.all([
         fetchAllRadii(),
+        ...chunk(holderIds, 300).map(ids => admin.from('profiles').select('id, username').in('id', ids)),
       ])
 
-      if (holders) {
-        holderMap = holders.reduce((acc: Record<string, { username: string; party: string }>, h: any) => {
-          acc[h.id] = { username: h.username, party: h.party }
-          return acc
-        }, {} as Record<string, { username: string; party: string }>)
-      }
-      if (radii) {
-        radiusMap = radii.reduce((acc: Record<string, number>, r: any) => {
-          acc[r.id] = Number(r.radius_miles) || 10
-          return acc
-        }, {} as Record<string, number>)
-      }
+      holderChunks.forEach(res => (res.data ?? []).forEach((h: any) => { usernameMap[h.id] = h.username }))
+      radii.forEach((r: any) => { radiusMap[r.id] = Number(r.radius_miles) || 10 })
     }
 
     const enrichedGyms = gyms.map((gym: any) => ({
       ...gym,
-      holder_username: gym.holder_id ? holderMap[gym.holder_id]?.username : null,
-      holder_party: gym.holder_id ? holderMap[gym.holder_id]?.party : null,
+      holder_username: gym.holder_id ? (usernameMap[gym.holder_id] ?? null) : null,
+      // holder_party is returned by gyms_near itself — do NOT derive it from a
+      // profiles lookup that silently fails once there are 1,000+ holders
+      holder_party: gym.holder_party ?? null,
       radius_miles: radiusMap[gym.id] ?? 10,
       // Calculate distance in miles for display
       distance_miles: gym.dist_meters ? (gym.dist_meters / 1609.34).toFixed(1) : null,

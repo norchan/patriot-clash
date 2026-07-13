@@ -168,7 +168,8 @@
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/env_male.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260713_165120_dc42f418-0e6a-40cf-9ebe-e0ffb2ad32d0.png)",
       "Bash(node scripts/tmp_avatars2.mjs)",
       "Bash(rm -f scripts/tmp_avatars2.mjs)",
-      "Bash(git commit -q -m 'Bot avatars v3: candid environmental human photos + real meme/sports/flag/political images; party flag route; meme card as default signup avatar *)"
+      "Bash(git commit -q -m 'Bot avatars v3: candid environmental human photos + real meme/sports/flag/political images; party flag route; meme card as default signup avatar *)",
+      "Bash(git commit -q -m 'Fix: all town halls showed as unclaimed — gyms list .in\\(holderIds\\) silently failed with 2,351 holders. Use holder_party from RPC + chunk username lookup *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
