@@ -15,7 +15,7 @@ export async function GET(
 
     const { data: player } = await admin
       .from('profiles')
-      .select('id, username, party, show_party, avatar_url, clique_id, clerk_user_id, total_battles_won, total_battles_lost, total_gyms_captured, total_captures, created_at')
+      .select('id, username, party, show_party, avatar_url, clique_id, clerk_user_id, home_gym_id, total_battles_won, total_battles_lost, total_gyms_captured, total_captures, created_at')
       .eq('id', id)
       .single()
 
@@ -48,11 +48,24 @@ export async function GET(
         || (vis === 'hide_from_republicans' && viewer.party === 'republican')
         || (vis === 'hide_from_democrats' && viewer.party === 'democrat')
       if (!hidden) {
+        // 1) a recent live broadcast (already fuzzed at store-time if opted in)
         const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
         const { data: loc } = await admin
           .from('player_locations').select('lat, lng, updated_at').eq('profile_id', id)
           .gte('updated_at', cutoff).maybeSingle()
         if (loc) location = { lat: loc.lat, lng: loc.lng, approx: !!prefs?.location_fuzz }
+
+        // 2) bots don't broadcast a live position — send "View on map" to their
+        //    home town hall, where they actually garrison
+        if (!location && player.clerk_user_id?.startsWith('bot') && player.home_gym_id) {
+          const { data: g } = await admin.from('gyms').select('latitude, longitude').eq('id', player.home_gym_id).maybeSingle()
+          if (g) location = { lat: Number(g.latitude), lng: Number(g.longitude), approx: true }
+        }
+        // 3) real player with no recent fix → their clique's hall (public home base)
+        if (!location && clique?.gym_id) {
+          const { data: g } = await admin.from('gyms').select('latitude, longitude').eq('id', clique.gym_id).maybeSingle()
+          if (g) location = { lat: Number(g.latitude), lng: Number(g.longitude), approx: true }
+        }
       }
     }
 

@@ -174,7 +174,8 @@
       "Bash(git commit -q -m 'Town hall feed: add Local sort tab \\(Top/Local/Latest\\); posts can be marked local; local crons flag their posts *)",
       "Bash(curl -s -m 90 -H \"Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4\" \"https://politicsgo.app/api/cron/local-buzz\")",
       "Bash(git commit -q -m 'Profile page: Stats is now an expandable purple bubble \\(matches Challenge/DM\\); order Challenge > Direct Message > View on Map > Stats *)",
-      "Bash(git commit -q -m 'Add deletion: DM messages + whole conversations; town hall posts \\(in feed\\) and replies. Profile/hall post delete already existed *)"
+      "Bash(git commit -q -m 'Add deletion: DM messages + whole conversations; town hall posts \\(in feed\\) and replies. Profile/hall post delete already existed *)",
+      "Bash(git commit -q -m 'Profile View on Map always shows: bots fall back to home hall, players to clique hall; button disabled only when truly hidden *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

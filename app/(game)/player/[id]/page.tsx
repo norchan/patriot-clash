@@ -220,15 +220,15 @@ export default function PublicProfilePage() {
                 >
                   <MessageSquare size={16} /> Direct Message
                 </button>
-                {playerLoc && (
-                  <button
-                    onClick={() => router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
-                    className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-                  >
-                    <MapPin size={16} /> View on Map
-                  </button>
-                )}
+                <button
+                  onClick={() => playerLoc && router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
+                  disabled={!playerLoc}
+                  title={playerLoc ? 'View on map' : "This player's location is hidden"}
+                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                >
+                  <MapPin size={16} /> {playerLoc ? 'View on Map' : 'Location Hidden'}
+                </button>
                 {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
                 {viewer && viewer.fp_balance < 50 && (
                   <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
