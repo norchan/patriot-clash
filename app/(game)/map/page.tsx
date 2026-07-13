@@ -1232,27 +1232,34 @@ export default function MapPage() {
 
       {/* ── HUD: Top Left ───────────────────────────────────────────────── */}
       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-        <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: partyColor }} />
-          <span className="text-white text-xs font-semibold">
-            {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
-          </span>
-          <div className="w-px h-3 bg-gray-600" />
-          {/* Tap FP → shop */}
-          <button onClick={() => router.push('/shop')}
-            className="text-yellow-400 text-xs font-bold hover:text-yellow-300 active:scale-95 transition">
-            ⚡ {profile?.fp_balance?.toLocaleString() || 0}
+        {/* Row 1: party + FP, with the steps bubble to the RIGHT (same height) */}
+        <div className="flex items-stretch gap-2">
+          <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: partyColor }} />
+            <span className="text-white text-xs font-semibold">
+              {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
+            </span>
+            <div className="w-px h-3 bg-gray-600" />
+            {/* Tap FP → shop */}
+            <button onClick={() => router.push('/shop')}
+              className="text-yellow-400 text-xs font-bold hover:text-yellow-300 active:scale-95 transition">
+              ⚡ {profile?.fp_balance?.toLocaleString() || 0}
+            </button>
+          </div>
+          {/* Steps — compact bubble sized to match the FP display height */}
+          <div className="bg-black/75 backdrop-blur rounded-xl px-2.5 py-2 flex items-center">
+            <span className="text-white text-xs whitespace-nowrap">👟 {steps.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Row 2: See Local Players, with the Show-on-map menu to the RIGHT */}
+        <div className="flex items-start gap-2">
+          {/* See Local Players → active players screen */}
+          <button onClick={() => router.push('/active')}
+            className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-purple-900/60 transition">
+            <span className="text-xs">✊</span>
+            <span className="text-white text-xs font-medium whitespace-nowrap">See Local Players</span>
           </button>
-        </div>
-        <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2">
-          <span className="text-white text-xs">👟 {steps.toLocaleString()} steps</span>
-        </div>
-        {/* Local Players → active players screen */}
-        <button onClick={() => router.push('/active')}
-          className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-purple-900/60 transition">
-          <span className="text-xs">✊</span>
-          <span className="text-white text-xs font-medium">Local Players</span>
-        </button>
         <div className="relative">
           <button
             onClick={() => setShowMapMenu(v => !v)}
@@ -1269,7 +1276,7 @@ export default function MapPage() {
             <>
               {/* Click-away catcher: tapping anywhere outside closes the bubble */}
               <div className="fixed inset-0 z-0" onClick={() => setShowMapMenu(false)} />
-              <div className="absolute top-full left-0 mt-2 z-10 w-56 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl p-1.5">
+              <div className="absolute top-full right-0 mt-2 z-10 w-56 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl p-1.5">
                 {([
                   { key: 'me' as const,      label: '📍 Show me on map' },
                   { key: 'dems' as const,    label: '🔵 Show Democrats' },
@@ -1326,6 +1333,7 @@ export default function MapPage() {
               </div>
             </>
           )}
+        </div>
         </div>
       </div>
 

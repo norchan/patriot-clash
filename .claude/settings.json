@@ -169,7 +169,8 @@
       "Bash(node scripts/tmp_avatars2.mjs)",
       "Bash(rm -f scripts/tmp_avatars2.mjs)",
       "Bash(git commit -q -m 'Bot avatars v3: candid environmental human photos + real meme/sports/flag/political images; party flag route; meme card as default signup avatar *)",
-      "Bash(git commit -q -m 'Fix: all town halls showed as unclaimed — gyms list .in\\(holderIds\\) silently failed with 2,351 holders. Use holder_party from RPC + chunk username lookup *)"
+      "Bash(git commit -q -m 'Fix: all town halls showed as unclaimed — gyms list .in\\(holderIds\\) silently failed with 2,351 holders. Use holder_party from RPC + chunk username lookup *)",
+      "Bash(git commit -q -m 'Map HUD: steps bubble to right of FP \\(matched height\\); See Local Players + Show-on-map in a row underneath the party bubble *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
