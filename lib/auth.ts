@@ -55,6 +55,9 @@ export async function createProfileForUser(clerkUserId: string, email: string, u
       username: username || email.split('@')[0],
       party: 'democrat', // default, changed during onboarding
       fp_balance: 500,   // starter FP gift — enough to capture and explore
+      // default avatar: a generated meme card, so new players are never blank
+      // (they can replace it with their own photo any time)
+      avatar_url: `/api/avatar/meme?seed=${clerkUserId}`,
     })
     .select()
     .single()
