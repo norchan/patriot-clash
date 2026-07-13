@@ -84,3 +84,42 @@ export async function POST(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// DELETE /api/hall-posts/[postId]/comments?commentId=... — author deletes their
+// own reply (and its direct replies), keeping comment_count in sync.
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ postId: string }> }
+) {
+  try {
+    const profile = await requireProfile()
+    const admin = createSupabaseAdminClient()
+    const { postId } = await params
+    const commentId = req.nextUrl.searchParams.get('commentId')
+    if (!commentId) return NextResponse.json({ error: 'commentId required' }, { status: 400 })
+
+    const { data: comment } = await admin
+      .from('hall_comments').select('id, profile_id')
+      .eq('id', commentId).eq('post_id', postId).maybeSingle()
+    if (!comment) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+    if (comment.profile_id !== profile.id) return NextResponse.json({ error: 'Not allowed' }, { status: 403 })
+
+    // Take its direct replies with it (threads are two levels deep)
+    const { data: children } = await admin.from('hall_comments').select('id').eq('parent_id', commentId)
+    const ids = [commentId, ...(children ?? []).map(c => c.id)]
+    await admin.from('hall_comments').delete().in('id', ids)
+
+    const { data: post } = await admin.from('hall_posts').select('comment_count').eq('id', postId).maybeSingle()
+    if (post) {
+      await admin.from('hall_posts')
+        .update({ comment_count: Math.max(0, (post.comment_count ?? 0) - ids.length) })
+        .eq('id', postId)
+    }
+    return NextResponse.json({ deleted: ids })
+
+  } catch (err: any) {
+    if (err instanceof Response) return err
+    console.error('DELETE /api/hall-posts/[postId]/comments error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

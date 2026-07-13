@@ -93,8 +93,19 @@ export default function HallPostPage() {
 
   async function deletePost() {
     if (!post?.is_mine) return
+    if (!confirm('Delete this post?')) return
     await fetch(`/api/hall-posts/${postId}`, { method: 'DELETE' }).catch(() => {})
     router.push(`/townhall/${gymId}`)
+  }
+
+  async function deleteComment(c: HallComment) {
+    if (!c.is_mine) return
+    if (!confirm('Delete this reply?')) return
+    // Drop it and its direct replies locally; the server does the same
+    const removed = new Set([c.id, ...comments.filter(x => x.parent_id === c.id).map(x => x.id)])
+    setComments(cs => cs.filter(x => !removed.has(x.id)))
+    setPost(p => p ? { ...p, comment_count: Math.max(0, p.comment_count - removed.size) } : p)
+    fetch(`/api/hall-posts/${postId}/comments?commentId=${c.id}`, { method: 'DELETE' }).catch(() => {})
   }
 
   if (loading) return (
@@ -135,6 +146,13 @@ export default function HallPostPage() {
             className="text-gray-500 hover:text-blue-400 text-[11px] font-bold transition">
             Reply
           </button>
+          {c.is_mine && (
+            <button onClick={() => deleteComment(c)}
+              className="flex items-center gap-1 text-gray-600 hover:text-red-400 text-[11px] font-bold transition"
+              title="Delete reply">
+              <Trash2 size={12} />
+            </button>
+          )}
           {!c.is_mine && (
             <button
               onClick={() => {

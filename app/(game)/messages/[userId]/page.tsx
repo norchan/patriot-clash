@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Camera, Image as ImageIcon, X, MapPin } from 'lucide-react'
+import { ArrowLeft, Camera, Image as ImageIcon, X, MapPin, Trash2 } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
 import AlbumViewer from '@/components/AlbumViewer'
@@ -116,6 +116,12 @@ export default function MessageThreadPage() {
     setSending(false)
   }
 
+  async function deleteMessage(id: string) {
+    if (!confirm('Delete this message?')) return
+    setMessages(prev => prev.filter(m => m.id !== id))
+    fetch(`/api/chat/${userId}?messageId=${id}`, { method: 'DELETE' }).catch(() => {})
+  }
+
   const color = other?.party === 'democrat' ? '#2563eb' : other?.party === 'republican' ? '#dc2626' : '#6b7280'
 
   return (
@@ -160,7 +166,13 @@ export default function MessageThreadPage() {
         ) : messages.map(m => {
           const isMe = m.sender_id === profile?.id
           return (
-            <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {isMe && (
+                <button onClick={() => deleteMessage(m.id)}
+                  className="text-gray-600 hover:text-red-400 p-1 flex-shrink-0 transition" title="Delete message">
+                  <Trash2 size={13} />
+                </button>
+              )}
               <div className="max-w-[78%] rounded-2xl text-sm text-white break-words overflow-hidden"
                 style={{
                   background: isMe ? '#1d4ed8' : '#1f2937',

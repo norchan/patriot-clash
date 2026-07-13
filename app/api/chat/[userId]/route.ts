@@ -38,6 +38,45 @@ export async function GET(
   }
 }
 
+// DELETE /api/chat/[userId] — remove one of your own messages
+// (?messageId=...) or the whole conversation (no messageId).
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    const profile = await requireProfile()
+    const admin = createSupabaseAdminClient()
+    const { userId } = await params
+    const convId = conversationId(profile.id, userId)
+    const messageId = req.nextUrl.searchParams.get('messageId')
+
+    if (messageId) {
+      // Single message — only the sender can delete their own
+      const { data: msg } = await admin
+        .from('direct_messages').select('id, sender_id, conversation_id')
+        .eq('id', messageId).maybeSingle()
+      if (!msg || msg.conversation_id !== convId) {
+        return NextResponse.json({ error: 'Message not found' }, { status: 404 })
+      }
+      if (msg.sender_id !== profile.id) {
+        return NextResponse.json({ error: 'You can only delete your own messages' }, { status: 403 })
+      }
+      await admin.from('direct_messages').delete().eq('id', messageId)
+      return NextResponse.json({ deleted: messageId })
+    }
+
+    // No messageId → clear the whole thread (the caller is a participant by
+    // construction, since convId is derived from their id + the other id)
+    await admin.from('direct_messages').delete().eq('conversation_id', convId)
+    return NextResponse.json({ deleted: 'conversation' })
+
+  } catch (err: any) {
+    if (err instanceof Response) return err
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 // POST /api/chat/[userId] — send a message to a player
 export async function POST(
   req: NextRequest,

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown, Flag, MapPin } from 'lucide-react'
+import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown, Flag, MapPin, Trash2 } from 'lucide-react'
 
 // Town hall discussion feed — looks like X, votes like Reddit.
 // Tapping a post opens /townhall/[gymId]/post/[postId] with the reply thread.
@@ -170,6 +170,12 @@ export default function HallFeed({ gymId }: { gymId: string }) {
     setTimeout(() => setShared(''), 1500)
   }
 
+  async function deletePost(post: HallPost) {
+    if (!post.is_mine || !confirm('Delete this post?')) return
+    setPosts(ps => ps.filter(p => p.id !== post.id))
+    fetch(`/api/hall-posts/${post.id}`, { method: 'DELETE' }).catch(() => {})
+  }
+
   return (
     <div>
       {/* Composer */}
@@ -287,6 +293,12 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                         }}>
                         <Flag size={13} />
                         <span className="text-[11px] font-bold">{reported.has(p.id) ? 'Reported' : ''}</span>
+                      </button>
+                    )}
+                    {p.is_mine && (
+                      <button className="flex items-center gap-1 text-gray-600 hover:text-red-400 transition"
+                        onClick={e => { e.stopPropagation(); deletePost(p) }} title="Delete post">
+                        <Trash2 size={13} />
                       </button>
                     )}
                   </div>
