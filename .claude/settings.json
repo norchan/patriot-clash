@@ -202,7 +202,8 @@
       "Bash(rm -f components/BobbleFighter.tsx)",
       "Bash(git commit -q -m 'PvP 3D street arena \\(crowd + two bobblehead fighters\\) + fighter picker at /fighter3d \\(rainbow=Dem-only\\); entry point in map self-sheet; remove rejected primitive fighter *)",
       "Bash(git commit -q -m 'PvP is 3D: live fight renders the street arena \\(both bobblehead fighters + crowd\\), punches synced to attacks. Persist pvp_fighter to profile + return in challenge data; bots/unset fall back deterministically *)",
-      "Bash(git commit -q -m 'PvP arena: fighters face each other \\(models front-face -Z\\); crowd exactly half red / half blue *)"
+      "Bash(git commit -q -m 'PvP arena: fighters face each other \\(models front-face -Z\\); crowd exactly half red / half blue *)",
+      "Bash(git commit -q -m 'PvP arena framing: pull camera in + aim at fighters, bring them close together so the action fills the phone screen and punches connect *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

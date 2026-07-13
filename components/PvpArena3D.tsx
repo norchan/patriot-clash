@@ -165,8 +165,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
   { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; solo?: boolean }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
-      camera={{ position: solo ? [0, 1.5, 4.2] : [0, 2.1, 6.2], fov: 42 }}
-      dpr={[1, 2]} gl={{ alpha: false, antialias: true }}>
+      camera={{ position: solo ? [0, 1.35, 3.9] : [0, 1.5, 4.6], fov: 40 }}
+      dpr={[1, 2]} gl={{ alpha: false, antialias: true }}
+      onCreated={({ camera }) => camera.lookAt(0, 0.95, 0)}>
       <color attach="background" args={['#1b2230']} />
       <fog attach="fog" args={['#1b2230', 12, 26]} />
       <ambientLight intensity={0.7} />
@@ -178,12 +179,12 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
         <Crowd />
         {solo ? (
           // face the camera in the picker
-          <Fighter prefix={playerPrefix} position={[0, 0, 0.8]} faceY={Math.PI} attackKey={playerAttackKey} />
+          <Fighter prefix={playerPrefix} position={[0, 0, 0.6]} faceY={Math.PI} attackKey={playerAttackKey} />
         ) : (
-          // turn the fighters IN toward each other (models front-face is -Z)
+          // close together + turned IN so punches connect (models front-face -Z)
           <>
-            <Fighter prefix={playerPrefix} position={[-1.5, 0, 0.8]} faceY={-Math.PI / 2} attackKey={playerAttackKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} position={[1.5, 0, 0.8]} faceY={Math.PI / 2} attackKey={oppAttackKey} />}
+            <Fighter prefix={playerPrefix} position={[-0.85, 0, 0.6]} faceY={-Math.PI / 2} attackKey={playerAttackKey} />
+            {oppPrefix && <Fighter prefix={oppPrefix} position={[0.85, 0, 0.6]} faceY={Math.PI / 2} attackKey={oppAttackKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />
