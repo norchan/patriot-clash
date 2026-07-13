@@ -158,7 +158,13 @@
       "Bash(curl -s -o faces_test.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260713_152018_8fb7473b-616e-4b8c-b7fc-60826615e4cf.png\")",
       "Bash(curl -s -m 20 -o /dev/null -w \"HTTP %{http_code} type=%{content_type}\\\\n\" \"https://politicsgo.app/api/avatar/meme?seed=testbot1\")",
       "Bash(curl -s -m 20 \"https://politicsgo.app/api/avatar/meme?seed=testbot1\")",
-      "Bash(git commit -q -m 'meme avatars: drop flag/very-new emoji for universal rendering *)"
+      "Bash(git commit -q -m 'meme avatars: drop flag/very-new emoji for universal rendering *)",
+      "Read(//c/tmp/**)",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/grid1.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260713_161712_d98c3877-b301-4401-aa8b-c2a49e53a6c0.png)",
+      "mcp__claude_ai_Higgs__show_generations",
+      "Bash(node -e \"console.log\\('sharp:', !!require\\('sharp'\\)\\)\")",
+      "Bash(node scripts/tmp_faces.mjs)",
+      "Bash(git commit -q -m 'Bots: real-photo avatars for photo-category bots; use real gender in nearby *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

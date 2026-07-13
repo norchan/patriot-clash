@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
       const hallIds = halls.map((h: any) => h.id)
       const { data: residents } = await admin
         .from('profiles')
-        .select('id, username, party, avatar_url, home_gym_id')
+        .select('id, username, party, avatar_url, home_gym_id, gender')
         .in('home_gym_id', hallIds)
         .like('clerk_user_id', 'bot%')
 
@@ -132,7 +132,8 @@ export async function GET(req: NextRequest) {
             lng: hall.longitude + (distMiles / (69 * Math.cos(hall.latitude * Math.PI / 180))) * Math.cos(angle),
             allow_messages: true,
             avatar_url: bot.avatar_url ?? null,
-            gender: seededRand(`${bot.id}|gender`) < 0.5 ? 'male' : 'female',
+            // real gender for photo bots; deterministic fallback for the rest
+            gender: bot.gender ?? (seededRand(`${bot.id}|gender`) < 0.5 ? 'male' : 'female'),
             approx: true, // garrison bots always read as approximate
           })
         })
