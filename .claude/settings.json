@@ -143,7 +143,14 @@
       "Bash(node check.cjs)",
       "Bash(node scripts/rehome_bots.mjs)",
       "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' https://politicsgo.app/api/cron/local-events)",
-      "Bash(node scripts/rename_cliques.mjs)"
+      "Bash(node scripts/rename_cliques.mjs)",
+      "Bash(ffmpeg -version)",
+      "mcp__claude_ai_Higgs__generate_3d",
+      "Bash(npm i *)",
+      "Bash(node -e \"console.log\\('three', require\\('three/package.json'\\).version\\); console.log\\('fiber', require\\('@react-three/fiber/package.json'\\).version\\); console.log\\('drei', require\\('@react-three/drei/package.json'\\).version\\)\")",
+      "Bash(curl -s -o public/models/cowboy.glb \"https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/4dfc66f9-e578-4e25-ba60-fb09909c4529.glb\")",
+      "Bash(xxd)",
+      "Bash(curl -s -o public/models/crazy_liberal.glb \"https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/ed28d90f-9de0-42b6-a29d-578af1776f91.glb\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

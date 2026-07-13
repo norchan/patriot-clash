@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.4.1",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@stripe/stripe-js": "^9.6.0",
     "@supabase/supabase-js": "^2.106.2",
     "@types/mapbox-gl": "^3.4.1",
@@ -22,7 +24,8 @@
     "react-dom": "19.2.4",
     "react-native-health": "^1.19.0",
     "stripe": "^22.1.1",
-    "svix": "^1.94.0"
+    "svix": "^1.94.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
