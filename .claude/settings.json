@@ -171,7 +171,9 @@
       "Bash(git commit -q -m 'Bot avatars v3: candid environmental human photos + real meme/sports/flag/political images; party flag route; meme card as default signup avatar *)",
       "Bash(git commit -q -m 'Fix: all town halls showed as unclaimed — gyms list .in\\(holderIds\\) silently failed with 2,351 holders. Use holder_party from RPC + chunk username lookup *)",
       "Bash(git commit -q -m 'Map HUD: steps bubble to right of FP \\(matched height\\); See Local Players + Show-on-map in a row underneath the party bubble *)",
-      "Bash(git commit -q -m 'Town hall feed: add Local sort tab \\(Top/Local/Latest\\); posts can be marked local; local crons flag their posts *)"
+      "Bash(git commit -q -m 'Town hall feed: add Local sort tab \\(Top/Local/Latest\\); posts can be marked local; local crons flag their posts *)",
+      "Bash(curl -s -m 90 -H \"Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4\" \"https://politicsgo.app/api/cron/local-buzz\")",
+      "Bash(git commit -q -m 'Profile page: Stats is now an expandable purple bubble \\(matches Challenge/DM\\); order Challenge > Direct Message > View on Map > Stats *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

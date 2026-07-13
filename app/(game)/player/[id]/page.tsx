@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Share, Swords, MapPin, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MapPin, MessageSquare, BarChart3, ChevronDown } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
 import { useLocation } from '@/hooks/useLocation'
@@ -43,6 +43,7 @@ export default function PublicProfilePage() {
   const [photos, setPhotos] = useState<{ id: string; url: string }[]>([])
   const [viewerOpen, setViewerOpen] = useState(false)
   const [shared, setShared] = useState('')
+  const [statsOpen, setStatsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   async function votePost(post: Post, v: number) {
@@ -200,39 +201,66 @@ export default function PublicProfilePage() {
               </span>
             </div>
           )}
-          {viewer?.id !== profile.id && (
-            <div className="mt-4 w-full max-w-xs space-y-2">
-              {/* All purple, in order: Challenge, Direct Message, View on Map */}
-              <button
-                onClick={challenge}
-                disabled={challenging || (viewer ? viewer.fp_balance < 50 : false)}
-                className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-              >
-                <Swords size={16} /> {challenging ? 'Sending...' : 'Challenge'}
-              </button>
-              <button
-                onClick={() => router.push(`/messages/${profile.id}`)}
-                className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-              >
-                <MessageSquare size={16} /> Direct Message
-              </button>
-              {playerLoc && (
+          <div className="mt-4 w-full max-w-xs space-y-2">
+            {/* All purple, in order: Challenge, Direct Message, View on Map, Stats */}
+            {viewer?.id !== profile.id && (
+              <>
                 <button
-                  onClick={() => router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
+                  onClick={challenge}
+                  disabled={challenging || (viewer ? viewer.fp_balance < 50 : false)}
+                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                >
+                  <Swords size={16} /> {challenging ? 'Sending...' : 'Challenge'}
+                </button>
+                <button
+                  onClick={() => router.push(`/messages/${profile.id}`)}
                   className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
                 >
-                  <MapPin size={16} /> View on Map
+                  <MessageSquare size={16} /> Direct Message
                 </button>
-              )}
-              {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
-              {viewer && viewer.fp_balance < 50 && (
-                <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
-              )}
-            </div>
-          )}
+                {playerLoc && (
+                  <button
+                    onClick={() => router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
+                    className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                  >
+                    <MapPin size={16} /> View on Map
+                  </button>
+                )}
+                {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
+                {viewer && viewer.fp_balance < 50 && (
+                  <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
+                )}
+              </>
+            )}
+
+            {/* Stats — expandable bubble, same size/color as the buttons above */}
+            <button
+              onClick={() => setStatsOpen(o => !o)}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+            >
+              <BarChart3 size={16} /> Stats
+              <ChevronDown size={16} className={`transition-transform ${statsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {statsOpen && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {[
+                  { label: 'Battles Won', value: profile.total_battles_won },
+                  { label: 'Win Rate', value: `${winRate}%` },
+                  { label: 'Halls Captured', value: profile.total_gyms_captured },
+                  { label: 'Characters Caught', value: profile.total_captures },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-gray-900 rounded-xl p-3 text-left">
+                    <p className="text-gray-500 text-xs mb-1">{label}</p>
+                    <p className="text-white font-bold text-xl">{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -240,21 +268,6 @@ export default function PublicProfilePage() {
       {viewerOpen && photos.length > 0 && (
         <AlbumViewer photos={photos} title={profile.username} onClose={() => setViewerOpen(false)} />
       )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mx-4">
-        {[
-          { label: 'Battles Won', value: profile.total_battles_won },
-          { label: 'Win Rate', value: `${winRate}%` },
-          { label: 'Halls Captured', value: profile.total_gyms_captured },
-          { label: 'Characters Caught', value: profile.total_captures },
-        ].map(({ label, value }) => (
-          <div key={label} className="bg-gray-900 rounded-xl p-3">
-            <p className="text-gray-500 text-xs mb-1">{label}</p>
-            <p className="text-white font-bold text-xl">{value}</p>
-          </div>
-        ))}
-      </div>
 
       {/* Posts */}
       <div className="mx-4 mt-4">
