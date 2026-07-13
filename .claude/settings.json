@@ -150,7 +150,8 @@
       "Bash(node -e \"console.log\\('three', require\\('three/package.json'\\).version\\); console.log\\('fiber', require\\('@react-three/fiber/package.json'\\).version\\); console.log\\('drei', require\\('@react-three/drei/package.json'\\).version\\)\")",
       "Bash(curl -s -o public/models/cowboy.glb \"https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/4dfc66f9-e578-4e25-ba60-fb09909c4529.glb\")",
       "Bash(xxd)",
-      "Bash(curl -s -o public/models/crazy_liberal.glb \"https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/ed28d90f-9de0-42b6-a29d-578af1776f91.glb\")"
+      "Bash(curl -s -o public/models/crazy_liberal.glb \"https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/ed28d90f-9de0-42b6-a29d-578af1776f91.glb\")",
+      "Bash(node scripts/occupy_all_halls.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
