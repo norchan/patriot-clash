@@ -178,7 +178,11 @@ export default function LandslidePage() {
       }
     } catch {}
   }
-  const commit = () => { boardRef.current = boardRef.current.map(row => row.slice()); rerender() }
+  // Re-render in place. We MUST NOT replace boardRef.current here: the cascade
+  // captures `b = boardRef.current` and mutates it across await points, so
+  // swapping the reference would strand the gravity step on a stale array and
+  // the gems would never visibly fall.
+  const commit = () => rerender()
 
   const resolveCascades = useCallback(async (lvl: number) => {
     let combo = 1, gain = 0, total = 0
