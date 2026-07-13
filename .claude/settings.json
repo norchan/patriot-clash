@@ -142,7 +142,8 @@
       "Bash(cat)",
       "Bash(node check.cjs)",
       "Bash(node scripts/rehome_bots.mjs)",
-      "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' https://politicsgo.app/api/cron/local-events)"
+      "Bash(curl -s -m 70 -H 'Authorization: Bearer ff142a02aa3a964212e6a4423ff7b9d436ad4efa9484f6f4' https://politicsgo.app/api/cron/local-events)",
+      "Bash(node scripts/rename_cliques.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
