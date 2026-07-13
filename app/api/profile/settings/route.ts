@@ -15,6 +15,12 @@ export async function PATCH(req: NextRequest) {
     for (const key of allowed) {
       if (key in body) updates[key] = body[key]
     }
+    if ('gender' in body) {
+      if (body.gender !== 'male' && body.gender !== 'female' && body.gender !== null) {
+        return NextResponse.json({ error: 'Invalid gender' }, { status: 400 })
+      }
+      updates.gender = body.gender
+    }
     if ('map_visibility' in body) {
       if (!['everyone', 'hide_from_republicans', 'hide_from_democrats', 'nobody'].includes(body.map_visibility)) {
         return NextResponse.json({ error: 'Invalid map visibility' }, { status: 400 })

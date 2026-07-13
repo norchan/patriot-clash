@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     const { data: profilePrefs } = ids.length > 0
       ? await admin
           .from('profiles')
-          .select('id, show_party, allow_messages, avatar_url, map_visibility, location_fuzz')
+          .select('id, show_party, allow_messages, avatar_url, map_visibility, location_fuzz, gender')
           .in('id', ids)
       : { data: [] as any[] }
 
@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
         lng: p.lng,
         allow_messages: pref?.allow_messages ?? false,
         avatar_url: pref?.avatar_url ?? null,
+        gender: pref?.gender ?? null,
         // tells the popup whether this marker is their real spot
         approx: !!pref?.location_fuzz,
       }
@@ -131,6 +132,7 @@ export async function GET(req: NextRequest) {
             lng: hall.longitude + (distMiles / (69 * Math.cos(hall.latitude * Math.PI / 180))) * Math.cos(angle),
             allow_messages: true,
             avatar_url: bot.avatar_url ?? null,
+            gender: seededRand(`${bot.id}|gender`) < 0.5 ? 'male' : 'female',
             approx: true, // garrison bots always read as approximate
           })
         })

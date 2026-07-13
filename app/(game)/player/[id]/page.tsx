@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Share, Swords, MapPin } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MapPin, MessageSquare } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
 import { useLocation } from '@/hooks/useLocation'
@@ -200,39 +200,39 @@ export default function PublicProfilePage() {
               </span>
             </div>
           )}
-          <div className="mt-4 w-full max-w-xs space-y-2">
-            <button
-              onClick={() => router.push(`/messages/${profile.id}`)}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700"
-            >
-              💬 Direct Message
-            </button>
-            {/* Challenge + View on map — hidden on your own profile */}
-            {viewer?.id !== profile.id && (
-              <div className="flex gap-2">
+          {viewer?.id !== profile.id && (
+            <div className="mt-4 w-full max-w-xs space-y-2">
+              {/* All purple, in order: Challenge, Direct Message, View on Map */}
+              <button
+                onClick={challenge}
+                disabled={challenging || (viewer ? viewer.fp_balance < 50 : false)}
+                className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+              >
+                <Swords size={16} /> {challenging ? 'Sending...' : 'Challenge'}
+              </button>
+              <button
+                onClick={() => router.push(`/messages/${profile.id}`)}
+                className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+              >
+                <MessageSquare size={16} /> Direct Message
+              </button>
+              {playerLoc && (
                 <button
-                  onClick={challenge}
-                  disabled={challenging || (viewer ? viewer.fp_balance < 50 : false)}
-                  className="flex-1 py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  onClick={() => router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
+                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
                 >
-                  <Swords size={16} /> {challenging ? 'Sending...' : 'Challenge'}
+                  <MapPin size={16} /> View on Map
                 </button>
-                {playerLoc && (
-                  <button
-                    onClick={() => router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
-                    className="flex-1 py-3 rounded-xl font-bold text-white transition active:scale-95 bg-gray-800 hover:bg-gray-700 border border-gray-700 flex items-center justify-center gap-1.5"
-                  >
-                    <MapPin size={16} /> View on Map
-                  </button>
-                )}
-              </div>
-            )}
-            {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
-            {viewer && viewer.id !== profile.id && viewer.fp_balance < 50 && (
-              <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
-            )}
-          </div>
+              )}
+              {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
+              {viewer && viewer.fp_balance < 50 && (
+                <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

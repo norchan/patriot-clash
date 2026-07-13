@@ -1247,6 +1247,12 @@ export default function MapPage() {
         <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2">
           <span className="text-white text-xs">👟 {steps.toLocaleString()} steps</span>
         </div>
+        {/* Local Players → active players screen */}
+        <button onClick={() => router.push('/active')}
+          className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-purple-900/60 transition">
+          <span className="text-xs">✊</span>
+          <span className="text-white text-xs font-medium">Local Players</span>
+        </button>
         <div className="relative">
           <button
             onClick={() => setShowMapMenu(v => !v)}

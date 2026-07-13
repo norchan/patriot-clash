@@ -144,6 +144,34 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Gender — used for the Active Players filter */}
+      <div className="mx-4 mt-4">
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Profile</h3>
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4">
+          <div className="text-white text-sm font-medium mb-2">Gender</div>
+          <div className="flex gap-2">
+            {(['male', 'female'] as const).map(g => {
+              const active = (profile as any)?.gender === g
+              return (
+                <button key={g}
+                  onClick={async () => {
+                    await fetch('/api/profile/settings', {
+                      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ gender: active ? null : g }),
+                    })
+                    await refetch()
+                  }}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-sm transition"
+                  style={{ background: active ? '#7c3aed' : 'rgba(255,255,255,0.06)', color: active ? '#fff' : '#9ca3af' }}>
+                  {g === 'male' ? '♂ Male' : '♀ Female'}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-gray-600 text-[11px] mt-2">Shown to others and used to filter the Active Players list. Tap again to clear.</p>
+        </div>
+      </div>
+
       {/* Map settings link */}
       <div className="mx-4 mt-4">
         <button onClick={() => router.push('/settings/map')}
