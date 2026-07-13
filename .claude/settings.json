@@ -176,7 +176,11 @@
       "Bash(git commit -q -m 'Profile page: Stats is now an expandable purple bubble \\(matches Challenge/DM\\); order Challenge > Direct Message > View on Map > Stats *)",
       "Bash(git commit -q -m 'Add deletion: DM messages + whole conversations; town hall posts \\(in feed\\) and replies. Profile/hall post delete already existed *)",
       "Bash(git commit -q -m 'Profile View on Map always shows: bots fall back to home hall, players to clique hall; button disabled only when truly hidden *)",
-      "Bash(git commit -q -m 'View on Map lands on the bot'\\\\''s actual marker: shared garrisonPosition helper used by both nearby + profile endpoints \\(seed no longer index-dependent\\) *)"
+      "Bash(git commit -q -m 'View on Map lands on the bot'\\\\''s actual marker: shared garrisonPosition helper used by both nearby + profile endpoints \\(seed no longer index-dependent\\) *)",
+      "WebFetch(domain:docs.meshy.ai)",
+      "Bash(node scripts/meshy_pipeline.mjs public/enemies/democrat/comrade.png comrade 0:idle,421:throw)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(git commit -q -m 'Comrade 3D: rigged + animated via Meshy \\(idle loop, over-shoulder throw synced to enemy attacks + flying hammer\\). Reusable scripts/meshy_pipeline.mjs *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

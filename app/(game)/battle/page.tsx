@@ -12,7 +12,8 @@ import dynamic from 'next/dynamic'
 // 3D enemy renderer (client-only). Enemies with a 3D model use it instead of
 // the 2D sprite.
 const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
-const ENEMY_3D: Record<string, string> = { comrade: '/models/comrade.glb' }
+// value = model prefix in /public/models (<prefix>_idle.glb + <prefix>_throw.glb)
+const ENEMY_3D: Record<string, string> = { comrade: 'comrade' }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SPRITE BATTLE — carnival dodgeball edition.
@@ -646,7 +647,7 @@ function BattleContent() {
             animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
             transformOrigin: 'bottom center',
           }}>
-            <Enemy3D url={ENEMY_3D[enemy.id]} />
+            <Enemy3D prefix={ENEMY_3D[enemy.id]} attackKey={spriteAnim === 'charge' ? spriteKey : 0} />
           </div>
         ) : (
         <div
