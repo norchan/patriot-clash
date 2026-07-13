@@ -1213,7 +1213,10 @@ export default function MapPage() {
     )
   }
 
-  if (locationError) {
+  // Only hard-block if we truly have no location. With the fallback location
+  // (desktop / denied), `location` is set even when `locationError` is — the
+  // map renders and a small banner explains it.
+  if (locationError && !location) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
         <div className="text-center">
@@ -1229,6 +1232,13 @@ export default function MapPage() {
   return (
     <div className="relative overflow-hidden" style={{ height: 'calc(100dvh - 5rem)' }}>
       <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
+
+      {/* Fallback-location notice (desktop / location denied) */}
+      {locationError && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 bg-yellow-900/85 border border-yellow-700/60 text-yellow-100 text-[11px] font-medium px-3 py-1.5 rounded-full shadow-lg text-center max-w-[92%]">
+          📍 {locationError}
+        </div>
+      )}
 
       {/* ── HUD: Top Left ───────────────────────────────────────────────── */}
       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">

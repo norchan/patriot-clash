@@ -7,6 +7,10 @@ export interface Location {
   accuracy?: number
 }
 
+// Fallback used when geolocation is unavailable or denied (e.g. desktop with no
+// GPS / no permission) so the map still loads and is explorable. Washington, DC.
+const FALLBACK: Location = { lat: 38.8899, lng: -77.0091, accuracy: 999999 }
+
 export function useLocation() {
   const [location, setLocation] = useState<Location | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -14,7 +18,8 @@ export function useLocation() {
 
   useEffect(() => {
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported')
+      setLocation(FALLBACK)
+      setError('Geolocation not supported — showing a default location.')
       setLoading(false)
       return
     }
@@ -28,8 +33,11 @@ export function useLocation() {
         setLoading(false)
         setError(null)
       },
-      (err) => {
-        setError('Location permission denied. Please enable location access.')
+      () => {
+        // Denied / timed out (common on desktop) — fall back so the app still
+        // loads instead of dead-ending on a "Location Required" screen.
+        setLocation(prev => prev ?? FALLBACK)
+        setError('Location off — showing a default area. Enable location for real gameplay.')
         setLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }

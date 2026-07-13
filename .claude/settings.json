@@ -187,7 +187,14 @@
       "Bash(node -e 'const fs=require\\(\"fs\"\\);const b=fs.readFileSync\\(\"/tmp/test.glb\"\\);const len=b.readUInt32LE\\(12\\);const j=JSON.parse\\(b.slice\\(20,20+len\\).toString\\(\"utf8\"\\)\\);console.log\\(\"animations still present:\", \\(j.animations||[]\\).map\\(a=>a.name\\), \"| skins:\", \\(j.skins||[]\\).length, \"| textures:\", \\(j.textures||[]\\).length\\);')",
       "Bash(git commit -q -m 'GLB texture compression \\(7MB->1.3MB\\) via gltf-transform; bake into meshy pipeline; recompress Comrade *)",
       "Bash(node scripts/meshy_roster.mjs)",
-      "Bash(git commit -q -m 'Customizable bobblehead fighter \\(procedural\\): skin tone \\(6\\), hair style \\(none/short/long\\), hair color \\(7 + rainbow for Democrats\\), party colors, idle+punch. Customizer at /fighter3d. Fix Comrade oversize *)"
+      "Bash(git commit -q -m 'Customizable bobblehead fighter \\(procedural\\): skin tone \\(6\\), hair style \\(none/short/long\\), hair color \\(7 + rainbow for Democrats\\), party colors, idle+punch. Customizer at /fighter3d. Fix Comrade oversize *)",
+      "Bash(xargs echo \"throw models so far:\")",
+      "Bash(node scripts/meshy_fighters.mjs)",
+      "Bash(git commit -q -m 'Player fighters: 6 diverse realistic characters \\(skin tones, hair styles, rainbow-dem\\) for the PvP preset roster; converting to rigged 3D \\(idle+punch\\) *)",
+      "Bash(curl -s -o /dev/null -w \"root: %{http_code} \\(final: %{url_effective}\\)\\\\n\" -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) Chrome/120\" -H \"Accept: text/html\" -L https://politicsgo.app/)",
+      "Bash(curl -s -o /dev/null -w \"welcome: %{http_code}\\\\n\" -A \"Mozilla/5.0 Chrome/120\" -H \"Accept: text/html\" https://politicsgo.app/welcome)",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/120 Safari/537.36\" -H \"Accept: text/html,application/xhtml+xml\" https://politicsgo.app/welcome -o /tmp/welcome.html)",
+      "Bash(git commit -q -m 'Desktop fix: fall back to a default location \\(Washington DC\\) when geolocation is denied/unsupported so the map always loads instead of dead-ending *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
