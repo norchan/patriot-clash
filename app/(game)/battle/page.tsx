@@ -641,7 +641,11 @@ function BattleContent() {
         ))}
 
         {ENEMY_3D[enemy.id] ? (
-          <div style={{ width: 'min(60vw, 300px)', aspectRatio: '1 / 1', position: 'relative' }}>
+          <div style={{
+            width: 'min(62vw, 320px)', aspectRatio: '1 / 1', position: 'relative',
+            animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
+            transformOrigin: 'bottom center',
+          }}>
             <Enemy3D url={ENEMY_3D[enemy.id]} />
           </div>
         ) : (
