@@ -12,8 +12,13 @@ import dynamic from 'next/dynamic'
 // 3D enemy renderer (client-only). Enemies with a 3D model use it instead of
 // the 2D sprite.
 const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
-// value = model prefix in /public/models (<prefix>_idle.glb + <prefix>_throw.glb)
-const ENEMY_3D: Record<string, string> = { comrade: 'comrade' }
+// Enemies with generated 3D models (value = model prefix → <prefix>_idle/_throw.glb).
+// eagle stays 2D (a bird — no humanoid rig).
+const ENEMY_3D: Record<string, string> = Object.fromEntries(
+  ['comrade', 'oil_baron', 'cowboy', 'politician', 'hick', 'ice_agent', 'soldier_boy', 'preppy', 'influencer',
+   'billionaire', 'crazy_liberal', 'crying_liberal', 'dem_politician', 'purple_hair', 'protestor', 'anchor',
+   'palestine', 'drag', 'senator'].map(id => [id, id]),
+)
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SPRITE BATTLE — carnival dodgeball edition.

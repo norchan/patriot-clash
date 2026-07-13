@@ -194,7 +194,11 @@
       "Bash(curl -s -o /dev/null -w \"root: %{http_code} \\(final: %{url_effective}\\)\\\\n\" -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) Chrome/120\" -H \"Accept: text/html\" -L https://politicsgo.app/)",
       "Bash(curl -s -o /dev/null -w \"welcome: %{http_code}\\\\n\" -A \"Mozilla/5.0 Chrome/120\" -H \"Accept: text/html\" https://politicsgo.app/welcome)",
       "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/120 Safari/537.36\" -H \"Accept: text/html,application/xhtml+xml\" https://politicsgo.app/welcome -o /tmp/welcome.html)",
-      "Bash(git commit -q -m 'Desktop fix: fall back to a default location \\(Washington DC\\) when geolocation is denied/unsupported so the map always loads instead of dead-ending *)"
+      "Bash(git commit -q -m 'Desktop fix: fall back to a default location \\(Washington DC\\) when geolocation is denied/unsupported so the map always loads instead of dead-ending *)",
+      "Bash(xargs echo \"fighter+enemy anim models:\")",
+      "Bash(curl -s -o /dev/null -w \"root %{http_code}\\\\n\" -A \"Mozilla/5.0 Chrome/120\" -H \"Accept: text/html\" -L https://politicsgo.app/)",
+      "Bash(grep -vE \"_\\(idle|throw|punch\\)\\\\.glb$\")",
+      "Bash(git commit -q -m 'Sprite battles fully 3D: all 18 enemies + Comrade wired into ENEMY_3D \\(rigged idle+throw\\). Remove old uncompressed Higgsfield statics + dead /battle3d preview \\(207MB->59MB\\) *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
