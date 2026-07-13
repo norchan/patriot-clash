@@ -173,6 +173,7 @@ export async function GET(req: NextRequest) {
         link_domain: item.source,
         score: Math.floor(Math.random() * 10),
         created_at: new Date(Date.now() - Math.random() * 3 * 3600 * 1000).toISOString(),
+        local: true, // hometown news → shows in the Local tab
       })
     }
   }

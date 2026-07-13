@@ -98,6 +98,7 @@ export async function GET(req: NextRequest) {
       content: text.slice(0, 400),
       score: 2 + Math.floor(Math.random() * 9),
       created_at: new Date().toISOString(),
+      local: true, // hometown chatter → shows in the Local tab
     })
     posted++
   })

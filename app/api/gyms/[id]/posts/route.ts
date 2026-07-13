@@ -8,8 +8,9 @@ import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation
 // squares of the game). Posts carry text, an uploaded image, or a link
 // with a scraped preview card.
 
-// GET /api/gyms/[id]/posts?sort=top|new — top (default) is the most
-// upvoted of the last 24 hours; new is latest-first
+// GET /api/gyms/[id]/posts?sort=top|local|new — top (default) is the most
+// upvoted of the last 24 hours; local is the top-ranked posts marked "local"
+// in the last 48 hours; new is latest-first
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,15 +19,22 @@ export async function GET(
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
-    const sort = req.nextUrl.searchParams.get('sort') === 'new' ? 'new' : 'top'
+    const sortParam = req.nextUrl.searchParams.get('sort')
+    const sort = sortParam === 'new' ? 'new' : sortParam === 'local' ? 'local' : 'top'
 
     let q = admin
       .from('hall_posts')
-      .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw')
+      .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local')
       .eq('gym_id', id)
       .eq('hidden', false)
     if (sort === 'top') {
       q = q.gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: false })
+    } else if (sort === 'local') {
+      // posts flagged local, highest-ranked in the last 48 hours first
+      q = q.eq('local', true)
+        .gte('created_at', new Date(Date.now() - 48 * 3600 * 1000).toISOString())
         .order('score', { ascending: false })
         .order('created_at', { ascending: false })
     } else {
@@ -73,7 +81,7 @@ export async function POST(
     const admin = createSupabaseAdminClient()
     const { id } = await params
 
-    const { content, image, link_url } = await req.json()
+    const { content, image, link_url, local } = await req.json()
     const text = (content ?? '').trim()
     if (text.length > 1000) {
       return NextResponse.json({ error: 'Post is too long (1000 characters max)' }, { status: 400 })
@@ -134,8 +142,9 @@ export async function POST(
         link_title: preview?.title ?? null,
         link_image: preview?.image ?? null,
         link_domain: preview?.domain ?? null,
+        local: !!local,
       })
-      .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw')
+      .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local')
       .single()
 
     if (error) throw error

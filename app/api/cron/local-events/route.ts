@@ -164,6 +164,7 @@ export async function GET(req: NextRequest) {
       link_domain: pick.source,
       score: Math.floor(Math.random() * 8),
       created_at: new Date().toISOString(),
+      local: true, // hometown event → shows in the Local tab
     })
   }
 
