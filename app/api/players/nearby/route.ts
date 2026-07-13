@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { garrisonPosition } from '@/lib/garrison'
 
 // Deterministic hash → [0, 1) so bot positions stay stable per area
 function seededRand(seed: string): number {
@@ -119,17 +120,16 @@ export async function GET(req: NextRequest) {
 
       for (const hall of halls) {
         const crew = (byHall[hall.id] ?? []).slice(0, 16)
-        crew.forEach((bot, i) => {
-          // Two independent hashes → a scattered point; sqrt on the radius
-          // spreads bots evenly across the disc instead of a ring.
-          const angle = seededRand(`${bot.id}|${hall.id}|ang|${i}`) * Math.PI * 2
-          const distMiles = 0.25 + Math.sqrt(seededRand(`${bot.id}|${hall.id}|rad|${i}`)) * 4.2
+        crew.forEach((bot) => {
+          // Stable scattered spot inside the hall — same helper the profile's
+          // "View on map" uses, so the pin lands exactly on this marker.
+          const pos = garrisonPosition(bot.id, hall.id, hall.latitude, hall.longitude)
           players.push({
             profile_id: bot.id,
             username: bot.username,
             party: bot.party,
-            lat: hall.latitude + (distMiles / 69) * Math.sin(angle),
-            lng: hall.longitude + (distMiles / (69 * Math.cos(hall.latitude * Math.PI / 180))) * Math.cos(angle),
+            lat: pos.lat,
+            lng: pos.lng,
             allow_messages: true,
             avatar_url: bot.avatar_url ?? null,
             // real gender for photo bots; deterministic fallback for the rest

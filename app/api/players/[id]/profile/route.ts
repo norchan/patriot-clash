@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { garrisonPosition } from '@/lib/garrison'
 
 // GET /api/players/[id]/profile — public view of any player's profile:
 // username, avatar, party (respecting show_party), stats, click, recent posts.
@@ -55,11 +56,15 @@ export async function GET(
           .gte('updated_at', cutoff).maybeSingle()
         if (loc) location = { lat: loc.lat, lng: loc.lng, approx: !!prefs?.location_fuzz }
 
-        // 2) bots don't broadcast a live position — send "View on map" to their
-        //    home town hall, where they actually garrison
+        // 2) bots don't broadcast a live position — send "View on map" to the
+        //    EXACT scattered spot their marker occupies inside their home hall
+        //    (same helper the map's nearby endpoint uses), not the hall center
         if (!location && player.clerk_user_id?.startsWith('bot') && player.home_gym_id) {
           const { data: g } = await admin.from('gyms').select('latitude, longitude').eq('id', player.home_gym_id).maybeSingle()
-          if (g) location = { lat: Number(g.latitude), lng: Number(g.longitude), approx: true }
+          if (g) {
+            const pos = garrisonPosition(id, player.home_gym_id, Number(g.latitude), Number(g.longitude))
+            location = { lat: pos.lat, lng: pos.lng, approx: true }
+          }
         }
         // 3) real player with no recent fix → their clique's hall (public home base)
         if (!location && clique?.gym_id) {
