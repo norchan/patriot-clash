@@ -55,7 +55,7 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    const s = 3.0 / (size.y || 1)
+    const s = 2.35 / (size.y || 1) // fit with margin so he isn't oversized in-frame
     if (fit.current) {
       fit.current.scale.setScalar(s)
       fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s)
