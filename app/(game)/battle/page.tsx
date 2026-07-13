@@ -7,6 +7,12 @@ import type { Enemy } from '@/config/enemies'
 import { THROWS, TIER_DEFENSE } from '@/config/attacks'
 import { fighterLevel } from '@/lib/fighter'
 import { sfx, buzz } from '@/lib/juice'
+import dynamic from 'next/dynamic'
+
+// 3D enemy renderer (client-only). Enemies with a 3D model use it instead of
+// the 2D sprite.
+const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
+const ENEMY_3D: Record<string, string> = { comrade: '/models/comrade.glb' }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SPRITE BATTLE — carnival dodgeball edition.
@@ -634,6 +640,11 @@ function BattleContent() {
           }}>−{d.val}</div>
         ))}
 
+        {ENEMY_3D[enemy.id] ? (
+          <div style={{ width: 'min(60vw, 300px)', aspectRatio: '1 / 1', position: 'relative' }}>
+            <Enemy3D url={ENEMY_3D[enemy.id]} />
+          </div>
+        ) : (
         <div
           key={spriteKey}
           style={{
@@ -686,6 +697,7 @@ function BattleContent() {
             }}>💥OUCH!</div>
           )}
         </div>
+        )}
         <div style={{ width: '38%', height: 16, background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 70%)', borderRadius: '50%', marginTop: '-8%', filter: 'blur(5px)' }} />
       </div>
 
