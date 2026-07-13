@@ -180,7 +180,8 @@
       "WebFetch(domain:docs.meshy.ai)",
       "Bash(node scripts/meshy_pipeline.mjs public/enemies/democrat/comrade.png comrade 0:idle,421:throw)",
       "Bash(awk '{print $5, $9}')",
-      "Bash(git commit -q -m 'Comrade 3D: rigged + animated via Meshy \\(idle loop, over-shoulder throw synced to enemy attacks + flying hammer\\). Reusable scripts/meshy_pipeline.mjs *)"
+      "Bash(git commit -q -m 'Comrade 3D: rigged + animated via Meshy \\(idle loop, over-shoulder throw synced to enemy attacks + flying hammer\\). Reusable scripts/meshy_pipeline.mjs *)",
+      "Bash(git commit -q -m 'Comrade 3D: oversized bobble head + subtle bobble; show 2D sprite instantly as fallback until the 3D model loads \\(fixes '\\\\''enemy didn'\\\\''t show up at first'\\\\''\\) *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

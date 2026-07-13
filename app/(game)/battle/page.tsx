@@ -154,6 +154,7 @@ function BattleContent() {
   const [ouch, setOuch] = useState(false)            // comic OUCH face
   const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'charge' | 'faint'>('idle')
   const [spriteKey, setSpriteKey] = useState(0)
+  const [enemy3dReady, setEnemy3dReady] = useState(false) // 3D model finished loading
   const ouchMissing = useRef(false)                  // no _ouch.png for this enemy
   const [throwGone, setThrowGone] = useState(false)  // no _throw.png → single-frame
 
@@ -647,7 +648,15 @@ function BattleContent() {
             animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
             transformOrigin: 'bottom center',
           }}>
-            <Enemy3D prefix={ENEMY_3D[enemy.id]} attackKey={spriteAnim === 'charge' ? spriteKey : 0} />
+            {/* 2D sprite shows instantly; the 3D model fades in once it loads */}
+            {!enemy3dReady && (
+              <img src={enemy.image} alt={enemy.name} style={{
+                position: 'absolute', inset: 0, margin: 'auto', width: '58%', height: 'auto',
+                objectFit: 'contain', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))',
+              }} />
+            )}
+            <Enemy3D prefix={ENEMY_3D[enemy.id]} attackKey={spriteAnim === 'charge' ? spriteKey : 0}
+              onReady={() => setEnemy3dReady(true)} />
           </div>
         ) : (
         <div
