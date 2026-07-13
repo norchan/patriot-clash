@@ -79,9 +79,9 @@ export default function ActivePlayersPage() {
           <Radar size={18} className="text-green-400" /> Active Players
           <span className="text-green-400 font-bold">{shown.length}</span>
         </h1>
-        {/* Grid / List toggle */}
+        {/* Grid / List toggle — kept left of the hamburger menu (top-right) */}
         <button onClick={() => setView(v => v === 'grid' ? 'list' : 'grid')}
-          className="ml-auto flex items-center gap-1 text-xs font-bold text-purple-300 border border-purple-800 rounded-lg px-2.5 py-1.5 hover:bg-purple-950/40 transition">
+          className="ml-auto mr-12 flex items-center gap-1 text-xs font-bold text-purple-300 border border-purple-800 rounded-lg px-2.5 py-1.5 hover:bg-purple-950/40 transition">
           {view === 'grid' ? <List size={14} /> : <LayoutGrid size={14} />}
           {view === 'grid' ? 'List' : 'Grid'}
         </button>
@@ -118,10 +118,10 @@ export default function ActivePlayersPage() {
                     style={{ background: `${partyColor(p.party)}22` }}>{partyEmoji(p.party)}</div>
                 )}
                 <div className="absolute top-1 left-1 w-2.5 h-2.5 rounded-full border border-white/70" style={{ background: partyColor(p.party) }} />
-                <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1"
-                  style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.85), transparent)' }}>
-                  <div className="text-white text-[11px] font-bold truncate leading-tight">{p.username}</div>
-                  <div className="text-gray-300 text-[9px]">{dist < 0.1 ? 'here' : `${dist.toFixed(1)} mi`}</div>
+                <div className="absolute bottom-0 left-0 right-0 px-2 pt-4 pb-1.5"
+                  style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.92), rgba(0,0,0,0.5) 55%, transparent)' }}>
+                  <div className="text-white text-sm font-black truncate leading-tight" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>{p.username}</div>
+                  <div className="text-gray-200 text-[11px] font-semibold">{dist < 0.1 ? 'here' : `${dist.toFixed(1)} mi`}</div>
                 </div>
               </button>
             )
