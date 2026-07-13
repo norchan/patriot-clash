@@ -19,7 +19,7 @@ interface PublicProfile {
 }
 
 interface Clique { id: string; name: string; party: string; gym_id: string | null }
-interface Post { id: string; content: string; created_at: string; score: number; my_vote: number }
+interface Post { id: string; content: string; created_at: string; score: number; my_vote: number; media_url?: string | null; media_type?: 'image' | 'video' | null }
 
 function timeAgo(iso: string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -265,7 +265,13 @@ export default function PublicProfilePage() {
           <div className="space-y-2">
             {posts.map(p => (
               <div key={p.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3">
-                <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
+                {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
+                {p.media_type === 'image' && p.media_url && (
+                  <img src={p.media_url} alt="" className="rounded-xl mt-2 w-full max-h-80 object-cover border border-gray-800" />
+                )}
+                {p.media_type === 'video' && p.media_url && (
+                  <video src={p.media_url} className="rounded-xl mt-2 w-full max-h-80 border border-gray-800" controls playsInline preload="metadata" />
+                )}
                 <div className="flex items-center gap-4 mt-2">
                   <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => votePost(p, v)} />
                   <button onClick={() => sharePost(p)}

@@ -59,7 +59,7 @@ export async function GET(
     const [{ data: posts }, { count: hallsHeld }, { data: photos }] = await Promise.all([
       admin
         .from('profile_posts')
-        .select('id, content, score, created_at')
+        .select('id, content, score, created_at, media_url, media_type')
         .eq('profile_id', id)
         .order('created_at', { ascending: false })
         .limit(20),

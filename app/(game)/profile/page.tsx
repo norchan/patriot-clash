@@ -45,6 +45,8 @@ interface Post {
   created_at: string
   score: number
   my_vote: number
+  media_url?: string | null
+  media_type?: 'image' | 'video' | null
 }
 
 // Resize any picked image to a 256px square JPEG data URL before upload
@@ -102,6 +104,11 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
+  const [draftImage, setDraftImage] = useState<string | null>(null)   // base64 pic/gif
+  const [draftVideo, setDraftVideo] = useState<{ url: string } | null>(null)
+  const [mediaBusy, setMediaBusy] = useState('')
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
   const [sharedPost, setSharedPost] = useState('')
   const [showStats, setShowStats] = useState(false)
   const [showPhotos, setShowPhotos] = useState(false)
@@ -245,20 +252,60 @@ export default function ProfilePage() {
     ...albumPhotos,
   ]
 
+  // Pic/GIF: GIFs pass through (canvas would freeze them); others shrink to webp
+  async function pickPhoto(file: File) {
+    if (file.size > 8 * 1024 * 1024) { setMediaBusy('Image too big (max 8 MB)'); setTimeout(() => setMediaBusy(''), 2500); return }
+    setDraftVideo(null)
+    if (file.type === 'image/gif') {
+      const reader = new FileReader()
+      reader.onload = () => setDraftImage(String(reader.result))
+      reader.readAsDataURL(file)
+      return
+    }
+    const bmp = await createImageBitmap(file)
+    const max = 1280, scale = Math.min(1, max / Math.max(bmp.width, bmp.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bmp.width * scale); canvas.height = Math.round(bmp.height * scale)
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+    setDraftImage(canvas.toDataURL('image/webp', 0.85))
+  }
+
+  // Video: get a signed URL and upload straight to storage (bypasses API limit)
+  async function pickVideo(file: File) {
+    if (file.size > 60 * 1024 * 1024) { setMediaBusy('Video too big (max 60 MB)'); setTimeout(() => setMediaBusy(''), 2500); return }
+    setDraftImage(null); setMediaBusy('Uploading video…')
+    try {
+      const ext = (file.name.split('.').pop() || 'mp4').toLowerCase()
+      const res = await fetch('/api/posts/upload-url', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ext }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error)
+      const { createSupabaseBrowserClient } = await import('@/lib/supabase-client')
+      const sb = createSupabaseBrowserClient()
+      const { error } = await sb.storage.from('avatars').uploadToSignedUrl(d.path, d.token, file, { contentType: file.type })
+      if (error) throw error
+      setDraftVideo({ url: d.publicUrl })
+      setMediaBusy('')
+    } catch (e: any) {
+      setMediaBusy(e?.message || 'Video upload failed'); setTimeout(() => setMediaBusy(''), 2500)
+    }
+  }
+
   async function publishPost() {
-    if (!postText.trim()) return
+    if (!postText.trim() && !draftImage && !draftVideo) return
     setPosting(true)
     try {
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: postText.trim() }),
+        body: JSON.stringify({ content: postText.trim(), image: draftImage, video_url: draftVideo?.url }),
       })
       const data = await res.json()
       if (data.post) {
         setPosts(prev => [data.post, ...prev])
-        setPostText('')
-      }
+        setPostText(''); setDraftImage(null); setDraftVideo(null)
+      } else if (data.error) { setMediaBusy(data.error); setTimeout(() => setMediaBusy(''), 2500) }
     } catch {}
     setPosting(false)
   }
@@ -601,9 +648,33 @@ export default function ProfilePage() {
             rows={2}
             className="w-full bg-gray-800 text-white rounded-xl p-3 text-sm resize-none border border-gray-700 focus:border-gray-500 outline-none placeholder-gray-600"
           />
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-gray-600 text-xs">{postText.length}/500</span>
-            <button onClick={publishPost} disabled={posting || !postText.trim()}
+          {/* media preview */}
+          {draftImage && (
+            <div className="relative mt-2 inline-block">
+              <img src={draftImage} alt="" className="max-h-48 rounded-xl border border-gray-700" />
+              <button onClick={() => setDraftImage(null)} className="absolute -top-2 -right-2 bg-gray-800 border border-gray-600 rounded-full p-1 text-white"><X size={12} /></button>
+            </div>
+          )}
+          {draftVideo && (
+            <div className="relative mt-2">
+              <video src={draftVideo.url} className="max-h-48 rounded-xl border border-gray-700" controls playsInline />
+              <button onClick={() => setDraftVideo(null)} className="absolute top-1 right-1 bg-black/70 rounded-full p-1 text-white"><X size={12} /></button>
+            </div>
+          )}
+          <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={e => { e.target.files?.[0] && pickPhoto(e.target.files[0]); e.target.value = '' }} />
+          <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={e => { e.target.files?.[0] && pickVideo(e.target.files[0]); e.target.value = '' }} />
+          <div className="flex items-center gap-2 mt-2">
+            <button onClick={() => photoInputRef.current?.click()} disabled={!!mediaBusy}
+              className="flex items-center gap-1 text-gray-300 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition disabled:opacity-50">
+              <Camera size={14} /> Photo / GIF
+            </button>
+            <button onClick={() => videoInputRef.current?.click()} disabled={!!mediaBusy}
+              className="flex items-center gap-1 text-gray-300 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition disabled:opacity-50">
+              🎥 Video
+            </button>
+            {mediaBusy && <span className="text-purple-300 text-[11px]">{mediaBusy}</span>}
+            <span className="text-gray-600 text-xs ml-auto">{postText.length}/500</span>
+            <button onClick={publishPost} disabled={posting || !!mediaBusy || (!postText.trim() && !draftImage && !draftVideo)}
               className="px-4 py-2 rounded-lg text-sm font-bold text-white transition active:scale-95 disabled:opacity-40"
               style={{ background: partyColor }}>
               {posting ? '...' : 'Post'}
@@ -622,6 +693,12 @@ export default function ProfilePage() {
                   <button onClick={() => deletePost(p.id)}
                     className="text-gray-700 hover:text-red-400 text-xs flex-shrink-0 transition">✕</button>
                 </div>
+                {p.media_type === 'image' && p.media_url && (
+                  <img src={p.media_url} alt="" className="rounded-xl mt-2 w-full max-h-80 object-cover border border-gray-800" />
+                )}
+                {p.media_type === 'video' && p.media_url && (
+                  <video src={p.media_url} className="rounded-xl mt-2 w-full max-h-80 border border-gray-800" controls playsInline preload="metadata" />
+                )}
                 <div className="flex items-center gap-3 mt-2">
                   <VoteButtons compact score={p.score ?? 0} myVote={p.my_vote ?? 0} onVote={v => votePost(p, v)} />
                   <button onClick={() => sharePost(p)}
