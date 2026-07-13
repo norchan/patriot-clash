@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   '/robots.txt',
   '/sitemap.xml',
   '/api/public(.*)', // guest preview world data (anonymized)
+  '/api/avatar(.*)', // generated meme-card avatar images (no auth needed)
   '/api/webhooks/clerk',
   '/api/webhooks/stripe',
   '/api/cron(.*)', // Vercel cron jobs — protected by CRON_SECRET bearer instead
