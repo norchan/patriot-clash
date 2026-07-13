@@ -20,6 +20,12 @@ export const FIGHTERS: FighterMeta[] = [
 
 const HEAD_SCALE = 1.35
 
+// Correction for the model's front axis (Meshy models don't face +Z). Fighters
+// always aim at their target; if they don't face it, change this by ±PI/2.
+const FRONT_FIX = Math.PI
+// rotation.y so the fighter at (px,pz) faces the point (tx,tz)
+const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
+
 function Fighter({ prefix, position, faceY, attackKey }: { prefix: string; position: [number, number, number]; faceY: number; attackKey: number }) {
   const idleGltf = useGLTF(`/models/${prefix}_idle.glb`)
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb`)
@@ -165,9 +171,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
   { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; solo?: boolean }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
-      camera={{ position: solo ? [0, 1.35, 3.9] : [0, 1.5, 4.6], fov: 40 }}
+      camera={{ position: solo ? [0, 1.5, 5.2] : [0, 1.8, 6.6], fov: 42 }}
       dpr={[1, 2]} gl={{ alpha: false, antialias: true }}
-      onCreated={({ camera }) => camera.lookAt(0, 0.95, 0)}>
+      onCreated={({ camera }) => camera.lookAt(0, 1.0, 0)}>
       <color attach="background" args={['#1b2230']} />
       <fog attach="fog" args={['#1b2230', 12, 26]} />
       <ambientLight intensity={0.7} />
@@ -179,12 +185,12 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
         <Crowd />
         {solo ? (
           // face the camera in the picker
-          <Fighter prefix={playerPrefix} position={[0, 0, 0.6]} faceY={Math.PI} attackKey={playerAttackKey} />
+          <Fighter prefix={playerPrefix} position={[0, 0, 0.6]} faceY={faceToward(0, 0.6, 0, 6)} attackKey={playerAttackKey} />
         ) : (
-          // close together + turned IN so punches connect (models front-face -Z)
+          // each fighter aims at the other → they face each other
           <>
-            <Fighter prefix={playerPrefix} position={[-0.85, 0, 0.6]} faceY={-Math.PI / 2} attackKey={playerAttackKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} position={[0.85, 0, 0.6]} faceY={Math.PI / 2} attackKey={oppAttackKey} />}
+            <Fighter prefix={playerPrefix} position={[-1, 0, 0.6]} faceY={faceToward(-1, 0.6, 1, 0.6)} attackKey={playerAttackKey} />
+            {oppPrefix && <Fighter prefix={oppPrefix} position={[1, 0, 0.6]} faceY={faceToward(1, 0.6, -1, 0.6)} attackKey={oppAttackKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />
