@@ -198,7 +198,9 @@
       "Bash(xargs echo \"fighter+enemy anim models:\")",
       "Bash(curl -s -o /dev/null -w \"root %{http_code}\\\\n\" -A \"Mozilla/5.0 Chrome/120\" -H \"Accept: text/html\" -L https://politicsgo.app/)",
       "Bash(grep -vE \"_\\(idle|throw|punch\\)\\\\.glb$\")",
-      "Bash(git commit -q -m 'Sprite battles fully 3D: all 18 enemies + Comrade wired into ENEMY_3D \\(rigged idle+throw\\). Remove old uncompressed Higgsfield statics + dead /battle3d preview \\(207MB->59MB\\) *)"
+      "Bash(git commit -q -m 'Sprite battles fully 3D: all 18 enemies + Comrade wired into ENEMY_3D \\(rigged idle+throw\\). Remove old uncompressed Higgsfield statics + dead /battle3d preview \\(207MB->59MB\\) *)",
+      "Bash(rm -f components/BobbleFighter.tsx)",
+      "Bash(git commit -q -m 'PvP 3D street arena \\(crowd + two bobblehead fighters\\) + fighter picker at /fighter3d \\(rainbow=Dem-only\\); entry point in map self-sheet; remove rejected primitive fighter *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

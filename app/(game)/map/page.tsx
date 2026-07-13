@@ -1409,6 +1409,12 @@ export default function MapPage() {
               💬 My Messages
             </button>
             <button
+              onClick={() => router.push('/fighter3d')}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+              🥊 Choose Your Fighter
+            </button>
+            <button
               onClick={() => {
                 const nearest = [...gyms].sort((a, b) => parseFloat(a.distance_miles) - parseFloat(b.distance_miles))[0]
                 if (nearest) router.push(`/townhall/${nearest.id}`)
