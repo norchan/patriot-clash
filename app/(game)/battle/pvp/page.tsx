@@ -9,6 +9,9 @@ import type { FighterDesign } from '@/lib/fighter'
 import { MOVES, movesForLevel, strikeDamage, type Move } from '@/lib/pvp'
 import { sfx, buzz } from '@/lib/juice'
 import { createSupabaseBrowserClient } from '@/lib/supabase-client'
+import dynamic from 'next/dynamic'
+
+const PvpArena3D = dynamic(() => import('@/components/PvpArena3D'), { ssr: false })
 
 // ── Types matching lib/pvp.ts FightLog v2 ───────────────────────────────────
 interface FightEvent {
@@ -57,6 +60,8 @@ interface ChallengeData {
   defender_fighter?: FighterDesign
   challenger_is_bot?: boolean
   defender_is_bot?: boolean
+  challenger_pvp_fighter?: string
+  defender_pvp_fighter?: string
 }
 
 interface ChatMessage { id: string; sender_id: string; content: string; created_at: string }
@@ -84,6 +89,11 @@ function StreetFightPage() {
   const [foePose, setFoePose] = useState<FighterPose>('idle')
   const [myAttacking, setMyAttacking] = useState(false)
   const [foeAttacking, setFoeAttacking] = useState(false)
+  // 3D arena: bump a key on each attack's rising edge → plays the punch clip
+  const [playerAtkKey, setPlayerAtkKey] = useState(0)
+  const [oppAtkKey, setOppAtkKey] = useState(0)
+  useEffect(() => { if (myAttacking) setPlayerAtkKey(k => k + 1) }, [myAttacking])
+  useEffect(() => { if (foeAttacking) setOppAtkKey(k => k + 1) }, [foeAttacking])
   const [myHp, setMyHp] = useState(100)
   const [foeHp, setFoeHp] = useState(100)
   const [clock, setClock] = useState(30)
@@ -168,6 +178,9 @@ function StreetFightPage() {
   const isLive = challenge?.status === 'accepted' && !!profile
     && (challenge.challenger_id === profile.id || challenge.defender_id === profile.id)
   const oppIsBot = isChallenger ? !!challenge?.defender_is_bot : !!challenge?.challenger_is_bot
+  // Chosen 3D fighters for the arena
+  const myPvpFighter = (isChallenger ? challenge?.challenger_pvp_fighter : challenge?.defender_pvp_fighter) || 'fighter1'
+  const oppPvpFighter = (isChallenger ? challenge?.defender_pvp_fighter : challenge?.challenger_pvp_fighter) || 'fighter1'
   // Human opponents fight in REAL TIME over a Supabase channel; bots (and
   // human opponents who never show up) are fought as AI at their level
   const realtime = isLive && !oppIsBot
@@ -1066,14 +1079,15 @@ function StreetFightPage() {
           </div>
         )}
 
-        {/* ── FIGHTERS ── */}
-        <div className="absolute z-10" style={{ left: '8%', bottom: '7%', filter: `drop-shadow(0 0 10px ${myColor}33)` }}>
-          <FighterSprite design={myFighter} party={myParty === 'democrat' ? 'democrat' : 'republican'} pose={myPose} facing="right" height={Math.min(300, 260)} attacking={myAttacking} reeling={myReeling} />
-          <div className="w-24 h-3 mx-auto -mt-1 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(0,0,0,0.55), transparent 70%)' }} />
-        </div>
-        <div className="absolute z-10" style={{ right: '8%', bottom: '7%', filter: `drop-shadow(0 0 10px ${theirColor}33)` }}>
-          <FighterSprite design={foeFighter} party={theirParty === 'democrat' ? 'democrat' : 'republican'} pose={foePose} facing="left" height={Math.min(300, 260)} attacking={foeAttacking} reeling={foeReeling} />
-          <div className="w-24 h-3 mx-auto -mt-1 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(0,0,0,0.55), transparent 70%)' }} />
+        {/* ── 3D STREET ARENA (fighters + cheering crowd) ── */}
+        {/* pointer-events-none so taps/swipes still reach the stage controller */}
+        <div className="absolute inset-0 z-[5] pointer-events-none">
+          <PvpArena3D
+            playerPrefix={myPvpFighter}
+            oppPrefix={oppPvpFighter}
+            playerAttackKey={playerAtkKey}
+            oppAttackKey={oppAtkKey}
+          />
         </div>
 
         {/* move ticker */}

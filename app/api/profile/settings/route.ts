@@ -40,6 +40,17 @@ export async function PATCH(req: NextRequest) {
     if ('fighter' in body) {
       updates.fighter = sanitizeFighter(body.fighter, profile.id)
     }
+    // Chosen 3D PvP fighter (fighter5 = rainbow, Democrat-only)
+    if ('pvp_fighter' in body) {
+      const valid = ['fighter1', 'fighter2', 'fighter3', 'fighter4', 'fighter5', 'fighter6']
+      if (!valid.includes(body.pvp_fighter)) {
+        return NextResponse.json({ error: 'Invalid fighter' }, { status: 400 })
+      }
+      if (body.pvp_fighter === 'fighter5' && profile.party !== 'democrat') {
+        return NextResponse.json({ error: 'Rainbow fighter is Democrat-only' }, { status: 400 })
+      }
+      updates.pvp_fighter = body.pvp_fighter
+    }
 
     if ('username' in body) {
       const name = String(body.username ?? '').trim()

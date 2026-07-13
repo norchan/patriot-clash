@@ -29,6 +29,11 @@ export default function FighterPickerPage() {
   function pick(id: string) {
     setSelected(id)
     try { localStorage.setItem(STORAGE_KEY, id) } catch {}
+    // persist to profile so opponents render your actual fighter in PvP
+    fetch('/api/profile/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pvp_fighter: id }),
+    }).catch(() => {})
     setSaved(true); setTimeout(() => setSaved(false), 1200)
   }
 
