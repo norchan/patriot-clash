@@ -1,7 +1,11 @@
-// Meshy pipeline: image → rigged → animated GLBs, saved to public/models/.
+// Meshy pipeline: image → rigged → animated GLBs (texture-compressed), saved to
+// public/models/<prefix>_<name>.glb.
 // Usage: node scripts/meshy_pipeline.mjs <imagePath> <outPrefix> [id:name,id:name...]
 //   e.g. node scripts/meshy_pipeline.mjs public/enemies/democrat/comrade.png comrade 0:idle,421:throw
 import fs from 'fs'
+import { NodeIO } from '@gltf-transform/core'
+import { textureCompress } from '@gltf-transform/functions'
+import sharp from 'sharp'
 
 const env = Object.fromEntries(
   fs.readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
@@ -10,6 +14,7 @@ const env = Object.fromEntries(
 const KEY = env.MESHY_API_KEY
 const API = 'https://api.meshy.ai/openapi/v1'
 const H = { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' }
+const io = new NodeIO()
 
 const [imagePath, outPrefix, actionsArg] = process.argv.slice(2)
 const actions = (actionsArg || '0:idle,421:throw').split(',').map(s => { const [id, name] = s.split(':'); return { id: Number(id), name } })
@@ -34,14 +39,17 @@ async function poll(path, id, label) {
 }
 async function download(url, dest) {
   const r = await fetch(url)
-  const b = Buffer.from(await r.arrayBuffer())
-  fs.writeFileSync(dest, b)
-  return b.length
+  fs.writeFileSync(dest, Buffer.from(await r.arrayBuffer()))
+}
+async function compress(path) {
+  const doc = await io.read(path)
+  await doc.transform(textureCompress({ encoder: sharp, targetFormat: 'jpeg', resize: [1024, 1024] }))
+  await io.write(path, doc)
 }
 
 const log = {}
 try {
-  // 1. image → 3D (t-pose so the auto-rigger has a clean humanoid)
+  // 1. image → 3D (t-pose so the auto-rigger gets a clean humanoid)
   const img = fs.readFileSync(new URL('../' + imagePath, import.meta.url))
   const dataUri = `data:image/png;base64,${img.toString('base64')}`
   console.log(`1/3 image-to-3d (${imagePath})...`)
@@ -50,26 +58,27 @@ try {
     should_texture: true, target_formats: ['glb'],
   })
   log.image_task = i3dId
-  const i3d = await poll('/image-to-3d', i3dId, 'model')
-  if (i3d.model_urls?.glb) { await download(i3d.model_urls.glb, `public/models/${outPrefix}_base.glb`); console.log('   base glb saved') }
+  await poll('/image-to-3d', i3dId, 'model')
 
   // 2. auto-rig
   console.log('2/3 rigging...')
   const rigId = await post('/rigging', { input_task_id: i3dId, height_meters: 1.8 })
   log.rig_task = rigId
-  const rig = await poll('/rigging', rigId, 'rig')
-  const riggedUrl = rig.result?.rigged_character_glb_url ?? rig.rigged_character_glb_url
-  if (riggedUrl) { await download(riggedUrl, `public/models/${outPrefix}_rigged.glb`); console.log('   rigged glb saved') }
+  await poll('/rigging', rigId, 'rig')
 
-  // 3. animations
+  // 3. animations → download + texture-compress
   log.animations = {}
   for (const a of actions) {
     console.log(`3/3 animation ${a.name} (action_id ${a.id})...`)
     const anId = await post('/animations', { rig_task_id: rigId, action_id: a.id })
     const an = await poll('/animations', anId, a.name)
     const url = an.result?.animation_glb_url ?? an.animation_glb_url
-    if (url) { const n = await download(url, `public/models/${outPrefix}_${a.name}.glb`); log.animations[a.name] = { task: anId, bytes: n }; console.log(`   ${outPrefix}_${a.name}.glb saved (${n} bytes)`) }
-    else console.log('   NO glb url:', JSON.stringify(an).slice(0, 300))
+    if (!url) { console.log('   NO glb url:', JSON.stringify(an).slice(0, 300)); continue }
+    const dest = `public/models/${outPrefix}_${a.name}.glb`
+    await download(url, dest)
+    await compress(dest)
+    log.animations[a.name] = { task: anId, bytes: fs.statSync(dest).size }
+    console.log(`   ${dest} saved (${fs.statSync(dest).size} bytes)`)
   }
   console.log('\nDONE:', JSON.stringify(log))
 } catch (e) {

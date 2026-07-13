@@ -181,7 +181,11 @@
       "Bash(node scripts/meshy_pipeline.mjs public/enemies/democrat/comrade.png comrade 0:idle,421:throw)",
       "Bash(awk '{print $5, $9}')",
       "Bash(git commit -q -m 'Comrade 3D: rigged + animated via Meshy \\(idle loop, over-shoulder throw synced to enemy attacks + flying hammer\\). Reusable scripts/meshy_pipeline.mjs *)",
-      "Bash(git commit -q -m 'Comrade 3D: oversized bobble head + subtle bobble; show 2D sprite instantly as fallback until the 3D model loads \\(fixes '\\\\''enemy didn'\\\\''t show up at first'\\\\''\\) *)"
+      "Bash(git commit -q -m 'Comrade 3D: oversized bobble head + subtle bobble; show 2D sprite instantly as fallback until the 3D model loads \\(fixes '\\\\''enemy didn'\\\\''t show up at first'\\\\''\\) *)",
+      "Bash(cp public/models/comrade_idle.glb /tmp/test.glb)",
+      "Bash(node scripts/glb_compress.mjs /tmp/test.glb)",
+      "Bash(node -e 'const fs=require\\(\"fs\"\\);const b=fs.readFileSync\\(\"/tmp/test.glb\"\\);const len=b.readUInt32LE\\(12\\);const j=JSON.parse\\(b.slice\\(20,20+len\\).toString\\(\"utf8\"\\)\\);console.log\\(\"animations still present:\", \\(j.animations||[]\\).map\\(a=>a.name\\), \"| skins:\", \\(j.skins||[]\\).length, \"| textures:\", \\(j.textures||[]\\).length\\);')",
+      "Bash(git commit -q -m 'GLB texture compression \\(7MB->1.3MB\\) via gltf-transform; bake into meshy pipeline; recompress Comrade *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
