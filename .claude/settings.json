@@ -227,7 +227,8 @@
       "Bash(git commit -q -m 'PvP cinematic overhaul: photoreal arena backdrops \\(foundry/club/rooftop\\) + dramatic lighting + ACES tonemapping + bloom/vignette post-processing; bigger bobble head on realistic bodies; landscape-brawler rotate prompt. Removed low-poly street/crowd *)",
       "Bash(git commit -q -m 'PvP: fill the whole screen in landscape \\(break out of max-w-md, cover nav\\); remove dark ground slab so the arena floor shows; bigger fighters + closer camera *)",
       "Bash(xargs echo \"guard models:\")",
-      "Bash(git commit -q -m 'PvP: real boxing GUARD stance \\(Boxing_Guard_Prep frozen at the fists-up frame\\) instead of the shallow jab pose *)"
+      "Bash(git commit -q -m 'PvP: real boxing GUARD stance \\(Boxing_Guard_Prep frozen at the fists-up frame\\) instead of the shallow jab pose *)",
+      "Bash(git commit -q -m 'PvP look: straight-punch clip \\(fist, not chop\\) + real frame-0 guard; 3/4 camera angle so both faces show; subtler bobble head *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

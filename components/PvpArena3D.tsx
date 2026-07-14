@@ -19,7 +19,7 @@ export const FIGHTERS: FighterMeta[] = [
   { id: 'fighter6', label: 'Deon', img: '/fighters/fighter6.png' },
 ]
 
-const HEAD_SCALE = 1.5 // realistic body, oversized bobble head
+const HEAD_SCALE = 1.2 // realistic body, subtle bobble head (not cartoony)
 
 // Correction for the model's front axis (these Meshy models' front is local -X).
 // Fighters always aim at their target; change by ±PI/2 if they don't face it.
@@ -29,12 +29,12 @@ const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan
 
 function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRKey = 0, jabLKey = 0, hitKey = 0 }:
   { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; jabRKey?: number; jabLKey?: number; hitKey?: number }) {
-  // Boxing: a static fists-up GUARD + left/right jab + hit one-shots
+  // Boxing: guard clip (Boxing_Guard_Prep_Straight_Punch) doubles as the fists-up
+  // GUARD (frozen at frame 0) AND the right STRAIGHT punch (played through).
   const guardGltf = useGLTF(`/models/${prefix}_guard.glb`)
-  const jabRGltf = useGLTF(`/models/${prefix}_jabR.glb`)
   const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb`)
   const hitGltf = useGLTF(`/models/${prefix}_hit.glb`)
-  const scene = jabRGltf.scene
+  const scene = guardGltf.scene
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
@@ -42,18 +42,19 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
 
   const { mixer, guard, guardHold, shots } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
-    // guard = the boxing-guard clip frozen at its fists-up frame
+    // guard = a CLONE of the straight-punch clip frozen at frame 0 (fists-up guard)
     const guardClip = guardGltf.animations[0]?.clone()
     const gd = guardClip ? m.clipAction(guardClip) : null
-    const guardHold = guardClip ? guardClip.duration * 0.28 : 0 // fists-up moment before the straight
+    const guardHold = 0
     if (gd) { gd.play(); gd.paused = true; gd.time = guardHold; gd.setEffectiveWeight(1) }
     const oneShot = (g: { animations: THREE.AnimationClip[] }) => {
       const a = g.animations[0] ? m.clipAction(g.animations[0]) : null
       if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true }
       return a
     }
-    return { mixer: m, guard: gd, guardHold, shots: { jabR: oneShot(jabRGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
-  }, [scene, guardGltf.animations, jabRGltf.animations, jabLGltf.animations, hitGltf.animations])
+    // right straight = the guard clip played through; left = the left jab
+    return { mixer: m, guard: gd, guardHold, shots: { jabR: oneShot(guardGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
+  }, [scene, guardGltf.animations, jabLGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
     const box = new THREE.Box3().setFromObject(scene)
@@ -135,9 +136,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
           <Fighter prefix={playerPrefix} x={0} targetX={0} targetZ={6} jabRKey={playerJabRKey} />
         ) : (
           <>
-            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX}
+            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX} targetZ={1.5}
               jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} targetX={playerX}
+            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} targetX={playerX} targetZ={1.5}
               jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
           </>
         )}
