@@ -177,8 +177,8 @@ function Street() {
   )
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 0, oppAttackKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false }:
-  { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 0, oppAttackKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1 }:
+  { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.5, 5.6] : [0, 2.1, 8.2], fov: 40 }}
@@ -199,8 +199,8 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
         ) : (
           // planted on their sides, always facing each other; player can move/jump/duck
           <>
-            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={1} attackKey={playerAttackKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} x={1} targetX={playerX} attackKey={oppAttackKey} />}
+            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX} attackKey={playerAttackKey} />
+            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} targetX={playerX} attackKey={oppAttackKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />
