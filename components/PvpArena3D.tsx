@@ -26,13 +26,16 @@ const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 
-function Fighter({ prefix, position, faceY, attackKey }: { prefix: string; position: [number, number, number]; faceY: number; attackKey: number }) {
+function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attackKey }:
+  { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; attackKey: number }) {
   const idleGltf = useGLTF(`/models/${prefix}_idle.glb`)
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb`)
   const scene = idleGltf.scene
   const fit = useRef<THREE.Group>(null!)
   const prevKey = useRef(0)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
+  const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
+  const hips0 = useRef<THREE.Vector3 | null>(null)
 
   const { mixer, idleAction, punchAction } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
@@ -48,7 +51,8 @@ function Fighter({ prefix, position, faceY, attackKey }: { prefix: string; posit
     const center = new THREE.Vector3(); box.getCenter(center)
     const s = 1.75 / (size.y || 1)
     if (fit.current) { fit.current.scale.setScalar(s); fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s) }
-  }, [scene])
+    if (hips) hips0.current = hips.position.clone()
+  }, [scene, hips])
 
   useEffect(() => { idleAction?.reset().play() }, [idleAction])
   useEffect(() => {
@@ -62,11 +66,15 @@ function Fighter({ prefix, position, faceY, attackKey }: { prefix: string; posit
 
   useFrame((state, dt) => {
     mixer.update(dt)
+    // PLANT the fighter: strip horizontal root motion so they stay on their
+    // side and don't wander/pass through each other (2D-fighter feel)
+    if (hips && hips0.current) { hips.position.x = hips0.current.x; hips.position.z = hips0.current.z }
     if (head) { head.scale.setScalar(HEAD_SCALE); const t = state.clock.elapsedTime; head.rotation.z += Math.sin(t * 3.3) * 0.05; head.rotation.x += Math.cos(t * 2.6) * 0.04 }
   })
 
+  const faceY = faceToward(x, 0.6, targetX, targetZ)
   return (
-    <group position={position} rotation={[0, faceY, 0]}>
+    <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[1, duck ? 0.68 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
     </group>
   )
@@ -167,11 +175,11 @@ function Street() {
   )
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 0, oppAttackKey = 0, solo = false }:
-  { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; solo?: boolean }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 0, oppAttackKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false }:
+  { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
-      camera={{ position: solo ? [0, 1.5, 5.2] : [0, 1.8, 6.6], fov: 42 }}
+      camera={{ position: solo ? [0, 1.5, 5.6] : [0, 2.1, 8.2], fov: 40 }}
       dpr={[1, 2]} gl={{ alpha: false, antialias: true }}
       onCreated={({ camera }) => camera.lookAt(0, 1.0, 0)}>
       <color attach="background" args={['#1b2230']} />
@@ -185,12 +193,12 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
         <Crowd />
         {solo ? (
           // face the camera in the picker
-          <Fighter prefix={playerPrefix} position={[0, 0, 0.6]} faceY={faceToward(0, 0.6, 0, 6)} attackKey={playerAttackKey} />
+          <Fighter prefix={playerPrefix} x={0} targetX={0} targetZ={6} attackKey={playerAttackKey} />
         ) : (
-          // each fighter aims at the other → they face each other
+          // planted on their sides, always facing each other; player can move/jump/duck
           <>
-            <Fighter prefix={playerPrefix} position={[-1, 0, 0.6]} faceY={faceToward(-1, 0.6, 1, 0.6)} attackKey={playerAttackKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} position={[1, 0, 0.6]} faceY={faceToward(1, 0.6, -1, 0.6)} attackKey={oppAttackKey} />}
+            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={1} attackKey={playerAttackKey} />
+            {oppPrefix && <Fighter prefix={oppPrefix} x={1} targetX={playerX} attackKey={oppAttackKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />

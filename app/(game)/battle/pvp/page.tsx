@@ -94,6 +94,24 @@ function StreetFightPage() {
   const [oppAtkKey, setOppAtkKey] = useState(0)
   useEffect(() => { if (myAttacking) setPlayerAtkKey(k => k + 1) }, [myAttacking])
   useEffect(() => { if (foeAttacking) setOppAtkKey(k => k + 1) }, [foeAttacking])
+  // D-pad movement for the 3D player fighter
+  const [playerX, setPlayerX] = useState(-1)     // position along the fight line
+  const [playerY, setPlayerY] = useState(0)       // jump height
+  const [playerDuck, setPlayerDuck] = useState(false)
+  const [blocking, setBlocking] = useState(false)
+  const jumpingRef = useRef(false)
+  const doJump = useCallback(() => {
+    if (jumpingRef.current) return
+    jumpingRef.current = true
+    const start = performance.now()
+    const tick = () => {
+      const p = (performance.now() - start) / 520
+      if (p >= 1) { setPlayerY(0); jumpingRef.current = false; return }
+      setPlayerY(Math.sin(p * Math.PI) * 0.9)
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, [])
   const [myHp, setMyHp] = useState(100)
   const [foeHp, setFoeHp] = useState(100)
   const [clock, setClock] = useState(30)
@@ -953,7 +971,7 @@ function StreetFightPage() {
         onTouchStart={e => liveTouchStart(e.touches[0].clientX, e.touches[0].clientY)}
         onTouchEnd={e => liveTouchEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
         style={{
-          height: '62vh',
+          height: '74vh',
           animation: shake ? 'sfShake 0.16s linear' : 'none',
           transform: zoom ? 'scale(1.07)' : 'scale(1)',
           transition: 'transform 260ms ease-out',
@@ -1087,6 +1105,9 @@ function StreetFightPage() {
             oppPrefix={oppPvpFighter}
             playerAttackKey={playerAtkKey}
             oppAttackKey={oppAtkKey}
+            playerX={playerX}
+            playerY={playerY}
+            playerDuck={playerDuck}
           />
         </div>
 
@@ -1144,6 +1165,34 @@ function StreetFightPage() {
             <span className="text-white/80 text-xs font-bold tracking-widest" style={{ textShadow: '0 2px 4px #000' }}>
               {moveText}
             </span>
+          </div>
+        )}
+
+        {/* ── D-PAD controller (live fights): move / jump / duck / block ── */}
+        {phase === 'live' && (
+          <div className="absolute z-30 pointer-events-auto select-none"
+            style={{ left: 14, bottom: 16, width: 138, height: 138 }}
+            onClick={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onTouchEnd={e => e.stopPropagation()}>
+            {(() => {
+              const base = 'absolute w-11 h-11 rounded-full bg-black/55 border border-white/25 text-white text-lg flex items-center justify-center active:bg-white/30 transition'
+              const stop = (e: any) => { e.stopPropagation(); e.preventDefault() }
+              return (
+                <>
+                  <button title="Jump" className={base} style={{ top: 0, left: 47 }}
+                    onPointerDown={e => { stop(e); doJump() }}>▲</button>
+                  <button title="Duck" className={base} style={{ bottom: 0, left: 47 }}
+                    onPointerDown={e => { stop(e); setPlayerDuck(true) }} onPointerUp={e => { stop(e); setPlayerDuck(false) }} onPointerLeave={() => setPlayerDuck(false)}>▼</button>
+                  <button title="Back up" className={base} style={{ top: 47, left: 0 }}
+                    onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.4, x - 0.4)) }}>◀</button>
+                  <button title="Move in" className={base} style={{ top: 47, right: 0 }}
+                    onPointerDown={e => { stop(e); setPlayerX(x => Math.min(-0.35, x + 0.4)) }}>▶</button>
+                  <button title="Block" className={`${base} ${blocking ? 'bg-blue-500/70' : ''}`} style={{ top: 47, left: 47 }}
+                    onPointerDown={e => { stop(e); setBlocking(true) }} onPointerUp={e => { stop(e); setBlocking(false) }} onPointerLeave={() => setBlocking(false)}>🛡</button>
+                </>
+              )
+            })()}
           </div>
         )}
 
