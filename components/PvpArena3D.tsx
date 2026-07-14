@@ -27,32 +27,34 @@ const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 
-function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRKey = 0, jabLKey = 0, hitKey = 0 }:
-  { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; jabRKey?: number; jabLKey?: number; hitKey?: number }) {
-  // Real boxing kit: a looping Combat_Stance IDLE (fists up, gentle bounce) that
-  // the fighter always returns to, plus one-shot straight punch / left jab / hit.
-  const stanceGltf = useGLTF(`/models/${prefix}_stance.glb`)
+function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKey = 0, jabLKey = 0, hitKey = 0 }:
+  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; jabRKey?: number; jabLKey?: number; hitKey?: number }) {
+  // Real boxing kit. The Left_Jab clip starts AND ends in a proper fists-up
+  // boxing guard, so its frame 0 doubles as the held GUARD (fists at the face).
+  // One-shots: straight punch (right), the jab (left), and a hit reaction.
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb`)
   const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb`)
   const hitGltf = useGLTF(`/models/${prefix}_hit.glb`)
-  const scene = stanceGltf.scene
+  const scene = jabLGltf.scene
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
 
-  const { mixer, guard, shots } = useMemo(() => {
+  const { mixer, guard, guardHold, shots } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
-    // guard = the Combat_Stance idle, looping at full weight (proper fists-up pose)
-    const gd = stanceGltf.animations[0] ? m.clipAction(stanceGltf.animations[0]) : null
-    if (gd) { gd.setLoop(THREE.LoopRepeat, Infinity); gd.play(); gd.setEffectiveWeight(1) }
+    // guard = a CLONE of the jab clip frozen at its guard frame (fists up at face)
+    const guardClip = jabLGltf.animations[0]?.clone()
+    const gd = guardClip ? m.clipAction(guardClip) : null
+    const guardHold = 0.03
+    if (gd) { gd.play(); gd.paused = true; gd.time = guardHold; gd.setEffectiveWeight(1) }
     const oneShot = (g: { animations: THREE.AnimationClip[] }) => {
       const a = g.animations[0] ? m.clipAction(g.animations[0]) : null
       if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true }
       return a
     }
-    return { mixer: m, guard: gd, shots: { jabR: oneShot(punchGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
-  }, [scene, stanceGltf.animations, punchGltf.animations, jabLGltf.animations, hitGltf.animations])
+    return { mixer: m, guard: gd, guardHold, shots: { jabR: oneShot(punchGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
+  }, [scene, punchGltf.animations, jabLGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
     const box = new THREE.Box3().setFromObject(scene)
@@ -63,7 +65,7 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
     if (hips) hips0.current = hips.position.clone()
   }, [scene, hips])
 
-  // A one-shot snaps in over the idle stance; on finish, fade the stance back in
+  // A one-shot snaps in over the held guard; on finish, snap back to the guard
   const playShot = (a: THREE.AnimationAction | null) => {
     if (!a) return
     guard?.setEffectiveWeight(0)
@@ -73,12 +75,12 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
     const onFin = (e: any) => {
       if (e.action === shots.jabR || e.action === shots.jabL || e.action === shots.hit) {
         e.action.setEffectiveWeight(0); e.action.stop()
-        if (guard) { guard.setEffectiveWeight(1); guard.play() }
+        if (guard) { guard.time = guardHold; guard.paused = true; guard.setEffectiveWeight(1) }
       }
     }
     mixer.addEventListener('finished', onFin)
     return () => mixer.removeEventListener('finished', onFin)
-  }, [mixer, shots, guard])
+  }, [mixer, shots, guard, guardHold])
   const pR = useRef(0), pL = useRef(0), pH = useRef(0)
   useEffect(() => { if (jabRKey > pR.current) { pR.current = jabRKey; playShot(shots.jabR) } }, [jabRKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (jabLKey > pL.current) { pL.current = jabLKey; playShot(shots.jabL) } }, [jabLKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,9 +95,10 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
     if (head) head.scale.setScalar(HEAD_SCALE)
   })
 
-  const faceY = faceToward(x, 0.6, targetX, targetZ)
+  // Opponent (player 2) is MIRRORED across X — like every fighting game — so its
+  // asymmetric boxing guard reads correctly instead of turning into an arms-up pose.
   return (
-    <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[1, duck ? 0.68 : 1, 1]}>
+    <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.68 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
     </group>
   )
@@ -131,15 +134,20 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
       <Suspense fallback={null}>
         <Backdrop url={`/arenas/${arena}.jpg`} />
         {solo ? (
-          <Fighter prefix={playerPrefix} x={0} targetX={0} targetZ={6} jabRKey={playerJabRKey} />
-        ) : (
-          <>
-            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX} targetZ={1.5}
-              jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} targetX={playerX} targetZ={1.5}
-              jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
-          </>
-        )}
+          <Fighter prefix={playerPrefix} x={0} faceY={faceToward(0, 0.6, 0, 6)} jabRKey={playerJabRKey} />
+        ) : (() => {
+          // Player faces the opponent with a slight camera tilt (targetZ ahead of the
+          // fighter). The opponent is the MIRROR: rotation -R and flipped on X.
+          const R = faceToward(playerX, 0.6, oppX, 1.5)
+          return (
+            <>
+              <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={R}
+                jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
+              {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-R} mirror
+                jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
+            </>
+          )
+        })()}
         <ContactShadows position={[0, 0.01, 0.6]} opacity={0.65} scale={12} blur={2.6} far={5} color="#000000" />
       </Suspense>
       <EffectComposer>
