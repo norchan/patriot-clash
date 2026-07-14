@@ -26,29 +26,31 @@ const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 
-function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attackKey, kickKey = 0, hitKey = 0 }:
-  { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; attackKey: number; kickKey?: number; hitKey?: number }) {
-  // resting loop = a focused COMBAT STANCE; punch/kick/hit are one-shots
-  const stanceGltf = useGLTF(`/models/${prefix}_stance.glb`)
-  const punchGltf = useGLTF(`/models/${prefix}_punch.glb`)
-  const kickGltf = useGLTF(`/models/${prefix}_kick.glb`)
+function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRKey = 0, jabLKey = 0, hitKey = 0 }:
+  { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; jabRKey?: number; jabLKey?: number; hitKey?: number }) {
+  // Boxing: a static GUARD (the jab's frame-0 pose) + left/right jab + hit one-shots
+  const jabRGltf = useGLTF(`/models/${prefix}_jabR.glb`)
+  const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb`)
   const hitGltf = useGLTF(`/models/${prefix}_hit.glb`)
-  const scene = stanceGltf.scene
+  const scene = jabRGltf.scene
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
 
-  const { mixer, stance, shots } = useMemo(() => {
+  const { mixer, guard, shots } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
-    const st = stanceGltf.animations[0] ? m.clipAction(stanceGltf.animations[0]) : null
+    // guard = a CLONE of the jab clip, frozen at frame 0 (fists-up guard pose)
+    const guardClip = jabRGltf.animations[0]?.clone()
+    const gd = guardClip ? m.clipAction(guardClip) : null
+    if (gd) { gd.play(); gd.paused = true; gd.time = 0; gd.setEffectiveWeight(1) }
     const oneShot = (g: { animations: THREE.AnimationClip[] }) => {
       const a = g.animations[0] ? m.clipAction(g.animations[0]) : null
       if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true }
       return a
     }
-    return { mixer: m, stance: st, shots: { punch: oneShot(punchGltf), kick: oneShot(kickGltf), hit: oneShot(hitGltf) } }
-  }, [scene, stanceGltf.animations, punchGltf.animations, kickGltf.animations, hitGltf.animations])
+    return { mixer: m, guard: gd, shots: { jabR: oneShot(jabRGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
+  }, [scene, jabRGltf.animations, jabLGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
     const box = new THREE.Box3().setFromObject(scene)
@@ -59,22 +61,26 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attac
     if (hips) hips0.current = hips.position.clone()
   }, [scene, hips])
 
-  useEffect(() => { stance?.reset().play() }, [stance])
-  // return to stance whenever a one-shot (punch/kick/hit) finishes
+  // A one-shot snaps in over the guard; on finish, snap back to the guard hold
+  const playShot = (a: THREE.AnimationAction | null) => {
+    if (!a) return
+    guard?.setEffectiveWeight(0)
+    a.reset(); a.setEffectiveWeight(1); a.play()
+  }
   useEffect(() => {
     const onFin = (e: any) => {
-      if (e.action === shots.punch || e.action === shots.kick || e.action === shots.hit) {
-        stance?.reset().fadeIn(0.15).play(); e.action.fadeOut(0.15)
+      if (e.action === shots.jabR || e.action === shots.jabL || e.action === shots.hit) {
+        e.action.setEffectiveWeight(0); e.action.stop()
+        if (guard) { guard.time = 0; guard.paused = true; guard.setEffectiveWeight(1) }
       }
     }
     mixer.addEventListener('finished', onFin)
     return () => mixer.removeEventListener('finished', onFin)
-  }, [mixer, shots, stance])
-  const playShot = (a: THREE.AnimationAction | null) => { if (!a) return; a.reset().fadeIn(0.06).play(); stance?.fadeOut(0.06) }
-  const pAtk = useRef(0), pKick = useRef(0), pHit = useRef(0)
-  useEffect(() => { if (attackKey > pAtk.current) { pAtk.current = attackKey; playShot(shots.punch) } }, [attackKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (kickKey > pKick.current) { pKick.current = kickKey; playShot(shots.kick) } }, [kickKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (hitKey > pHit.current) { pHit.current = hitKey; playShot(shots.hit) } }, [hitKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mixer, shots, guard])
+  const pR = useRef(0), pL = useRef(0), pH = useRef(0)
+  useEffect(() => { if (jabRKey > pR.current) { pR.current = jabRKey; playShot(shots.jabR) } }, [jabRKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (jabLKey > pL.current) { pL.current = jabLKey; playShot(shots.jabL) } }, [jabLKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (hitKey > pH.current) { pH.current = hitKey; playShot(shots.hit) } }, [hitKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((state, dt) => {
     mixer.update(dt)
@@ -188,8 +194,8 @@ function Street() {
   )
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 0, oppAttackKey = 0, playerKickKey = 0, oppKickKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1 }:
-  { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; playerKickKey?: number; oppKickKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1 }:
+  { playerPrefix: string; oppPrefix?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.5, 5.6] : [0, 2.1, 8.2], fov: 40 }}
@@ -206,14 +212,14 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
         <Crowd />
         {solo ? (
           // face the camera in the picker
-          <Fighter prefix={playerPrefix} x={0} targetX={0} targetZ={6} attackKey={playerAttackKey} />
+          <Fighter prefix={playerPrefix} x={0} targetX={0} targetZ={6} jabRKey={playerJabRKey} />
         ) : (
           // planted on their sides, always facing each other; player can move/jump/duck
           <>
             <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX}
-              attackKey={playerAttackKey} kickKey={playerKickKey} hitKey={playerHitKey} />
+              jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
             {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} targetX={playerX}
-              attackKey={oppAttackKey} kickKey={oppKickKey} hitKey={oppHitKey} />}
+              jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />

@@ -215,7 +215,10 @@
       "Bash(git commit -q -m 'PvP positional combat: hits only land in range; opponent approaches to close distance; D-pad block reduces damage, duck/jump dodge, backing out whiffs. Opponent moves in 3D \\(oppX\\) *)",
       "Bash(node scripts/meshy_fighter_anims.mjs)",
       "Bash(xargs echo \"hit+kick models:\")",
-      "Bash(git commit -q -m 'PvP polish \\(all four\\): 3D hit-reaction on getting hit; distinct kick animation on swipe/kick; human-vs-human is now positional \\(position synced over channel, range/duck/block gates\\); knockback on hits + foe backs off after attacking for spacing *)"
+      "Bash(git commit -q -m 'PvP polish \\(all four\\): 3D hit-reaction on getting hit; distinct kick animation on swipe/kick; human-vs-human is now positional \\(position synced over channel, range/duck/block gates\\); knockback on hits + foe backs off after attacking for spacing *)",
+      "Bash(node scripts/meshy_jabs.mjs)",
+      "Bash(xargs echo \"jab models:\")",
+      "Bash(git commit -q -m 'PvP rebuilt as boxing: static GUARD stance \\(jab frame-0\\) + right/left jab only. Tap = right jab, quick 2nd tap = left \\(1-2\\). Removed kicks/hooks/uppercuts/jumpkick/special. Foe throws jabs only. Hit-reaction + knockback kept *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

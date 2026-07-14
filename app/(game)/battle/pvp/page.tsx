@@ -95,15 +95,15 @@ function StreetFightPage() {
   const [myAttacking, setMyAttacking] = useState(false)
   const [foeAttacking, setFoeAttacking] = useState(false)
   // 3D arena: bump a key on each attack's rising edge → plays the punch clip
-  const [playerAtkKey, setPlayerAtkKey] = useState(0)   // 3D punch trigger
-  const [oppAtkKey, setOppAtkKey] = useState(0)
-  const [playerKickKey, setPlayerKickKey] = useState(0) // 3D kick trigger
-  const [oppKickKey, setOppKickKey] = useState(0)
-  const [playerHitKey, setPlayerHitKey] = useState(0)   // 3D hit-reaction trigger
+  // Boxing: only jabs. right/left jab + hit-reaction 3D triggers.
+  const [playerJabRKey, setPlayerJabRKey] = useState(0)
+  const [playerJabLKey, setPlayerJabLKey] = useState(0)
+  const [oppJabRKey, setOppJabRKey] = useState(0)
+  const [oppJabLKey, setOppJabLKey] = useState(0)
+  const [playerHitKey, setPlayerHitKey] = useState(0)
   const [oppHitKey, setOppHitKey] = useState(0)
-  const isKick = (m: Move) => m === 'kick' || m === 'jumpkick'
-  const myMoveAnim = (m: Move) => isKick(m) ? setPlayerKickKey(k => k + 1) : setPlayerAtkKey(k => k + 1)
-  const foeMoveAnim = (m: Move) => isKick(m) ? setOppKickKey(k => k + 1) : setOppAtkKey(k => k + 1)
+  const myJab = (right: boolean) => right ? setPlayerJabRKey(k => k + 1) : setPlayerJabLKey(k => k + 1)
+  const foeJab = (right: boolean) => right ? setOppJabRKey(k => k + 1) : setOppJabLKey(k => k + 1)
   // D-pad movement for the 3D player fighter
   const [playerX, setPlayerX] = useState(-1)     // position along the fight line
   const [playerY, setPlayerY] = useState(0)       // jump height
@@ -497,13 +497,13 @@ function StreetFightPage() {
     })
     channelRef.current = ch
 
-    const applyIncomingAttack = (p: { seq: number; move: Move }) => {
+    const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean }) => {
       if (S.over) return
       const def = MOVES.find(m => m.move === p.move)!
       const heavy = def.mult > 1
       const now = Date.now()
       setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
-      foeMoveAnim(p.move) // 3D: play punch or kick
+      foeJab(!!p.right) // 3D: right or left jab
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
 
@@ -674,50 +674,29 @@ function StreetFightPage() {
 
   // Player attack (shared by taps, swipes, keys, and the special button).
   // Every move is available at every level — damage scales with YOUR level.
-  function playerStrike(move: Move) {
+  function playerStrike() {
     const S = L.current
     if (phase !== 'live' || S.over || S.blockHeld) return
     const now = Date.now()
     if (now < S.myCd || now < S.dodgeUntil) return
     if (realtime && !S.ghost && !S.synced) { flashHint(`⏳ Waiting for ${theirUsername ?? 'opponent'} to enter...`); return }
-    if (move === 'special') {
-      if (S.meter < 100) { flashHint('⚡ Land hits to charge your special'); return }
-      S.meter = 0
-      setMeter(0)
-      S.counts.specials++
-      setKoFlash(true); setZoom(true)
-      setTimeout(() => { setKoFlash(false); setZoom(false) }, 700)
-    }
-    S.myCd = now + (move === 'kick' ? KICK_CD : move === 'jumpkick' ? JUMP_CD : move === 'special' ? SPECIAL_CD : TAP_CD)
-
-    // Combo bookkeeping: rapid consecutive strikes chain; every 3rd is a finisher
-    let actual: Move = move
-    if (move === 'jab') {
-      S.comboN = now - S.lastHit < 1100 ? S.comboN + 1 : 1
-      S.lastHit = now
-      S.counts.taps++
-      if (S.comboN % 3 === 0) {
-        actual = S.comboN % 6 === 0 ? 'uppercut' : 'hook'
-        S.counts.combos++
-        setComboText(`${S.comboN} HIT COMBO!`)
-        setTimeout(() => setComboText(''), 900)
-      } else {
-        actual = (S.tapAlt = !S.tapAlt) ? 'jab' : 'cross'
-      }
-    } else if (move === 'kick') S.counts.kicks++
-    else if (move === 'jumpkick') S.counts.jumpkicks++
-
-    const heavy = actual !== 'jab' && actual !== 'cross'
-    setMyPose(MOVE_POSE[actual]); setMyAttacking(true)
-    myMoveAnim(actual) // 3D: play punch or kick
+    S.myCd = now + TAP_CD
+    // Boxing: every tap is a jab. One tap = right jab; a quick second tap
+    // becomes the left of a left/right combo (alternates, resets after a pause).
+    const right = (now - S.lastHit > 600) ? true : !S.tapAlt
+    S.tapAlt = right
+    S.lastHit = now
+    S.counts.taps++
+    const actual: Move = 'jab'
+    const heavy = false
+    setMyPose(MOVE_POSE['jab']); setMyAttacking(true)
+    myJab(right) // 3D: right or left jab
     setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
-    setMoveText(`YOU: ${MOVE_LABELS[actual]}`)
+    setMoveText(`YOU: ${right ? 'RIGHT JAB' : 'LEFT JAB'}`)
 
-    // REALTIME: send the attack — the opponent's client resolves it against
-    // their live block/dodge state and answers with the result
     if (realtime && !S.ghost) {
       const seq = ++S.attackSeq
-      channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { seq, move: actual } })
+      channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { seq, move: 'jab', right } })
       return
     }
 
@@ -747,8 +726,7 @@ function StreetFightPage() {
         setFoePose('hit'); reel(true); addBurst(true, heavy)
         addSpark(true, `-${dmg}`, '#facc15')
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.16); setOppX(S.oppX) // 3D flinch + knockback
-        if (actual === 'kick' || actual === 'jumpkick') sfx.kick()
-        else sfx.punch(heavy)
+        sfx.punch(heavy)
         S.meter = Math.min(100, S.meter + dmg * 1.7)
         setMeter(S.meter)
         if (heavy) { bumpCrowd(); sfx.crowd(0.3) }
@@ -809,7 +787,7 @@ function StreetFightPage() {
         const def = MOVES.find(m => m.move === S.foeMove)!
         const heavy = def.mult > 1
         setFoePose(MOVE_POSE[S.foeMove]); setFoeAttacking(true)
-        foeMoveAnim(S.foeMove) // 3D: play punch or kick
+        foeJab(Math.random() < 0.5) // 3D: right or left jab
         setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
         setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[S.foeMove]}`)
         let dmg = strikeDamage(foeLevel, def.mult)
@@ -844,8 +822,7 @@ function StreetFightPage() {
         S.foeSpaceUntil = now + 650 // step back after attacking (spacing)
       } else if (!S.foeWindupAt && now >= S.foeNextAt && dist(S.oppX ?? 1, S.playerX ?? -1) <= STRIKE_RANGE) {
         // Wind up (only when in range): telegraphed — block, duck, or jump back NOW
-        const pool = movesForLevel(foeLevel)
-        S.foeMove = pool[Math.floor(Math.random() * pool.length)].move
+        S.foeMove = 'jab'
         S.foeWindupAt = now + Math.max(380, 650 - foeLevel * 9)
         setTelegraph(true)
         sfx.tap()
@@ -876,21 +853,14 @@ function StreetFightPage() {
       if (!S.over) setMyPose('idle')
       return
     }
-    const dx = x - S.touchX, dy = y - S.touchY
-    if (dy < -35 && Math.abs(dy) > Math.abs(dx)) playerStrike('jumpkick')
-    else if (dx < -40) playerDodge()                // swipe BACK = jump back
-    else if (dx > 40) playerStrike('kick')          // swipe toward foe = kick
-    else playerStrike('jab')
+    // Boxing: any tap or swipe throws a jab (movement lives on the D-pad)
+    playerStrike()
   }
   useEffect(() => {
     if (phase !== 'live') return
     const down = (e: KeyboardEvent) => {
       if (e.repeat) return
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); playerStrike('jab') }
-      if (e.key === 'ArrowRight' || e.key === 'd') playerStrike('kick')
-      if (e.key === 'ArrowUp' || e.key === 'w') playerStrike('jumpkick')
-      if (e.key === 'ArrowLeft' || e.key === 'a') playerDodge()
-      if (e.key === 'f') playerStrike('special')
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); playerStrike() }
       if (e.key === 'ArrowDown' || e.key === 's') { L.current.blockHeld = true; setMyPose('block') }
     }
     const up = (e: KeyboardEvent) => {
@@ -1022,7 +992,7 @@ function StreetFightPage() {
           if (phase === 'live') {
             // Desktop click = punch; suppress the synthetic click after touch
             if (Date.now() - L.current.lastTouch < 600) return
-            playerStrike('jab')
+            playerStrike()
           } else if (phase === 'fighting') { bumpCrowd(); sfx.crowd(0.35) }
         }}
         onTouchStart={e => liveTouchStart(e.touches[0].clientX, e.touches[0].clientY)}
@@ -1160,10 +1130,10 @@ function StreetFightPage() {
           <PvpArena3D
             playerPrefix={myPvpFighter}
             oppPrefix={oppPvpFighter}
-            playerAttackKey={playerAtkKey}
-            oppAttackKey={oppAtkKey}
-            playerKickKey={playerKickKey}
-            oppKickKey={oppKickKey}
+            playerJabRKey={playerJabRKey}
+            playerJabLKey={playerJabLKey}
+            oppJabRKey={oppJabRKey}
+            oppJabLKey={oppJabLKey}
             playerHitKey={playerHitKey}
             oppHitKey={oppHitKey}
             playerX={playerX}
@@ -1181,19 +1151,6 @@ function StreetFightPage() {
               <div className="h-full transition-all duration-200"
                 style={{ width: `${meter}%`, background: 'linear-gradient(90deg, #f59e0b, #fde047)' }} />
             </div>
-            {myLevel >= 12 && (
-              <button
-                onClick={e => { e.stopPropagation(); playerStrike('special') }}
-                onTouchStart={e => e.stopPropagation()}
-                onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); playerStrike('special') }}
-                className={`text-[11px] font-black px-3 py-1.5 rounded-full border transition ${
-                  meter >= 100
-                    ? 'bg-yellow-400 text-black border-yellow-200 animate-pulse'
-                    : 'bg-black/50 text-white/40 border-white/15'
-                }`}>
-                ★ SPECIAL
-              </button>
-            )}
           </div>
         )}
 
@@ -1275,9 +1232,8 @@ function StreetFightPage() {
           <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
         ) : phase === 'live' ? (
           <div className="text-center space-y-1">
-            <p className="text-white/80 text-xs font-bold">👊 TAP punch · 3 fast taps = combo finisher</p>
-            <p className="text-gray-400 text-[11px]">🦵 SWIPE ➡ kick · 🚀 SWIPE ⬆ jump kick · 🏃 SWIPE ⬅ jump back · 🛡️ HOLD block</p>
-            <p className="text-gray-600 text-[10px]">Jump back or block when you see ⚠️ — your level powers your damage</p>
+            <p className="text-white/80 text-xs font-bold">👊 TAP = jab · double-tap = 1-2 combo</p>
+            <p className="text-gray-400 text-[11px]">D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — move in to land hits</p>
           </div>
         ) : phase !== 'done' ? (
           <p className="text-gray-600 text-xs text-center">🥊 Street fight in progress — one round, 30 seconds</p>

@@ -47,7 +47,7 @@ export default function FighterPickerPage() {
 
       {/* Live arena preview */}
       <div className="relative mx-auto" style={{ width: '100%', maxWidth: 480, aspectRatio: '1 / 1' }}>
-        <PvpArena3D playerPrefix={selected} playerAttackKey={attackKey} solo />
+        <PvpArena3D playerPrefix={selected} playerJabRKey={attackKey} solo />
         <button onClick={() => setAttackKey(k => k + 1)}
           className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg">
           <Swords size={14} /> Test Punch
