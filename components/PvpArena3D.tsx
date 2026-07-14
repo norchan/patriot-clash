@@ -20,9 +20,9 @@ export const FIGHTERS: FighterMeta[] = [
 
 const HEAD_SCALE = 1.35
 
-// Correction for the model's front axis (Meshy models don't face +Z). Fighters
-// always aim at their target; if they don't face it, change this by ±PI/2.
-const FRONT_FIX = Math.PI
+// Correction for the model's front axis (these Meshy models' front is local -X).
+// Fighters always aim at their target; change by ±PI/2 if they don't face it.
+const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 

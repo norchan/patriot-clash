@@ -204,7 +204,8 @@
       "Bash(git commit -q -m 'PvP is 3D: live fight renders the street arena \\(both bobblehead fighters + crowd\\), punches synced to attacks. Persist pvp_fighter to profile + return in challenge data; bots/unset fall back deterministically *)",
       "Bash(git commit -q -m 'PvP arena: fighters face each other \\(models front-face -Z\\); crowd exactly half red / half blue *)",
       "Bash(git commit -q -m 'PvP arena framing: pull camera in + aim at fighters, bring them close together so the action fills the phone screen and punches connect *)",
-      "Bash(git commit -q -m 'PvP arena: zoom out + target-based facing with one tunable \\(FRONT_FIX\\) so fighters aim at each other; ready to calibrate orientation *)"
+      "Bash(git commit -q -m 'PvP arena: zoom out + target-based facing with one tunable \\(FRONT_FIX\\) so fighters aim at each other; ready to calibrate orientation *)",
+      "Bash(git commit -q -m 'PvP arena: FRONT_FIX=PI/2 \\(models'\\\\'' front is local -X\\) so picker faces camera + versus fighters face and punch toward each other *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
