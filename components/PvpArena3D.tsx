@@ -69,22 +69,34 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
     if (hips) hips0.current = hips.position.clone()
   }, [scene, hips, mixer])
 
-  // A one-shot snaps in over the held guard; on finish, snap back to the guard
+  // Only ONE move plays at a time. A new move first CANCELS any in-progress move
+  // (otherwise two clips blend and the fighter never returns cleanly to guard),
+  // then snaps in over the held guard. `active` tracks the latest move so the
+  // guard is only restored when that exact move finishes (nothing newer started).
+  const active = useRef<THREE.AnimationAction | null>(null)
+  const restoreGuard = () => {
+    if (guard) { guard.time = guardHold; guard.paused = true; guard.setEffectiveWeight(1) }
+  }
   const playShot = (a: THREE.AnimationAction | null) => {
     if (!a) return
+    for (const s of [shots.jabR, shots.jabL, shots.hit]) {
+      if (s && s !== a) { s.stop(); s.setEffectiveWeight(0) }
+    }
     guard?.setEffectiveWeight(0)
     a.reset(); a.setEffectiveWeight(1); a.play()
+    active.current = a
   }
   useEffect(() => {
     const onFin = (e: any) => {
       if (e.action === shots.jabR || e.action === shots.jabL || e.action === shots.hit) {
         e.action.setEffectiveWeight(0); e.action.stop()
-        if (guard) { guard.time = guardHold; guard.paused = true; guard.setEffectiveWeight(1) }
+        // only fall back to guard if this was the most recent move
+        if (active.current === e.action) { active.current = null; restoreGuard() }
       }
     }
     mixer.addEventListener('finished', onFin)
     return () => mixer.removeEventListener('finished', onFin)
-  }, [mixer, shots, guard, guardHold])
+  }, [mixer, shots, guard, guardHold]) // eslint-disable-line react-hooks/exhaustive-deps
   const pR = useRef(0), pL = useRef(0), pH = useRef(0)
   useEffect(() => { if (jabRKey > pR.current) { pR.current = jabRKey; playShot(shots.jabR) } }, [jabRKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (jabLKey > pL.current) { pL.current = jabLKey; playShot(shots.jabL) } }, [jabLKey]) // eslint-disable-line react-hooks/exhaustive-deps
