@@ -13,7 +13,8 @@ export default function FighterPickerPage() {
   const router = useRouter()
   const { profile } = useProfile()
   const isDem = profile?.party === 'democrat'
-  const roster = FIGHTERS.filter(f => !f.demOnly || isDem) // rainbow is Democrat-only
+  const partySuffix = isDem ? 'dem' : 'rep' // blue kit for Democrats, red for Republicans
+  const roster = FIGHTERS
 
   const [selected, setSelected] = useState('fighter1')
   const [attackKey, setAttackKey] = useState(0)
@@ -23,7 +24,6 @@ export default function FighterPickerPage() {
     try { const s = localStorage.getItem(STORAGE_KEY); if (s && FIGHTERS.some(f => f.id === s)) setSelected(s) } catch {}
   }, [])
 
-  // if you're not a Dem and had rainbow selected, fall back
   useEffect(() => { if (!roster.some(f => f.id === selected)) setSelected('fighter1') }, [roster, selected])
 
   function pick(id: string) {
@@ -47,7 +47,7 @@ export default function FighterPickerPage() {
 
       {/* Live arena preview */}
       <div className="relative mx-auto" style={{ width: '100%', maxWidth: 480, aspectRatio: '1 / 1' }}>
-        <PvpArena3D playerPrefix={selected} playerJabRKey={attackKey} solo />
+        <PvpArena3D playerPrefix={`${selected}_${partySuffix}`} playerJabRKey={attackKey} solo />
         <button onClick={() => setAttackKey(k => k + 1)}
           className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg">
           <Swords size={14} /> Test Punch
@@ -57,13 +57,13 @@ export default function FighterPickerPage() {
       {/* Roster grid */}
       <div className="px-4 mt-3">
         <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">
-          Fighters {isDem && <span className="text-purple-400 normal-case">· 🌈 rainbow unlocked</span>}
+          Fighters <span className={`normal-case ${isDem ? 'text-blue-400' : 'text-red-400'}`}>· {isDem ? '🔵 Democrat blue kit' : '🔴 Republican red kit'}</span>
         </p>
         <div className="grid grid-cols-3 gap-2">
           {roster.map(f => (
             <button key={f.id} onClick={() => pick(f.id)}
               className={`relative rounded-xl overflow-hidden border-2 transition ${selected === f.id ? 'border-purple-500' : 'border-gray-800'}`}>
-              <img src={f.img} alt={f.label} className="w-full aspect-[3/4] object-cover bg-gray-900" />
+              <img src={`/fighters/${f.id}_${partySuffix}.png`} alt={f.label} className="w-full aspect-[3/4] object-cover bg-gray-900" />
               <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[11px] font-bold py-1 text-center">{f.label}</div>
               {selected === f.id && (
                 <div className="absolute top-1 right-1 bg-purple-600 rounded-full p-0.5"><Check size={12} className="text-white" /></div>

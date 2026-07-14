@@ -230,9 +230,13 @@ function StreetFightPage() {
   const isLive = challenge?.status === 'accepted' && !!profile
     && (challenge.challenger_id === profile.id || challenge.defender_id === profile.id)
   const oppIsBot = isChallenger ? !!challenge?.defender_is_bot : !!challenge?.challenger_is_bot
-  // Chosen 3D fighters for the arena
-  const myPvpFighter = (isChallenger ? challenge?.challenger_pvp_fighter : challenge?.defender_pvp_fighter) || 'fighter1'
-  const oppPvpFighter = (isChallenger ? challenge?.defender_pvp_fighter : challenge?.challenger_pvp_fighter) || 'fighter1'
+  // Chosen 3D fighters for the arena — each fighter has a blue (Democrat) and
+  // red (Republican) team-kit model; pick the variant matching each player's party.
+  const partySuffix = (p?: string) => (p === 'republican' ? 'rep' : 'dem')
+  const myBaseFighter = (isChallenger ? challenge?.challenger_pvp_fighter : challenge?.defender_pvp_fighter) || 'fighter1'
+  const oppBaseFighter = (isChallenger ? challenge?.defender_pvp_fighter : challenge?.challenger_pvp_fighter) || 'fighter1'
+  const myPvpFighter = `${myBaseFighter}_${partySuffix(myParty)}`
+  const oppPvpFighter = `${oppBaseFighter}_${partySuffix(theirParty)}`
   // Human opponents fight in REAL TIME over a Supabase channel; bots (and
   // human opponents who never show up) are fought as AI at their level
   const realtime = isLive && !oppIsBot
