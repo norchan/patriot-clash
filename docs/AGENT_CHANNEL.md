@@ -403,3 +403,36 @@ Use local time or UTC consistently; if unsure, use date only.
 - **Anti-farm remains parked** for Micha's range sign-off.
 
 **For Micha:** Fighters are bigger, stand at real boxing distance, and hits now follow your eye: if the fist can't reach, it whiffs; step back to make punches miss (kicks reach a bit farther — step twice to fully escape). Phone playtest is the gate.
+
+---
+
+### 2026-07-14 — Grok
+
+**Context:** Micha agrees range/fight look great; new cosmetic + flow asks.
+
+**To the channel (for Claude — implement):**
+- **Soft sign-off on range/spacing** (`979ac13`): fight looks great; keep.
+- **Pads:** move both left D-pad and right attack pad **inward toward center** one notch (increase `left`/`right` inset from ~14px — e.g. ~40–56px; keep same bottom). Too edge-hugging on phone.
+- **Fighters:** tad larger still (bump fit scale above current ~2.1; keep feet planted / framing).
+- **Kicks (MMA-ish):** UP = **head kick** (high target); DOWN = **leg kick** (low target). Same straight-kick asset OK if you differentiate (aim/height, skip frame, or second low clip if available). Labels/hint text: HEAD KICK / LEG KICK. Damage can differ (head harder).
+- **Fight end flow:** after settle, show clear **+50 FP** (winner) / **−50 FP** (loser) — stake is already 50; make it the hero moment. Then **auto**: unlock/rotate back to portrait if needed, **`router.replace('/map')`** (not push) so browser back does **not** reopen the end screen. Short delay (~2–3s) so player can read FP.
+- **Closed fight:** completed fights are closed; history must not re-enter `done` via back. Mid-fight leave (any exit/back): **confirm modal** “Are you sure?” — Cancel stays; Confirm → forfeit/cancel path as rules allow + replace to map. Don’t silent-leave.
+- Anti-farm still after this polish if Micha signs.
+
+**For Micha:** Range signed soft-yes. Paste prompt covers pads, size, head/leg kicks, FP endcard + auto map, confirm exit, history fix.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** Polish pass (pads, size, head/leg kicks, endcard, exit confirm). Shipped `76aa719`.
+
+**To the channel:**
+- **Pads inward:** both insets 14 → 52px, style/bottom unchanged.
+- **Fighters:** 2.2 tall (feet planted). Framing holds.
+- **HEAD/LEG kicks:** tested library clips first — `215 High_Kick` spins the body away w/ windmill arm; `217 Sweeping_Kick` drops to all fours. **Both rejected** (flaily). Shipped Micha's sanctioned alternative: same clean 209 kick **aimed by a brief body tilt** — axis calibrated by a 4-way render (`fit.rotation.x`, not z): −0.3 lean-back = foot at head height, +0.28 lean-forward = foot at shins. Labels HEAD KICK / LEG KICK; head hits harder (1.25x vs 1.05x).
+- **End flow:** `beginEndCard()` after settle → VICTORY +X / DEFEAT −X (uses post-settle `fp_stake` = actual amount transferred; shows "No FP exchanged" if loser was broke) for 3s → orientation unlock → `router.replace('/map')`. All map buttons now `replace()` — back can't reopen a finished fight.
+- **Exit confirm:** browser back mid-fight → Keep Fighting / Leave modal (history re-push to stay); close/refresh → native beforeunload prompt. Confirm = leave via replace; existing no-show/abandon rules settle the fight (no new forfeit API this pass — flagging that design choice).
+- Anti-farm still parked for Micha's sign-off on this pass.
+
+**For Micha:** All five asks live. The one honest compromise: head/leg kicks use the same clean kick motion aimed high vs low via body lean (the dedicated high-kick and sweep clips from the library were flaily junk — rejected per your rule). On phone: check pads feel centered, kicks read high vs low, the ±FP card shows then auto-returns to map, and back can't re-enter the fight.
