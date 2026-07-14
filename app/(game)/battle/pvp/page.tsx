@@ -75,7 +75,7 @@ interface ChallengeData {
 interface ChatMessage { id: string; sender_id: string; content: string; created_at: string }
 
 const MOVE_LABELS: Record<string, string> = {
-  jab: 'JAB', cross: 'CROSS', hook: 'HOOK', uppercut: 'UPPERCUT', kick: 'KICK',
+  jab: 'JAB', cross: 'PUNCH', hook: 'LOW KICK', uppercut: 'UPPERCUT', kick: 'HIGH KICK',
   jumpkick: 'JUMP KICK', special: '★ SPECIAL ★',
 }
 const MOVE_POSE: Record<string, FighterPose> = {
@@ -450,9 +450,11 @@ function StreetFightPage() {
   // blocking during the strike absorbs almost everything. Server validates
   // the submitted outcome before any FP moves.
   const TAP_CD = 380, KICK_CD = 750, JUMP_CD = 950, SPECIAL_CD = 600
-  const STRAIGHT_CD = 900, COMBO_CD = 820 // heavier moves recover slower
+  const PUNCH_CD = 500 // bread-and-butter punch
+  const POWER_COST = 40, POWER_MULT = 1.6 // ⚡ spend meter -> next landed hit amplified
   const DODGE_MS = 600, DODGE_CD = 950
   const [meter, setMeter] = useState(0)
+  const [powerArmed, setPowerArmed] = useState(false) // ⚡ next landed hit amplified
   const [telegraph, setTelegraph] = useState(false)
   const [hint, setHint] = useState('')
   const [submitErr, setSubmitErr] = useState('')
@@ -469,7 +471,7 @@ function StreetFightPage() {
     synced: false, ghost: false, attackSeq: 0,
     lastResult: { won: false },
     counts: { taps: 0, kicks: 0, jumpkicks: 0, blocks: 0, combos: 0, specials: 0 },
-    myHp: 100, foeHp: 100, meter: 0,
+    myHp: 100, foeHp: 100, meter: 0, powerArmed: false,
     // positional combat: fighter positions + guard state (mirrored from React)
     playerX: -ANCHOR, oppX: ANCHOR, blocking: false, ducking: false, airborne: false, foeSpaceUntil: 0,
   })
@@ -514,7 +516,7 @@ function StreetFightPage() {
     })
     channelRef.current = ch
 
-    const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean }) => {
+    const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean; boost?: number }) => {
       if (S.over) return
       const def = MOVES.find(m => m.move === p.move)!
       const heavy = def.mult > 1
@@ -540,10 +542,11 @@ function StreetFightPage() {
         sfx.block(); buzz(15)
       } else {
         dmg = strikeDamage(foeLevel, def.mult)
+        if (p.boost) { dmg = Math.floor(dmg * p.boost); addSpark(false, '⚡ POWER!', '#fde047') } // their armed power buff
         setMyPose('hit'); reel(false); addBurst(false, heavy)
         addSpark(false, `-${dmg}`, '#f87171')
         setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.16); setPlayerX(S.playerX) // 3D flinch + knockback
-        if (p.move === 'kick' || p.move === 'jumpkick') sfx.kick()
+        if (p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook') sfx.kick()
         else sfx.punch(heavy)
         setShake(true); setTimeout(() => setShake(false), 170)
         setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
@@ -560,6 +563,8 @@ function StreetFightPage() {
       if (S.over) return
       S.foeHp = Math.max(0, Math.min(100, p.hp))
       setFoeHp(S.foeHp)
+      // ⚡ POWER is consumed by the first successful contact
+      if (p.result === 'hit' && S.powerArmed) { S.powerArmed = false; setPowerArmed(false) }
       if (p.result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, p.dmg >= 10)
         addSpark(true, `-${p.dmg}`, '#facc15')
@@ -701,12 +706,16 @@ function StreetFightPage() {
     return true
   }
 
-  // Core: play the 3D move + resolve damage (broadcast in realtime, roll vs AI)
-  function strikeCore(move: Move, right: boolean, label: string) {
+  // Core: play the 3D move, then resolve damage + spark + SFX ON THE STRIKE
+  // FRAME (impactMs = when the clip's punch/kick visually lands), so what you
+  // see, hear, and score are one moment — not a disconnected timeout.
+  function strikeCore(move: Move, right: boolean, label: string, impactMs: number) {
     const S = L.current
     S.lastHit = Date.now()
     S.counts.taps++
-    const heavy = (MOVES.find(m => m.move === move)?.mult ?? 0.6) > 0.8
+    const heavy = (MOVES.find(m => m.move === move)?.mult ?? 0.6) > 1.0
+    const kicky = move === 'kick' || move === 'hook' || move === 'jumpkick'
+    buzz(8) // immediate tactile press feedback; the visual pose changes this frame
     setMyPose(MOVE_POSE['jab']); setMyAttacking(true)
     myJab(right) // 3D: right = power straight clip, left = jab clip
     setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
@@ -714,11 +723,14 @@ function StreetFightPage() {
 
     if (realtime && !S.ghost) {
       const seq = ++S.attackSeq
-      channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { seq, move, right } })
+      channelRef.current?.send({
+        type: 'broadcast', event: 'move',
+        payload: { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined },
+      })
       return
     }
 
-    // AI mode: impact resolves a beat later against the foe's stats
+    // AI mode: everything lands together at the animation's strike frame
     setTimeout(() => {
       if (S.over) return
       // Contact-based: must be within range of the foe or the strike whiffs
@@ -736,6 +748,12 @@ function StreetFightPage() {
         dmg = strikeDamage(myLevel, mult)
         if (result === 'blocked') dmg = Math.max(1, Math.floor(dmg * 0.25))
       }
+      // ⚡ POWER: armed boost amplifies the next SUCCESSFUL contact, then clears
+      if (result === 'hit' && S.powerArmed) {
+        dmg = Math.floor(dmg * POWER_MULT)
+        S.powerArmed = false; setPowerArmed(false)
+        addSpark(true, '⚡ POWER!', '#fde047')
+      }
       const t = (Date.now() - S.startAt) / 1000
       if (dmg >= S.foeHp && t < 14) dmg = Math.max(0, S.foeHp - 1) // no KO before 14s
       S.foeHp = Math.max(0, S.foeHp - dmg)
@@ -744,7 +762,7 @@ function StreetFightPage() {
         setFoePose('hit'); reel(true); addBurst(true, heavy)
         addSpark(true, `-${dmg}`, '#facc15')
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.16); setOppX(S.oppX) // 3D flinch + knockback
-        sfx.punch(heavy)
+        if (kicky) sfx.kick(); else sfx.punch(heavy)
         S.meter = Math.min(100, S.meter + dmg * 1.7)
         setMeter(S.meter)
         if (heavy) { bumpCrowd(); sfx.crowd(0.3) }
@@ -755,32 +773,55 @@ function StreetFightPage() {
         addSpark(true, 'MISS', '#9ca3af'); sfx.whoosh()
       }
       if (S.foeHp === 0) endFight(true, true)
-    }, 120)
+    }, impactMs)
   }
 
-  // 👊 center: JAB — alternates right/left for a natural 1-2 rhythm
-  function playerStrike() {
+  // ── Attack pad mapping (diamond): 🦵 high kick N · 🦶 low kick S · 👊 punch E
+  //    ⚡ power W (spend meter, buff next contact) · ★ special CENTER ─────────
+  // Impact timings match each clip's visible strike frame:
+  // straight clip lands ~270ms after press, jab clip ~150ms.
+  function playerPunch() {
     const S = L.current
     const now = Date.now()
-    const right = (now - S.lastHit > 600) ? true : !S.tapAlt
-    if (!canStrike(TAP_CD)) return
+    const right = (now - S.lastHit > 700) ? true : !S.tapAlt // alternate arms
+    if (!canStrike(PUNCH_CD)) return
     S.tapAlt = right
-    strikeCore('jab', right, right ? 'RIGHT JAB' : 'LEFT JAB')
+    strikeCore('cross', right, 'PUNCH', right ? 270 : 150)
   }
-
-  // 💥 east: POWER STRAIGHT — heavier damage, slower recovery
-  function playerStraight() {
-    if (!canStrike(STRAIGHT_CD)) return
-    strikeCore('cross', true, 'STRAIGHT')
+  function playerHighKick() {
+    if (!canStrike(KICK_CD)) return
+    L.current.counts.kicks++
+    strikeCore('kick', false, 'HIGH KICK', 150)
   }
-
-  // ⚡ north: 1-2 COMBO — jab then straight off one press
-  function playerCombo() {
-    if (!canStrike(COMBO_CD)) return
-    L.current.counts.combos++
-    strikeCore('jab', false, 'JAB')
-    setTimeout(() => { if (!L.current.over) strikeCore('jab', true, '1-2 COMBO') }, 280)
+  function playerLowKick() {
+    if (!canStrike(KICK_CD)) return
+    L.current.counts.kicks++
+    strikeCore('hook', false, 'LOW KICK', 150)
   }
+  // ⚡ POWER: spends meter to amplify the next successful contact
+  function playerPower() {
+    const S = L.current
+    if (phase !== 'live' || S.over) return
+    if (S.powerArmed) { flashHint('⚡ Power is armed — land a hit!'); return }
+    if (S.meter < POWER_COST) { flashHint(`⚡ Need ${POWER_COST}% power (land hits to charge)`); return }
+    S.meter -= POWER_COST; setMeter(S.meter)
+    S.powerArmed = true; setPowerArmed(true)
+    flashHint('⚡ POWERED UP — your next hit lands harder!')
+    sfx.tap(); buzz(30)
+  }
+  // ★ SPECIAL: full meter → the big one
+  function playerSpecial() {
+    const S = L.current
+    if (phase !== 'live' || S.over) return
+    if (S.meter < 100) { flashHint('★ Fill the yellow power bar for your SPECIAL'); return }
+    if (!canStrike(SPECIAL_CD)) return
+    S.meter = 0; setMeter(0)
+    S.counts.specials++
+    setZoom(true); setTimeout(() => setZoom(false), 700)
+    strikeCore('special', true, '★ SPECIAL ★', 270)
+  }
+  // keyboard fallback (desktop): space/enter = punch
+  function playerStrike() { playerPunch() }
 
   // Game tick: clock, bell, ghost fallback, and the AI foe (bots + no-shows)
   useEffect(() => {
@@ -1238,46 +1279,31 @@ function StreetFightPage() {
           </div>
         )}
 
-        {/* ── ATTACK PAD (live fights): diamond — JAB center, 1-2 N, STRAIGHT E,
-            BLOCK S (hold), DODGE W. Each button is remappable as new moves land. ── */}
+        {/* ── ATTACK PAD (live fights): same visual family as the left D-pad.
+            Diamond: 🦵 high kick N · 🦶 low kick S · 👊 punch E · ⚡ power W ·
+            ★ special CENTER. Block lives on the LEFT D-pad only. ── */}
         {phase === 'live' && (
           <div className="absolute z-30 pointer-events-auto select-none"
-            style={{ right: 12, bottom: 14, width: 178, height: 178 }}
+            style={{ right: 14, bottom: 16, width: 138, height: 138 }}
             onClick={e => e.stopPropagation()}
             onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
             {(() => {
-              const b = 'absolute rounded-full border-2 border-white/40 text-white flex flex-col items-center justify-center active:scale-95 transition shadow-lg'
+              const base = 'absolute w-11 h-11 rounded-full bg-black/55 border border-white/25 text-white text-lg flex items-center justify-center active:bg-white/30 transition'
               const stop = (e: any) => { e.stopPropagation(); e.preventDefault() }
               return (
                 <>
-                  <button title="1-2 Combo" className={`${b} bg-orange-600/85 active:bg-orange-400/95`}
-                    style={{ top: 0, left: 62, width: 54, height: 54 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerCombo() }}>
-                    <span className="text-lg leading-none">⚡</span><span className="text-[9px] font-black">1-2</span>
-                  </button>
-                  <button title="Dodge" className={`${b} bg-emerald-700/85 active:bg-emerald-500/95`}
-                    style={{ top: 62, left: 0, width: 54, height: 54 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerDodge() }}>
-                    <span className="text-lg leading-none">💨</span><span className="text-[9px] font-black">DODGE</span>
-                  </button>
-                  <button title="Power Straight" className={`${b} bg-red-700/85 active:bg-red-500/95`}
-                    style={{ top: 62, right: 0, width: 54, height: 54 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerStraight() }}>
-                    <span className="text-lg leading-none">💥</span><span className="text-[9px] font-black">STRAIGHT</span>
-                  </button>
-                  <button title="Block (hold)" className={`${b} ${blocking ? 'bg-blue-500/85' : 'bg-sky-800/85'}`}
-                    style={{ bottom: 0, left: 62, width: 54, height: 54 }}
-                    onContextMenu={e => e.preventDefault()}
-                    onPointerDown={e => { stop(e); setBlocking(true) }}
-                    onPointerUp={e => { stop(e); setBlocking(false) }}
-                    onPointerLeave={() => setBlocking(false)}>
-                    <span className="text-lg leading-none">🛡</span><span className="text-[9px] font-black">BLOCK</span>
-                  </button>
-                  <button title="Jab" className={`${b} bg-red-600/90 border-white/55 active:bg-red-400/95`}
-                    style={{ top: 59, left: 59, width: 60, height: 60 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerStrike() }}>
-                    <span className="text-xl leading-none">👊</span><span className="text-[10px] font-black">JAB</span>
-                  </button>
+                  <button title="High kick" className={base} style={{ top: 0, left: 47 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerHighKick() }}>🦵</button>
+                  <button title="Low kick" className={base} style={{ bottom: 0, left: 47 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerLowKick() }}>🦶</button>
+                  <button title="Punch" className={base} style={{ top: 47, right: 0 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunch() }}>👊</button>
+                  <button title="Power (spend meter — next hit lands harder)"
+                    className={`${base} ${powerArmed ? 'bg-yellow-500/50 border-yellow-300/60' : ''}`} style={{ top: 47, left: 0 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPower() }}>⚡</button>
+                  <button title="Special (full power bar)"
+                    className={`${base} ${meter >= 100 ? 'bg-yellow-500/50 border-yellow-300/60 animate-pulse' : ''}`} style={{ top: 47, left: 47 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerSpecial() }}>★</button>
                 </>
               )
             })()}
@@ -1301,8 +1327,8 @@ function StreetFightPage() {
           <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
         ) : phase === 'live' ? (
           <div className="text-center space-y-1">
-            <p className="text-white/80 text-xs font-bold">Right pad: 👊 jab · ⚡ 1-2 combo · 💥 straight · 🛡 hold block · 💨 dodge</p>
-            <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block</p>
+            <p className="text-white/80 text-xs font-bold">Right pad: 🦵 high kick · 🦶 low kick · 👊 punch · ⚡ power · ★ special</p>
+            <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — land hits to fill the ⚡ bar</p>
           </div>
         ) : phase !== 'done' ? (
           <p className="text-gray-600 text-xs text-center">🥊 Street fight in progress — one round, 30 seconds</p>

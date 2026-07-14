@@ -161,7 +161,7 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
       camera={{ position: solo ? [0, 1.2, 4.6] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
       dpr={[1, 2]}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
-      onCreated={({ camera }) => camera.lookAt(0, solo ? 1.0 : 0.9, 0)}>
+      onCreated={({ camera }) => camera.lookAt(0, solo ? 1.0 : 1.35, 0)}>
       {/* dramatic stage lighting to match the gritty arena */}
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 8, 4]} intensity={2.4} color="#ffd6a0" castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
