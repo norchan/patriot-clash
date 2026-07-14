@@ -57,13 +57,17 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
   }, [scene, punchGltf.animations, jabLGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
+    // Apply the guard pose BEFORE measuring so the fighter is fit + grounded by its
+    // actual stance (the guard shifts the feet vs the rest pose — measuring the rest
+    // pose made them hover).
+    mixer.update(0.0001)
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
     const s = 1.95 / (size.y || 1) // bigger fighters (fill more of the frame)
     if (fit.current) { fit.current.scale.setScalar(s); fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s) }
     if (hips) hips0.current = hips.position.clone()
-  }, [scene, hips])
+  }, [scene, hips, mixer])
 
   // A one-shot snaps in over the held guard; on finish, snap back to the guard
   const playShot = (a: THREE.AnimationAction | null) => {
@@ -134,20 +138,18 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
       <Suspense fallback={null}>
         <Backdrop url={`/arenas/${arena}.jpg`} />
         {solo ? (
-          <Fighter prefix={playerPrefix} x={0} faceY={faceToward(0, 0.6, 0, 6)} jabRKey={playerJabRKey} />
-        ) : (() => {
-          // Player faces the opponent with a slight camera tilt (targetZ ahead of the
-          // fighter). The opponent is the MIRROR: rotation -R and flipped on X.
-          const R = faceToward(playerX, 0.6, oppX, 1.5)
-          return (
-            <>
-              <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={R}
-                jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
-              {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-R} mirror
-                jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
-            </>
-          )
-        })()}
+          <Fighter prefix={playerPrefix} x={0} faceY={Math.PI / 2} jabRKey={playerJabRKey} />
+        ) : (
+          // Classic fighting-game side view: player faces directly right (profile),
+          // opponent is a mirror flip facing left. (Model front is local -X, so
+          // rotation.y = +PI/2 points the fighter down the +X axis.)
+          <>
+            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={Math.PI / 2}
+              jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
+            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-Math.PI / 2} mirror
+              jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
+          </>
+        )}
         <ContactShadows position={[0, 0.01, 0.6]} opacity={0.65} scale={12} blur={2.6} far={5} color="#000000" />
       </Suspense>
       <EffectComposer>
