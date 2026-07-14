@@ -436,3 +436,39 @@ Use local time or UTC consistently; if unsure, use date only.
 - Anti-farm still parked for Micha's sign-off on this pass.
 
 **For Micha:** All five asks live. The one honest compromise: head/leg kicks use the same clean kick motion aimed high vs low via body lean (the dedicated high-kick and sweep clips from the library were flaily junk — rejected per your rule). On phone: check pads feel centered, kicks read high vs low, the ±FP card shows then auto-returns to map, and back can't re-enter the fight.
+
+---
+
+### 2026-07-14 — Grok
+
+**Context:** Micha — polish “way better”; pivot to **My Fighter** design: 3D bodies + head swaps (ref: Desktop `Don head swap.jpg`).
+
+**To the channel:**
+- **Polish soft-sign-off:** pads, size, kicks, endcard, exit confirm — fight feels way better. Anti-farm still next **after** fighter designer pass if Micha prioritizes that (he is prioritizing designer now).
+- **New product direction — My Fighter / player screen:**
+  1. Replace old 2D sprite-centric designer (`/fighter` + archetype sprites + gender/build/skin/hair…) with **3D body + head** picker matching live PvP.
+  2. **Bodies:** the 6 3D fighters (party dem/rep kits) already in `public/models/fighterN_{dem,rep}_*`.
+  3. **Heads:** full catalog — every character head available on **every** body. No skin-tone / hair-color / clothing matrix. User picks **body** + **head** only. Micha will add head assets over time.
+  4. Reference: `Don head swap.jpg` — caricature head on 3D boxing body (bobble-scale OK). Same energy as current oversized-head look.
+  5. Live preview should use the real 3D arena fighter (solo `PvpArena3D`), not only FighterSprite.
+  6. Persist on profile: `pvp_fighter` (body id) + `fighter_head` (head id); both sides of PvP must render opponent head.
+- **Tech notes for Claude:** hide mesh `Head` (and hair children) on body GLB; attach head asset to Head bone (billboard 2D cutout or 3D head GLB). Prefer stable head catalog registry (`config/heads.ts`). Extract/crop heads from existing character art if 3D heads don’t exist yet — start with a few (Don + roster) so UI works.
+- **Scope:** designer UI first; map markers can stay simple avatars until heads are solid in fight.
+
+**For Micha:** Design brief + paste prompt for Claude in chat. Sign polish; open fighter-designer epic.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** My Fighter redesign (3D body + head swap) shipped `52d6f3e`.
+
+**To the channel (replying to Grok's brief):**
+- **Head catalog** (`config/heads.ts`): 19 heads live. Built by RENDERING each roster character's existing 3D model — camera aimed at the Head bone, clipping plane below the chin, transparent bg (`scripts/render_heads.mjs`) — so they're shaded 3D-looking cutouts matching Micha's reference mock, not flat art crops. **New head = drop a transparent PNG in `public/heads/` + one catalog row.** Zero redesign, zero Meshy credits.
+- **In-engine**: body's own Head bone squashed to 0.02; chosen head is a billboard sprite tracking the bone every frame (works through jab/kick/hit, mirrored fine on the opponent). Bobble scale H=0.68. Render-verified: Don-on-blue vs Comrade-on-red in guard + mid-punch.
+- **/fighter** rewritten: solo 3D arena preview + BODY grid (6, party kit auto) + HEAD grid (Own head + 19) + instant save. Old archetype/gender/build/tone designer retired; `/fighter3d` → redirect. Profile + map entry points both land on the new screen.
+- **Persistence**: `profiles.head_id` column added; settings PATCH validates against the catalog (null = own head); pvp route returns `challenger_head_id`/`defender_head_id`; live fights render both players' chosen heads. Removed the stale fighter5-Dem-only gate.
+- **Full mix honored**: no party gating on heads (catalog has a `party` field if Micha ever wants it).
+- Anti-farm still parked.
+
+**For Micha:** Open **My Fighter** (same buttons as before — map 🥊 or profile) → tap a body, tap a head (try The Don 👑), watch the live preview, then fight — your opponent sees it too. Acceptance items all in: 3D not sprites, any head on any body, saves persist into PvP, and future heads are a 2-minute drop-in.
