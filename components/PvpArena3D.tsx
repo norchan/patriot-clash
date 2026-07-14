@@ -51,12 +51,24 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
     const gd = guardClip ? m.clipAction(guardClip) : null
     const guardHold = 0.03
     if (gd) { gd.play(); gd.paused = true; gd.time = guardHold; gd.setEffectiveWeight(1) }
-    const oneShot = (g: { animations: THREE.AnimationClip[] }) => {
+    // Meshy's boxing clips have a LONG guard lead-in before the actual strike
+    // (the 210 straight doesn't punch until ~1.5-2.2s of a 4s clip!). Play each
+    // one-shot from `skipIn` at `speed` so the strike is VISIBLE within ~150-250ms
+    // of the button press — otherwise rapid taps reset the clip before the punch
+    // ever shows and the fighter looks frozen in guard.
+    const oneShot = (g: { animations: THREE.AnimationClip[] }, skipIn: number, speed: number) => {
       const a = g.animations[0] ? m.clipAction(g.animations[0]) : null
       if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true }
-      return a
+      return a ? { a, skipIn, speed } : null
     }
-    return { mixer: m, guard: gd, guardHold, shots: { jabR: oneShot(punchGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
+    return {
+      mixer: m, guard: gd, guardHold,
+      shots: {
+        jabR: oneShot(punchGltf, 1.45, 2.4), // straight: strike at ~2.0s in the raw clip
+        jabL: oneShot(jabLGltf, 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
+        hit: oneShot(hitGltf, 0.12, 1.6),
+      },
+    }
   }, [scene, punchGltf.animations, jabLGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
@@ -76,22 +88,27 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
   // (otherwise two clips blend and the fighter never returns cleanly to guard),
   // then snaps in over the held guard. `active` tracks the latest move so the
   // guard is only restored when that exact move finishes (nothing newer started).
+  type Shot = { a: THREE.AnimationAction; skipIn: number; speed: number }
   const active = useRef<THREE.AnimationAction | null>(null)
   const restoreGuard = () => {
     if (guard) { guard.time = guardHold; guard.paused = true; guard.setEffectiveWeight(1) }
   }
-  const playShot = (a: THREE.AnimationAction | null) => {
-    if (!a) return
-    for (const s of [shots.jabR, shots.jabL, shots.hit]) {
-      if (s && s !== a) { s.stop(); s.setEffectiveWeight(0) }
+  const playShot = (s: Shot | null) => {
+    if (!s) return
+    for (const o of [shots.jabR, shots.jabL, shots.hit]) {
+      if (o && o.a !== s.a) { o.a.stop(); o.a.setEffectiveWeight(0) }
     }
     guard?.setEffectiveWeight(0)
-    a.reset(); a.setEffectiveWeight(1); a.play()
-    active.current = a
+    s.a.reset()
+    s.a.time = s.skipIn                    // jump past the guard lead-in
+    s.a.setEffectiveTimeScale(s.speed)     // snappy strike, not slow mocap
+    s.a.setEffectiveWeight(1)
+    s.a.play()
+    active.current = s.a
   }
   useEffect(() => {
     const onFin = (e: any) => {
-      if (e.action === shots.jabR || e.action === shots.jabL || e.action === shots.hit) {
+      if (e.action === shots.jabR?.a || e.action === shots.jabL?.a || e.action === shots.hit?.a) {
         e.action.setEffectiveWeight(0); e.action.stop()
         // only fall back to guard if this was the most recent move
         if (active.current === e.action) { active.current = null; restoreGuard() }

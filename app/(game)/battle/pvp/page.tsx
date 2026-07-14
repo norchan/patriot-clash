@@ -450,6 +450,7 @@ function StreetFightPage() {
   // blocking during the strike absorbs almost everything. Server validates
   // the submitted outcome before any FP moves.
   const TAP_CD = 380, KICK_CD = 750, JUMP_CD = 950, SPECIAL_CD = 600
+  const STRAIGHT_CD = 900, COMBO_CD = 820 // heavier moves recover slower
   const DODGE_MS = 600, DODGE_CD = 950
   const [meter, setMeter] = useState(0)
   const [telegraph, setTelegraph] = useState(false)
@@ -461,10 +462,9 @@ function StreetFightPage() {
   const channelRef = useRef<ReturnType<ReturnType<typeof createSupabaseBrowserClient>['channel']> | null>(null)
   const L = useRef({
     startAt: 0, liveAt: 0, over: false, myCd: 0, tapAlt: false,
-    comboN: 0, lastHit: 0, lastTouch: 0,
-    blockHeld: false, blockTimer: 0 as ReturnType<typeof setTimeout> | 0,
+    comboN: 0, lastHit: 0,
+    blockHeld: false,
     dodgeUntil: 0, dodgeCd: 0,
-    touchX: 0, touchY: 0, touchT: 0,
     foeNextAt: 0, foeWindupAt: 0, foeMove: 'jab' as Move,
     synced: false, ghost: false, attackSeq: 0,
     lastResult: { won: false },
@@ -689,31 +689,32 @@ function StreetFightPage() {
     setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, DODGE_MS)
   }
 
-  // Player attack (shared by taps, swipes, keys, and the special button).
-  // Every move is available at every level — damage scales with YOUR level.
-  function playerStrike() {
+  // ── Attack pad moves ──────────────────────────────────────────────────────
+  // Shared guards + cooldown claim for every offensive move
+  function canStrike(cd: number): boolean {
     const S = L.current
-    if (phase !== 'live' || S.over || S.blockHeld) return
+    if (phase !== 'live' || S.over || S.blockHeld) return false
     const now = Date.now()
-    if (now < S.myCd || now < S.dodgeUntil) return
-    if (realtime && !S.ghost && !S.synced) { flashHint(`⏳ Waiting for ${theirUsername ?? 'opponent'} to enter...`); return }
-    S.myCd = now + TAP_CD
-    // Boxing: every tap is a jab. One tap = right jab; a quick second tap
-    // becomes the left of a left/right combo (alternates, resets after a pause).
-    const right = (now - S.lastHit > 600) ? true : !S.tapAlt
-    S.tapAlt = right
-    S.lastHit = now
+    if (now < S.myCd || now < S.dodgeUntil) return false
+    if (realtime && !S.ghost && !S.synced) { flashHint(`⏳ Waiting for ${theirUsername ?? 'opponent'} to enter...`); return false }
+    S.myCd = now + cd
+    return true
+  }
+
+  // Core: play the 3D move + resolve damage (broadcast in realtime, roll vs AI)
+  function strikeCore(move: Move, right: boolean, label: string) {
+    const S = L.current
+    S.lastHit = Date.now()
     S.counts.taps++
-    const actual: Move = 'jab'
-    const heavy = false
+    const heavy = (MOVES.find(m => m.move === move)?.mult ?? 0.6) > 0.8
     setMyPose(MOVE_POSE['jab']); setMyAttacking(true)
-    myJab(right) // 3D: right or left jab
+    myJab(right) // 3D: right = power straight clip, left = jab clip
     setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
-    setMoveText(`YOU: ${right ? 'RIGHT JAB' : 'LEFT JAB'}`)
+    setMoveText(`YOU: ${label}`)
 
     if (realtime && !S.ghost) {
       const seq = ++S.attackSeq
-      channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { seq, move: 'jab', right } })
+      channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { seq, move, right } })
       return
     }
 
@@ -725,7 +726,7 @@ function StreetFightPage() {
         addSpark(true, 'WHIFF', '#9ca3af'); sfx.whoosh()
         return
       }
-      const mult = MOVES.find(m => m.move === actual)!.mult
+      const mult = MOVES.find(m => m.move === move)!.mult
       const roll = Math.random()
       let result: 'hit' | 'blocked' | 'dodged' = 'hit'
       if (roll < foeStats.dodgeChance) result = 'dodged'
@@ -755,6 +756,30 @@ function StreetFightPage() {
       }
       if (S.foeHp === 0) endFight(true, true)
     }, 120)
+  }
+
+  // 👊 center: JAB — alternates right/left for a natural 1-2 rhythm
+  function playerStrike() {
+    const S = L.current
+    const now = Date.now()
+    const right = (now - S.lastHit > 600) ? true : !S.tapAlt
+    if (!canStrike(TAP_CD)) return
+    S.tapAlt = right
+    strikeCore('jab', right, right ? 'RIGHT JAB' : 'LEFT JAB')
+  }
+
+  // 💥 east: POWER STRAIGHT — heavier damage, slower recovery
+  function playerStraight() {
+    if (!canStrike(STRAIGHT_CD)) return
+    strikeCore('cross', true, 'STRAIGHT')
+  }
+
+  // ⚡ north: 1-2 COMBO — jab then straight off one press
+  function playerCombo() {
+    if (!canStrike(COMBO_CD)) return
+    L.current.counts.combos++
+    strikeCore('jab', false, 'JAB')
+    setTimeout(() => { if (!L.current.over) strikeCore('jab', true, '1-2 COMBO') }, 280)
   }
 
   // Game tick: clock, bell, ghost fallback, and the AI foe (bots + no-shows)
@@ -1213,20 +1238,49 @@ function StreetFightPage() {
           </div>
         )}
 
-        {/* ── ATTACK PAD (live fights): tap = jab, quick double-tap = 1-2 combo ── */}
+        {/* ── ATTACK PAD (live fights): diamond — JAB center, 1-2 N, STRAIGHT E,
+            BLOCK S (hold), DODGE W. Each button is remappable as new moves land. ── */}
         {phase === 'live' && (
           <div className="absolute z-30 pointer-events-auto select-none"
-            style={{ right: 14, bottom: 16, width: 132, height: 132 }}
+            style={{ right: 12, bottom: 14, width: 178, height: 178 }}
             onClick={e => e.stopPropagation()}
             onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-            <button title="Jab" aria-label="Jab"
-              className="absolute rounded-full bg-red-600/85 border-2 border-white/45 text-white flex flex-col items-center justify-center active:bg-red-400/95 active:scale-95 transition shadow-lg"
-              style={{ right: 6, bottom: 6, width: 108, height: 108 }}
-              onContextMenu={e => e.preventDefault()}
-              onPointerDown={e => { e.stopPropagation(); e.preventDefault(); playerStrike() }}>
-              <span className="text-3xl leading-none">👊</span>
-              <span className="text-[11px] font-black tracking-wide mt-0.5">JAB</span>
-            </button>
+            {(() => {
+              const b = 'absolute rounded-full border-2 border-white/40 text-white flex flex-col items-center justify-center active:scale-95 transition shadow-lg'
+              const stop = (e: any) => { e.stopPropagation(); e.preventDefault() }
+              return (
+                <>
+                  <button title="1-2 Combo" className={`${b} bg-orange-600/85 active:bg-orange-400/95`}
+                    style={{ top: 0, left: 62, width: 54, height: 54 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerCombo() }}>
+                    <span className="text-lg leading-none">⚡</span><span className="text-[9px] font-black">1-2</span>
+                  </button>
+                  <button title="Dodge" className={`${b} bg-emerald-700/85 active:bg-emerald-500/95`}
+                    style={{ top: 62, left: 0, width: 54, height: 54 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerDodge() }}>
+                    <span className="text-lg leading-none">💨</span><span className="text-[9px] font-black">DODGE</span>
+                  </button>
+                  <button title="Power Straight" className={`${b} bg-red-700/85 active:bg-red-500/95`}
+                    style={{ top: 62, right: 0, width: 54, height: 54 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerStraight() }}>
+                    <span className="text-lg leading-none">💥</span><span className="text-[9px] font-black">STRAIGHT</span>
+                  </button>
+                  <button title="Block (hold)" className={`${b} ${blocking ? 'bg-blue-500/85' : 'bg-sky-800/85'}`}
+                    style={{ bottom: 0, left: 62, width: 54, height: 54 }}
+                    onContextMenu={e => e.preventDefault()}
+                    onPointerDown={e => { stop(e); setBlocking(true) }}
+                    onPointerUp={e => { stop(e); setBlocking(false) }}
+                    onPointerLeave={() => setBlocking(false)}>
+                    <span className="text-lg leading-none">🛡</span><span className="text-[9px] font-black">BLOCK</span>
+                  </button>
+                  <button title="Jab" className={`${b} bg-red-600/90 border-white/55 active:bg-red-400/95`}
+                    style={{ top: 59, left: 59, width: 60, height: 60 }}
+                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerStrike() }}>
+                    <span className="text-xl leading-none">👊</span><span className="text-[10px] font-black">JAB</span>
+                  </button>
+                </>
+              )
+            })()}
           </div>
         )}
 
@@ -1247,7 +1301,7 @@ function StreetFightPage() {
           <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
         ) : phase === 'live' ? (
           <div className="text-center space-y-1">
-            <p className="text-white/80 text-xs font-bold">👊 Right pad = jab · quick double-tap = 1-2 combo</p>
+            <p className="text-white/80 text-xs font-bold">Right pad: 👊 jab · ⚡ 1-2 combo · 💥 straight · 🛡 hold block · 💨 dodge</p>
             <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block</p>
           </div>
         ) : phase !== 'done' ? (
