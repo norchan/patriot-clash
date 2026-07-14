@@ -39,18 +39,6 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
 
-    // Idempotency check — don't fulfill twice
-    const { data: existing } = await admin
-      .from('stripe_purchases')
-      .select('fulfilled')
-      .eq('stripe_payment_id', session.id)
-      .single()
-
-    if (existing?.fulfilled) {
-      console.log(`Already fulfilled: ${session.id}`)
-      return NextResponse.json({ received: true })
-    }
-
     const profileId = session.metadata?.profile_id
     const fpAmount = parseInt(session.metadata?.fp_amount || '0')
     const packId = session.metadata?.pack_id
@@ -60,8 +48,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing metadata' }, { status: 400 })
     }
 
+    // Idempotent claim: atomically flip fulfilled false→true. Only ONE webhook
+    // wins the claim (even if Stripe delivers duplicates concurrently), so FP is
+    // granted exactly once. No check-then-act race.
+    const { data: claimed } = await admin
+      .from('stripe_purchases')
+      .update({
+        fulfilled: true,
+        stripe_status: 'succeeded',
+        webhook_received_at: new Date().toISOString(),
+      })
+      .eq('stripe_payment_id', session.id)
+      .eq('fulfilled', false)
+      .select('id')
+
+    if (!claimed || claimed.length === 0) {
+      console.log(`Already fulfilled or unknown session: ${session.id}`)
+      return NextResponse.json({ received: true })
+    }
+
     try {
-      // Grant FP to player
+      // Grant FP to player (we hold the claim, so this runs once)
       await admin.rpc('grant_fp', {
         p_profile_id: profileId,
         p_amount: fpAmount,
@@ -70,39 +77,26 @@ export async function POST(req: NextRequest) {
         p_description: `Purchased ${packId}: +${fpAmount} FP`,
         p_stripe_id: session.id,
       })
-
-      // Mark purchase as fulfilled
-      await admin
-        .from('stripe_purchases')
-        .update({
-          fulfilled: true,
-          stripe_status: 'succeeded',
-          webhook_received_at: new Date().toISOString(),
-        })
-        .eq('stripe_payment_id', session.id)
-
-      // Send notification to player
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('id', profileId)
-        .single()
-
-      if (profile) {
-        await admin.from('notification_queue').insert({
-          profile_id: profileId,
-          title: '⚡ FP Credited!',
-          body: `+${fpAmount} Fighting Points have been added to your account!`,
-          data: { type: 'fp_purchased', amount: fpAmount }
-        })
-      }
-
-      console.log(`✅ Fulfilled ${fpAmount} FP for profile ${profileId}`)
-
     } catch (err) {
-      console.error('Failed to fulfill purchase:', err)
+      // Grant failed — release the claim so Stripe's retry can fulfill again.
+      console.error('Failed to grant FP, rolling back claim:', err)
+      await admin.from('stripe_purchases').update({ fulfilled: false }).eq('stripe_payment_id', session.id)
       return NextResponse.json({ error: 'Fulfillment failed' }, { status: 500 })
     }
+
+    // Best-effort notification — must never un-fulfill or 500 the purchase.
+    try {
+      await admin.from('notification_queue').insert({
+        profile_id: profileId,
+        title: '⚡ FP Credited!',
+        body: `+${fpAmount} Fighting Points have been added to your account!`,
+        data: { type: 'fp_purchased', amount: fpAmount },
+      })
+    } catch (err) {
+      console.error('notification insert failed (non-fatal):', err)
+    }
+
+    console.log(`✅ Fulfilled ${fpAmount} FP for profile ${profileId}`)
   }
 
   if (event.type === 'payment_intent.payment_failed') {

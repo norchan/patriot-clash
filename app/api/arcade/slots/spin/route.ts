@@ -51,9 +51,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const newBalance = profile.fp_balance - bet + totalPayout
-    const { error } = await admin.from('profiles').update({ fp_balance: newBalance }).eq('id', profile.id)
-    if (error) throw error
+    // Atomic: deduct the bet (fails if the balance raced below it), then credit
+    // the winnings. Each is a ledger row; never read-modify-write the balance.
+    const { data: afterBet, error: betErr } = await admin.rpc('spend_fp', {
+      p_profile_id: profile.id, p_amount: bet,
+      p_type: 'arcade', p_reference_type: 'slots', p_description: 'Slots bet',
+    })
+    if (betErr) {
+      return NextResponse.json({ error: 'INSUFFICIENT_FP', balance: profile.fp_balance }, { status: 400 })
+    }
+    let newBalance = afterBet as number
+    if (totalPayout > 0) {
+      const { data: afterWin, error: winErr } = await admin.rpc('grant_fp', {
+        p_profile_id: profile.id, p_amount: totalPayout,
+        p_type: 'arcade', p_reference_type: 'slots', p_description: 'Slots win',
+      })
+      if (winErr) throw winErr
+      newBalance = afterWin as number
+    }
 
     return NextResponse.json({
       bet,

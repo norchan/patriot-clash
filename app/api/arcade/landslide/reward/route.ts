@@ -29,11 +29,15 @@ export async function POST(req: NextRequest) {
 
     const admin = createSupabaseAdminClient()
     const { data: profile } = await admin
-      .from('profiles').select('id, fp_balance').eq('clerk_user_id', userId).single()
+      .from('profiles').select('id').eq('clerk_user_id', userId).single()
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
-    const newBalance = profile.fp_balance + award
-    const { error } = await admin.from('profiles').update({ fp_balance: newBalance }).eq('id', profile.id)
+    // Atomic credit (records a ledger row); never read-modify-write the balance.
+    const { data: newBalance, error } = await admin.rpc('grant_fp', {
+      p_profile_id: profile.id, p_amount: award,
+      p_type: 'arcade', p_reference_type: 'landslide',
+      p_description: `Landslide ${body.event}`,
+    })
     if (error) throw error
 
     return NextResponse.json({ awarded: award, balance: newBalance })

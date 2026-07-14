@@ -22,8 +22,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid step count' }, { status: 400 })
     }
 
-    // Use today's date if not provided
+    // Use today's date if not provided. Validate format — it flows into a
+    // filter expression below, so it must be a plain YYYY-MM-DD.
     const recordDate = date || new Date().toISOString().split('T')[0]
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(recordDate)) {
+      return NextResponse.json({ error: 'Invalid date' }, { status: 400 })
+    }
 
     // ── Anti-cheat clamps ─────────────────────────────────────────────────
     // Steps are client-reported (device motion) so they can be spoofed; the
@@ -63,21 +67,24 @@ export async function POST(req: NextRequest) {
       .eq('id', profile.id)
       .single()
 
-    // Check for daily bonus (first sync of the day)
+    // Daily bonus (first sync of the day). Claim it ATOMICALLY: a single
+    // conditional UPDATE that only matches if today's bonus isn't already
+    // claimed. Concurrent first-syncs then can't both win → no double 1000 FP.
     let dailyBonusAwarded = 0
-    if (profile.last_daily_bonus !== recordDate) {
-      dailyBonusAwarded = 1000 // daily bonus, auto-granted on first sync
+    const { data: claimedRows } = await admin
+      .from('profiles')
+      .update({ last_daily_bonus: recordDate })
+      .eq('id', profile.id)
+      .or(`last_daily_bonus.is.null,last_daily_bonus.neq.${recordDate}`)
+      .select('id')
+    if (claimedRows && claimedRows.length > 0) {
+      dailyBonusAwarded = 1000 // we won the claim → grant exactly once
       await admin.rpc('grant_fp', {
         p_profile_id: profile.id,
         p_amount: dailyBonusAwarded,
         p_type: 'daily_bonus',
-        p_description: `Daily login bonus: ${recordDate}`
+        p_description: `Daily login bonus: ${recordDate}`,
       })
-
-      await admin
-        .from('profiles')
-        .update({ last_daily_bonus: recordDate })
-        .eq('id', profile.id)
     }
 
     return NextResponse.json({

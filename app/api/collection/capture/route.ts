@@ -19,25 +19,27 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('id, fp_balance, total_captures')
+      .select('id, total_captures')
       .eq('clerk_user_id', userId)
       .single()
 
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
     const cost = CAPTURE_COSTS[enemy.tier]
-    if (profile.fp_balance < cost) {
-      return NextResponse.json({ error: 'INSUFFICIENT_FP' }, { status: 400 })
-    }
 
     // Duplicates are allowed — collect as many of each character as you
     // want; extras can be sold back for FP from the Collection screen
 
-    // Spend FP
-    await admin
-      .from('profiles')
-      .update({ fp_balance: profile.fp_balance - cost })
-      .eq('id', profile.id)
+    // Atomic spend — fails (raises INSUFFICIENT_FP) if the balance can't cover
+    // the cost, so concurrent captures can't overdraw. Never read-modify-write.
+    const { error: spendErr } = await admin.rpc('spend_fp', {
+      p_profile_id: profile.id, p_amount: cost,
+      p_type: 'capture', p_reference_type: 'enemy',
+      p_description: `Capture attempt: ${enemy.name}`,
+    })
+    if (spendErr) {
+      return NextResponse.json({ error: 'INSUFFICIENT_FP' }, { status: 400 })
+    }
 
     // Roll capture chance
     const rate = CAPTURE_RATES[enemy.tier]
