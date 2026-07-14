@@ -95,10 +95,15 @@ function StreetFightPage() {
   const [myAttacking, setMyAttacking] = useState(false)
   const [foeAttacking, setFoeAttacking] = useState(false)
   // 3D arena: bump a key on each attack's rising edge → plays the punch clip
-  const [playerAtkKey, setPlayerAtkKey] = useState(0)
+  const [playerAtkKey, setPlayerAtkKey] = useState(0)   // 3D punch trigger
   const [oppAtkKey, setOppAtkKey] = useState(0)
-  useEffect(() => { if (myAttacking) setPlayerAtkKey(k => k + 1) }, [myAttacking])
-  useEffect(() => { if (foeAttacking) setOppAtkKey(k => k + 1) }, [foeAttacking])
+  const [playerKickKey, setPlayerKickKey] = useState(0) // 3D kick trigger
+  const [oppKickKey, setOppKickKey] = useState(0)
+  const [playerHitKey, setPlayerHitKey] = useState(0)   // 3D hit-reaction trigger
+  const [oppHitKey, setOppHitKey] = useState(0)
+  const isKick = (m: Move) => m === 'kick' || m === 'jumpkick'
+  const myMoveAnim = (m: Move) => isKick(m) ? setPlayerKickKey(k => k + 1) : setPlayerAtkKey(k => k + 1)
+  const foeMoveAnim = (m: Move) => isKick(m) ? setOppKickKey(k => k + 1) : setOppAtkKey(k => k + 1)
   // D-pad movement for the 3D player fighter
   const [playerX, setPlayerX] = useState(-1)     // position along the fight line
   const [playerY, setPlayerY] = useState(0)       // jump height
@@ -121,7 +126,11 @@ function StreetFightPage() {
   // Mirror positional/guard state into the fight-loop ref so the realtime AI
   // logic can read fresh values. Contact-based combat: a hit only lands when
   // the two fighters are within STRIKE_RANGE.
-  useEffect(() => { L.current.playerX = playerX }, [playerX])
+  useEffect(() => {
+    L.current.playerX = playerX
+    // human PvP: share my position (channelRef is only set in realtime fights)
+    channelRef.current?.send({ type: 'broadcast', event: 'pos', payload: { x: playerX } })
+  }, [playerX])
   useEffect(() => { L.current.oppX = oppX }, [oppX])
   useEffect(() => { L.current.blocking = blocking }, [blocking])
   useEffect(() => { L.current.ducking = playerDuck }, [playerDuck])
@@ -445,7 +454,7 @@ function StreetFightPage() {
     counts: { taps: 0, kicks: 0, jumpkicks: 0, blocks: 0, combos: 0, specials: 0 },
     myHp: 100, foeHp: 100, meter: 0,
     // positional combat: fighter positions + guard state (mirrored from React)
-    playerX: -1, oppX: 1, blocking: false, ducking: false, airborne: false,
+    playerX: -1, oppX: 1, blocking: false, ducking: false, airborne: false, foeSpaceUntil: 0,
   })
   const foeStats = fighterStats(foeLevel)
   const myRole = isChallenger ? 'c' : 'd'
@@ -494,16 +503,19 @@ function StreetFightPage() {
       const heavy = def.mult > 1
       const now = Date.now()
       setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
+      foeMoveAnim(p.move) // 3D: play punch or kick
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
 
       let result: 'hit' | 'blocked' | 'dodged' = 'hit'
       let dmg = 0
-      if (now < S.dodgeUntil) {
+      const outOfRange = dist(S.oppX, S.playerX) > STRIKE_RANGE
+      const guarding = S.blockHeld || S.blocking
+      if (outOfRange || now < S.dodgeUntil || S.ducking || S.airborne) {
         result = 'dodged'
-        addSpark(false, 'DODGED!', '#4ade80')
+        addSpark(false, outOfRange ? 'WHIFF' : 'DODGED!', outOfRange ? '#9ca3af' : '#4ade80')
         sfx.whoosh()
-      } else if (S.blockHeld) {
+      } else if (guarding) {
         result = 'blocked'
         dmg = Math.max(0, Math.floor(strikeDamage(foeLevel, def.mult) * 0.15))
         S.counts.blocks++
@@ -513,6 +525,7 @@ function StreetFightPage() {
         dmg = strikeDamage(foeLevel, def.mult)
         setMyPose('hit'); reel(false); addBurst(false, heavy)
         addSpark(false, `-${dmg}`, '#f87171')
+        setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.16); setPlayerX(S.playerX) // 3D flinch + knockback
         if (p.move === 'kick' || p.move === 'jumpkick') sfx.kick()
         else sfx.punch(heavy)
         setShake(true); setTimeout(() => setShake(false), 170)
@@ -533,6 +546,7 @@ function StreetFightPage() {
       if (p.result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, p.dmg >= 10)
         addSpark(true, `-${p.dmg}`, '#facc15')
+        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.16); setOppX(S.oppX) // 3D flinch + knockback
         S.meter = Math.min(100, S.meter + p.dmg * 1.7)
         setMeter(S.meter)
         if (p.dmg >= 10) { bumpCrowd(); sfx.crowd(0.3) }
@@ -552,6 +566,8 @@ function StreetFightPage() {
     ch
       .on('broadcast', { event: 'move' }, ({ payload }) => applyIncomingAttack(payload))
       .on('broadcast', { event: 'result' }, ({ payload }) => applyMyAttackResult(payload))
+      // opponent's position (mirrored: their left-side X → our right-side X)
+      .on('broadcast', { event: 'pos' }, ({ payload }) => { S.oppX = -payload.x; setOppX(-payload.x) })
       .on('presence', { event: 'sync' }, () => {
         const roles = Object.keys(ch.presenceState())
         const both = roles.includes('c') && roles.includes('d')
@@ -693,6 +709,7 @@ function StreetFightPage() {
 
     const heavy = actual !== 'jab' && actual !== 'cross'
     setMyPose(MOVE_POSE[actual]); setMyAttacking(true)
+    myMoveAnim(actual) // 3D: play punch or kick
     setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
     setMoveText(`YOU: ${MOVE_LABELS[actual]}`)
 
@@ -729,6 +746,7 @@ function StreetFightPage() {
       if (result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, heavy)
         addSpark(true, `-${dmg}`, '#facc15')
+        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.16); setOppX(S.oppX) // 3D flinch + knockback
         if (actual === 'kick' || actual === 'jumpkick') sfx.kick()
         else sfx.punch(heavy)
         S.meter = Math.min(100, S.meter + dmg * 1.7)
@@ -775,9 +793,11 @@ function StreetFightPage() {
       // AI opponent only (bots / ghosts) — humans attack via the channel
       if (realtime && !S.ghost) return
 
-      // Approach: step toward the player until within striking range
+      // Approach: step toward the player until within striking range; after an
+      // attack, hold at a longer distance briefly (spacing) before closing again
       if (!S.foeWindupAt) {
-        const target = (S.playerX ?? -1) + STRIKE_RANGE * 0.82
+        const spacing = now < S.foeSpaceUntil ? STRIKE_RANGE * 1.4 : STRIKE_RANGE * 0.82
+        const target = (S.playerX ?? -1) + spacing
         if (S.oppX > target + 0.04) { S.oppX = Math.max(target, S.oppX - FOE_STEP); setOppX(S.oppX) }
         else if (S.oppX < target - 0.04) { S.oppX = Math.min(target, S.oppX + FOE_STEP); setOppX(S.oppX) }
       }
@@ -789,6 +809,7 @@ function StreetFightPage() {
         const def = MOVES.find(m => m.move === S.foeMove)!
         const heavy = def.mult > 1
         setFoePose(MOVE_POSE[S.foeMove]); setFoeAttacking(true)
+        foeMoveAnim(S.foeMove) // 3D: play punch or kick
         setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
         setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[S.foeMove]}`)
         let dmg = strikeDamage(foeLevel, def.mult)
@@ -809,6 +830,7 @@ function StreetFightPage() {
         } else {
           setMyPose('hit'); reel(false); addBurst(false, heavy)
           addSpark(false, `-${dmg}`, '#f87171')
+          setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.16); setPlayerX(S.playerX) // 3D flinch + knockback
           if (S.foeMove === 'kick' || S.foeMove === 'jumpkick') sfx.kick()
           else sfx.punch(heavy)
           setShake(true); setTimeout(() => setShake(false), 170)
@@ -819,6 +841,7 @@ function StreetFightPage() {
         setMyHp(S.myHp)
         if (S.myHp === 0) { endFight(false, true); return }
         S.foeNextAt = now + foeInterval()
+        S.foeSpaceUntil = now + 650 // step back after attacking (spacing)
       } else if (!S.foeWindupAt && now >= S.foeNextAt && dist(S.oppX ?? 1, S.playerX ?? -1) <= STRIKE_RANGE) {
         // Wind up (only when in range): telegraphed — block, duck, or jump back NOW
         const pool = movesForLevel(foeLevel)
@@ -1139,6 +1162,10 @@ function StreetFightPage() {
             oppPrefix={oppPvpFighter}
             playerAttackKey={playerAtkKey}
             oppAttackKey={oppAtkKey}
+            playerKickKey={playerKickKey}
+            oppKickKey={oppKickKey}
+            playerHitKey={playerHitKey}
+            oppHitKey={oppHitKey}
             playerX={playerX}
             playerY={playerY}
             playerDuck={playerDuck}

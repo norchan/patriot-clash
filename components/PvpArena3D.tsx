@@ -26,25 +26,29 @@ const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 
-function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attackKey }:
-  { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; attackKey: number }) {
-  // resting loop = a focused COMBAT STANCE (not the casual, swaying idle)
-  const idleGltf = useGLTF(`/models/${prefix}_stance.glb`)
+function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attackKey, kickKey = 0, hitKey = 0 }:
+  { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; attackKey: number; kickKey?: number; hitKey?: number }) {
+  // resting loop = a focused COMBAT STANCE; punch/kick/hit are one-shots
+  const stanceGltf = useGLTF(`/models/${prefix}_stance.glb`)
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb`)
-  const scene = idleGltf.scene
+  const kickGltf = useGLTF(`/models/${prefix}_kick.glb`)
+  const hitGltf = useGLTF(`/models/${prefix}_hit.glb`)
+  const scene = stanceGltf.scene
   const fit = useRef<THREE.Group>(null!)
-  const prevKey = useRef(0)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
 
-  const { mixer, idleAction, punchAction } = useMemo(() => {
+  const { mixer, stance, shots } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
-    const ia = idleGltf.animations[0] ? m.clipAction(idleGltf.animations[0]) : null
-    const pa = punchGltf.animations[0] ? m.clipAction(punchGltf.animations[0]) : null
-    if (pa) { pa.setLoop(THREE.LoopOnce, 1); pa.clampWhenFinished = true }
-    return { mixer: m, idleAction: ia, punchAction: pa }
-  }, [scene, idleGltf.animations, punchGltf.animations])
+    const st = stanceGltf.animations[0] ? m.clipAction(stanceGltf.animations[0]) : null
+    const oneShot = (g: { animations: THREE.AnimationClip[] }) => {
+      const a = g.animations[0] ? m.clipAction(g.animations[0]) : null
+      if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true }
+      return a
+    }
+    return { mixer: m, stance: st, shots: { punch: oneShot(punchGltf), kick: oneShot(kickGltf), hit: oneShot(hitGltf) } }
+  }, [scene, stanceGltf.animations, punchGltf.animations, kickGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
     const box = new THREE.Box3().setFromObject(scene)
@@ -55,15 +59,22 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attac
     if (hips) hips0.current = hips.position.clone()
   }, [scene, hips])
 
-  useEffect(() => { idleAction?.reset().play() }, [idleAction])
+  useEffect(() => { stance?.reset().play() }, [stance])
+  // return to stance whenever a one-shot (punch/kick/hit) finishes
   useEffect(() => {
-    if (attackKey <= 0 || attackKey === prevKey.current || !punchAction) return
-    prevKey.current = attackKey
-    punchAction.reset().fadeIn(0.08).play(); idleAction?.fadeOut(0.08)
-    const onFin = (e: any) => { if (e.action === punchAction) { idleAction?.reset().fadeIn(0.2).play(); punchAction.fadeOut(0.2) } }
+    const onFin = (e: any) => {
+      if (e.action === shots.punch || e.action === shots.kick || e.action === shots.hit) {
+        stance?.reset().fadeIn(0.15).play(); e.action.fadeOut(0.15)
+      }
+    }
     mixer.addEventListener('finished', onFin)
     return () => mixer.removeEventListener('finished', onFin)
-  }, [attackKey, mixer, idleAction, punchAction])
+  }, [mixer, shots, stance])
+  const playShot = (a: THREE.AnimationAction | null) => { if (!a) return; a.reset().fadeIn(0.06).play(); stance?.fadeOut(0.06) }
+  const pAtk = useRef(0), pKick = useRef(0), pHit = useRef(0)
+  useEffect(() => { if (attackKey > pAtk.current) { pAtk.current = attackKey; playShot(shots.punch) } }, [attackKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (kickKey > pKick.current) { pKick.current = kickKey; playShot(shots.kick) } }, [kickKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (hitKey > pHit.current) { pHit.current = hitKey; playShot(shots.hit) } }, [hitKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((state, dt) => {
     mixer.update(dt)
@@ -177,8 +188,8 @@ function Street() {
   )
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 0, oppAttackKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1 }:
-  { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 0, oppAttackKey = 0, playerKickKey = 0, oppKickKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1 }:
+  { playerPrefix: string; oppPrefix?: string; playerAttackKey?: number; oppAttackKey?: number; playerKickKey?: number; oppKickKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.5, 5.6] : [0, 2.1, 8.2], fov: 40 }}
@@ -199,8 +210,10 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerAttackKey = 
         ) : (
           // planted on their sides, always facing each other; player can move/jump/duck
           <>
-            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX} attackKey={playerAttackKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} targetX={playerX} attackKey={oppAttackKey} />}
+            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX}
+              attackKey={playerAttackKey} kickKey={playerKickKey} hitKey={playerHitKey} />
+            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} targetX={playerX}
+              attackKey={oppAttackKey} kickKey={oppKickKey} hitKey={oppHitKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />

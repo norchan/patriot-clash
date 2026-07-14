@@ -212,7 +212,10 @@
       "Bash(xargs echo \"stance models:\")",
       "Bash(node -e 'const fs=require\\(\"fs\"\\);const b=fs.readFileSync\\(\"public/models/fighter1_stance.glb\"\\);const l=b.readUInt32LE\\(12\\);const j=JSON.parse\\(b.slice\\(20,20+l\\).toString\\(\\)\\);console.log\\(\"fighter1 stance clip:\",\\(j.animations||[]\\).map\\(a=>a.name\\)\\)')",
       "Bash(git commit -q -m 'PvP fighters use Combat_Stance as the resting loop \\(focused, minimal sway\\) instead of the casual idle *)",
-      "Bash(git commit -q -m 'PvP positional combat: hits only land in range; opponent approaches to close distance; D-pad block reduces damage, duck/jump dodge, backing out whiffs. Opponent moves in 3D \\(oppX\\) *)"
+      "Bash(git commit -q -m 'PvP positional combat: hits only land in range; opponent approaches to close distance; D-pad block reduces damage, duck/jump dodge, backing out whiffs. Opponent moves in 3D \\(oppX\\) *)",
+      "Bash(node scripts/meshy_fighter_anims.mjs)",
+      "Bash(xargs echo \"hit+kick models:\")",
+      "Bash(git commit -q -m 'PvP polish \\(all four\\): 3D hit-reaction on getting hit; distinct kick animation on swipe/kick; human-vs-human is now positional \\(position synced over channel, range/duck/block gates\\); knockback on hits + foe backs off after attacking for spacing *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
