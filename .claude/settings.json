@@ -206,7 +206,9 @@
       "Bash(git commit -q -m 'PvP arena framing: pull camera in + aim at fighters, bring them close together so the action fills the phone screen and punches connect *)",
       "Bash(git commit -q -m 'PvP arena: zoom out + target-based facing with one tunable \\(FRONT_FIX\\) so fighters aim at each other; ready to calibrate orientation *)",
       "Bash(git commit -q -m 'PvP arena: FRONT_FIX=PI/2 \\(models'\\\\'' front is local -X\\) so picker faces camera + versus fighters face and punch toward each other *)",
-      "Bash(git commit -q -m 'PvP: plant fighters \\(strip root motion so they stay 2D on their sides facing each other\\) + D-pad controller \\(move/jump/duck/block\\) driving the 3D player + bigger arena + more zoom-out *)"
+      "Bash(git commit -q -m 'PvP: plant fighters \\(strip root motion so they stay 2D on their sides facing each other\\) + D-pad controller \\(move/jump/duck/block\\) driving the 3D player + bigger arena + more zoom-out *)",
+      "Bash(node scripts/meshy_stance.mjs)",
+      "Bash(git commit -q -m 'PvP fighters: remove head sway \\(stay focused, no looking around\\); stance regen script *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

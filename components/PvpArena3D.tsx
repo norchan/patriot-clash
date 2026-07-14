@@ -69,7 +69,8 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attac
     // PLANT the fighter: strip horizontal root motion so they stay on their
     // side and don't wander/pass through each other (2D-fighter feel)
     if (hips && hips0.current) { hips.position.x = hips0.current.x; hips.position.z = hips0.current.z }
-    if (head) { head.scale.setScalar(HEAD_SCALE); const t = state.clock.elapsedTime; head.rotation.z += Math.sin(t * 3.3) * 0.05; head.rotation.x += Math.cos(t * 2.6) * 0.04 }
+    // oversized head, but NO sway — the fighter stays focused on the opponent
+    if (head) head.scale.setScalar(HEAD_SCALE)
   })
 
   const faceY = faceToward(x, 0.6, targetX, targetZ)
