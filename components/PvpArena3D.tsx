@@ -20,6 +20,9 @@ export const FIGHTERS: FighterMeta[] = [
 ]
 
 const HEAD_SCALE = 1.0 // natural proportions — match the reference guard stills
+// Bump when the GLBs are regenerated at the same path, to bust browser/CDN cache
+// (v2 = closed-fist rebuild).
+const MODEL_VER = 2
 
 // Correction for the model's front axis (these Meshy models' front is local -X).
 // Fighters always aim at their target; change by ±PI/2 if they don't face it.
@@ -32,9 +35,9 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
   // Real boxing kit. The Left_Jab clip starts AND ends in a proper fists-up
   // boxing guard, so its frame 0 doubles as the held GUARD (fists at the face).
   // One-shots: straight punch (right), the jab (left), and a hit reaction.
-  const punchGltf = useGLTF(`/models/${prefix}_punch.glb`)
-  const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb`)
-  const hitGltf = useGLTF(`/models/${prefix}_hit.glb`)
+  const punchGltf = useGLTF(`/models/${prefix}_punch.glb?v=${MODEL_VER}`)
+  const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb?v=${MODEL_VER}`)
+  const hitGltf = useGLTF(`/models/${prefix}_hit.glb?v=${MODEL_VER}`)
   const scene = jabLGltf.scene
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])

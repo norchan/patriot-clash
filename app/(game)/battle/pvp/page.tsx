@@ -854,30 +854,7 @@ function StreetFightPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
-  // ── Live inputs: touch (tap/swipe/hold), mouse, and keyboard ─────────────
-  function liveTouchStart(x: number, y: number) {
-    const S = L.current
-    if (phase !== 'live' || S.over) return
-    S.touchX = x; S.touchY = y; S.touchT = Date.now(); S.lastTouch = Date.now()
-    S.blockTimer = setTimeout(() => {
-      S.blockHeld = true
-      setMyPose('block')
-      buzz(10)
-    }, 230)
-  }
-  function liveTouchEnd(x: number, y: number) {
-    const S = L.current
-    if (phase !== 'live') return
-    S.lastTouch = Date.now()
-    if (S.blockTimer) { clearTimeout(S.blockTimer); S.blockTimer = 0 }
-    if (S.blockHeld) {
-      S.blockHeld = false
-      if (!S.over) setMyPose('idle')
-      return
-    }
-    // Boxing: any tap or swipe throws a jab (movement lives on the D-pad)
-    playerStrike()
-  }
+  // ── Live inputs: on-screen pads handle touch; keyboard is the desktop path ──
   useEffect(() => {
     if (phase !== 'live') return
     const down = (e: KeyboardEvent) => {
@@ -1015,18 +992,10 @@ function StreetFightPage() {
       )}
 
       {/* ══ STREET STAGE ══════════════════════════════════════════════════ */}
-      {/* LIVE fights: the stage is the controller (tap/swipe/hold). Replays
-          of old fights: taps just hype the crowd. */}
+      {/* LIVE fights are controlled by the on-screen pads (D-pad + attack pad),
+          NOT stage taps. Replays: tapping the stage just hypes the crowd. */}
       <div className="relative overflow-hidden select-none flex-1 min-h-0"
-        onClick={() => {
-          if (phase === 'live') {
-            // Desktop click = punch; suppress the synthetic click after touch
-            if (Date.now() - L.current.lastTouch < 600) return
-            playerStrike()
-          } else if (phase === 'fighting') { bumpCrowd(); sfx.crowd(0.35) }
-        }}
-        onTouchStart={e => liveTouchStart(e.touches[0].clientX, e.touches[0].clientY)}
-        onTouchEnd={e => liveTouchEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
+        onClick={() => { if (phase === 'fighting') { bumpCrowd(); sfx.crowd(0.35) } }}
         style={{
           animation: shake ? 'sfShake 0.16s linear' : 'none',
           transform: zoom ? 'scale(1.07)' : 'scale(1)',
@@ -1244,6 +1213,23 @@ function StreetFightPage() {
           </div>
         )}
 
+        {/* ── ATTACK PAD (live fights): tap = jab, quick double-tap = 1-2 combo ── */}
+        {phase === 'live' && (
+          <div className="absolute z-30 pointer-events-auto select-none"
+            style={{ right: 14, bottom: 16, width: 132, height: 132 }}
+            onClick={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+            <button title="Jab" aria-label="Jab"
+              className="absolute rounded-full bg-red-600/85 border-2 border-white/45 text-white flex flex-col items-center justify-center active:bg-red-400/95 active:scale-95 transition shadow-lg"
+              style={{ right: 6, bottom: 6, width: 108, height: 108 }}
+              onContextMenu={e => e.preventDefault()}
+              onPointerDown={e => { e.stopPropagation(); e.preventDefault(); playerStrike() }}>
+              <span className="text-3xl leading-none">👊</span>
+              <span className="text-[11px] font-black tracking-wide mt-0.5">JAB</span>
+            </button>
+          </div>
+        )}
+
         {/* skip hint */}
       </div>
 
@@ -1261,8 +1247,8 @@ function StreetFightPage() {
           <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
         ) : phase === 'live' ? (
           <div className="text-center space-y-1">
-            <p className="text-white/80 text-xs font-bold">👊 TAP = jab · double-tap = 1-2 combo</p>
-            <p className="text-gray-400 text-[11px]">D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — move in to land hits</p>
+            <p className="text-white/80 text-xs font-bold">👊 Right pad = jab · quick double-tap = 1-2 combo</p>
+            <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block</p>
           </div>
         ) : phase !== 'done' ? (
           <p className="text-gray-600 text-xs text-center">🥊 Street fight in progress — one round, 30 seconds</p>
