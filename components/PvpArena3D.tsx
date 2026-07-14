@@ -28,7 +28,8 @@ const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan
 
 function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, attackKey }:
   { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; attackKey: number }) {
-  const idleGltf = useGLTF(`/models/${prefix}_idle.glb`)
+  // resting loop = a focused COMBAT STANCE (not the casual, swaying idle)
+  const idleGltf = useGLTF(`/models/${prefix}_stance.glb`)
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb`)
   const scene = idleGltf.scene
   const fit = useRef<THREE.Group>(null!)
