@@ -30,18 +30,25 @@ const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 
-function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKey = 0, jabLKey = 0, hitKey = 0 }:
-  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; jabRKey?: number; jabLKey?: number; hitKey?: number }) {
+function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKey = 0, jabLKey = 0, kickKey = 0, hitKey = 0 }:
+  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; jabRKey?: number; jabLKey?: number; kickKey?: number; hitKey?: number }) {
   // Real boxing kit. The Left_Jab clip starts AND ends in a proper fists-up
   // boxing guard, so its frame 0 doubles as the held GUARD (fists at the face).
-  // One-shots: straight punch (right), the jab (left), and a hit reaction.
+  // One-shots: straight punch (right), the jab (left), a straight KICK
+  // (Boxing_Guard_Right_Straight_Kick), and a hit reaction.
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb?v=${MODEL_VER}`)
   const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb?v=${MODEL_VER}`)
+  const kickGltf = useGLTF(`/models/${prefix}_kick.glb?v=${MODEL_VER}`)
   const hitGltf = useGLTF(`/models/${prefix}_hit.glb?v=${MODEL_VER}`)
   const scene = jabLGltf.scene
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
+  // These Meshy meshes have OPEN flat hands baked in (no finger bones — the
+  // t-pose conversion discards the fist art). Squash the hand bones every frame
+  // (short along the fingers, chunkier across) so they read as closed FISTS.
+  const handL = useMemo(() => scene.getObjectByName('LeftHand') ?? null, [scene])
+  const handR = useMemo(() => scene.getObjectByName('RightHand') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
 
   const { mixer, guard, guardHold, shots } = useMemo(() => {
@@ -66,10 +73,11 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
       shots: {
         jabR: oneShot(punchGltf, 1.45, 2.4), // straight: strike at ~2.0s in the raw clip
         jabL: oneShot(jabLGltf, 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
+        kick: oneShot(kickGltf, 0.35, 1.6),  // straight kick: extension ~0.75s in the raw clip
         hit: oneShot(hitGltf, 0.12, 1.6),
       },
     }
-  }, [scene, punchGltf.animations, jabLGltf.animations, hitGltf.animations])
+  }, [scene, punchGltf.animations, jabLGltf.animations, kickGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
     // Apply the guard pose BEFORE measuring so the fighter is fit + grounded by its
@@ -95,7 +103,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
   }
   const playShot = (s: Shot | null) => {
     if (!s) return
-    for (const o of [shots.jabR, shots.jabL, shots.hit]) {
+    for (const o of [shots.jabR, shots.jabL, shots.kick, shots.hit]) {
       if (o && o.a !== s.a) { o.a.stop(); o.a.setEffectiveWeight(0) }
     }
     guard?.setEffectiveWeight(0)
@@ -108,7 +116,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
   }
   useEffect(() => {
     const onFin = (e: any) => {
-      if (e.action === shots.jabR?.a || e.action === shots.jabL?.a || e.action === shots.hit?.a) {
+      if (e.action === shots.jabR?.a || e.action === shots.jabL?.a || e.action === shots.kick?.a || e.action === shots.hit?.a) {
         e.action.setEffectiveWeight(0); e.action.stop()
         // only fall back to guard if this was the most recent move
         if (active.current === e.action) { active.current = null; restoreGuard() }
@@ -117,9 +125,10 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
     mixer.addEventListener('finished', onFin)
     return () => mixer.removeEventListener('finished', onFin)
   }, [mixer, shots, guard, guardHold]) // eslint-disable-line react-hooks/exhaustive-deps
-  const pR = useRef(0), pL = useRef(0), pH = useRef(0)
+  const pR = useRef(0), pL = useRef(0), pK = useRef(0), pH = useRef(0)
   useEffect(() => { if (jabRKey > pR.current) { pR.current = jabRKey; playShot(shots.jabR) } }, [jabRKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (jabLKey > pL.current) { pL.current = jabLKey; playShot(shots.jabL) } }, [jabLKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (kickKey > pK.current) { pK.current = kickKey; playShot(shots.kick) } }, [kickKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (hitKey > pH.current) { pH.current = hitKey; playShot(shots.hit) } }, [hitKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((state, dt) => {
@@ -129,6 +138,10 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
     if (hips && hips0.current) { hips.position.x = hips0.current.x; hips.position.z = hips0.current.z }
     // oversized head, but NO sway — the fighter stays focused on the opponent
     if (head) head.scale.setScalar(HEAD_SCALE)
+    // CLOSED FISTS: squash the open-paddle hands into compact fists every frame
+    // (short along the fingers, chunkier across) — render-verified at game distance
+    if (handL) handL.scale.set(1.2, 0.45, 1.2)
+    if (handR) handR.scale.set(1.2, 0.45, 1.2)
   })
 
   // Opponent (player 2) is MIRRORED across X — like every fighting game — so its
@@ -154,8 +167,8 @@ function Backdrop({ url }: { url: string }) {
 }
 
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry' }:
-  { playerPrefix: string; oppPrefix?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickKey = 0, oppKickKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry' }:
+  { playerPrefix: string; oppPrefix?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickKey?: number; oppKickKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
@@ -177,9 +190,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
           // rotation.y = +PI/2 points the fighter down the +X axis.)
           <>
             <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={Math.PI / 2}
-              jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
+              jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickKey={playerKickKey} hitKey={playerHitKey} />
             {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-Math.PI / 2} mirror
-              jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
+              jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickKey={oppKickKey} hitKey={oppHitKey} />}
           </>
         )}
         <ContactShadows position={[0, 0.01, 0.6]} opacity={0.65} scale={12} blur={2.6} far={5} color="#000000" />

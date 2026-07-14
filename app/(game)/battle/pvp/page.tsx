@@ -103,9 +103,13 @@ function StreetFightPage() {
   const [playerJabLKey, setPlayerJabLKey] = useState(0)
   const [oppJabRKey, setOppJabRKey] = useState(0)
   const [oppJabLKey, setOppJabLKey] = useState(0)
+  const [playerKickKey, setPlayerKickKey] = useState(0)
+  const [oppKickKey, setOppKickKey] = useState(0)
   const [playerHitKey, setPlayerHitKey] = useState(0)
   const [oppHitKey, setOppHitKey] = useState(0)
   const myJab = (right: boolean) => right ? setPlayerJabRKey(k => k + 1) : setPlayerJabLKey(k => k + 1)
+  const myKick = () => setPlayerKickKey(k => k + 1)
+  const foeKick = () => setOppKickKey(k => k + 1)
   const foeJab = (right: boolean) => right ? setOppJabRKey(k => k + 1) : setOppJabLKey(k => k + 1)
   // D-pad movement for the 3D player fighter
   const [playerX, setPlayerX] = useState(-ANCHOR) // position along the fight line
@@ -522,7 +526,8 @@ function StreetFightPage() {
       const heavy = def.mult > 1
       const now = Date.now()
       setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
-      foeJab(!!p.right) // 3D: right or left jab
+      if (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') foeKick() // 3D: real kick clip
+      else foeJab(!!p.right) // 3D: right or left jab
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
 
@@ -717,7 +722,8 @@ function StreetFightPage() {
     const kicky = move === 'kick' || move === 'hook' || move === 'jumpkick'
     buzz(8) // immediate tactile press feedback; the visual pose changes this frame
     setMyPose(MOVE_POSE['jab']); setMyAttacking(true)
-    myJab(right) // 3D: right = power straight clip, left = jab clip
+    if (kicky) myKick() // 3D: real straight-kick clip
+    else myJab(right)   // 3D: right = power straight clip, left = jab clip
     setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
     setMoveText(`YOU: ${label}`)
 
@@ -791,12 +797,12 @@ function StreetFightPage() {
   function playerHighKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('kick', false, 'HIGH KICK', 150)
+    strikeCore('kick', false, 'HIGH KICK', 250) // kick clip extends ~250ms after press
   }
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('hook', false, 'LOW KICK', 150)
+    strikeCore('hook', false, 'LOW KICK', 250)
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
@@ -1198,6 +1204,8 @@ function StreetFightPage() {
             playerJabLKey={playerJabLKey}
             oppJabRKey={oppJabRKey}
             oppJabLKey={oppJabLKey}
+            playerKickKey={playerKickKey}
+            oppKickKey={oppKickKey}
             playerHitKey={playerHitKey}
             oppHitKey={oppHitKey}
             playerX={playerX}
