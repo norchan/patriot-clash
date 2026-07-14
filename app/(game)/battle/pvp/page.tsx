@@ -77,7 +77,7 @@ interface ChallengeData {
 interface ChatMessage { id: string; sender_id: string; content: string; created_at: string }
 
 const MOVE_LABELS: Record<string, string> = {
-  jab: 'JAB', cross: 'PUNCH', hook: 'LOW KICK', uppercut: 'UPPERCUT', kick: 'HIGH KICK',
+  jab: 'JAB', cross: 'PUNCH', hook: 'LEG KICK', uppercut: 'UPPERCUT', kick: 'HEAD KICK',
   jumpkick: 'JUMP KICK', special: '★ SPECIAL ★',
 }
 const MOVE_POSE: Record<string, FighterPose> = {
@@ -105,13 +105,15 @@ function StreetFightPage() {
   const [playerJabLKey, setPlayerJabLKey] = useState(0)
   const [oppJabRKey, setOppJabRKey] = useState(0)
   const [oppJabLKey, setOppJabLKey] = useState(0)
-  const [playerKickKey, setPlayerKickKey] = useState(0)
-  const [oppKickKey, setOppKickKey] = useState(0)
+  const [playerKickHiKey, setPlayerKickHiKey] = useState(0)
+  const [playerKickLoKey, setPlayerKickLoKey] = useState(0)
+  const [oppKickHiKey, setOppKickHiKey] = useState(0)
+  const [oppKickLoKey, setOppKickLoKey] = useState(0)
   const [playerHitKey, setPlayerHitKey] = useState(0)
   const [oppHitKey, setOppHitKey] = useState(0)
   const myJab = (right: boolean) => right ? setPlayerJabRKey(k => k + 1) : setPlayerJabLKey(k => k + 1)
-  const myKick = () => setPlayerKickKey(k => k + 1)
-  const foeKick = () => setOppKickKey(k => k + 1)
+  const myKick = (high: boolean) => high ? setPlayerKickHiKey(k => k + 1) : setPlayerKickLoKey(k => k + 1)
+  const foeKick = (high: boolean) => high ? setOppKickHiKey(k => k + 1) : setOppKickLoKey(k => k + 1)
   const foeJab = (right: boolean) => right ? setOppJabRKey(k => k + 1) : setOppJabLKey(k => k + 1)
   // D-pad movement for the 3D player fighter
   const [playerX, setPlayerX] = useState(-ANCHOR) // position along the fight line
@@ -465,6 +467,8 @@ function StreetFightPage() {
   const [hint, setHint] = useState('')
   const [submitErr, setSubmitErr] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [endCard, setEndCard] = useState(false)         // ±FP result card, then auto-map
+  const [leaveConfirm, setLeaveConfirm] = useState(false) // "leave mid-fight?" modal
   const [awaitingOpp, setAwaitingOpp] = useState(false)
   const liveStarted = useRef(false)
   const channelRef = useRef<ReturnType<ReturnType<typeof createSupabaseBrowserClient>['channel']> | null>(null)
@@ -528,7 +532,7 @@ function StreetFightPage() {
       const heavy = def.mult > 1
       const now = Date.now()
       setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
-      if (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') foeKick() // 3D: real kick clip
+      if (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') foeKick(p.move !== 'hook') // 3D: aimed kick
       else foeJab(!!p.right) // 3D: right or left jab
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
@@ -628,6 +632,44 @@ function StreetFightPage() {
     return base * (0.75 + Math.random() * 0.5)
   }
 
+  // After a live fight settles: show the ±FP card for ~3s, then unlock the
+  // orientation and REPLACE to the map (back must not reopen the fight).
+  function beginEndCard() {
+    setEndCard(true)
+    setTimeout(() => {
+      try { (screen.orientation as any)?.unlock?.() } catch {}
+      router.replace('/map')
+    }, 3000)
+  }
+
+  // Leaving mid-fight always asks first (Confirm = leave, existing
+  // no-show/abandon rules settle the fight)
+  function confirmLeave() {
+    L.current.over = true
+    setLeaveConfirm(false)
+    try { (screen.orientation as any)?.unlock?.() } catch {}
+    router.replace('/map')
+  }
+  // Browser close/refresh mid-fight → native "are you sure"
+  useEffect(() => {
+    if (phase !== 'live') return
+    const onBefore = (e: BeforeUnloadEvent) => { if (!L.current.over) { e.preventDefault(); e.returnValue = '' } }
+    window.addEventListener('beforeunload', onBefore)
+    return () => window.removeEventListener('beforeunload', onBefore)
+  }, [phase])
+  // Browser BACK mid-fight → our confirm modal (re-push state to stay put)
+  useEffect(() => {
+    if (phase !== 'live') return
+    history.pushState({ pvpFight: true }, '')
+    const onPop = () => {
+      if (L.current.over) return
+      history.pushState({ pvpFight: true }, '')
+      setLeaveConfirm(true)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [phase])
+
   function endFight(won: boolean, ko: boolean) {
     const S = L.current
     if (S.over) return
@@ -665,6 +707,7 @@ function StreetFightPage() {
           setSubmitting(false)
           await fetchChallenge()
           setPhase('done')
+          beginEndCard()
           return
         }
         if (res.status === 409) {
@@ -672,6 +715,7 @@ function StreetFightPage() {
           setSubmitting(false)
           await fetchChallenge()
           setPhase('done')
+          beginEndCard()
           return
         }
         // Validation rejections won't change on retry
@@ -725,7 +769,7 @@ function StreetFightPage() {
     const kicky = move === 'kick' || move === 'hook' || move === 'jumpkick'
     buzz(8) // immediate tactile press feedback; the visual pose changes this frame
     setMyPose(MOVE_POSE['jab']); setMyAttacking(true)
-    if (kicky) myKick() // 3D: real straight-kick clip
+    if (kicky) myKick(move === 'kick') // 3D: real kick clip, aimed high (head) or low (legs)
     else myJab(right)   // 3D: right = power straight clip, left = jab clip
     setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
     setMoveText(`YOU: ${label}`)
@@ -801,12 +845,12 @@ function StreetFightPage() {
   function playerHighKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('kick', false, 'HIGH KICK', 250) // kick clip extends ~250ms after press
+    strikeCore('kick', false, 'HEAD KICK', 250) // aimed high — hits harder
   }
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('hook', false, 'LOW KICK', 250)
+    strikeCore('hook', false, 'LEG KICK', 250) // aimed low — chops the legs
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
@@ -1018,7 +1062,7 @@ function StreetFightPage() {
               ? `${challenge?.challenger_username ?? 'Your challenger'} is fighting your fighter right now — the result will appear here`
               : `Waiting for ${challenge?.defender_username ?? 'your opponent'} to accept`}
           </p>
-          <button onClick={() => router.push('/map')}
+          <button onClick={() => router.replace('/map')}
             className="px-6 py-3 bg-gray-800 text-gray-300 rounded-xl font-bold hover:bg-gray-700 transition">
             ← Back to Map
           </button>
@@ -1040,7 +1084,7 @@ function StreetFightPage() {
             {challenge?.status === 'cancelled' ? reason : `${theirUsername ?? 'Your opponent'} ${reason}`}
           </p>
           <p className="text-gray-600 text-xs mb-6">No FP was exchanged</p>
-          <button onClick={() => router.push('/map')}
+          <button onClick={() => router.replace('/map')}
             className="px-6 py-3 bg-gray-800 text-gray-300 rounded-xl font-bold hover:bg-gray-700 transition">
             ← Back to Map
           </button>
@@ -1059,11 +1103,45 @@ function StreetFightPage() {
       <div className="battle-wipe" />
 
       {/* Landscape brawler — ask the player to turn sideways in portrait */}
-      {!landscape && (
+      {!landscape && !endCard && (
         <div className="fixed inset-0 z-[100] bg-gray-950 flex flex-col items-center justify-center text-center p-8">
           <div className="text-6xl mb-4 animate-pulse">🔄</div>
           <p className="text-white font-black text-xl">Rotate your phone sideways</p>
           <p className="text-gray-400 text-sm mt-2">This is a landscape brawler — turn to fight.</p>
+        </div>
+      )}
+
+      {/* ══ END CARD: the ±FP hero moment, then auto back to the map ══ */}
+      {endCard && (
+        <div className="fixed inset-0 z-[110] bg-black/85 flex flex-col items-center justify-center text-center p-6">
+          <div className="text-6xl mb-3">{iWon ? '🏆' : '💀'}</div>
+          <p className="text-white font-black text-3xl mb-2">{iWon ? 'VICTORY' : 'DEFEAT'}</p>
+          <p className={`font-black text-5xl mb-3 ${iWon ? 'text-green-400' : 'text-red-400'}`}
+            style={{ textShadow: '0 4px 18px rgba(0,0,0,0.6)' }}>
+            {fpStake > 0 ? `${iWon ? '+' : '−'}${fpStake} FP` : 'No FP exchanged'}
+          </p>
+          <p className="text-gray-400 text-sm">Heading back to the map...</p>
+        </div>
+      )}
+
+      {/* ══ LEAVE CONFIRM: never silently drop out of a live fight ══ */}
+      {leaveConfirm && (
+        <div className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-6">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full text-center">
+            <div className="text-4xl mb-2">🚪</div>
+            <p className="text-white font-black text-lg mb-1">Leave the fight?</p>
+            <p className="text-gray-400 text-sm mb-5">Are you sure? Walking out mid-fight forfeits it.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setLeaveConfirm(false)}
+                className="flex-1 py-3 bg-purple-700 hover:bg-purple-600 text-white rounded-xl font-bold transition">
+                Keep Fighting
+              </button>
+              <button onClick={confirmLeave}
+                className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-bold transition">
+                Leave
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1208,8 +1286,10 @@ function StreetFightPage() {
             playerJabLKey={playerJabLKey}
             oppJabRKey={oppJabRKey}
             oppJabLKey={oppJabLKey}
-            playerKickKey={playerKickKey}
-            oppKickKey={oppKickKey}
+            playerKickHiKey={playerKickHiKey}
+            playerKickLoKey={playerKickLoKey}
+            oppKickHiKey={oppKickHiKey}
+            oppKickLoKey={oppKickLoKey}
             playerHitKey={playerHitKey}
             oppHitKey={oppHitKey}
             playerX={playerX}
@@ -1266,7 +1346,7 @@ function StreetFightPage() {
         {/* ── D-PAD controller (live fights): move / jump / duck / block ── */}
         {phase === 'live' && (
           <div className="absolute z-30 pointer-events-auto select-none"
-            style={{ left: 14, bottom: 16, width: 138, height: 138 }}
+            style={{ left: 52, bottom: 16, width: 138, height: 138 }}
             onClick={e => e.stopPropagation()}
             onTouchStart={e => e.stopPropagation()}
             onTouchEnd={e => e.stopPropagation()}>
@@ -1296,7 +1376,7 @@ function StreetFightPage() {
             ★ special CENTER. Block lives on the LEFT D-pad only. ── */}
         {phase === 'live' && (
           <div className="absolute z-30 pointer-events-auto select-none"
-            style={{ right: 14, bottom: 16, width: 138, height: 138 }}
+            style={{ right: 52, bottom: 16, width: 138, height: 138 }}
             onClick={e => e.stopPropagation()}
             onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
             {(() => {
@@ -1304,9 +1384,9 @@ function StreetFightPage() {
               const stop = (e: any) => { e.stopPropagation(); e.preventDefault() }
               return (
                 <>
-                  <button title="High kick" className={base} style={{ top: 0, left: 47 }}
+                  <button title="Head kick (high)" className={base} style={{ top: 0, left: 47 }}
                     onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerHighKick() }}>🦵</button>
-                  <button title="Low kick" className={base} style={{ bottom: 0, left: 47 }}
+                  <button title="Leg kick (low)" className={base} style={{ bottom: 0, left: 47 }}
                     onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerLowKick() }}>🦶</button>
                   <button title="Punch" className={base} style={{ top: 47, right: 0 }}
                     onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunch() }}>👊</button>
@@ -1339,7 +1419,7 @@ function StreetFightPage() {
           <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
         ) : phase === 'live' ? (
           <div className="text-center space-y-1">
-            <p className="text-white/80 text-xs font-bold">Right pad: 🦵 high kick · 🦶 low kick · 👊 punch · ⚡ power · ★ special</p>
+            <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ⚡ power · ★ special</p>
             <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — land hits to fill the ⚡ bar</p>
           </div>
         ) : phase !== 'done' ? (
@@ -1364,7 +1444,7 @@ function StreetFightPage() {
               </div>
             </div>
 
-            <button onClick={() => router.push('/map')}
+            <button onClick={() => router.replace('/map')}
               className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition">
               Back to Map
             </button>
