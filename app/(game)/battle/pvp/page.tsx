@@ -13,8 +13,11 @@ import dynamic from 'next/dynamic'
 
 const PvpArena3D = dynamic(() => import('@/components/PvpArena3D'), { ssr: false })
 
-// Positional combat: a strike only lands when the fighters are within range.
-const STRIKE_RANGE = 1.05   // world units between the two fighters
+// Fighters HOLD their guard at a fixed sparring distance (ANCHOR apart) and
+// trade jabs from there — they don't constantly walk. A strike lands within
+// STRIKE_RANGE; the foe only steps in if you back well out of range.
+const ANCHOR = 0.7          // each fighter's resting |x| (0.7 => 1.4 apart)
+const STRIKE_RANGE = 1.7    // in-range at the anchor, so jabs land without walking
 const FOE_STEP = 0.05       // opponent approach speed per AI tick (~90ms)
 const dist = (a: number, b: number) => Math.abs(a - b)
 
@@ -135,7 +138,7 @@ function StreetFightPage() {
   useEffect(() => { L.current.blocking = blocking }, [blocking])
   useEffect(() => { L.current.ducking = playerDuck }, [playerDuck])
   useEffect(() => { L.current.airborne = playerY > 0.25 }, [playerY])
-  useEffect(() => { if (phase === 'live') { setPlayerX(-1); setOppX(1); L.current.playerX = -1; L.current.oppX = 1 } }, [phase])
+  useEffect(() => { if (phase === 'live') { setPlayerX(-ANCHOR); setOppX(ANCHOR); L.current.playerX = -ANCHOR; L.current.oppX = ANCHOR } }, [phase])
   // Landscape brawler: nudge the phone sideways (and best-effort lock)
   const [landscape, setLandscape] = useState(true)
   useEffect(() => {
@@ -468,7 +471,7 @@ function StreetFightPage() {
     counts: { taps: 0, kicks: 0, jumpkicks: 0, blocks: 0, combos: 0, specials: 0 },
     myHp: 100, foeHp: 100, meter: 0,
     // positional combat: fighter positions + guard state (mirrored from React)
-    playerX: -1, oppX: 1, blocking: false, ducking: false, airborne: false, foeSpaceUntil: 0,
+    playerX: -ANCHOR, oppX: ANCHOR, blocking: false, ducking: false, airborne: false, foeSpaceUntil: 0,
   })
   const foeStats = fighterStats(foeLevel)
   const myRole = isChallenger ? 'c' : 'd'
@@ -785,13 +788,18 @@ function StreetFightPage() {
       // AI opponent only (bots / ghosts) — humans attack via the channel
       if (realtime && !S.ghost) return
 
-      // Approach: step toward the player until within striking range; after an
-      // attack, hold at a longer distance briefly (spacing) before closing again
+      // HOLD the guard at the anchor distance. Only move if the player has backed
+      // out of range (then close just enough to be in range again) or drifted too
+      // close (then re-space). Otherwise stand still in the fighting stance.
       if (!S.foeWindupAt) {
-        const spacing = now < S.foeSpaceUntil ? STRIKE_RANGE * 1.4 : STRIKE_RANGE * 0.82
-        const target = (S.playerX ?? -1) + spacing
-        if (S.oppX > target + 0.04) { S.oppX = Math.max(target, S.oppX - FOE_STEP); setOppX(S.oppX) }
-        else if (S.oppX < target - 0.04) { S.oppX = Math.min(target, S.oppX + FOE_STEP); setOppX(S.oppX) }
+        const gap = dist(S.oppX, S.playerX)
+        if (gap > STRIKE_RANGE) {                       // player ran — close in
+          const target = (S.playerX ?? -ANCHOR) + STRIKE_RANGE * 0.9
+          if (S.oppX > target) { S.oppX = Math.max(target, S.oppX - FOE_STEP); setOppX(S.oppX) }
+        } else if (gap < STRIKE_RANGE * 0.6) {          // too close — re-space
+          const target = (S.playerX ?? -ANCHOR) + STRIKE_RANGE * 0.75
+          if (S.oppX < target) { S.oppX = Math.min(target, S.oppX + FOE_STEP); setOppX(S.oppX) }
+        }
       }
 
       if (S.foeWindupAt && now >= S.foeWindupAt) {

@@ -19,7 +19,7 @@ export const FIGHTERS: FighterMeta[] = [
   { id: 'fighter6', label: 'Deon', img: '/fighters/fighter6.png' },
 ]
 
-const HEAD_SCALE = 1.2 // realistic body, subtle bobble head (not cartoony)
+const HEAD_SCALE = 1.0 // natural proportions — match the reference guard stills
 
 // Correction for the model's front axis (these Meshy models' front is local -X).
 // Fighters always aim at their target; change by ±PI/2 if they don't face it.
