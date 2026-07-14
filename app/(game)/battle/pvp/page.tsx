@@ -108,11 +108,11 @@ function StreetFightPage() {
   const myJab = (right: boolean) => right ? setPlayerJabRKey(k => k + 1) : setPlayerJabLKey(k => k + 1)
   const foeJab = (right: boolean) => right ? setOppJabRKey(k => k + 1) : setOppJabLKey(k => k + 1)
   // D-pad movement for the 3D player fighter
-  const [playerX, setPlayerX] = useState(-1)     // position along the fight line
+  const [playerX, setPlayerX] = useState(-ANCHOR) // position along the fight line
   const [playerY, setPlayerY] = useState(0)       // jump height
   const [playerDuck, setPlayerDuck] = useState(false)
   const [blocking, setBlocking] = useState(false)
-  const [oppX, setOppX] = useState(1)              // opponent position (AI-driven)
+  const [oppX, setOppX] = useState(ANCHOR)         // opponent position (AI-driven)
   const jumpingRef = useRef(false)
   const doJump = useCallback(() => {
     if (jumpingRef.current) return
