@@ -87,7 +87,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    const s = 1.95 / (size.y || 1) // bigger fighters (fill more of the frame)
+    const s = 2.1 / (size.y || 1) // bigger fighters — feet stay planted, expand up
     if (fit.current) { fit.current.scale.setScalar(s); fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s) }
     if (hips) hips0.current = hips.position.clone()
   }, [scene, hips, mixer])

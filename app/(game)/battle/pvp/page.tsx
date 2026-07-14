@@ -13,11 +13,13 @@ import dynamic from 'next/dynamic'
 
 const PvpArena3D = dynamic(() => import('@/components/PvpArena3D'), { ssr: false })
 
-// Fighters HOLD their guard at a fixed sparring distance (ANCHOR apart) and
-// trade jabs from there — they don't constantly walk. A strike lands within
-// STRIKE_RANGE; the foe only steps in if you back well out of range.
-const ANCHOR = 0.7          // each fighter's resting |x| (0.7 => 1.4 apart)
-const STRIKE_RANGE = 1.7    // in-range at the anchor, so jabs land without walking
+// Fighters HOLD their guard at boxing mid-range (ANCHOR apart) and trade from
+// there. A strike only LANDS when the gap is within that move's VISUAL reach —
+// if the fist/foot clearly can't touch the opponent, it whiffs. Stepping back
+// with the D-pad is real defense; stepping in closes the distance.
+const ANCHOR = 0.55         // each fighter's resting |x| (0.55 => 1.1 apart)
+const PUNCH_RANGE = 1.25    // gap where an extended fist visually connects
+const KICK_RANGE = 1.5      // kicks reach farther — can still catch a retreat step
 const FOE_STEP = 0.05       // opponent approach speed per AI tick (~90ms)
 const dist = (a: number, b: number) => Math.abs(a - b)
 
@@ -132,7 +134,7 @@ function StreetFightPage() {
   }, [])
   // Mirror positional/guard state into the fight-loop ref so the realtime AI
   // logic can read fresh values. Contact-based combat: a hit only lands when
-  // the two fighters are within STRIKE_RANGE.
+  // the strike can visually reach (PUNCH_RANGE / KICK_RANGE).
   useEffect(() => {
     L.current.playerX = playerX
     // human PvP: share my position (channelRef is only set in realtime fights)
@@ -533,7 +535,8 @@ function StreetFightPage() {
 
       let result: 'hit' | 'blocked' | 'dodged' = 'hit'
       let dmg = 0
-      const outOfRange = dist(S.oppX, S.playerX) > STRIKE_RANGE
+      const reach = (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') ? KICK_RANGE : PUNCH_RANGE
+      const outOfRange = dist(S.oppX, S.playerX) > reach
       const guarding = S.blockHeld || S.blocking
       if (outOfRange || now < S.dodgeUntil || S.ducking || S.airborne) {
         result = 'dodged'
@@ -550,7 +553,7 @@ function StreetFightPage() {
         if (p.boost) { dmg = Math.floor(dmg * p.boost); addSpark(false, '⚡ POWER!', '#fde047') } // their armed power buff
         setMyPose('hit'); reel(false); addBurst(false, heavy)
         addSpark(false, `-${dmg}`, '#f87171')
-        setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.16); setPlayerX(S.playerX) // 3D flinch + knockback
+        setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.1); setPlayerX(S.playerX) // 3D flinch + knockback
         if (p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook') sfx.kick()
         else sfx.punch(heavy)
         setShake(true); setTimeout(() => setShake(false), 170)
@@ -573,7 +576,7 @@ function StreetFightPage() {
       if (p.result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, p.dmg >= 10)
         addSpark(true, `-${p.dmg}`, '#facc15')
-        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.16); setOppX(S.oppX) // 3D flinch + knockback
+        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.1); setOppX(S.oppX) // 3D flinch + knockback
         S.meter = Math.min(100, S.meter + p.dmg * 1.7)
         setMeter(S.meter)
         if (p.dmg >= 10) { bumpCrowd(); sfx.crowd(0.3) }
@@ -739,8 +742,9 @@ function StreetFightPage() {
     // AI mode: everything lands together at the animation's strike frame
     setTimeout(() => {
       if (S.over) return
-      // Contact-based: must be within range of the foe or the strike whiffs
-      if (dist(S.playerX ?? -1, S.oppX ?? 1) > STRIKE_RANGE) {
+      // Contact-based: the strike only lands if the fist/foot can VISUALLY
+      // reach the opponent (kicks reach farther than punches)
+      if (dist(S.playerX ?? -1, S.oppX ?? 1) > (kicky ? KICK_RANGE : PUNCH_RANGE)) {
         addSpark(true, 'WHIFF', '#9ca3af'); sfx.whoosh()
         return
       }
@@ -767,7 +771,7 @@ function StreetFightPage() {
       if (result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, heavy)
         addSpark(true, `-${dmg}`, '#facc15')
-        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.16); setOppX(S.oppX) // 3D flinch + knockback
+        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.1); setOppX(S.oppX) // 3D flinch + knockback
         if (kicky) sfx.kick(); else sfx.punch(heavy)
         S.meter = Math.min(100, S.meter + dmg * 1.7)
         setMeter(S.meter)
@@ -865,11 +869,11 @@ function StreetFightPage() {
       // close (then re-space). Otherwise stand still in the fighting stance.
       if (!S.foeWindupAt) {
         const gap = dist(S.oppX, S.playerX)
-        if (gap > STRIKE_RANGE) {                       // player ran — close in
-          const target = (S.playerX ?? -ANCHOR) + STRIKE_RANGE * 0.9
+        if (gap > PUNCH_RANGE) {                        // out of punch reach — close in
+          const target = (S.playerX ?? -ANCHOR) + PUNCH_RANGE * 0.85
           if (S.oppX > target) { S.oppX = Math.max(target, S.oppX - FOE_STEP); setOppX(S.oppX) }
-        } else if (gap < STRIKE_RANGE * 0.6) {          // too close — re-space
-          const target = (S.playerX ?? -ANCHOR) + STRIKE_RANGE * 0.75
+        } else if (gap < ANCHOR * 1.1) {                // crowding — re-space to mid-range
+          const target = (S.playerX ?? -ANCHOR) + ANCHOR * 1.6
           if (S.oppX < target) { S.oppX = Math.min(target, S.oppX + FOE_STEP); setOppX(S.oppX) }
         }
       }
@@ -886,7 +890,7 @@ function StreetFightPage() {
         setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[S.foeMove]}`)
         let dmg = strikeDamage(foeLevel, def.mult)
         const guarding = S.blockHeld || S.blocking
-        if (dist(S.oppX ?? 1, S.playerX ?? -1) > STRIKE_RANGE) {
+        if (dist(S.oppX ?? 1, S.playerX ?? -1) > PUNCH_RANGE) {
           dmg = 0
           addSpark(false, 'WHIFF', '#9ca3af')   // player backed out of range
           sfx.whoosh()
@@ -902,7 +906,7 @@ function StreetFightPage() {
         } else {
           setMyPose('hit'); reel(false); addBurst(false, heavy)
           addSpark(false, `-${dmg}`, '#f87171')
-          setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.16); setPlayerX(S.playerX) // 3D flinch + knockback
+          setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.1); setPlayerX(S.playerX) // 3D flinch + knockback
           if (S.foeMove === 'kick' || S.foeMove === 'jumpkick') sfx.kick()
           else sfx.punch(heavy)
           setShake(true); setTimeout(() => setShake(false), 170)
@@ -914,7 +918,7 @@ function StreetFightPage() {
         if (S.myHp === 0) { endFight(false, true); return }
         S.foeNextAt = now + foeInterval()
         S.foeSpaceUntil = now + 650 // step back after attacking (spacing)
-      } else if (!S.foeWindupAt && now >= S.foeNextAt && dist(S.oppX ?? 1, S.playerX ?? -1) <= STRIKE_RANGE) {
+      } else if (!S.foeWindupAt && now >= S.foeNextAt && dist(S.oppX ?? 1, S.playerX ?? -1) <= PUNCH_RANGE) {
         // Wind up (only when in range): telegraphed — block, duck, or jump back NOW
         S.foeMove = 'jab'
         S.foeWindupAt = now + Math.max(380, 650 - foeLevel * 9)
