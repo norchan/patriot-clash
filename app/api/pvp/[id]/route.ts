@@ -55,8 +55,8 @@ export async function GET(
     // random default fighter at the victory screen)
     if (['accepted', 'resolving', 'completed'].includes(challenge.status)) {
       const [{ data: c }, { data: d }] = await Promise.all([
-        admin.from('profiles').select('id, total_battles_won, fighter, pvp_fighter, party, clerk_user_id').eq('id', challenge.challenger_id).single(),
-        admin.from('profiles').select('id, total_battles_won, fighter, pvp_fighter, party, clerk_user_id').eq('id', challenge.defender_id).single(),
+        admin.from('profiles').select('id, total_battles_won, fighter, pvp_fighter, head_id, party, clerk_user_id').eq('id', challenge.challenger_id).single(),
+        admin.from('profiles').select('id, total_battles_won, fighter, pvp_fighter, head_id, party, clerk_user_id').eq('id', challenge.defender_id).single(),
       ])
       return NextResponse.json({
         ...challenge,
@@ -67,6 +67,8 @@ export async function GET(
         // chosen 3D fighter (falls back deterministically if unset, e.g. bots)
         challenger_pvp_fighter: c?.pvp_fighter ?? pickFighter(challenge.challenger_id, c?.party),
         defender_pvp_fighter: d?.pvp_fighter ?? pickFighter(challenge.defender_id, d?.party),
+        challenger_head_id: c?.head_id ?? null,
+        defender_head_id: d?.head_id ?? null,
         challenger_is_bot: !!c?.clerk_user_id?.startsWith('bot_'),
         defender_is_bot: !!d?.clerk_user_id?.startsWith('bot_'),
       })

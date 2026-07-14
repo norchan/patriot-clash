@@ -30,8 +30,33 @@ const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 
-function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, hitKey = 0 }:
-  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; hitKey?: number }) {
+// ── Swappable HEAD: a billboard cutout riding the Head bone ─────────────────
+// The body's own head is hidden (bone squashed) and the chosen caricature head
+// (transparent PNG from config/heads.ts) tracks the bone every frame.
+function BillboardHead({ url, getHeadBone }: { url: string; getHeadBone: () => THREE.Object3D | null }) {
+  const tex = useTexture(url)
+  const ref = useRef<THREE.Sprite>(null!)
+  const v = useMemo(() => new THREE.Vector3(), [])
+  useFrame(() => {
+    const bone = getHeadBone()
+    if (!bone || !ref.current?.parent) return
+    bone.getWorldPosition(v)
+    v.y += 0.2 // head center sits a bit above the neck joint
+    ref.current.parent.worldToLocal(v)
+    ref.current.position.copy(v)
+  })
+  const img = tex.image as { width?: number; height?: number } | undefined
+  const aspect = img?.width && img?.height ? img.width / img.height : 1
+  const H = 0.68 // bobble-scale head height in world units
+  return (
+    <sprite ref={ref} scale={[H * aspect, H, 1]}>
+      <spriteMaterial map={tex} transparent depthWrite={false} />
+    </sprite>
+  )
+}
+
+function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headImg, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, hitKey = 0 }:
+  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; headImg?: string; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; hitKey?: number }) {
   // Real boxing kit. The Left_Jab clip starts AND ends in a proper fists-up
   // boxing guard, so its frame 0 doubles as the held GUARD (fists at the face).
   // One-shots: straight punch (right), the jab (left), a straight KICK
@@ -140,8 +165,9 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
     // PLANT the fighter: strip horizontal root motion so they stay on their
     // side and don't wander/pass through each other (2D-fighter feel)
     if (hips && hips0.current) { hips.position.x = hips0.current.x; hips.position.z = hips0.current.z }
-    // oversized head, but NO sway — the fighter stays focused on the opponent
-    if (head) head.scale.setScalar(HEAD_SCALE)
+    // oversized head, but NO sway — the fighter stays focused on the opponent.
+    // With a swapped head, squash the model's own head so the billboard replaces it.
+    if (head) head.scale.setScalar(headImg ? 0.02 : HEAD_SCALE)
     // CLOSED FISTS: squash the open-paddle hands into compact fists every frame
     // (short along the fingers, chunkier across) — render-verified at game distance
     if (handL) handL.scale.set(1.2, 0.45, 1.2)
@@ -160,6 +186,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, jabRKe
   return (
     <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.68 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
+      {headImg && <BillboardHead url={headImg} getHeadBone={() => head} />}
     </group>
   )
 }
@@ -178,8 +205,8 @@ function Backdrop({ url }: { url: string }) {
 }
 
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry' }:
-  { playerPrefix: string; oppPrefix?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadImg, oppHeadImg, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry' }:
+  { playerPrefix: string; oppPrefix?: string; playerHeadImg?: string; oppHeadImg?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
@@ -194,15 +221,15 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
       <Suspense fallback={null}>
         <Backdrop url={`/arenas/${arena}.jpg`} />
         {solo ? (
-          <Fighter prefix={playerPrefix} x={0} faceY={Math.PI / 2} jabRKey={playerJabRKey} />
+          <Fighter prefix={playerPrefix} x={0} faceY={Math.PI / 2} headImg={playerHeadImg} jabRKey={playerJabRKey} />
         ) : (
           // Classic fighting-game side view: player faces directly right (profile),
           // opponent is a mirror flip facing left. (Model front is local -X, so
           // rotation.y = +PI/2 points the fighter down the +X axis.)
           <>
-            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={Math.PI / 2}
+            <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={Math.PI / 2} headImg={playerHeadImg}
               jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickHiKey={playerKickHiKey} kickLoKey={playerKickLoKey} hitKey={playerHitKey} />
-            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-Math.PI / 2} mirror
+            {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-Math.PI / 2} mirror headImg={oppHeadImg}
               jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} hitKey={oppHitKey} />}
           </>
         )}

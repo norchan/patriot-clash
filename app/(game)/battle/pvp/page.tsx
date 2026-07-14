@@ -72,6 +72,8 @@ interface ChallengeData {
   defender_is_bot?: boolean
   challenger_pvp_fighter?: string
   defender_pvp_fighter?: string
+  challenger_head_id?: string | null
+  defender_head_id?: string | null
 }
 
 interface ChatMessage { id: string; sender_id: string; content: string; created_at: string }
@@ -248,6 +250,11 @@ function StreetFightPage() {
   const oppBaseFighter = (isChallenger ? challenge?.defender_pvp_fighter : challenge?.challenger_pvp_fighter) || 'fighter1'
   const myPvpFighter = `${myBaseFighter}_${partySuffix(myParty)}`
   const oppPvpFighter = `${oppBaseFighter}_${partySuffix(theirParty)}`
+  // Swapped caricature heads (null = the body's own head)
+  const myHeadId = isChallenger ? challenge?.challenger_head_id : challenge?.defender_head_id
+  const oppHeadId = isChallenger ? challenge?.defender_head_id : challenge?.challenger_head_id
+  const myHeadImg = myHeadId ? `/heads/${myHeadId}.png` : undefined
+  const oppHeadImg = oppHeadId ? `/heads/${oppHeadId}.png` : undefined
   // Human opponents fight in REAL TIME over a Supabase channel; bots (and
   // human opponents who never show up) are fought as AI at their level
   const realtime = isLive && !oppIsBot
@@ -1282,6 +1289,8 @@ function StreetFightPage() {
           <PvpArena3D
             playerPrefix={myPvpFighter}
             oppPrefix={oppPvpFighter}
+            playerHeadImg={myHeadImg}
+            oppHeadImg={oppHeadImg}
             playerJabRKey={playerJabRKey}
             playerJabLKey={playerJabLKey}
             oppJabRKey={oppJabRKey}

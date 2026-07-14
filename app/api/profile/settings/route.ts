@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { sanitizeFighter } from '@/lib/fighter'
+import { isValidHead } from '@/config/heads'
 
 // PATCH /api/profile/settings — update player preferences
 export async function PATCH(req: NextRequest) {
@@ -40,16 +41,20 @@ export async function PATCH(req: NextRequest) {
     if ('fighter' in body) {
       updates.fighter = sanitizeFighter(body.fighter, profile.id)
     }
-    // Chosen 3D PvP fighter (fighter5 = rainbow, Democrat-only)
+    // Chosen 3D PvP fighter BODY (party blue/red kit applied automatically)
     if ('pvp_fighter' in body) {
       const valid = ['fighter1', 'fighter2', 'fighter3', 'fighter4', 'fighter5', 'fighter6']
       if (!valid.includes(body.pvp_fighter)) {
         return NextResponse.json({ error: 'Invalid fighter' }, { status: 400 })
       }
-      if (body.pvp_fighter === 'fighter5' && profile.party !== 'democrat') {
-        return NextResponse.json({ error: 'Rainbow fighter is Democrat-only' }, { status: 400 })
-      }
       updates.pvp_fighter = body.pvp_fighter
+    }
+    // Chosen fighter HEAD (null = the body's own head); validated vs the catalog
+    if ('head_id' in body) {
+      if (body.head_id !== null && !isValidHead(body.head_id)) {
+        return NextResponse.json({ error: 'Invalid head' }, { status: 400 })
+      }
+      updates.head_id = body.head_id
     }
 
     if ('username' in body) {
