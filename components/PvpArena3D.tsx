@@ -29,7 +29,8 @@ const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan
 
 function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRKey = 0, jabLKey = 0, hitKey = 0 }:
   { prefix: string; x: number; y?: number; duck?: boolean; targetX: number; targetZ?: number; jabRKey?: number; jabLKey?: number; hitKey?: number }) {
-  // Boxing: a static GUARD (the jab's frame-0 pose) + left/right jab + hit one-shots
+  // Boxing: a static fists-up GUARD + left/right jab + hit one-shots
+  const guardGltf = useGLTF(`/models/${prefix}_guard.glb`)
   const jabRGltf = useGLTF(`/models/${prefix}_jabR.glb`)
   const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb`)
   const hitGltf = useGLTF(`/models/${prefix}_hit.glb`)
@@ -39,19 +40,20 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
 
-  const { mixer, guard, shots } = useMemo(() => {
+  const { mixer, guard, guardHold, shots } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
-    // guard = a CLONE of the jab clip, frozen at frame 0 (fists-up guard pose)
-    const guardClip = jabRGltf.animations[0]?.clone()
+    // guard = the boxing-guard clip frozen at its fists-up frame
+    const guardClip = guardGltf.animations[0]?.clone()
     const gd = guardClip ? m.clipAction(guardClip) : null
-    if (gd) { gd.play(); gd.paused = true; gd.time = 0; gd.setEffectiveWeight(1) }
+    const guardHold = guardClip ? guardClip.duration * 0.28 : 0 // fists-up moment before the straight
+    if (gd) { gd.play(); gd.paused = true; gd.time = guardHold; gd.setEffectiveWeight(1) }
     const oneShot = (g: { animations: THREE.AnimationClip[] }) => {
       const a = g.animations[0] ? m.clipAction(g.animations[0]) : null
       if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true }
       return a
     }
-    return { mixer: m, guard: gd, shots: { jabR: oneShot(jabRGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
-  }, [scene, jabRGltf.animations, jabLGltf.animations, hitGltf.animations])
+    return { mixer: m, guard: gd, guardHold, shots: { jabR: oneShot(jabRGltf), jabL: oneShot(jabLGltf), hit: oneShot(hitGltf) } }
+  }, [scene, guardGltf.animations, jabRGltf.animations, jabLGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
     const box = new THREE.Box3().setFromObject(scene)
@@ -72,12 +74,12 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
     const onFin = (e: any) => {
       if (e.action === shots.jabR || e.action === shots.jabL || e.action === shots.hit) {
         e.action.setEffectiveWeight(0); e.action.stop()
-        if (guard) { guard.time = 0; guard.paused = true; guard.setEffectiveWeight(1) }
+        if (guard) { guard.time = guardHold; guard.paused = true; guard.setEffectiveWeight(1) }
       }
     }
     mixer.addEventListener('finished', onFin)
     return () => mixer.removeEventListener('finished', onFin)
-  }, [mixer, shots, guard])
+  }, [mixer, shots, guard, guardHold])
   const pR = useRef(0), pL = useRef(0), pH = useRef(0)
   useEffect(() => { if (jabRKey > pR.current) { pR.current = jabRKey; playShot(shots.jabR) } }, [jabRKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (jabLKey > pL.current) { pL.current = jabLKey; playShot(shots.jabL) } }, [jabLKey]) // eslint-disable-line react-hooks/exhaustive-deps
