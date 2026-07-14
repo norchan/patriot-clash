@@ -1,7 +1,8 @@
 'use client'
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { useGLTF, ContactShadows } from '@react-three/drei'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useGLTF, ContactShadows, useTexture } from '@react-three/drei'
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 
 // 3D PvP street arena: two rigged bobblehead fighters trading punches in a
@@ -18,7 +19,7 @@ export const FIGHTERS: FighterMeta[] = [
   { id: 'fighter6', label: 'Deon', img: '/fighters/fighter6.png' },
 ]
 
-const HEAD_SCALE = 1.35
+const HEAD_SCALE = 1.5 // realistic body, oversized bobble head
 
 // Correction for the model's front axis (these Meshy models' front is local -X).
 // Fighters always aim at their target; change by ±PI/2 if they don't face it.
@@ -99,122 +100,47 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
   )
 }
 
-// ── Cheering crowd (instanced) ──────────────────────────────────────────────
-function Crowd() {
-  const bodies = useRef<THREE.InstancedMesh>(null!)
-  const heads = useRef<THREE.InstancedMesh>(null!)
-  const data = useMemo(() => {
-    const out: { x: number; y: number; z: number; phase: number; body: THREE.Color; skin: THREE.Color }[] = []
-    const SKIN = ['#f6d5b8', '#e8b98e', '#cf9a6b', '#a9744f', '#7a4f33'].map(c => new THREE.Color(c))
-    const RED = new THREE.Color('#d1352b'), BLUE = new THREE.Color('#2f6bd8')
-    // tiered stands: back + both sides
-    const place = (cx: number, cz: number, cols: number, rows: number, dx: number, dz: number, faceSpread: number) => {
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        out.push({
-          x: cx + (c - cols / 2) * dx + (Math.random() - 0.5) * 0.2,
-          y: 0.55 + r * 0.32,
-          z: cz - r * dz + (Math.random() - 0.5) * 0.2,
-          phase: Math.random() * Math.PI * 2,
-          // exactly half the crowd in Republican red, half in Democrat blue
-          body: (out.length % 2 === 0 ? RED : BLUE).clone().offsetHSL(0, 0, (Math.random() - 0.5) * 0.08),
-          skin: SKIN[(Math.random() * SKIN.length) | 0],
-        })
-      }
-    }
-    place(0, -3.2, 26, 6, 0.62, 0.6, 0)   // back stand
-    place(-6.2, -0.5, 6, 5, 0.6, 0.9, 0)  // left stand (rows recede in z)
-    place(6.2, -0.5, 6, 5, 0.6, 0.9, 0)   // right stand
-    return out
-  }, [])
+// ── Cinematic arena backdrop (fills the canvas behind the fighters) ──────────
+function Backdrop({ url }: { url: string }) {
+  const tex = useTexture(url)
+  const { scene } = useThree()
+  useEffect(() => {
+    tex.colorSpace = THREE.SRGBColorSpace
+    const prev = scene.background
+    scene.background = tex
+    return () => { scene.background = prev }
+  }, [tex, scene])
+  return null
+}
 
-  useLayoutEffect(() => {
-    const m = new THREE.Matrix4()
-    data.forEach((d, i) => {
-      m.makeTranslation(d.x, d.y, d.z)
-      bodies.current.setMatrixAt(i, m); heads.current.setMatrixAt(i, new THREE.Matrix4().makeTranslation(d.x, d.y + 0.52, d.z))
-      bodies.current.setColorAt(i, d.body); heads.current.setColorAt(i, d.skin)
-    })
-    bodies.current.instanceMatrix.needsUpdate = true; heads.current.instanceMatrix.needsUpdate = true
-    if (bodies.current.instanceColor) bodies.current.instanceColor.needsUpdate = true
-    if (heads.current.instanceColor) heads.current.instanceColor.needsUpdate = true
-  }, [data])
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime
-    const m = new THREE.Matrix4()
-    for (let i = 0; i < data.length; i++) {
-      const d = data[i]
-      const bob = Math.sin(t * 4 + d.phase) * 0.09
-      m.makeTranslation(d.x, d.y + Math.max(0, bob), d.z); bodies.current.setMatrixAt(i, m)
-      m.makeTranslation(d.x, d.y + 0.52 + Math.max(0, bob), d.z); heads.current.setMatrixAt(i, m)
-    }
-    bodies.current.instanceMatrix.needsUpdate = true; heads.current.instanceMatrix.needsUpdate = true
-  })
-
+function Ground() {
   return (
-    <group>
-      <instancedMesh ref={bodies} args={[undefined, undefined, data.length]} castShadow>
-        <capsuleGeometry args={[0.2, 0.5, 4, 8]} />
-        <meshStandardMaterial roughness={0.9} />
-      </instancedMesh>
-      <instancedMesh ref={heads} args={[undefined, undefined, data.length]}>
-        <sphereGeometry args={[0.19, 12, 12]} />
-        <meshStandardMaterial roughness={0.8} />
-      </instancedMesh>
-    </group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <planeGeometry args={[40, 24]} />
+      <meshStandardMaterial color="#1f1b17" roughness={0.65} metalness={0.2} />
+    </mesh>
   )
 }
 
-function Street() {
-  return (
-    <group>
-      {/* asphalt */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[40, 40]} />
-        <meshStandardMaterial color="#3a3d42" roughness={1} />
-      </mesh>
-      {/* fight ring highlight */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0.5]}>
-        <ringGeometry args={[2.4, 2.7, 48]} />
-        <meshBasicMaterial color="#e2c044" transparent opacity={0.5} />
-      </mesh>
-      {/* side buildings */}
-      {[-8, 8].map((x, i) => (
-        <mesh key={i} position={[x, 3, -5]}>
-          <boxGeometry args={[4, 6, 8]} />
-          <meshStandardMaterial color={i ? '#4a4038' : '#454b52'} roughness={0.95} />
-        </mesh>
-      ))}
-      {/* back wall / skyline */}
-      <mesh position={[0, 4, -8.5]}>
-        <boxGeometry args={[24, 8, 1]} />
-        <meshStandardMaterial color="#2b2f36" roughness={1} />
-      </mesh>
-    </group>
-  )
-}
-
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1 }:
-  { playerPrefix: string; oppPrefix?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry' }:
+  { playerPrefix: string; oppPrefix?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
-      camera={{ position: solo ? [0, 1.5, 5.6] : [0, 2.1, 8.2], fov: 40 }}
-      dpr={[1, 2]} gl={{ alpha: false, antialias: true }}
-      onCreated={({ camera }) => camera.lookAt(0, 1.0, 0)}>
-      <color attach="background" args={['#1b2230']} />
-      <fog attach="fog" args={['#1b2230', 12, 26]} />
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[4, 8, 5]} intensity={1.7} castShadow shadow-mapSize={[1024, 1024]} />
-      <directionalLight position={[-5, 3, 2]} intensity={0.5} color="#93c5fd" />
-      <pointLight position={[0, 3, 3]} intensity={0.6} color="#fca5a5" />
+      camera={{ position: solo ? [0, 1.45, 5.2] : [0, 1.55, 7.0], fov: 38 }}
+      dpr={[1, 2]}
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+      onCreated={({ camera }) => camera.lookAt(0, 1.05, 0)}>
+      {/* dramatic stage lighting to match the gritty arena */}
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[5, 8, 4]} intensity={2.4} color="#ffd6a0" castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
+      <directionalLight position={[-6, 3, -3]} intensity={1.1} color="#6a8bff" />
+      <spotLight position={[0, 7, 6]} angle={0.7} penumbra={0.6} intensity={1.4} color="#ffb877" />
       <Suspense fallback={null}>
-        <Street />
-        <Crowd />
+        <Backdrop url={`/arenas/${arena}.jpg`} />
+        <Ground />
         {solo ? (
-          // face the camera in the picker
           <Fighter prefix={playerPrefix} x={0} targetX={0} targetZ={6} jabRKey={playerJabRKey} />
         ) : (
-          // planted on their sides, always facing each other; player can move/jump/duck
           <>
             <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} targetX={oppX}
               jabRKey={playerJabRKey} jabLKey={playerJabLKey} hitKey={playerHitKey} />
@@ -222,8 +148,12 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
               jabRKey={oppJabRKey} jabLKey={oppJabLKey} hitKey={oppHitKey} />}
           </>
         )}
-        <ContactShadows position={[0, 0.02, 0.6]} opacity={0.5} scale={8} blur={2.2} far={3} />
+        <ContactShadows position={[0, 0.01, 0.6]} opacity={0.65} scale={12} blur={2.6} far={5} color="#000000" />
       </Suspense>
+      <EffectComposer>
+        <Bloom intensity={0.6} luminanceThreshold={0.7} luminanceSmoothing={0.25} mipmapBlur />
+        <Vignette eskil={false} offset={0.28} darkness={0.8} />
+      </EffectComposer>
     </Canvas>
   )
 }

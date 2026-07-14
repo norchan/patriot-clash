@@ -136,6 +136,16 @@ function StreetFightPage() {
   useEffect(() => { L.current.ducking = playerDuck }, [playerDuck])
   useEffect(() => { L.current.airborne = playerY > 0.25 }, [playerY])
   useEffect(() => { if (phase === 'live') { setPlayerX(-1); setOppX(1); L.current.playerX = -1; L.current.oppX = 1 } }, [phase])
+  // Landscape brawler: nudge the phone sideways (and best-effort lock)
+  const [landscape, setLandscape] = useState(true)
+  useEffect(() => {
+    const check = () => setLandscape(window.innerWidth >= window.innerHeight)
+    check()
+    window.addEventListener('resize', check)
+    window.addEventListener('orientationchange', check)
+    try { (screen.orientation as any)?.lock?.('landscape')?.catch?.(() => {}) } catch {}
+    return () => { window.removeEventListener('resize', check); window.removeEventListener('orientationchange', check) }
+  }, [])
   const [myHp, setMyHp] = useState(100)
   const [foeHp, setFoeHp] = useState(100)
   const [clock, setClock] = useState(30)
@@ -983,6 +993,15 @@ function StreetFightPage() {
     <div className="flex flex-col bg-gray-950 overflow-hidden overscroll-none"
       style={{ height: 'calc(100dvh - 5rem)' }}>
       <div className="battle-wipe" />
+
+      {/* Landscape brawler — ask the player to turn sideways in portrait */}
+      {!landscape && (
+        <div className="fixed inset-0 z-[100] bg-gray-950 flex flex-col items-center justify-center text-center p-8">
+          <div className="text-6xl mb-4 animate-pulse">🔄</div>
+          <p className="text-white font-black text-xl">Rotate your phone sideways</p>
+          <p className="text-gray-400 text-sm mt-2">This is a landscape brawler — turn to fight.</p>
+        </div>
+      )}
 
       {/* ══ STREET STAGE ══════════════════════════════════════════════════ */}
       {/* LIVE fights: the stage is the controller (tap/swipe/hold). Replays

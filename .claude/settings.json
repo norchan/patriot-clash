@@ -218,7 +218,13 @@
       "Bash(git commit -q -m 'PvP polish \\(all four\\): 3D hit-reaction on getting hit; distinct kick animation on swipe/kick; human-vs-human is now positional \\(position synced over channel, range/duck/block gates\\); knockback on hits + foe backs off after attacking for spacing *)",
       "Bash(node scripts/meshy_jabs.mjs)",
       "Bash(xargs echo \"jab models:\")",
-      "Bash(git commit -q -m 'PvP rebuilt as boxing: static GUARD stance \\(jab frame-0\\) + right/left jab only. Tap = right jab, quick 2nd tap = left \\(1-2\\). Removed kicks/hooks/uppercuts/jumpkick/special. Foe throws jabs only. Hit-reaction + knockback kept *)"
+      "Bash(git commit -q -m 'PvP rebuilt as boxing: static GUARD stance \\(jab frame-0\\) + right/left jab only. Tap = right jab, quick 2nd tap = left \\(1-2\\). Removed kicks/hooks/uppercuts/jumpkick/special. Foe throws jabs only. Hit-reaction + knockback kept *)",
+      "Bash(mkdir -p public/arenas)",
+      "Bash(curl -s -o public/arenas/foundry.jpg __TRACKED_VAR__/hf_20260714_022324_1a822bf9-10ff-49e6-961d-2342ebf45ba7.png)",
+      "Bash(curl -s -o public/arenas/club.jpg __TRACKED_VAR__/hf_20260714_022325_1cff5ec6-a943-4e23-a814-cb583c6c2132.png)",
+      "Bash(curl -s -o public/arenas/rooftop.jpg __TRACKED_VAR__/hf_20260714_022326_5835902f-8f50-4143-a0e9-ae95e2dff9f4.png)",
+      "Bash(node -e 'const sharp=require\\(\"sharp\"\\);[\"foundry\",\"club\",\"rooftop\"].forEach\\(async n=>{const b=await sharp\\(\"public/arenas/\"+n+\".jpg\"\\).resize\\(1600,900,{fit:\"cover\"}\\).jpeg\\({quality:82}\\).toBuffer\\(\\);require\\(\"fs\"\\).writeFileSync\\(\"public/arenas/\"+n+\".jpg\",b\\)}\\)')",
+      "Bash(git commit -q -m 'PvP cinematic overhaul: photoreal arena backdrops \\(foundry/club/rooftop\\) + dramatic lighting + ACES tonemapping + bloom/vignette post-processing; bigger bobble head on realistic bodies; landscape-brawler rotate prompt. Removed low-poly street/crowd *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
