@@ -990,8 +990,7 @@ function StreetFightPage() {
   const theirColor = theirParty === 'democrat' ? '#2563eb' : '#dc2626'
 
   return (
-    <div className="flex flex-col bg-gray-950 overflow-hidden overscroll-none"
-      style={{ height: 'calc(100dvh - 5rem)' }}>
+    <div className="fixed inset-0 z-[60] flex flex-col bg-gray-950 overflow-hidden overscroll-none">
       <div className="battle-wipe" />
 
       {/* Landscape brawler — ask the player to turn sideways in portrait */}
@@ -1006,7 +1005,7 @@ function StreetFightPage() {
       {/* ══ STREET STAGE ══════════════════════════════════════════════════ */}
       {/* LIVE fights: the stage is the controller (tap/swipe/hold). Replays
           of old fights: taps just hype the crowd. */}
-      <div className="relative overflow-hidden select-none"
+      <div className="relative overflow-hidden select-none flex-1 min-h-0"
         onClick={() => {
           if (phase === 'live') {
             // Desktop click = punch; suppress the synthetic click after touch
@@ -1017,7 +1016,6 @@ function StreetFightPage() {
         onTouchStart={e => liveTouchStart(e.touches[0].clientX, e.touches[0].clientY)}
         onTouchEnd={e => liveTouchEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
         style={{
-          height: '74vh',
           animation: shake ? 'sfShake 0.16s linear' : 'none',
           transform: zoom ? 'scale(1.07)' : 'scale(1)',
           transition: 'transform 260ms ease-out',
@@ -1238,7 +1236,7 @@ function StreetFightPage() {
       </div>
 
       {/* ══ BELOW THE STAGE ═══════════════════════════════════════════════ */}
-      <div className="flex-1 px-4 py-4 overflow-y-auto">
+      <div className="shrink-0 px-4 py-2 overflow-y-auto" style={{ maxHeight: '38vh' }}>
         {submitErr ? (
           <div className="max-w-md mx-auto text-center space-y-3">
             <p className="text-red-400 text-sm font-bold">⚠️ {submitErr}</p>

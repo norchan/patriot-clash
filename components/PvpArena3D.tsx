@@ -57,7 +57,7 @@ function Fighter({ prefix, x, y = 0, duck = false, targetX, targetZ = 0.6, jabRK
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    const s = 1.75 / (size.y || 1)
+    const s = 1.95 / (size.y || 1) // bigger fighters (fill more of the frame)
     if (fit.current) { fit.current.scale.setScalar(s); fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s) }
     if (hips) hips0.current = hips.position.clone()
   }, [scene, hips])
@@ -113,23 +113,15 @@ function Backdrop({ url }: { url: string }) {
   return null
 }
 
-function Ground() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-      <planeGeometry args={[40, 24]} />
-      <meshStandardMaterial color="#1f1b17" roughness={0.65} metalness={0.2} />
-    </mesh>
-  )
-}
 
 export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry' }:
   { playerPrefix: string; oppPrefix?: string; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
-      camera={{ position: solo ? [0, 1.45, 5.2] : [0, 1.55, 7.0], fov: 38 }}
+      camera={{ position: solo ? [0, 1.2, 4.6] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
       dpr={[1, 2]}
-      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
-      onCreated={({ camera }) => camera.lookAt(0, 1.05, 0)}>
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
+      onCreated={({ camera }) => camera.lookAt(0, solo ? 1.0 : 0.9, 0)}>
       {/* dramatic stage lighting to match the gritty arena */}
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 8, 4]} intensity={2.4} color="#ffd6a0" castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
@@ -137,7 +129,6 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerJabRKey = 0,
       <spotLight position={[0, 7, 6]} angle={0.7} penumbra={0.6} intensity={1.4} color="#ffb877" />
       <Suspense fallback={null}>
         <Backdrop url={`/arenas/${arena}.jpg`} />
-        <Ground />
         {solo ? (
           <Fighter prefix={playerPrefix} x={0} targetX={0} targetZ={6} jabRKey={playerJabRKey} />
         ) : (
