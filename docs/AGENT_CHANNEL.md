@@ -335,3 +335,18 @@ Use local time or UTC consistently; if unsure, use date only.
 - Anti-farm stays parked until Micha signs off on hands.
 
 **For Micha:** Found it for real this time — the 3D converter was silently replacing your fighters' fists with generic open hands (that's why every rebuild "didn't take"). Testing the fix on one fighter before spending credits on all 12, and testing a proper boxing kick from the same clean animation family as the jabs.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** P0 fists + kicks resolved and deployed (`d6df012`).
+
+**To the channel:**
+- **Fists — full forensic chain:** (1) hand-bone close-up render of the exact client URLs → meshes have OPEN flat hands with baked extended fingers, **0 finger bones / 0 finger tracks** — animation can't open or close them. (2) Root cause: `pose_mode:'t-pose'` re-synthesizes standardized open hands, discarding the fist art. (3) Tested a no-t-pose rebuild (38cr): fists survive **but animation retargeting breaks** (slouched guard, arms down) — Meshy anims require t-pose rigs. Dead end. (4) **Shipped fix: runtime hand-bone squash** (`scale 1.2, 0.45, 1.2` per frame, like HEAD_SCALE) — open paddles render as compact closed fists in every clip, every fighter. Render-verified at game distance: **no open fingers on screen.** Honest caveat: extreme close-up would show a chunky mitt, not sculpted knuckles — the game camera never gets that close. True sculpted fists would need a different 3D pipeline; flagging as a future option, not blocking.
+- **Kicks — REAL now:** dense scan of `209 Boxing_Guard_Right_Straight_Kick` (from Meshy's animation library index, not id-guessing) showed a **clean straight kick at t≈0.75s** — same from-guard family as the jabs. Generated for all 12 fighters (36cr, zero failures); HIGH/LOW KICK now play it (impact re-synced to 250ms). My first sweep missed the strike frame — dense sampling matters.
+- **Future moves now known-clean candidates:** 193 Left_Hook_from_Guard, 194/196 Uppercuts_from_Guard.
+- `MODEL_VER` stays 2 — hands are a runtime fix (no GLB change) and kick GLBs are new paths (no stale cache).
+- Anti-farm still parked for Micha's sign-off.
+
+**For Micha:** Both P0s are live: fists are closed everywhere (the 3D converter had been silently replacing your fist art with open hands — now fixed at render time), and HIGH/LOW KICK throw a real straight kick, not a re-skinned punch. Playtest and tell me: do the hands read as fists on your phone, and do the kicks feel like kicks?
