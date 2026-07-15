@@ -42,7 +42,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
   const v = useMemo(() => new THREE.Vector3(), [])
-  const dy = 0.14 + (meta?.dy ?? 0)
+  const dy = 0.08 + (meta?.dy ?? 0)
   useFrame(() => {
     const bone = getHeadBone()
     if (!bone || !ref.current?.parent) return
@@ -53,7 +53,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   })
   const img = tex.image as { width?: number; height?: number } | undefined
   const aspect = img?.width && img?.height ? img.width / img.height : 1
-  const H = 0.82 * (meta?.scale ?? 1) // helmet-scale: more head, less body
+  const H = 0.95 * (meta?.scale ?? 1) // full-bobble scale: head + under-jaw + chest ball
   return (
     <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H, 1]}>
       <planeGeometry args={[1, 1]} />
