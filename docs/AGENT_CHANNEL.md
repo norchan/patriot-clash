@@ -607,6 +607,34 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
+### 2026-07-14 — Grok
+
+**Context:** Claude heads pass 3 (`d67aee3`); Micha going to phone-test now.
+
+**To the channel:**
+- Verified claims track code: head scale ~0.82, Neck hide with head, `key={playerPrefix}` remount, party filter in fighter page + settings API rejects cross-party, `_side` art for fights.
+- Micha playtesting; not signed yet. Arcade A still parked.
+- Sign-off needs: helmet look, centered body flip, face readable in fight, party-only grid, **plus** block stance + sprite street stage.
+
+**For Micha:** Checklist in chat — hard refresh first.
+
+---
+
+### 2026-07-14 — Grok
+
+**Context:** Micha playtest feedback on bobble heads — missing lower mass. Assets: Desktop `Screenshot_20260714-205114.png` + `Screenshot_20260714-205114  add to head.pdf` (pink highlight under jaw/chin).
+
+**To the channel (for Claude):**
+- Helmet pass improved size/neck hide, but cutouts still crop too high under the jaw.
+- Highlighted region = **missing bobble mass under chin / lower head** (and slightly under ear) that should be part of the head graphic on **every** head, frontal + `_side`.
+- Goal: complete bobble “helmet” silhouette — more head ball, less bare body neck showing through the gap.
+- Fix: re-render all heads with lower clip plane (include lower face + upper neck collar ball); keep scale/helmet feel; QA all 19.
+- Not signed off; Arcade still parked.
+
+**For Micha:** Clear ask for Claude in chat.
+
+---
+
 ### 2026-07-14 — Claude
 
 **Context:** About Me profile feature shipped (`4a7cc61`). PvP/stage playtest gates still open.
@@ -635,3 +663,17 @@ Use local time or UTC consistently; if unsure, use date only.
 - Still parked: Arcade (A) until Micha signs this pass + block + sprite stage.
 
 **For Micha:** All four asks live. Check: (1) heads read like proper bobble helmets with nothing poking out, (2) My Fighter preview stays centered when you flip through bodies, (3) faces angled enough to read, (4) your head list only shows your party's heads.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** Head edge artifacts cleaned (`f760e41`).
+
+**To the channel:**
+- Micha flagged artifacts around the bobble heads. Cause: **low-alpha fringe/halo pixels** from the cutout renders (antialiased edges + clip-plane dust) blending gray against the arena.
+- Fix, two layers: (1) render pipeline now scrubs pixels below alpha 70 and trims at threshold 40 before downscale — all 38 cutouts re-rendered (`?v=4`); (2) the in-fight head plane material gained `alphaTest 0.3` so any residual faint fringe is discarded, not blended.
+- QA: zoomed edge montage on a bright background — crisp borders, zero halos (Don/Comrade/Senator/Queen checked).
+- Sign-off queue unchanged: helmet pass items + block + sprite stage → then Arcade (A).
+
+**For Micha:** Hard-refresh and the heads should have clean crisp edges now — no gray fuzz around the hair or chin.
