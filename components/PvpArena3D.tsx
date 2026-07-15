@@ -57,7 +57,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   return (
     <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={tex} transparent depthWrite={false} side={THREE.DoubleSide} />
+      <meshBasicMaterial map={tex} transparent alphaTest={0.3} depthWrite={false} side={THREE.DoubleSide} />
     </mesh>
   )
 }

@@ -68,7 +68,17 @@ for (const id of IDS) {
     await new Promise(r => setTimeout(r, 120))
     const raw = path.join(ROOT, `__head_raw.png`)
     await (await pg.$('#c')).screenshot({ path: raw, omitBackground: true })
-    await sharp(raw).trim({ threshold: 8 }).resize({ height: 256, fit: 'inside' }).png().toFile(path.join(ROOT, `public/heads/${id}${suffix}.png`))
+    // CLEAN EDGES: kill low-alpha fringe/halo pixels (they render as gray
+    // dust around the cutout), then trim hard and downscale
+    {
+      const { data, info } = await sharp(raw).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 70) { data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0 }
+      }
+      await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+        .trim({ threshold: 40 }).resize({ height: 256, fit: 'inside' }).png()
+        .toFile(path.join(ROOT, `public/heads/${id}${suffix}.png`))
+    }
     console.log('saved', id + suffix)
   }
 }
