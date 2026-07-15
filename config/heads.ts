@@ -44,5 +44,8 @@ export const HEADS: HeadMeta[] = [
 
 // v2 = complete re-render (bind pose, wide framing, arm cleanup) — bump to bust caches
 export const headImage = (id: string) => `/heads/${id}.png?v=2`
+// side-profile render of the same head — used IN FIGHTS so the face looks at
+// the opponent (the frontal art stays in the designer grid)
+export const headSideImage = (id: string) => `/heads/${id}_side.png?v=2`
 export const isValidHead = (id: unknown): id is string =>
   typeof id === 'string' && HEADS.some(h => h.id === id)

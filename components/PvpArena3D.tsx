@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, ContactShadows, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
-import { headImage, headMeta } from '@/config/heads'
+import { headSideImage, headMeta } from '@/config/heads'
 
 // 3D PvP street arena: two rigged bobblehead fighters trading punches in a
 // street, ringed by a cheering crowd. Solo mode (one fighter facing camera) is
@@ -31,13 +31,16 @@ const FRONT_FIX = Math.PI / 2
 // rotation.y so the fighter at (px,pz) faces the point (tx,tz)
 const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan2(tx - px, tz - pz) + FRONT_FIX
 
-// ── Swappable HEAD: a billboard cutout riding the Head bone ─────────────────
+// ── Swappable HEAD: a PROFILE cutout locked to the body's facing ─────────────
 // The body's own head is hidden (bone squashed) and the chosen caricature head
-// (transparent PNG from config/heads.ts) tracks the bone every frame.
-function BillboardHead({ headId, getHeadBone }: { headId: string; getHeadBone: () => THREE.Object3D | null }) {
-  const tex = useTexture(headImage(headId))
+// rides the Head bone as a textured plane. The art is a SIDE-view render, and
+// the plane is body-locked (rotY cancels the fighter's facing so the plane
+// stays screen-parallel) — the player's head looks RIGHT at the opponent, and
+// the mirrored foe's flips to look left. Not a camera billboard.
+function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: number; getHeadBone: () => THREE.Object3D | null }) {
+  const tex = useTexture(headSideImage(headId))
   const meta = headMeta(headId)
-  const ref = useRef<THREE.Sprite>(null!)
+  const ref = useRef<THREE.Mesh>(null!)
   const v = useMemo(() => new THREE.Vector3(), [])
   const dy = 0.2 + (meta?.dy ?? 0)
   useFrame(() => {
@@ -52,9 +55,10 @@ function BillboardHead({ headId, getHeadBone }: { headId: string; getHeadBone: (
   const aspect = img?.width && img?.height ? img.width / img.height : 1
   const H = 0.68 * (meta?.scale ?? 1) // bobble-scale head height in world units
   return (
-    <sprite ref={ref} scale={[H * aspect, H, 1]}>
-      <spriteMaterial map={tex} transparent depthWrite={false} />
-    </sprite>
+    <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={tex} transparent depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
   )
 }
 
@@ -206,7 +210,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   return (
     <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.68 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
-      {headId && <BillboardHead headId={headId} getHeadBone={() => head} />}
+      {headId && <ProfileHead headId={headId} faceY={faceY} getHeadBone={() => head} />}
     </group>
   )
 }

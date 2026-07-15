@@ -14,7 +14,7 @@ const html = `<!doctype html><meta charset=utf8>
 <script type="importmap">{"imports":{"three":"${B}/node_modules/three/build/three.module.js","three/addons/":"${B}/node_modules/three/examples/jsm/"}}</script>
 <canvas id=c width=640 height=640></canvas><script type=module>
 import * as THREE from 'three'; import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js'
-window.head = async (url) => {
+window.head = async (url, rotY) => {
  const canvas = document.getElementById('c')
  const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true })
  r.setSize(640, 640, false); r.setClearColor(0x000000, 0)
@@ -30,7 +30,8 @@ window.head = async (url) => {
  for (const n of ['LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftShoulder', 'RightShoulder']) {
    const b = root.getObjectByName(n); if (b) b.scale.setScalar(0.001)
  }
- sc.add(root); root.updateMatrixWorld(true)
+ const spin = new THREE.Group(); spin.add(root); spin.rotation.y = rotY || 0
+ sc.add(spin); spin.updateMatrixWorld(true)
  let bone = null; root.traverse(o => { if (o.isBone && o.name === 'Head') bone = bone || o })
  if (!bone) return 'NO HEAD BONE'
  const p = new THREE.Vector3(); bone.getWorldPosition(p)
@@ -58,15 +59,18 @@ const pg = await br.newPage(); await pg.setViewport({ width: 320, height: 320, d
 pg.on('console', m => { if (m.type() === 'error') console.log('ERR', m.text()) })
 await pg.goto(`${B}/__heads.html`, { waitUntil: 'networkidle0' }); await pg.waitForFunction('window.__ready === true', { timeout: 15000 })
 fs.mkdirSync(path.join(ROOT, 'public/heads'), { recursive: true })
+const ONLY = process.argv[2] // optional single id for testing
 for (const id of IDS) {
-  const res = await pg.evaluate((u) => window.head(u), `${B}/public/models/${id}_idle.glb`)
-  if (res !== 'ok') { console.log(id, 'SKIP:', res); continue }
-  await new Promise(r => setTimeout(r, 120))
-  const raw = path.join(ROOT, `__head_raw.png`)
-  await (await pg.$('#c')).screenshot({ path: raw, omitBackground: true })
-  // trim transparent edges, resize to 256 tall
-  await sharp(raw).trim({ threshold: 8 }).resize({ height: 256, fit: 'inside' }).png().toFile(path.join(ROOT, `public/heads/${id}.png`))
-  console.log('saved', id)
+  if (ONLY && id !== ONLY) continue
+  for (const [suffix, rotY] of [['', 0], ['_side', Math.PI / 2]]) {
+    const res = await pg.evaluate((u, r) => window.head(u, r), `${B}/public/models/${id}_idle.glb`, rotY)
+    if (res !== 'ok') { console.log(id, 'SKIP:', res); continue }
+    await new Promise(r => setTimeout(r, 120))
+    const raw = path.join(ROOT, `__head_raw.png`)
+    await (await pg.$('#c')).screenshot({ path: raw, omitBackground: true })
+    await sharp(raw).trim({ threshold: 8 }).resize({ height: 256, fit: 'inside' }).png().toFile(path.join(ROOT, `public/heads/${id}${suffix}.png`))
+    console.log('saved', id + suffix)
+  }
 }
 fs.rmSync(path.join(ROOT, '__head_raw.png'), { force: true })
 await br.close(); server.close(); fs.unlinkSync(path.join(ROOT, '__heads.html')); console.log('DONE')
