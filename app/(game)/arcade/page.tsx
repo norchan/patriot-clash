@@ -1,119 +1,98 @@
 'use client'
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Play, Zap } from 'lucide-react'
 
-// The Arcade — one shared hangout reachable from every town hall on the map.
-// Vintage neon-cabinet vibe; games get wired up as we build them.
+// The Arcade — premium cabinet cards with real key art, matching the
+// PoliticsGo UI. One teaser card only; games get added as they're built.
 
 interface GameEntry {
   id: string
   name: string
   tagline: string
-  emoji: string
-  color: string
-  href?: string          // set when the game is live
-  iconSrc?: string       // image icon (overrides emoji when set)
+  art: string
+  accent: string
+  href: string
+  badge?: string
 }
 
 const GAMES: GameEntry[] = [
-  { id: 'slots',          name: 'Slots Salute',   tagline: '3 machines · bet FP · match 3 to win big',    emoji: '🎰', color: '#facc15', href: '/arcade/slots' },
-  { id: 'tetkris',        name: 'Tet-Kris',       tagline: 'Stack the blocks, clear rows, earn FP',       emoji: '🧱', color: '#c084fc', href: '/arcade/tetkris' },
-  { id: 'landslide',      name: 'Landslide',      tagline: 'Match 3 gems, cascade, win a landslide of FP', emoji: '💎', color: '#f472b6', href: '/arcade/landslide', iconSrc: '/gems/landslide-icon.png' },
-  { id: 'ballot-blaster', name: 'Ballot Blaster', tagline: 'Blast the fake ballots, save the real ones', emoji: '👾', color: '#a855f7' },
-  { id: 'coin-rush',      name: 'FP Coin Rush',   tagline: 'Grab the falling coins before time runs out', emoji: '🪙', color: '#f59e0b' },
-  { id: 'whack-a-pol',    name: 'Whack-a-Pol',    tagline: 'Bonk the pols popping out of the swamp',      emoji: '🔨', color: '#22c55e' },
+  {
+    id: 'landslide', name: 'Landslide', art: '/arcade/landslide.jpg', accent: '#f472b6',
+    tagline: 'Match 3 · cascades · win a landslide of FP', href: '/arcade/landslide', badge: 'EARN FP',
+  },
+  {
+    id: 'tetkris', name: 'Tet-Kris', art: '/arcade/tetkris.jpg', accent: '#c084fc',
+    tagline: 'Stack the blocks · clear rows · earn FP', href: '/arcade/tetkris', badge: 'EARN FP',
+  },
+  {
+    id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15',
+    tagline: '3 machines · bet FP · match 3 to win big', href: '/arcade/slots', badge: 'BET FP',
+  },
 ]
 
 export default function ArcadePage() {
   const router = useRouter()
-  const [inserted, setInserted] = useState(false)
-
-  // little "insert coin" flash on load
-  useEffect(() => {
-    const t = setInterval(() => setInserted(v => !v), 700)
-    return () => clearInterval(t)
-  }, [])
 
   return (
-    <div className="min-h-screen text-white overflow-hidden relative"
-      style={{ background: 'radial-gradient(ellipse at 50% 0%, #2a0a4a 0%, #0a0616 60%, #050208 100%)', fontFamily: 'ui-monospace, monospace' }}>
-      {/* scanline overlay */}
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.06]"
-        style={{ backgroundImage: 'repeating-linear-gradient(0deg, #fff 0, #fff 1px, transparent 2px, transparent 4px)' }} />
-
+    <div className="min-h-screen bg-gray-950 text-white pb-28">
       {/* header */}
-      <div className="relative z-10 px-4 pt-4 pb-2 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-purple-300 hover:text-white transition">
-          <ArrowLeft size={18} />
-        </button>
-        <span className="text-purple-300 text-xs tracking-widest">EXIT</span>
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-gray-800">
+        <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>
+        <h1 className="text-white font-bold text-lg">🕹️ Arcade</h1>
+        <span className="ml-auto text-[11px] text-gray-500 flex items-center gap-1">
+          <Zap size={12} className="text-yellow-400" /> Play to earn FP
+        </span>
       </div>
 
-      {/* marquee */}
-      <div className="relative z-10 text-center pt-3 pb-6">
-        <h1 className="font-black tracking-[0.15em] text-4xl"
-          style={{
-            color: '#facc15',
-            textShadow: '0 0 8px #f59e0b, 0 0 20px #a855f7, 0 3px 0 #7c2d12',
-            animation: 'arcadeGlow 2.4s ease-in-out infinite',
-          }}>
-          🕹️ ARCADE
-        </h1>
-        <p className={`mt-2 text-sm tracking-widest transition-opacity ${inserted ? 'opacity-100' : 'opacity-30'}`}
-          style={{ color: '#f472b6' }}>
-          ★ INSERT COIN ★
-        </p>
-        <p className="text-gray-500 text-[11px] mt-1">Earn FP! · nothing to download</p>
-      </div>
-
-      {/* cabinet stack — three centered buttons */}
-      <div className="relative z-10 flex flex-col items-center gap-4 px-6 pb-28 max-w-sm mx-auto">
-        {GAMES.map(g => {
-          const live = !!g.href
-          return (
-            <button
-              key={g.id}
-              onClick={() => g.href && router.push(g.href)}
-              disabled={!live}
-              className="relative w-full rounded-2xl p-5 text-center transition active:scale-95 overflow-hidden"
-              style={{
-                background: 'linear-gradient(180deg, rgba(20,12,36,0.9), rgba(8,4,16,0.95))',
-                border: `2px solid ${g.color}`,
-                boxShadow: `0 0 16px ${g.color}55, inset 0 0 24px ${g.color}18`,
-                opacity: live ? 1 : 0.95,
-              }}
-            >
-              {g.iconSrc ? (
-                <img src={g.iconSrc} alt="" className="w-16 h-16 mx-auto mb-2 object-contain"
-                  style={{ filter: `drop-shadow(0 0 10px ${g.color})` }} />
-              ) : (
-                <div className="text-5xl mb-2" style={{ filter: `drop-shadow(0 0 10px ${g.color})` }}>{g.emoji}</div>
+      {/* cabinet cards */}
+      <div className="px-4 pt-4 space-y-4 max-w-md mx-auto">
+        {GAMES.map(g => (
+          <button
+            key={g.id}
+            onClick={() => router.push(g.href)}
+            className="relative w-full rounded-2xl overflow-hidden text-left transition active:scale-[0.98] group"
+            style={{ border: '1px solid rgba(255,255,255,0.08)', boxShadow: `0 8px 30px rgba(0,0,0,0.5), 0 0 24px ${g.accent}14` }}
+          >
+            {/* key art */}
+            <div className="relative aspect-[16/9] bg-gray-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={g.art} alt={g.name} className="w-full h-full object-cover" loading="lazy" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 40%, rgba(3,7,18,0.92) 100%)' }} />
+              {g.badge && (
+                <span className="absolute top-2.5 right-2.5 text-[10px] font-black tracking-wider px-2 py-1 rounded-full"
+                  style={{ background: `${g.accent}22`, color: g.accent, border: `1px solid ${g.accent}55`, backdropFilter: 'blur(4px)' }}>
+                  ⚡ {g.badge}
+                </span>
               )}
-              <div className="font-black text-lg tracking-wide" style={{ color: g.color }}>{g.name}</div>
-              <div className="text-gray-400 text-xs mt-1 leading-tight">{g.tagline}</div>
-              <div className="mt-2.5 text-xs font-black tracking-[0.2em]"
-                style={{ color: live ? '#4ade80' : '#6b7280' }}>
-                {live ? '▶ PLAY' : '◆ COMING SOON ◆'}
+              {/* title + tagline over the art bottom */}
+              <div className="absolute bottom-0 inset-x-0 px-4 pb-3 flex items-end justify-between gap-3">
+                <div>
+                  <div className="font-black text-xl tracking-wide" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}>{g.name}</div>
+                  <div className="text-gray-300 text-xs mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>{g.tagline}</div>
+                </div>
+                <span className="shrink-0 flex items-center gap-1.5 text-xs font-black px-4 py-2 rounded-full transition group-active:scale-95"
+                  style={{ background: g.accent, color: '#0b0714' }}>
+                  <Play size={12} fill="#0b0714" /> PLAY
+                </span>
               </div>
-            </button>
-          )
-        })}
-      </div>
+            </div>
+          </button>
+        ))}
 
-      {/* high-score footer strip */}
-      <div className="relative z-10 fixed bottom-20 left-0 right-0 text-center pointer-events-none">
-        <p className="text-[10px] tracking-[0.3em] text-purple-400/70">
-          ▲ MORE GAMES DROPPING SOON ▲
+        {/* single teaser — everything else stays hidden until it's real */}
+        <div className="relative w-full rounded-2xl overflow-hidden border border-dashed border-gray-800 bg-gray-900/50 px-4 py-5 flex items-center gap-4">
+          <div className="text-3xl">👾</div>
+          <div>
+            <div className="font-bold text-sm text-gray-300">Ballot Blaster</div>
+            <div className="text-gray-600 text-xs">Blast the fake ballots · coming soon</div>
+          </div>
+          <span className="ml-auto text-[10px] font-black tracking-widest text-gray-600">SOON</span>
+        </div>
+
+        <p className="text-center text-gray-600 text-[11px] pt-1">
+          Free games earn up to 5,000 FP a day · slots pay from your bets
         </p>
       </div>
-
-      <style>{`
-        @keyframes arcadeGlow {
-          0%,100% { text-shadow: 0 0 8px #f59e0b, 0 0 20px #a855f7, 0 3px 0 #7c2d12; }
-          50%     { text-shadow: 0 0 14px #fde047, 0 0 32px #ec4899, 0 3px 0 #7c2d12; }
-        }
-      `}</style>
     </div>
   )
 }

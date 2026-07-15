@@ -164,17 +164,31 @@ export default function LandslidePage() {
     return () => window.removeEventListener('resize', fit)
   }, [])
 
+  // Server-owned play session (anti-farm): rewards must reference it
+  const sessionRef = useRef<string | null>(null)
+  const cappedRef = useRef(false)
+  useEffect(() => {
+    fetch('/api/arcade/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ game: 'landslide' }),
+    }).then(r => r.json()).then(d => { sessionRef.current = d.session_id ?? null }).catch(() => {})
+  }, [])
+
   async function reward(event: 'clear' | 'level', extra: { count?: number; level: number }) {
     try {
       const res = await fetch('/api/arcade/landslide/reward', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event, ...extra }),
+        body: JSON.stringify({ event, ...extra, session_id: sessionRef.current }),
       })
       const d = await res.json()
       if (res.ok && d.awarded > 0) {
         fpGameRef.current += d.awarded; setFpGame(fpGameRef.current)
         setBalance(d.balance); sfx.coin()
         setFpToast(`+${d.awarded} FP`); setTimeout(() => setFpToast(''), 1100)
+      } else if (res.ok && d.capped && !cappedRef.current) {
+        cappedRef.current = true
+        setFpToast('🏁 Daily arcade FP cap reached — playing for glory!')
+        setTimeout(() => setFpToast(''), 2600)
       }
     } catch {}
   }

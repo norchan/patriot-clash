@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { clampArcadeAward } from '@/lib/arcade'
 
 // POST /api/arcade/landslide/reward  { event: 'clear'|'level', count?, level }
 // The client reports game events; the server decides (and caps) the FP so it
@@ -32,15 +33,22 @@ export async function POST(req: NextRequest) {
       .from('profiles').select('id').eq('clerk_user_id', userId).single()
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
+    // ANTI-FARM: the award must ride a server-created session and is clamped
+    // by real play time + the shared daily cap.
+    const { allowed, reason } = await clampArcadeAward(profile.id, 'landslide', body.session_id, award)
+    if (allowed === 0) {
+      return NextResponse.json({ awarded: 0, capped: reason === 'DAILY_CAP', reason })
+    }
+
     // Atomic credit (records a ledger row); never read-modify-write the balance.
     const { data: newBalance, error } = await admin.rpc('grant_fp', {
-      p_profile_id: profile.id, p_amount: award,
+      p_profile_id: profile.id, p_amount: allowed,
       p_type: 'arcade', p_reference_type: 'landslide',
       p_description: `Landslide ${body.event}`,
     })
     if (error) throw error
 
-    return NextResponse.json({ awarded: award, balance: newBalance })
+    return NextResponse.json({ awarded: allowed, balance: newBalance })
   } catch (err) {
     console.error('landslide reward error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
