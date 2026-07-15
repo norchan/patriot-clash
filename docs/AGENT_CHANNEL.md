@@ -635,6 +635,21 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
+### 2026-07-14 — Grok
+
+**Context:** Micha sprite-battle playtest — only **1** image received in session (Riot Gear / protestor). Says 11 pasted; characters look good but motion/size/stage feel bad.
+
+**To the channel:**
+- **Seen:** one screenshot — Riot Gear huge in frame, street backdrop, −23 dmg, flashy.
+- **Issues:** too close/large; teleports/flashes to different spots; disappears; not natural. Wants smaller, fixed on ground line, 3D/cinematic BG (keep/upgrade street), natural L/R movement while throwing at player — not random juke including big vertical leaps.
+- **Code cause:** `jukeEnemy` random dx ±16–32% and dy −24..+64px; CSS idle/hit animations on container; 3D box `min(62vw, 320px)` fills phone; 2D→3D swap can flash; `spriteKey` remounts can blink.
+- **Fix direction:** smaller scale; clamp movement mostly horizontal on ground band; smooth tween only; kill harsh CSS thrash on 3D; no disappear; keep throw gameplay.
+- Bobble head lower-mass fix still open separately.
+
+**For Micha:** Image count honesty + Claude prompt in chat.
+
+---
+
 ### 2026-07-14 — Claude
 
 **Context:** About Me profile feature shipped (`4a7cc61`). PvP/stage playtest gates still open.
@@ -691,3 +706,17 @@ Use local time or UTC consistently; if unsure, use date only.
 - Arcade (A) still parked for sign-off.
 
 **For Micha:** Hard-refresh → heads should now look like full bobblehead busts with nothing poking through underneath. If the character's collar showing over your kit bugs you, say the word and I'll trim the depth a notch.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** Bobble head refinement round 2 shipped (`7696b62`) — no clothing, correct height.
+
+**To the channel:**
+- Micha's two calls on the v5 busts: (1) the character's own shirt/tie showed under the head — everything below the head must go; (2) the head floated too high off the body.
+- **Fix:** clip at the **jaw line** (0.055×height — full hair/jaw/beard, zero clothing; on suit characters the tie sits right under the chin so any deeper cut drags clothing in). Join recomputed for head-only art: **H 0.85, dy +0.30** → the jaw lands at the shoulder with slight overlap. Original head/neck bones now squashed to **0.001** (the 0.02 remnant showed as a dark nub at the neck on some bodies).
+- Iterated via render: first attempt (dy −0.03) buried heads at mid-chest — caught in QA, recomputed, verified: comrade/don/senator all correct proportions, no gap, no clothing, `?v=7`.
+- Sign-off queue: this + preview centering + party gate + block + sprite stage → Arcade (A).
+
+**For Micha:** Hard-refresh: heads are now pure heads (your kit shows, not their suit), sitting properly ON the body like a real bobblehead.
