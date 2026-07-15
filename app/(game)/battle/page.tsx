@@ -566,7 +566,10 @@ function BattleContent() {
       style={{
         height: '100dvh', minHeight: '100vh', position: 'relative', overflow: 'hidden',
         userSelect: 'none',
-        background: 'linear-gradient(180deg, #060d1a 0%, #0c1533 30%, #12224a 48%, #1a2a3a 60%, #1c2e1a 74%, #243320 90%, #141f12 100%)',
+        // Real street-battle backdrop (protest crowds behind barricades, open
+        // asphalt stage) with a readability grade over it; gradient fallback
+        // paints instantly while the image streams in.
+        background: 'linear-gradient(180deg, rgba(4,8,18,0.5) 0%, rgba(4,8,18,0.12) 32%, rgba(4,8,18,0) 55%, rgba(4,8,18,0.28) 100%), url(/backgrounds/street_battle.jpg) center / cover no-repeat, linear-gradient(180deg, #060d1a 0%, #0c1533 40%, #1a2028 70%, #141a12 100%)',
         touchAction: phase === 'fighting' ? 'none' : 'auto',
         animation: screenShake ? 'screenShake 0.45s ease-in-out' : 'none',
       }}
@@ -575,22 +578,8 @@ function BattleContent() {
     >
       <div className="battle-wipe" />
 
-      {/* Starfield */}
-      {[...Array(18)].map((_, i) => (
-        <div key={i} style={{
-          position: 'absolute',
-          width: i % 3 === 0 ? 2 : 1, height: i % 3 === 0 ? 2 : 1,
-          borderRadius: '50%', background: 'white',
-          opacity: 0.35 + (i % 4) * 0.15,
-          top: `${5 + (i * 13) % 42}%`,
-          left: `${(i * 17 + 7) % 100}%`,
-          animation: `starTwinkle ${2 + i % 3}s ease-in-out ${(i * 0.3) % 2}s infinite`,
-        }} />
-      ))}
-
-      {/* Horizon glow + vignette */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%', background: 'linear-gradient(0deg, rgba(30,60,20,0.6) 0%, transparent 100%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 90% 75% at 50% 45%, transparent 55%, rgba(4,8,16,0.6) 100%)', pointerEvents: 'none' }} />
+      {/* Edge vignette so the character + UI pop off the backdrop */}
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 92% 78% at 50% 48%, transparent 56%, rgba(4,8,16,0.55) 100%)', pointerEvents: 'none' }} />
 
       {/* ── Enemy status (top-left) ─────────────────────────────────────────── */}
       <div style={{
@@ -629,9 +618,9 @@ function BattleContent() {
         </button>
       )}
 
-      {/* ── The sprite — smaller, juking in all directions ──────────────────── */}
+      {/* ── The enemy — feet planted on the street's ground line, juking ────── */}
       <div style={{
-        position: 'absolute', top: '15%', left: `${enemyX}%`, zIndex: 5,
+        position: 'absolute', bottom: '23%', left: `${enemyX}%`, zIndex: 5,
         transform: `translateX(-50%) translateY(${enemyY}px)`,
         transition: `left ${S.current.exDur}ms ease-out, transform ${S.current.exDur}ms ease-out`,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -717,7 +706,7 @@ function BattleContent() {
           )}
         </div>
         )}
-        <div style={{ width: '38%', height: 16, background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 70%)', borderRadius: '50%', marginTop: '-8%', filter: 'blur(5px)' }} />
+        <div style={{ width: '46%', height: 18, background: 'radial-gradient(ellipse, rgba(0,0,0,0.65) 0%, transparent 70%)', borderRadius: '50%', marginTop: '-9%', filter: 'blur(6px)' }} />
       </div>
 
       {/* miss marker */}

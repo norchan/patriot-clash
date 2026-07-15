@@ -39,6 +39,9 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
   const prevKey = useRef(0)
 
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
+  // same closed-fist fix as PvP: the meshes have flat open hands baked in
+  const handL = useMemo(() => scene.getObjectByName('LeftHand') ?? null, [scene])
+  const handR = useMemo(() => scene.getObjectByName('RightHand') ?? null, [scene])
 
   // Manual mixer so the head bobble in useFrame runs AFTER the animation update
   const { mixer, idleAction, throwAction } = useMemo(() => {
@@ -90,6 +93,9 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
       head.rotation.x += Math.sin(t * 3.2) * 0.05
       head.rotation.z += Math.cos(t * 2.5) * 0.06
     }
+    // closed fists (squash the open-paddle hands, like the PvP fighters)
+    if (handL) handL.scale.set(1.2, 0.45, 1.2)
+    if (handR) handR.scale.set(1.2, 0.45, 1.2)
     // Flying hammer, launched mid-throw
     if (throwPending.current) { launchAt.current = t; throwPending.current = false }
     const h = hammer.current
@@ -115,8 +121,8 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
       <group ref={root}><group ref={fit}><primitive object={scene} /></group></group>
       <group ref={hammer} visible={false}><Hammer /></group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-        <circleGeometry args={[0.95, 32]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.34} />
+        <circleGeometry args={[1.05, 32]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.46} />
       </mesh>
     </group>
   )
@@ -126,10 +132,11 @@ export default function Enemy3D({ prefix, faceY = 0, attackKey = 0, onReady }: {
   return (
     <Canvas frameloop="always" style={{ width: '100%', height: '100%' }}
       camera={{ position: [0, 0.4, 4.4], fov: 42 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }}>
-      <ambientLight intensity={0.85} />
-      <directionalLight position={[3, 6, 4]} intensity={1.8} />
-      <directionalLight position={[-4, 2, 3]} intensity={0.6} color="#f87171" />
-      <pointLight position={[0, 1, 3]} intensity={0.5} color="#fca5a5" />
+      {/* warm street-fire key + cool night rim to match the battle backdrop */}
+      <ambientLight intensity={0.7} />
+      <directionalLight position={[3, 6, 4]} intensity={2.0} color="#ffd6a0" />
+      <directionalLight position={[-4, 2, -3]} intensity={0.8} color="#6a8bff" />
+      <pointLight position={[0, 1, 3]} intensity={0.5} color="#ffb877" />
       <Suspense fallback={null}>
         <Model prefix={prefix} faceY={faceY} attackKey={attackKey} onReady={onReady} />
       </Suspense>
