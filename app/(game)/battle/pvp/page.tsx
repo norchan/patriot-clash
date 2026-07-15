@@ -122,6 +122,7 @@ function StreetFightPage() {
   const [playerY, setPlayerY] = useState(0)       // jump height
   const [playerDuck, setPlayerDuck] = useState(false)
   const [blocking, setBlocking] = useState(false)
+  const [oppBlocking, setOppBlocking] = useState(false) // opponent's live block pose
   const [oppX, setOppX] = useState(ANCHOR)         // opponent position (AI-driven)
   const jumpingRef = useRef(false)
   const doJump = useCallback(() => {
@@ -253,8 +254,6 @@ function StreetFightPage() {
   // Swapped caricature heads (null = the body's own head)
   const myHeadId = isChallenger ? challenge?.challenger_head_id : challenge?.defender_head_id
   const oppHeadId = isChallenger ? challenge?.defender_head_id : challenge?.challenger_head_id
-  const myHeadImg = myHeadId ? `/heads/${myHeadId}.png` : undefined
-  const oppHeadImg = oppHeadId ? `/heads/${oppHeadId}.png` : undefined
   // Human opponents fight in REAL TIME over a Supabase channel; bots (and
   // human opponents who never show up) are fought as AI at their level
   const realtime = isLive && !oppIsBot
@@ -609,6 +608,7 @@ function StreetFightPage() {
       .on('broadcast', { event: 'result' }, ({ payload }) => applyMyAttackResult(payload))
       // opponent's position (mirrored: their left-side X → our right-side X)
       .on('broadcast', { event: 'pos' }, ({ payload }) => { S.oppX = -payload.x; setOppX(-payload.x) })
+      .on('broadcast', { event: 'blk' }, ({ payload }) => { setOppBlocking(!!payload.on) })
       .on('presence', { event: 'sync' }, () => {
         const roles = Object.keys(ch.presenceState())
         const both = roles.includes('c') && roles.includes('d')
@@ -757,7 +757,7 @@ function StreetFightPage() {
   // Shared guards + cooldown claim for every offensive move
   function canStrike(cd: number): boolean {
     const S = L.current
-    if (phase !== 'live' || S.over || S.blockHeld) return false
+    if (phase !== 'live' || S.over || S.blockHeld || S.blocking) return false
     const now = Date.now()
     if (now < S.myCd || now < S.dodgeUntil) return false
     if (realtime && !S.ghost && !S.synced) { flashHint(`⏳ Waiting for ${theirUsername ?? 'opponent'} to enter...`); return false }
@@ -830,6 +830,7 @@ function StreetFightPage() {
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
       } else if (result === 'blocked') {
         addSpark(true, 'BLOCK', '#93c5fd'); sfx.block()
+        setOppBlocking(true); setTimeout(() => { if (!L.current.over) setOppBlocking(false) }, 450)
       } else {
         addSpark(true, 'MISS', '#9ca3af'); sfx.whoosh()
       }
@@ -987,11 +988,12 @@ function StreetFightPage() {
     const down = (e: KeyboardEvent) => {
       if (e.repeat) return
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); playerStrike() }
-      if (e.key === 'ArrowDown' || e.key === 's') { L.current.blockHeld = true; setMyPose('block') }
+      if (e.key === 'ArrowDown' || e.key === 's') { L.current.blockHeld = true; setBlocking(true); setMyPose('block') }
     }
     const up = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown' || e.key === 's') {
         L.current.blockHeld = false
+        setBlocking(false)
         if (!L.current.over) setMyPose('idle')
       }
     }
@@ -1289,8 +1291,10 @@ function StreetFightPage() {
           <PvpArena3D
             playerPrefix={myPvpFighter}
             oppPrefix={oppPvpFighter}
-            playerHeadImg={myHeadImg}
-            oppHeadImg={oppHeadImg}
+            playerHeadId={myHeadId}
+            oppHeadId={oppHeadId}
+            playerBlocking={blocking}
+            oppBlocking={oppBlocking}
             playerJabRKey={playerJabRKey}
             playerJabLKey={playerJabLKey}
             oppJabRKey={oppJabRKey}

@@ -25,7 +25,11 @@ window.head = async (url) => {
  const rim = new THREE.DirectionalLight(0xaabbff, 0.7); rim.position.set(-4, 2, -3); sc.add(rim)
  const g = await new Promise((res, rej) => new GLTFLoader().load(url, res, undefined, rej))
  const root = g.scene
- if (g.animations[0]) { const mx = new THREE.AnimationMixer(root); const a = mx.clipAction(g.animations[0]); a.play(); a.paused = true; a.time = 0.3; mx.update(0.001) }
+ // BIND POSE (no animation): every rig's rest pose faces dead ahead — no per-clip head tilt
+ // collapse the T-pose ARMS so no floating stubs appear beside chibi heads
+ for (const n of ['LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftShoulder', 'RightShoulder']) {
+   const b = root.getObjectByName(n); if (b) b.scale.setScalar(0.001)
+ }
  sc.add(root); root.updateMatrixWorld(true)
  let bone = null; root.traverse(o => { if (o.isBone && o.name === 'Head') bone = bone || o })
  if (!bone) return 'NO HEAD BONE'
@@ -33,12 +37,18 @@ window.head = async (url) => {
  // model height to scale the framing
  const box = new THREE.Box3().setFromObject(root); const size = new THREE.Vector3(); box.getSize(size)
  const headSpan = size.y * 0.30 // generous head region for bobble models
- // clip everything below the chin so ONLY the head renders
- const clip = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.y - size.y * 0.015))
- sc.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.clippingPlanes = [clip]; o.material.clipShadows = true } })
+ // clip below the chin + beyond the head's width so ONLY the head renders
+ // (bind-pose T arms would otherwise leave floating stubs beside chibi heads)
+ const w = size.y * 0.42
+ const clips = [
+   new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.y - size.y * 0.03)),
+   new THREE.Plane(new THREE.Vector3(1, 0, 0), -(p.x - w)),
+   new THREE.Plane(new THREE.Vector3(-1, 0, 0), (p.x + w)),
+ ]
+ sc.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.clippingPlanes = clips; o.material.clipShadows = true } })
  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 100)
- cam.position.set(p.x, p.y + headSpan * 0.42, p.z + headSpan * 3.8)
- cam.lookAt(p.x, p.y + headSpan * 0.38, p.z)
+ cam.position.set(p.x, p.y + headSpan * 0.45, p.z + headSpan * 5.2)
+ cam.lookAt(p.x, p.y + headSpan * 0.42, p.z)
  r.render(sc, cam); return 'ok'
 }
 window.__ready = true</script>`

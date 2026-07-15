@@ -69,7 +69,7 @@ export default function MyFighterPage() {
       <div className="relative mx-auto" style={{ width: '100%', maxWidth: 480, aspectRatio: '1 / 1' }}>
         <PvpArena3D
           playerPrefix={`${body}_${partySuffix}`}
-          playerHeadImg={head ? headImage(head) : undefined}
+          playerHeadId={head}
           playerJabRKey={attackKey}
           solo
         />

@@ -10,7 +10,13 @@ export interface HeadMeta {
   id: string
   label: string
   party?: 'democrat' | 'republican'
+  /** per-head size multiplier on the in-fight billboard (default 1) */
+  scale?: number
+  /** per-head vertical offset in world units (default 0; + is up) */
+  dy?: number
 }
+
+export const headMeta = (id: string) => HEADS.find(h => h.id === id)
 
 export const HEADS: HeadMeta[] = [
   // Republican-flavored
@@ -36,6 +42,7 @@ export const HEADS: HeadMeta[] = [
   { id: 'senator', label: 'The Senator', party: 'democrat' },
 ]
 
-export const headImage = (id: string) => `/heads/${id}.png`
+// v2 = complete re-render (bind pose, wide framing, arm cleanup) — bump to bust caches
+export const headImage = (id: string) => `/heads/${id}.png?v=2`
 export const isValidHead = (id: unknown): id is string =>
   typeof id === 'string' && HEADS.some(h => h.id === id)
