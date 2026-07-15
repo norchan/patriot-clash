@@ -42,7 +42,7 @@ window.head = async (url, rotY) => {
  // (bind-pose T arms would otherwise leave floating stubs beside chibi heads)
  const w = size.y * 0.42
  const clips = [
-   new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.y - size.y * 0.20)),
+   new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.y - size.y * 0.055)),
    new THREE.Plane(new THREE.Vector3(1, 0, 0), -(p.x - w)),
    new THREE.Plane(new THREE.Vector3(-1, 0, 0), (p.x + w)),
  ]

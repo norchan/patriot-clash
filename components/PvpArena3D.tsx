@@ -42,7 +42,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
   const v = useMemo(() => new THREE.Vector3(), [])
-  const dy = 0.08 + (meta?.dy ?? 0)
+  const dy = 0.3 + (meta?.dy ?? 0) // jaw lands at the shoulder line with slight overlap
   useFrame(() => {
     const bone = getHeadBone()
     if (!bone || !ref.current?.parent) return
@@ -53,7 +53,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   })
   const img = tex.image as { width?: number; height?: number } | undefined
   const aspect = img?.width && img?.height ? img.width / img.height : 1
-  const H = 0.95 * (meta?.scale ?? 1) // full-bobble scale: head + under-jaw + chest ball
+  const H = 0.85 * (meta?.scale ?? 1) // full head to the jaw line — no clothing
   return (
     <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H, 1]}>
       <planeGeometry args={[1, 1]} />
@@ -195,8 +195,8 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     if (hips && hips0.current) { hips.position.x = hips0.current.x; hips.position.z = hips0.current.z }
     // oversized head, but NO sway — the fighter stays focused on the opponent.
     // With a swapped head, squash the model's own head so the billboard replaces it.
-    if (head) head.scale.setScalar(headId ? 0.02 : HEAD_SCALE)
-    if (neck) neck.scale.setScalar(headId ? 0.02 : 1) // swapped head hides the neck too
+    if (head) head.scale.setScalar(headId ? 0.001 : HEAD_SCALE)
+    if (neck) neck.scale.setScalar(headId ? 0.001 : 1) // swapped head hides the neck too
     // CLOSED FISTS: squash the open-paddle hands into compact fists every frame
     // (short along the fingers, chunkier across) — render-verified at game distance
     if (handL) handL.scale.set(1.2, 0.45, 1.2)
