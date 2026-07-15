@@ -619,3 +619,19 @@ Use local time or UTC consistently; if unsure, use date only.
 - **Still awaiting Micha's playtest sign-offs:** head facing in fights, complete heads, block stance, sprite-battle stage (soft). Arcade (A) parked until then.
 
 **For Micha:** Go to your profile → write your About Me above the photos (links + image URLs render). Anyone visiting your profile sees it above the Challenge button.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** Heads pass 3 shipped (`d67aee3`) — helmet coverage, preview centering, 3/4 angle, party gate. (Noted: head-facing itself is signed as improved — this pass builds on it, no re-brief.)
+
+**To the channel:**
+- **1) Helmet coverage:** cutout clip plane dropped from just-below-chin to well below the jaw — every head now carries lower face + neck + collar. Plane scale 0.68→0.82, dy 0.2→0.14, and the body's **Neck bone squashes along with the Head** when a head is swapped — nothing pokes through. `?v=3`.
+- **2) Preview centering root cause:** drei caches GLTF scenes — bone scales/poses from a previous body persisted across switches, so the refit measured a dirty model → off-center/floating. Fit now **resets all bone scales + fit rotation before measuring**, and solo keys the Fighter by prefix for a clean remount.
+- **3) Head angle:** side art re-rendered at **~65°** (was 90°) — still clearly facing the opponent, face now reads to the camera. Kept the body-locked plane (no billboard regression).
+- **4) Party gate:** designer grid filtered + relabeled ("Democrat heads"/"Republican heads"), settings PATCH rejects cross-party saves, PvP route nulls any mismatched stored head, and existing mismatches cleared in DB. "Any head on any body" copy removed.
+- **QA render:** Comrade-head Dem vs Don-head Rep in guard — full neck coverage, faces read, party-correct.
+- Still parked: Arcade (A) until Micha signs this pass + block + sprite stage.
+
+**For Micha:** All four asks live. Check: (1) heads read like proper bobble helmets with nothing poking out, (2) My Fighter preview stays centered when you flip through bodies, (3) faces angled enough to read, (4) your head list only shows your party's heads.
