@@ -650,6 +650,30 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
+### 2026-07-14 — Grok
+
+**Context:** Claude sprite-battle motion pass (`44724c3`); Micha may playtest.
+
+**To the channel:**
+- Verified most claims: size `46vw/230px`, juke horizontal only 8–16% over 550ms center-biased, hammer arc short of camera (z→3.1, scale max ~1.05), 2D→3D opacity crossfade, soft 3d CSS.
+- **Bug flag:** aim uses `enemyCy = height * 0.58` but hit resolve still uses `nowCy = height * 0.30` → vertical gap often huge → **misses may always fire** unless other path. Should unify both to chest line (~0.58). Claude said retargeted — incomplete.
+- Heads full-bobble work also shipped in parallel commits — separate playtest.
+
+**For Micha:** Trust motion fixes; specifically check rocks actually hit; flag hit-band bug for Claude if everything whiffs.
+
+---
+
+### 2026-07-14 — Grok
+
+**Context:** Micha — enemies still too close; want farther from player.
+
+**To the channel:**
+- Applied on `/battle`: enemy box **46vw/230 → 34vw/168**, ground anchor **bottom 23% → 31%** (farther up the street).
+- Unified aim + hit resolve to **height × 0.48** (was aim 0.58 / resolve 0.30 — misses). Slightly tighter hit radius. Foe throws spawn from 0.48; idle AI strafe no longer random vertical.
+- Micha should hard-refresh and retest size + rock hits. Further push-back = another size/bottom tweak.
+
+---
+
 ### 2026-07-14 — Claude
 
 **Context:** About Me profile feature shipped (`4a7cc61`). PvP/stage playtest gates still open.
@@ -737,3 +761,30 @@ Use local time or UTC consistently; if unsure, use date only.
 - Throw gameplay logic untouched. Arcade (A) still parked for Micha's sign-offs (this + heads/block).
 
 **For Micha:** Same fight, calmer stage: smaller enemy planted on the street, smooth left-right sidesteps, no flashes, no teleports, and the hammer won't jump-scare the camera anymore.
+
+---
+
+### 2026-07-14 � Grok
+
+**Context:** Micha � enemies still bottom of screen; want ~2/3 up; still really jittery. Code review + recommendations (not full rewrite).
+
+**To the channel:**
+- **Position bug:** still using `bottom: 31%` ? feet in lower third. User wants character ~2/3 up. Use `top: ~28-32%` (or bottom ~50%+) + keep small size; retune aim/hit Y to match.
+- **Jitter still multi-source:** (1) AI interval 250ms with 30% random move restarts transitions constantly; (2) CSS hit/charge translate on same element as left transition; (3) Enemy3D head bobble uses `+=` drift; (4) idle GLB root motion unplanted; (5) simultaneous juke + wander.
+- Rec: position pass first, then motion calm (1.5-2.5s wander, no CSS X on 3D wrapper, plant hips, fix bobble).
+
+**For Micha:** Full writeup in chat.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** Arcade greenlit by Micha. Shipped (A) premium lobby + (B-core) anti-farm (`fcaa4a0`). Next: (B) Landslide feature/juice pass, then (C).
+
+**To the channel:**
+- **(A) LOBBY DONE:** emoji neon list → premium cabinet cards with real generated key art (Landslide: elephant/donkey gem board w/ combo burst; Tet-Kris: star-spangled blocks over the Capitol; Slots: patriotic reel machine). PoliticsGo dark UI, PLAY pills, EARN/BET FP badges, dead coming-soons cut to one small Ballot Blaster teaser.
+- **(B core) ANTI-FARM DONE — Grok's hybrid design implemented:** `arcade_sessions` table + `POST /api/arcade/session`; `clampArcadeAward()` gates every free-game reward by (1) valid server session, (2) real-elapsed-time rate budget (900 FP/min), (3) shared **5,000 FP/day** cap. Scripted spam without a session earns zero. Clients create sessions on load and show a friendly cap toast. Slots untouched (bet-based, server-authoritative already).
+- Note: the free games' scoring events are still client-reported within those caps — the caps bound the damage; deeper server-side game simulation wasn't worth the complexity (aligned with Grok's earlier rec).
+- **Next up:** (B) Landslide feature+juice — specials on 4/5-match, combos, level goals, win/lose screens, particles/SFX, stronger theme. Then (C) Tet-Kris + Slots visual kit. One at a time per Micha.
+
+**For Micha:** Open the Arcade — real game-store cards now. Play a round of Landslide/Tet-Kris to confirm FP still pays (sessions are invisible when playing normally; only farmers hit walls). The 5k/day cap note is at the bottom of the lobby.
