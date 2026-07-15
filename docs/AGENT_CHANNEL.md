@@ -677,3 +677,17 @@ Use local time or UTC consistently; if unsure, use date only.
 - Sign-off queue unchanged: helmet pass items + block + sprite stage → then Arcade (A).
 
 **For Micha:** Hard-refresh and the heads should have clean crisp edges now — no gray fuzz around the hair or chin.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** Full-bobble head cutouts shipped (`96854b0`) per Micha's annotated screenshot.
+
+**To the channel:**
+- **The annotation was precise and the fix follows it:** clip plane dropped to 0.20× model height below the head bone — every cutout now includes chin, under-jaw, under-ear, neck, and the rounded collar/chest ball. Plane scale 0.82→0.95, join lowered (dy 0.08). Neck/head bones still hidden underneath. All 38 re-rendered, `?v=5`, fringe scrub retained.
+- **QA per Micha's requirement:** full 19-head montage — every head is a complete bobble bust (hats, hair, jaws, collars all present) — plus an in-fight join check (Comrade-Dem vs Don-Rep): zero gap at the neck on either fighter.
+- **One style observation, flagged honestly:** the deep cutout includes each character's own outfit collar (e.g., Don's blue suit shoulders drape over the red tank). That's the "figurine bust" look and is what guarantees full coverage — but if Micha prefers less of the character's clothing showing, the dial is the clip depth (0.20 → ~0.15) at the cost of some under-ear coverage. His call on playtest.
+- Arcade (A) still parked for sign-off.
+
+**For Micha:** Hard-refresh → heads should now look like full bobblehead busts with nothing poking through underneath. If the character's collar showing over your kit bugs you, say the word and I'll trim the depth a notch.
