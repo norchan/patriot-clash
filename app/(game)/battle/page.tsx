@@ -218,6 +218,9 @@ function BattleContent() {
       @keyframes pokeLowHp { 0%,100%{transform:translateY(0) rotate(-8deg) scale(0.97)} 35%{transform:translateY(-5px) rotate(6deg) scale(1.03)} 55%{transform:translateY(0) rotate(-3deg)} }
       @keyframes pokeHit { 0%{transform:translateX(0)} 20%{transform:translateX(14px) rotate(6deg)} 45%{transform:translateX(-11px) rotate(-6deg)} 70%{transform:translateX(6px)} 100%{transform:translateX(0)} }
       @keyframes pokeChrg { 0%{transform:rotate(0) translateX(0)} 35%{transform:rotate(-14deg) translateX(-10px)} 70%{transform:rotate(16deg) translateX(14px); filter:brightness(1.5)} 100%{transform:rotate(0) translateX(0)} }
+      @keyframes poke3dHit { 0%{transform:translateX(0)} 30%{transform:translateX(7px)} 65%{transform:translateX(-5px)} 100%{transform:translateX(0)} }
+      @keyframes poke3dChrg { 0%,100%{transform:scale(1)} 55%{transform:scale(1.035)} }
+      @keyframes poke3dLow { 0%,100%{transform:translateY(0)} 50%{transform:translateY(2px)} }
       @keyframes pokeFaint { 0%{transform:translateY(0) rotate(0);opacity:1} 20%{transform:translateY(18px) rotate(14deg);opacity:0.85} 100%{transform:translateY(160px) rotate(42deg);opacity:0} }
       @keyframes screenShake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-12px,-5px) rotate(-1deg)} 30%{transform:translate(12px,5px) rotate(1deg)} 50%{transform:translate(-7px,-3px)} 70%{transform:translate(7px,3px)} 85%{transform:translate(-3px,0)} }
       @keyframes dmgFloat { 0%{transform:translateX(-50%) translateY(0);opacity:1} 100%{transform:translateX(-50%) translateY(-60px);opacity:0} }
@@ -287,12 +290,13 @@ function BattleContent() {
       setEnemyY(st.ey)
     }
   }
-  // A quick evasive juke in a random direction (used when a throw is incoming)
-  function jukeEnemy(dur = 300) {
+  // A natural SIDESTEP left or right along the ground line (no vertical hop,
+  // no teleporty jumps) — used when a throw is incoming
+  function jukeEnemy(dur = 550) {
     const cur = enemyXAt(Date.now())
-    const dx = (Math.random() < 0.5 ? -1 : 1) * (16 + Math.random() * 16)
-    const dy = -24 + Math.random() * 88
-    moveEnemyTo(cur + dx, dur, dy)
+    const dir = cur > 66 ? -1 : cur < 34 ? 1 : (Math.random() < 0.5 ? -1 : 1)
+    const dx = dir * (8 + Math.random() * 8)
+    moveEnemyTo(cur + dx, dur, 0)
   }
   function enemyXAt(t: number) {
     const st = S.current
@@ -310,7 +314,7 @@ function BattleContent() {
 
     const rect = arenaRef.current.getBoundingClientRect()
     // The sprite band tracks its live vertical dodge offset
-    const enemyCy = rect.height * 0.30 + st.ey
+    const enemyCy = rect.height * 0.58 + st.ey
     let endX: number
     if (kind === 'firecracker') {
       // aim along the swipe vector
@@ -332,7 +336,7 @@ function BattleContent() {
     const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
     if (Math.random() < Math.min(0.92, ai.dodge + diffRef.current.dodgeBonus) && now > st.dodgeBusyUntil) {
       st.dodgeBusyUntil = now + 620
-      setTimeout(() => { if (!S.current.over) jukeEnemy(300) }, 80)
+      setTimeout(() => { if (!S.current.over) jukeEnemy(550) }, 80)
     }
 
     // Resolve at impact time against the sprite's LIVE position
@@ -551,7 +555,16 @@ function BattleContent() {
   // holds the release (follow-through) pose
   const hasThrow = !throwGone
 
-  const animDefs = {
+  const is3dEnemy = !!ENEMY_3D[enemy.id]
+  // 3D enemies get SOFT container motion (the model itself animates); 2D
+  // sprites keep the punchy cartoon keyframes
+  const animDefs = is3dEnemy ? {
+    idle:   { css: 'none',        dur: 0,    iter: '1', fill: 'none' },
+    lowHp:  { css: 'poke3dLow',   dur: 1400, iter: 'infinite', fill: 'none' },
+    hit:    { css: 'poke3dHit',   dur: 420,  iter: '1', fill: 'none' },
+    charge: { css: 'poke3dChrg',  dur: 380,  iter: '1', fill: 'none' },
+    faint:  { css: 'pokeFaint',   dur: 900,  iter: '1', fill: 'forwards' },
+  } : {
     idle:   { css: 'pokeIdle',  dur: 2400, iter: 'infinite', fill: 'none' },
     lowHp:  { css: 'pokeLowHp', dur: 900,  iter: 'infinite', fill: 'none' },
     hit:    { css: 'pokeHit',   dur: 500,  iter: '1', fill: 'none' },
@@ -622,7 +635,7 @@ function BattleContent() {
       <div style={{
         position: 'absolute', bottom: '23%', left: `${enemyX}%`, zIndex: 5,
         transform: `translateX(-50%) translateY(${enemyY}px)`,
-        transition: `left ${S.current.exDur}ms ease-out, transform ${S.current.exDur}ms ease-out`,
+        transition: `left ${S.current.exDur}ms ease-in-out, transform ${S.current.exDur}ms ease-in-out`,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         pointerEvents: 'none',
       }}>
@@ -638,17 +651,17 @@ function BattleContent() {
 
         {ENEMY_3D[enemy.id] ? (
           <div style={{
-            width: 'min(62vw, 320px)', aspectRatio: '1 / 1', position: 'relative',
+            width: 'min(46vw, 230px)', aspectRatio: '1 / 1', position: 'relative',
             animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
             transformOrigin: 'bottom center',
           }}>
-            {/* 2D sprite shows instantly; the 3D model fades in once it loads */}
-            {!enemy3dReady && (
-              <img src={enemy.image} alt={enemy.name} style={{
-                position: 'absolute', inset: 0, margin: 'auto', width: '58%', height: 'auto',
-                objectFit: 'contain', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))',
-              }} />
-            )}
+            {/* 2D sprite shows instantly; crossfades out once the 3D model is in */}
+            <img src={enemy.image} alt={enemy.name} style={{
+              position: 'absolute', inset: 0, margin: 'auto', width: '58%', height: 'auto',
+              objectFit: 'contain', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))',
+              opacity: enemy3dReady ? 0 : 1, transition: 'opacity 300ms ease',
+              pointerEvents: 'none',
+            }} />
             <Enemy3D prefix={ENEMY_3D[enemy.id]} attackKey={spriteAnim === 'charge' ? spriteKey : 0}
               onReady={() => setEnemy3dReady(true)} />
           </div>

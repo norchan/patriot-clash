@@ -101,17 +101,19 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     const h = hammer.current
     if (h) {
       const e = t - launchAt.current
-      if (launchAt.current > 0 && e > 0.35 && e < 1.15) {
-        const p = (e - 0.35) / 0.8
+      if (launchAt.current > 0 && e > 0.35 && e < 0.95) {
+        const p = (e - 0.35) / 0.6
         h.visible = true
+        // arcs toward the player but stops well short of the camera —
+        // no more full-screen hammer flash
         h.position.set(
-          THREE.MathUtils.lerp(0.55, 0, p),
-          THREE.MathUtils.lerp(1.7, 0.7, p),
-          THREE.MathUtils.lerp(0.3, 5.6, p),
+          THREE.MathUtils.lerp(0.55, 0.1, p),
+          THREE.MathUtils.lerp(1.7, 0.55, p),
+          THREE.MathUtils.lerp(0.3, 3.1, p),
         )
-        h.rotation.z += dt * 15
-        h.rotation.x += dt * 9
-        h.scale.setScalar(THREE.MathUtils.lerp(0.5, 1.9, p))
+        h.rotation.z += dt * 13
+        h.rotation.x += dt * 8
+        h.scale.setScalar(THREE.MathUtils.lerp(0.5, 1.05, p))
       } else h.visible = false
     }
   })
