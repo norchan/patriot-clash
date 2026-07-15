@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
+import AboutMeText from '@/components/AboutMeText'
 import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare, Share2, Bell } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
@@ -112,6 +113,10 @@ export default function ProfilePage() {
   const [sharedPost, setSharedPost] = useState('')
   const [showStats, setShowStats] = useState(false)
   const [showPhotos, setShowPhotos] = useState(false)
+  // About Me editor
+  const [editingAbout, setEditingAbout] = useState(false)
+  const [aboutDraft, setAboutDraft] = useState('')
+  const [savingAbout, setSavingAbout] = useState(false)
   const [showRecent, setShowRecent] = useState(false)
   const [unreadNotifs, setUnreadNotifs] = useState(0)
 
@@ -473,6 +478,55 @@ export default function ProfilePage() {
                 style={{ width: `${progressToNext}%`, background: rank.color }} />
             </div>
           </div>
+        )}
+      </div>
+
+      {/* About Me — write something, drop links or photo URLs */}
+      <div className="mx-4 mt-2 bg-gray-900 rounded-2xl px-4 py-3.5">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-white text-sm font-bold">💬 About Me</span>
+          {!editingAbout && (
+            <button onClick={() => { setAboutDraft(((profile as any)?.about_me as string) ?? ''); setEditingAbout(true) }}
+              className="text-purple-400 text-xs font-bold hover:text-purple-300">
+              {(profile as any)?.about_me ? '✏️ Edit' : ''}
+            </button>
+          )}
+        </div>
+        {editingAbout ? (
+          <div>
+            <textarea value={aboutDraft} onChange={e => setAboutDraft(e.target.value)} maxLength={600} rows={4}
+              placeholder="Write something about yourself... links and photo URLs work too"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm text-white placeholder-gray-500 outline-none focus:border-purple-500 resize-none" />
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-gray-600 text-[11px]">{aboutDraft.length}/600</span>
+              <div className="flex gap-2">
+                <button onClick={() => setEditingAbout(false)}
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold text-gray-300 bg-gray-800 hover:bg-gray-700">Cancel</button>
+                <button disabled={savingAbout}
+                  onClick={async () => {
+                    setSavingAbout(true)
+                    try {
+                      await fetch('/api/profile/settings', {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ about_me: aboutDraft.trim() || null }),
+                      })
+                      await refetch()
+                      setEditingAbout(false)
+                    } finally { setSavingAbout(false) }
+                  }}
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-purple-700 hover:bg-purple-600 disabled:opacity-50">
+                  {savingAbout ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (profile as any)?.about_me ? (
+          <AboutMeText text={(profile as any).about_me} />
+        ) : (
+          <button onClick={() => { setAboutDraft(''); setEditingAbout(true) }}
+            className="w-full text-left bg-gray-800/60 border border-dashed border-gray-700 rounded-xl p-3 text-sm text-gray-500 hover:border-purple-500 hover:text-gray-400 transition">
+            Write something about yourself... links and photo URLs work too
+          </button>
         )}
       </div>
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Share, Swords, MapPin, MessageSquare, BarChart3, ChevronDown } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
+import AboutMeText from '@/components/AboutMeText'
 import { VoteButtons } from '@/components/HallFeed'
 import { useLocation } from '@/hooks/useLocation'
 import { useProfile } from '@/hooks/useProfile'
@@ -12,6 +13,7 @@ interface PublicProfile {
   username: string
   party: 'democrat' | 'republican' | null
   avatar_url: string | null
+  about_me?: string | null
   total_battles_won: number
   total_battles_lost: number
   total_gyms_captured: number
@@ -202,6 +204,13 @@ export default function PublicProfilePage() {
             </div>
           )}
           <div className="mt-4 w-full max-w-xs space-y-2">
+            {/* About Me — shown when the player wrote one, right above Challenge */}
+            {profile.about_me && (
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-left">
+                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mb-1">About Me</p>
+                <AboutMeText text={profile.about_me} />
+              </div>
+            )}
             {/* All purple, in order: Challenge, Direct Message, View on Map, Stats */}
             {viewer?.id !== profile.id && (
               <>

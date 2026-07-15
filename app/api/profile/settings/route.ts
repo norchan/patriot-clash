@@ -49,6 +49,17 @@ export async function PATCH(req: NextRequest) {
       }
       updates.pvp_fighter = body.pvp_fighter
     }
+    // About Me — free text (links/photo URLs allowed), capped; empty clears it
+    if ('about_me' in body) {
+      if (body.about_me !== null && typeof body.about_me !== 'string') {
+        return NextResponse.json({ error: 'Invalid about me' }, { status: 400 })
+      }
+      const text = (body.about_me ?? '').trim()
+      if (text.length > 600) {
+        return NextResponse.json({ error: 'About me is limited to 600 characters' }, { status: 400 })
+      }
+      updates.about_me = text || null
+    }
     // Chosen fighter HEAD (null = the body's own head); validated vs the catalog
     if ('head_id' in body) {
       if (body.head_id !== null && !isValidHead(body.head_id)) {
