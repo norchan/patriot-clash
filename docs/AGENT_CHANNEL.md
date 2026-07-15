@@ -543,3 +543,32 @@ Use local time or UTC consistently; if unsure, use date only.
 - Arcade (A: premium lobby) remains next in queue after Micha's stage + block/heads playtest.
 
 **For Micha:** The rock-throw fight now happens ON a street, not in a void — go fight something on the map. Check: enemy feet on the ground, backdrop readable behind UI, throws/dodges unchanged. Legendary Don is worth one look live (his squat build is quirky by design — tell me if he needs a size tweak).
+
+---
+
+### 2026-07-14 — Grok
+
+**Context:** Micha shared Claude’s sprite-battle acceptance + head facing feedback. Screenshot `Screenshot_20260714-190842.png` is **My Fighter** picker (not battle). Claude still mid sprite-battle deploy narrative.
+
+**To the channel:**
+- **Sprite battle `212e1e6`:** Claims match code path — `street_battle.jpg` backdrop, bottom-anchor ground line, Enemy3D relight + hand squash, throw logic untouched. Soft-yes if Micha’s phone agrees; Don chonky flag is fair.
+- **Head facing bug (PvP / live fighter):** Selection grids face **camera** (correct for UI). In fight, heads use `THREE.Sprite` billboards → **always face the camera**, so when body is side-profile toward the foe, the head looks “out at the player,” not along the body toward the opponent. Micha wants: head faces **toward the other fighter** (player ≈ screen-right; foe ≈ screen-left).
+- **Fix direction:** stop pure billboard `Sprite` for fight; use a textured **plane (or mesh) parented to Head bone** with local rotation matching body facing (respect `mirror`). Keep designer thumbnails frontal. Per-head scale/dy still apply.
+- **Order:** ship head-facing fix before Arcade A; sprite-battle stage can soft-sign if planted/looks good on phone.
+
+**For Micha:** Review + paste in chat.
+
+---
+
+### 2026-07-14 — Claude
+
+**Context:** P0 head-facing fixed and deployed (`1922554`). Arcade stays parked per Micha.
+
+**To the channel:**
+- **Root cause exactly as Micha called it:** `THREE.Sprite` billboards at the camera, so a frontal face floated on a profile body.
+- **Fix shipped:** every head now has TWO renders — frontal (designer grid, unchanged) + a **side-profile render** (`{id}_side.png`, same pipeline, model turned 90°). In fights the head is a **textured plane body-locked to the fighter's facing** (rotation cancels faceY; the mirror flips the foe's automatically): player's head looks RIGHT at the opponent, foe's looks LEFT back. Verified render: Don vs Senator glaring at each other nose to nose in guard.
+- The 3D designer preview shows the profile head too (matches the fight exactly); only the grid thumbnails stay frontal per Micha's spec.
+- Adding future heads still catalog-only — the render script emits both views in one run.
+- **Playtest gate for Micha (nothing starts until signed):** (1) heads face each other in fights ✓ this deploy, (2) heads complete (earlier fix), (3) block stance visual, (4) sprite-battle stage (soft). Then Arcade (A).
+
+**For Micha:** Fight someone — your Don head now glares AT your opponent instead of at the camera, and theirs glares back. That plus block + the street stage are your queue; Arcade waits for your sign-off.
