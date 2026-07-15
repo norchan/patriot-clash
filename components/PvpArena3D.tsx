@@ -42,7 +42,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
   const v = useMemo(() => new THREE.Vector3(), [])
-  const dy = 0.2 + (meta?.dy ?? 0)
+  const dy = 0.14 + (meta?.dy ?? 0)
   useFrame(() => {
     const bone = getHeadBone()
     if (!bone || !ref.current?.parent) return
@@ -53,7 +53,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   })
   const img = tex.image as { width?: number; height?: number } | undefined
   const aspect = img?.width && img?.height ? img.width / img.height : 1
-  const H = 0.68 * (meta?.scale ?? 1) // bobble-scale head height in world units
+  const H = 0.82 * (meta?.scale ?? 1) // helmet-scale: more head, less body
   return (
     <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H, 1]}>
       <planeGeometry args={[1, 1]} />
@@ -80,6 +80,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   // These Meshy meshes have OPEN flat hands baked in (no finger bones — the
   // t-pose conversion discards the fist art). Squash the hand bones every frame
   // (short along the fingers, chunkier across) so they read as closed FISTS.
+  const neck = useMemo(() => scene.getObjectByName('Neck') ?? null, [scene])
   const handL = useMemo(() => scene.getObjectByName('LeftHand') ?? null, [scene])
   const handR = useMemo(() => scene.getObjectByName('RightHand') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
@@ -116,9 +117,12 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   }, [scene, punchGltf.animations, jabLGltf.animations, kickGltf.animations, blockGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
-    // Apply the guard pose BEFORE measuring so the fighter is fit + grounded by its
-    // actual stance (the guard shifts the feet vs the rest pose — measuring the rest
-    // pose made them hover).
+    // The GLTF scene is CACHED across mounts — reset every mutation we may have
+    // left on it (bone scales, aim tilt) so the fit is measured clean, then
+    // apply the guard pose BEFORE measuring so the fighter is grounded by its
+    // actual stance.
+    scene.traverse(o => { if ((o as any).isBone) o.scale.setScalar(1) })
+    if (fit.current) fit.current.rotation.set(0, 0, 0)
     mixer.update(0.0001)
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
@@ -192,6 +196,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     // oversized head, but NO sway — the fighter stays focused on the opponent.
     // With a swapped head, squash the model's own head so the billboard replaces it.
     if (head) head.scale.setScalar(headId ? 0.02 : HEAD_SCALE)
+    if (neck) neck.scale.setScalar(headId ? 0.02 : 1) // swapped head hides the neck too
     // CLOSED FISTS: squash the open-paddle hands into compact fists every frame
     // (short along the fingers, chunkier across) — render-verified at game distance
     if (handL) handL.scale.set(1.2, 0.45, 1.2)
@@ -245,7 +250,7 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
       <Suspense fallback={null}>
         <Backdrop url={`/arenas/${arena}.jpg`} />
         {solo ? (
-          <Fighter prefix={playerPrefix} x={0} faceY={Math.PI / 2} headId={playerHeadId} jabRKey={playerJabRKey} />
+          <Fighter key={playerPrefix} prefix={playerPrefix} x={0} faceY={Math.PI / 2} headId={playerHeadId} jabRKey={playerJabRKey} />
         ) : (
           // Classic fighting-game side view: player faces directly right (profile),
           // opponent is a mirror flip facing left. (Model front is local -X, so

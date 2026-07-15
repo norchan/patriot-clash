@@ -23,6 +23,8 @@ export default function MyFighterPage() {
   const isDem = profile?.party === 'democrat'
   const partySuffix = isDem ? 'dem' : 'rep'
 
+  const myParty = profile?.party === 'democrat' ? 'democrat' : 'republican'
+  const partyHeads = HEADS.filter(h => h.party === myParty)
   const [body, setBody] = useState('fighter1')
   const [head, setHead] = useState<string | null>(null) // null = the body's own head
   const [attackKey, setAttackKey] = useState(0)
@@ -33,14 +35,16 @@ export default function MyFighterPage() {
   useEffect(() => {
     try {
       const b = localStorage.getItem(BODY_KEY); if (b && FIGHTERS.some(f => f.id === b)) setBody(b)
-      const h = localStorage.getItem(HEAD_KEY); if (h && HEADS.some(x => x.id === h)) setHead(h)
+      const h = localStorage.getItem(HEAD_KEY); if (h) setHead(h) // validated against the party list below
     } catch {}
   }, [])
   useEffect(() => {
     if (loadedProfile || !profile) return
     const p = profile as any
     if (p.pvp_fighter && FIGHTERS.some(f => f.id === p.pvp_fighter)) setBody(p.pvp_fighter)
-    if (p.head_id && HEADS.some(x => x.id === p.head_id)) setHead(p.head_id)
+    const partyList = HEADS.filter(h => h.party === (p.party === 'democrat' ? 'democrat' : 'republican'))
+    if (p.head_id && partyList.some(x => x.id === p.head_id)) setHead(p.head_id)
+    else setHead(null)
     setLoadedProfile(true)
   }, [profile, loadedProfile])
 
@@ -101,7 +105,7 @@ export default function MyFighterPage() {
       {/* ── HEAD ── */}
       <div className="px-4 mt-5">
         <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">
-          Head <span className="text-gray-600 normal-case">· any head on any body</span>
+          Head <span className={`normal-case ${isDem ? 'text-blue-400' : 'text-red-400'}`}>· {isDem ? 'Democrat heads' : 'Republican heads'}</span>
         </p>
         <div className="grid grid-cols-4 gap-2">
           {/* the body's own head */}
@@ -113,7 +117,7 @@ export default function MyFighterPage() {
               <div className="absolute top-1 right-1 bg-purple-600 rounded-full p-0.5"><Check size={12} className="text-white" /></div>
             )}
           </button>
-          {HEADS.map(h => (
+          {partyHeads.map(h => (
             <button key={h.id} onClick={() => save(body, h.id)}
               className={`relative rounded-xl overflow-hidden border-2 bg-gray-900 aspect-square transition ${head === h.id ? 'border-purple-500' : 'border-gray-800'}`}>
               <img src={headImage(h.id)} alt={h.label} className="w-full h-full object-contain p-1.5" />

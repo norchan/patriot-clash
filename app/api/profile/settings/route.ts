@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { sanitizeFighter } from '@/lib/fighter'
-import { isValidHead } from '@/config/heads'
+import { isValidHead, headMeta } from '@/config/heads'
 
 // PATCH /api/profile/settings — update player preferences
 export async function PATCH(req: NextRequest) {
@@ -60,10 +60,18 @@ export async function PATCH(req: NextRequest) {
       }
       updates.about_me = text || null
     }
-    // Chosen fighter HEAD (null = the body's own head); validated vs the catalog
+    // Chosen fighter HEAD (null = the body's own head); validated vs the
+    // catalog AND party-gated: Republicans get republican heads, Democrats
+    // democrat heads.
     if ('head_id' in body) {
-      if (body.head_id !== null && !isValidHead(body.head_id)) {
-        return NextResponse.json({ error: 'Invalid head' }, { status: 400 })
+      if (body.head_id !== null) {
+        if (!isValidHead(body.head_id)) {
+          return NextResponse.json({ error: 'Invalid head' }, { status: 400 })
+        }
+        const hp = headMeta(body.head_id)?.party
+        if (hp && hp !== profile.party) {
+          return NextResponse.json({ error: 'That head belongs to the other party' }, { status: 400 })
+        }
       }
       updates.head_id = body.head_id
     }

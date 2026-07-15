@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { headMeta } from '@/config/heads'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fighterLevel, sanitizeFighter } from '@/lib/fighter'
 
 // Deterministic 3D fighter for players who haven't picked one (incl. bots).
 // fighter5 is rainbow — Democrat-only.
+// party-gate: a saved head from the other party never renders in a fight
+// (heads catalog imported below)
+function partyHead(headId?: string | null, party?: string | null): string | null {
+  if (!headId) return null
+  const hp = headMeta(headId)?.party
+  return hp && hp !== party ? null : headId
+}
+
 function pickFighter(id: string, party?: string | null): string {
   const pool = party === 'democrat'
     ? ['fighter1', 'fighter2', 'fighter3', 'fighter4', 'fighter5', 'fighter6']
@@ -67,8 +76,8 @@ export async function GET(
         // chosen 3D fighter (falls back deterministically if unset, e.g. bots)
         challenger_pvp_fighter: c?.pvp_fighter ?? pickFighter(challenge.challenger_id, c?.party),
         defender_pvp_fighter: d?.pvp_fighter ?? pickFighter(challenge.defender_id, d?.party),
-        challenger_head_id: c?.head_id ?? null,
-        defender_head_id: d?.head_id ?? null,
+        challenger_head_id: partyHead(c?.head_id, c?.party),
+        defender_head_id: partyHead(d?.head_id, d?.party),
         challenger_is_bot: !!c?.clerk_user_id?.startsWith('bot_'),
         defender_is_bot: !!d?.clerk_user_id?.startsWith('bot_'),
       })

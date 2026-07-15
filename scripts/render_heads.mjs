@@ -42,7 +42,7 @@ window.head = async (url, rotY) => {
  // (bind-pose T arms would otherwise leave floating stubs beside chibi heads)
  const w = size.y * 0.42
  const clips = [
-   new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.y - size.y * 0.03)),
+   new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.y - size.y * 0.105)),
    new THREE.Plane(new THREE.Vector3(1, 0, 0), -(p.x - w)),
    new THREE.Plane(new THREE.Vector3(-1, 0, 0), (p.x + w)),
  ]
@@ -62,7 +62,7 @@ fs.mkdirSync(path.join(ROOT, 'public/heads'), { recursive: true })
 const ONLY = process.argv[2] // optional single id for testing
 for (const id of IDS) {
   if (ONLY && id !== ONLY) continue
-  for (const [suffix, rotY] of [['', 0], ['_side', Math.PI / 2]]) {
+  for (const [suffix, rotY] of [['', 0], ['_side', Math.PI * 0.36]]) {
     const res = await pg.evaluate((u, r) => window.head(u, r), `${B}/public/models/${id}_idle.glb`, rotY)
     if (res !== 'ok') { console.log(id, 'SKIP:', res); continue }
     await new Promise(r => setTimeout(r, 120))
