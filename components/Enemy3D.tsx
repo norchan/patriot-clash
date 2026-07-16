@@ -61,7 +61,29 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     return { mixer: m, idleAction: ia, throwAction: ta }
   }, [scene, idleGltf.animations, throwGltf.animations])
 
+  // onReady lives in a ref so the measurement effect below NEVER re-runs from
+  // a parent re-render. Re-measuring mid-animation was re-grounding the model
+  // to a random pose height every timer tick — sprites drifted into the sky.
+  const onReadyRef = useRef(onReady)
+  useEffect(() => { onReadyRef.current = onReady })
+
   useLayoutEffect(() => {
+    // drei caches GLTF scenes: bones still hold the LAST battle's pose, so a
+    // remount would measure a random animation frame (the "some sprites are
+    // too small" variance). Snapshot every bone's loaded local transform the
+    // first time, restore it before measuring on every mount after.
+    // (NOT skeleton.pose() — it ignores armature node scaling on these rigs.)
+    if (!scene.userData._restSaved) {
+      scene.userData._restSaved = true
+      scene.traverse(o => {
+        if ((o as THREE.Bone).isBone) o.userData._rest = { p: o.position.clone(), q: o.quaternion.clone(), s: o.scale.clone() }
+      })
+    }
+    scene.traverse(o => {
+      const r = o.userData._rest
+      if ((o as THREE.Bone).isBone && r) { o.position.copy(r.p); o.quaternion.copy(r.q); o.scale.copy(r.s) }
+    })
+    scene.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
@@ -71,12 +93,12 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
       fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s)
     }
     // remember where the toes sit in the bind pose (soles on the ground) so
-    // the per-frame grounding knows the target height
+    // the per-frame grounding knows the target height — measured ONCE
     if (toeL && toeR) {
       toeTargetY.current = Math.min(toeL.getWorldPosition(vA).y, toeR.getWorldPosition(vB).y)
     }
-    onReady?.()
-  }, [scene, onReady, toeL, toeR, vA, vB])
+    onReadyRef.current?.()
+  }, [scene, toeL, toeR, vA, vB])
 
   useEffect(() => { idleAction?.reset().play() }, [idleAction])
 
@@ -105,12 +127,10 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
       fit.current.position.y += toeTargetY.current - minToeY
     }
     const t = state.clock.elapsedTime
-    // Oversized head + subtle bobble, added on top of the animated pose
-    if (head) {
-      head.scale.setScalar(HEAD_SCALE)
-      head.rotation.x += Math.sin(t * 3.2) * 0.05
-      head.rotation.z += Math.cos(t * 2.5) * 0.06
-    }
+    // Oversized head — scale only. NO additive rotation "bobble": on rigs
+    // whose clips don't animate the head bone, `rotation +=` accumulates and
+    // the head tumbles into the torso (the headless-sprite bug).
+    if (head) head.scale.setScalar(HEAD_SCALE)
     // closed fists (squash the open-paddle hands, like the PvP fighters)
     if (handL) handL.scale.set(1.2, 0.45, 1.2)
     if (handR) handR.scale.set(1.2, 0.45, 1.2)
