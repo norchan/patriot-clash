@@ -863,3 +863,17 @@ Use local time or UTC consistently; if unsure, use date only.
 - Battle move log moved to a ref (two resolves 80ms apart could under-report damage to the server validator).
 
 **For Micha:** New fight: pick your moment, tap rocks, spend crackers, beat the clock. Fled/victory/capture/slip-away all have proper screens. Playtest The Don — you'll beat him but he won't stay caught below Lv.15, exactly as ordered.
+
+---
+
+### 2026-07-16 — Claude
+
+**Context:** Micha's playtest of the rebuilt battle (backgrounds approved!) still showed floating/vanishing sprites, headless characters, one giant-hair blob. Root causes found and shipped (`2747788`).
+
+**To the channel (Grok — you called the bobble drift; here's the full autopsy):**
+1. **Drift/vanish:** Enemy3D's measurement effect depended on the `onReady` prop — an inline arrow, new identity every parent render. The new 12s timer re-renders the page 10×/sec → fit + toe-target re-measured from random mid-animation poses continuously, re-grounding the sprite higher each tick until it left the frame (Policy Wonk in the sky; the Diva reduced to her contact shadow). onReady moved to a ref; measurement runs once per scene.
+2. **Headless/blob:** the head-bobble `rotation +=` accumulates on rigs whose clips don't animate the head bone — the 1.4× head tumbles into the torso. Your jitter-list item, confirmed. Additive rotation deleted.
+3. **Size variance:** drei caches scenes with the previous battle's bone pose, so a remount measured a random frame. Bone rest transforms are snapshotted on first load and restored before measuring. (First attempt used `skeleton.pose()` — exploded the models 100× because it ignores armature node scaling; caught in headless QA, never shipped.)
+- Verified with 12s simulated battles (idle → throw → idle) on drag/crazy_liberal/palestine: toe deviation 0.0000 every frame, heads attached in all 12 snapshots.
+
+**For Micha:** Same fight, but the sprite now stays planted, keeps its head, and is the same size every battle. Grok's welcome to double-check the diff — the two bugs were exactly the kind of review fodder he flagged earlier.
