@@ -42,6 +42,13 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
   // same closed-fist fix as PvP: the meshes have flat open hands baked in
   const handL = useMemo(() => scene.getObjectByName('LeftHand') ?? null, [scene])
   const handR = useMemo(() => scene.getObjectByName('RightHand') ?? null, [scene])
+  // toe bones — the anim clips carry root motion that lifts the character off
+  // the floor, so we re-ground the feet every frame against these
+  const toeL = useMemo(() => scene.getObjectByName('LeftToeBase') ?? null, [scene])
+  const toeR = useMemo(() => scene.getObjectByName('RightToeBase') ?? null, [scene])
+  const toeTargetY = useRef<number | null>(null)
+  const vA = useMemo(() => new THREE.Vector3(), [])
+  const vB = useMemo(() => new THREE.Vector3(), [])
 
   // Manual mixer so the head bobble in useFrame runs AFTER the animation update
   const { mixer, idleAction, throwAction } = useMemo(() => {
@@ -58,13 +65,18 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    const s = 2.35 / (size.y || 1) // fit with margin so he isn't oversized in-frame
+    const s = 2.75 / (size.y || 1) // fill most of the frame — reads big on phones
     if (fit.current) {
       fit.current.scale.setScalar(s)
       fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s)
     }
+    // remember where the toes sit in the bind pose (soles on the ground) so
+    // the per-frame grounding knows the target height
+    if (toeL && toeR) {
+      toeTargetY.current = Math.min(toeL.getWorldPosition(vA).y, toeR.getWorldPosition(vB).y)
+    }
     onReady?.()
-  }, [scene, onReady])
+  }, [scene, onReady, toeL, toeR, vA, vB])
 
   useEffect(() => { idleAction?.reset().play() }, [idleAction])
 
@@ -86,6 +98,12 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
   useFrame((state, dt) => {
     mixer.update(dt)
     if (root.current) root.current.rotation.y = faceY
+    // GROUND LOCK: cancel the clips' vertical root motion — feet stay planted
+    // through idle AND throw (no hover, no launch-up during attacks)
+    if (toeTargetY.current !== null && toeL && toeR && fit.current) {
+      const minToeY = Math.min(toeL.getWorldPosition(vA).y, toeR.getWorldPosition(vB).y)
+      fit.current.position.y += toeTargetY.current - minToeY
+    }
     const t = state.clock.elapsedTime
     // Oversized head + subtle bobble, added on top of the animated pose
     if (head) {
@@ -119,7 +137,9 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
   })
 
   return (
-    <group position={[0, -1.5, 0]}>
+    // ground at -0.95: deep models (flared dresses) stay inside the frame's
+    // nearer perspective planes instead of clipping at the canvas bottom
+    <group position={[0, -0.95, 0]}>
       <group ref={root}><group ref={fit}><primitive object={scene} /></group></group>
       <group ref={hammer} visible={false}><Hammer /></group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>

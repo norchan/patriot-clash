@@ -219,7 +219,7 @@ function BattleContent() {
       @keyframes pokeHit { 0%{transform:translateX(0)} 20%{transform:translateX(14px) rotate(6deg)} 45%{transform:translateX(-11px) rotate(-6deg)} 70%{transform:translateX(6px)} 100%{transform:translateX(0)} }
       @keyframes pokeChrg { 0%{transform:rotate(0) translateX(0)} 35%{transform:rotate(-14deg) translateX(-10px)} 70%{transform:rotate(16deg) translateX(14px); filter:brightness(1.5)} 100%{transform:rotate(0) translateX(0)} }
       @keyframes poke3dHit { 0%{transform:translateX(0)} 30%{transform:translateX(7px)} 65%{transform:translateX(-5px)} 100%{transform:translateX(0)} }
-      @keyframes poke3dChrg { 0%,100%{transform:scale(1)} 55%{transform:scale(1.035)} }
+      @keyframes poke3dChrg { 0%,100%{transform:scale(1)} 55%{transform:scale(1.02)} }
       @keyframes poke3dLow { 0%,100%{transform:translateY(0)} 50%{transform:translateY(2px)} }
       @keyframes pokeFaint { 0%{transform:translateY(0) rotate(0);opacity:1} 20%{transform:translateY(18px) rotate(14deg);opacity:0.85} 100%{transform:translateY(160px) rotate(42deg);opacity:0} }
       @keyframes screenShake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-12px,-5px) rotate(-1deg)} 30%{transform:translate(12px,5px) rotate(1deg)} 50%{transform:translate(-7px,-3px)} 70%{transform:translate(7px,3px)} 85%{transform:translate(-3px,0)} }
@@ -313,8 +313,8 @@ function BattleContent() {
     st.throwCd = now + 300
 
     const rect = arenaRef.current.getBoundingClientRect()
-    // Chest band for the enemy (feet at 50% height; must match hit resolve below)
-    const enemyCy = rect.height * 0.38 + st.ey
+    // Chest band for the enemy (feet on the 42% line; must match hit resolve below)
+    const enemyCy = rect.height * 0.44 + st.ey
     let endX: number
     if (kind === 'firecracker') {
       // aim along the swipe vector
@@ -347,8 +347,8 @@ function BattleContent() {
       const exPct = enemyXAt(impactT)
       const exPx = rect.width * (exPct / 100)
       const hitRadius = Math.min(rect.width * 0.13, 78)
-      // Same chest band as aim (0.38 = chest with feet on the 50% line)
-      const nowCy = rect.height * 0.38 + S.current.ey
+      // Same chest band as aim (0.44 = chest with feet on the 42% line)
+      const nowCy = rect.height * 0.44 + S.current.ey
       const vGap = Math.abs(nowCy - enemyCy)
       if (Math.abs(endX - exPx) <= hitRadius && vGap <= 72) {
         // HIT — comic ouch + damage (underleveled players chip for less)
@@ -428,7 +428,7 @@ function BattleContent() {
           if (S.current.over || !arenaRef.current) return
           const r = arenaRef.current.getBoundingClientRect()
           const fromX = r.width * (enemyXAt(Date.now()) / 100)
-          const fromY = r.height * 0.38
+          const fromY = r.height * 0.44
           const toX = r.width * (0.3 + Math.random() * 0.4)
           const toY = r.height * 0.86
           const id = ++S.current.idc
@@ -632,9 +632,9 @@ function BattleContent() {
         </button>
       )}
 
-      {/* ── The enemy — big and up the street, feet above screen midline ──── */}
+      {/* ── The enemy — big, feet ON the street just past the barricade line ─ */}
       <div style={{
-        position: 'absolute', bottom: '50%', left: `${enemyX}%`, zIndex: 5,
+        position: 'absolute', bottom: '42%', left: `${enemyX}%`, zIndex: 5,
         transform: `translateX(-50%) translateY(${enemyY}px)`,
         transition: `left ${S.current.exDur}ms ease-in-out, transform ${S.current.exDur}ms ease-in-out`,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -652,7 +652,7 @@ function BattleContent() {
 
         {ENEMY_3D[enemy.id] ? (
           <div style={{
-            width: 'min(46vw, 230px)', aspectRatio: '1 / 1', position: 'relative',
+            width: 'min(52vw, 260px)', aspectRatio: '1 / 1', position: 'relative',
             animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
             transformOrigin: 'bottom center',
           }}>
@@ -670,7 +670,7 @@ function BattleContent() {
         <div
           key={spriteKey}
           style={{
-            width: 'min(30vw, 130px)',
+            width: 'min(34vw, 150px)',
             aspectRatio: '3 / 4.2',
             position: 'relative',
             animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,

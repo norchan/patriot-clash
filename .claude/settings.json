@@ -353,7 +353,11 @@
       "Bash(curl -s -o ark1.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260715_034311_bcc270e2-b5ef-440f-84c0-e59180e37426.png\")",
       "Bash(curl -s -o ark2.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260715_034312_faae5349-4efe-4a00-8401-a4eb99b0499b.png\")",
       "Bash(curl -s -o ark3.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260715_034955_d0f9d452-6a6b-404b-a5f1-9860602c5b09.png\")",
-      "Bash(grep -n \"setInterval\\\\|}, [0-9]*\\)$\" \"app/\\(game\\)/battle/page.tsx\")"
+      "Bash(grep -n \"setInterval\\\\|}, [0-9]*\\)$\" \"app/\\(game\\)/battle/page.tsx\")",
+      "Bash(timeout 120 node \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/ground_test.mjs\")",
+      "Bash(cp \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/ground_test.mjs\" scripts/_ground_test.mjs)",
+      "Bash(timeout 120 node scripts/_ground_test.mjs)",
+      "Bash(rm -f scripts/_ground_test.mjs scripts/_ground_probe.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
