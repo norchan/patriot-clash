@@ -195,7 +195,7 @@ function BattleContent() {
   const S = useRef({
     over: false,
     enemyHp: 0, playerHp: PLAYER_MAX_HP,
-    throwCd: 0, nextFoeThrowAt: 0, dodgeBusyUntil: 0,
+    throwCd: 0, nextFoeThrowAt: 0, dodgeBusyUntil: 0, nextWanderAt: 0,
     // enemy x tween tracking, for hit tests against a MOVING target
     exFrom: 50, exTo: 50, exStart: 0, exDur: 1,
     ey: 0,  // current vertical dodge offset (px)
@@ -313,8 +313,8 @@ function BattleContent() {
     st.throwCd = now + 300
 
     const rect = arenaRef.current.getBoundingClientRect()
-    // The sprite band tracks its live vertical dodge offset
-    const enemyCy = rect.height * 0.58 + st.ey
+    // Chest band for the enemy (feet at 50% height; must match hit resolve below)
+    const enemyCy = rect.height * 0.38 + st.ey
     let endX: number
     if (kind === 'firecracker') {
       // aim along the swipe vector
@@ -347,11 +347,10 @@ function BattleContent() {
       const exPct = enemyXAt(impactT)
       const exPx = rect.width * (exPct / 100)
       const hitRadius = Math.min(rect.width * 0.13, 78)
-      // Vertical dodge counts too: the projectile aimed at enemyCy (launch),
-      // the sprite may have juked up/down since
-      const nowCy = rect.height * 0.30 + S.current.ey
+      // Same chest band as aim (0.38 = chest with feet on the 50% line)
+      const nowCy = rect.height * 0.38 + S.current.ey
       const vGap = Math.abs(nowCy - enemyCy)
-      if (Math.abs(endX - exPx) <= hitRadius && vGap <= 64) {
+      if (Math.abs(endX - exPx) <= hitRadius && vGap <= 72) {
         // HIT — comic ouch + damage (underleveled players chip for less)
         const tierMult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE]
         const dmg = Math.floor(weapon.damage * (0.8 + Math.random() * 0.4) * tierMult * diffRef.current.playerDmgMult)
@@ -412,9 +411,11 @@ function BattleContent() {
       if (st.over || !arenaRef.current) return
       const now = Date.now()
 
-      // idle wander — roams in all directions
-      if (now > st.dodgeBusyUntil && Math.random() < 0.3) {
-        moveEnemyTo(20 + Math.random() * 60, 520, -20 + Math.random() * 80)
+      // idle wander — horizontal strafe only, paced so moves finish before the
+      // next one starts (constant transition restarts read as jitter)
+      if (now > st.dodgeBusyUntil && now > st.nextWanderAt) {
+        st.nextWanderAt = now + 1600 + Math.random() * 1000
+        moveEnemyTo(28 + Math.random() * 44, 550, 0)
       }
 
       // themed counterattack
@@ -427,7 +428,7 @@ function BattleContent() {
           if (S.current.over || !arenaRef.current) return
           const r = arenaRef.current.getBoundingClientRect()
           const fromX = r.width * (enemyXAt(Date.now()) / 100)
-          const fromY = r.height * 0.30
+          const fromY = r.height * 0.38
           const toX = r.width * (0.3 + Math.random() * 0.4)
           const toY = r.height * 0.86
           const id = ++S.current.idc
@@ -631,9 +632,9 @@ function BattleContent() {
         </button>
       )}
 
-      {/* ── The enemy — feet planted on the street's ground line, juking ────── */}
+      {/* ── The enemy — big and up the street, feet above screen midline ──── */}
       <div style={{
-        position: 'absolute', bottom: '23%', left: `${enemyX}%`, zIndex: 5,
+        position: 'absolute', bottom: '50%', left: `${enemyX}%`, zIndex: 5,
         transform: `translateX(-50%) translateY(${enemyY}px)`,
         transition: `left ${S.current.exDur}ms ease-in-out, transform ${S.current.exDur}ms ease-in-out`,
         display: 'flex', flexDirection: 'column', alignItems: 'center',

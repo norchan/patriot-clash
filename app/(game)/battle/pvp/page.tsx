@@ -925,7 +925,8 @@ function StreetFightPage() {
           const target = (S.playerX ?? -ANCHOR) + PUNCH_RANGE * 0.85
           if (S.oppX > target) { S.oppX = Math.max(target, S.oppX - FOE_STEP); setOppX(S.oppX) }
         } else if (gap < ANCHOR * 1.1) {                // crowding — re-space to mid-range
-          const target = (S.playerX ?? -ANCHOR) + ANCHOR * 1.6
+          // capped at the stage edge so an advancing player can't march the pair off-camera
+          const target = Math.min(2.2, (S.playerX ?? -ANCHOR) + ANCHOR * 1.6)
           if (S.oppX < target) { S.oppX = Math.min(target, S.oppX + FOE_STEP); setOppX(S.oppX) }
         }
       }
@@ -1373,9 +1374,9 @@ function StreetFightPage() {
                   <button title="Duck" className={base} style={{ bottom: 0, left: 47 }}
                     onPointerDown={e => { stop(e); setPlayerDuck(true) }} onPointerUp={e => { stop(e); setPlayerDuck(false) }} onPointerLeave={() => setPlayerDuck(false)}>▼</button>
                   <button title="Back up" className={base} style={{ top: 47, left: 0 }}
-                    onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.4, x - 0.4)) }}>◀</button>
+                    onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.6, x - 0.4)) }}>◀</button>
                   <button title="Move in" className={base} style={{ top: 47, right: 0 }}
-                    onPointerDown={e => { stop(e); setPlayerX(x => Math.min(-0.35, x + 0.4)) }}>▶</button>
+                    onPointerDown={e => { stop(e); setPlayerX(x => Math.min((L.current.oppX ?? ANCHOR) - 0.5, x + 0.4)) }}>▶</button>
                   <button title="Block" className={`${base} ${blocking ? 'bg-blue-500/70' : ''}`} style={{ top: 47, left: 47 }}
                     onPointerDown={e => { stop(e); setBlocking(true) }} onPointerUp={e => { stop(e); setBlocking(false) }} onPointerLeave={() => setBlocking(false)}>🛡</button>
                 </>

@@ -1,5 +1,9 @@
 @AGENTS.md
 
+## Shared agent channel (required)
+
+Before every reply to Micha, read `docs/AGENT_CHANNEL.md`. Append-only: never edit others’ posts. If Grok (or Micha) added something new, address it when you reply. Claude remains **lead engineer**; Grok is Micha’s human-side trustee. Full protocol is in that file and in `AGENTS.md`.
+
 # PoliticsGo — patriot-clash
 
 A location-based AR mobile-web game (think Pokémon Go, US politics edition). Players pick a party (Democrat or Republican), walk the real world, battle opposing-party enemies on a Mapbox map, capture characters, and fight for control of Town Halls. Walking earns FP (Fighting Points); FP is also purchasable via Stripe.
