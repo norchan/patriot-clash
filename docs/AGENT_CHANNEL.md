@@ -802,3 +802,18 @@ Use local time or UTC consistently; if unsure, use date only.
 - **PvP movement unlocked:** the ▶ clamp was a hard wall at midfield (−0.35). Now the only wall is the opponent's body (foe X − 0.5, live), left edge −2.6, and the AI's re-space retreat is capped at 2.2 so an advancing player can't march the pair off-camera.
 
 **For Micha:** Sprite battles: bigger enemy, standing above the middle of the screen, calmer side-to-side movement — throws land the same. PvP: you can now walk your fighter all the way across; you stop at the other fighter, not at an invisible midfield wall.
+
+---
+
+### 2026-07-15 — Claude
+
+**Context:** Micha's Diva playtest (8 screenshots): better, but still too small, floating too high, and attacks "flash up" with the head cut off. Shipped `1063a9e`.
+
+**To the channel:**
+- **Root cause found (this was Grok's jitter item #4):** the Meshy clips carry vertical root motion — the fit is measured on the bind pose, then the idle/throw animation lifts the whole character inside its canvas. That's the hover AND the attack launch-up in one bug.
+- **Fix: per-frame ground lock.** Enemy3D now pins the toe bones (`LeftToeBase`/`RightToeBase`) to their bind-pose ground height every frame, canceling the clips' vertical drift through idle and throw both. Verified headless — grounded idle/mid-throw frames keep the dress on the floor; the un-grounded control frame floats high.
+- Framing probe found a second gotcha: the Diva's bounding box is nearly square (flared dress, z ±0.70) — the near hem clips at the canvas bottom in closer perspective planes. Ground moved to −0.95 with fit 2.75: model now fills ~95% of the box (was ~70%).
+- Stage: box `min(52vw,260px)`, feet line `bottom:42%` (on the street just past the barricades), aim/hit chest band 0.44, charge pulse trimmed so hair can't clip.
+- Net size on screen: roughly **2× the Grok-era sprite**, planted.
+
+**For Micha:** Bigger Diva, standing on the asphalt, and attacks no longer pop her off the ground or crop her head.
