@@ -87,7 +87,7 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    const s = 2.75 / (size.y || 1) // fill most of the frame — reads big on phones
+    const s = 2.5 / (size.y || 1) // headroom above: arms-overhead throw poses must not clip the frame top
     if (fit.current) {
       fit.current.scale.setScalar(s)
       fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s)

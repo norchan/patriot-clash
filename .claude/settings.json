@@ -374,7 +374,9 @@
       "Bash(curl -s -o __TRACKED_VAR__/fc_raw.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_024529_e7dfcdcb-61d2-4bae-bb6a-f7d9d2efcf3b.png)",
       "Bash(rm -f scripts/_stage_qa.mjs)",
       "Bash(timeout 240 node scripts/_fix_qa.mjs)",
-      "Bash(rm -f scripts/_fix_qa.mjs)"
+      "Bash(rm -f scripts/_fix_qa.mjs)",
+      "Bash(grep -n \"0.58, 300\\\\|min\\(58vw, 300px\\)\\\\|boxPx \\\\* 0.5\\\\|end\\\\${spriteKey}\" \"app/\\(game\\)/battle/page.tsx\")",
+      "Bash(rm -f scripts/_clip_qa.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
