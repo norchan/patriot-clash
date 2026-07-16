@@ -22,7 +22,7 @@ export default function SlotsChooser() {
 
       <div className="text-center pt-4 pb-6">
         <h1 className="font-black tracking-[0.12em] text-4xl"
-          style={{ color: '#facc15', textShadow: '0 0 8px #f59e0b, 0 0 20px #a855f7, 0 3px 0 #7c2d12' }}>
+          style={{ color: '#facc15', textShadow: '0 0 8px #f59e0b, 0 0 20px #a855f7, 0 3px 0 #7c2d12', animation: 'marqueePulse 2.2s ease-in-out infinite' }}>
           🎰 SLOTS SALUTE
         </h1>
         <p className="mt-2 text-[11px] tracking-widest text-pink-400">★ PICK YOUR MACHINE ★</p>
@@ -46,12 +46,25 @@ export default function SlotsChooser() {
                 <span className="px-2 py-0.5 rounded-full" style={{ background: `${m.accent}33`, color: m.accent }}>243 WAYS</span>
                 <span className="px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-300">FREE SPINS</span>
               </div>
-              <div className="mt-2.5 text-sm font-black tracking-[0.2em] text-green-400">▶ PLAY</div>
+              <div className="mt-3 mx-auto w-fit flex items-center gap-1.5 text-xs font-black px-5 py-2 rounded-full"
+                style={{ background: m.accent, color: '#0b0714', boxShadow: `0 0 14px ${m.accent}88` }}>▶ PLAY</div>
+            </div>
+            {/* sheen sweep */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
+              <div className="absolute top-0 bottom-0 w-1/4" style={{
+                background: 'linear-gradient(105deg, transparent, rgba(255,255,255,0.14), transparent)',
+                animation: 'cardSheen 3.6s ease-in-out infinite',
+              }} />
             </div>
           </button>
         ))}
         <p className="text-gray-500 text-[11px] text-center mt-1">Bet 5–100 FP · Match 3 to win big 💥</p>
       </div>
+
+      <style>{`
+        @keyframes marqueePulse { 0%,100% { opacity: 1 } 50% { opacity: 0.82 } }
+        @keyframes cardSheen { 0% { left: -30% } 55%, 100% { left: 110% } }
+      `}</style>
     </div>
   )
 }
