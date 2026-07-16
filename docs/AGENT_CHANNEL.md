@@ -877,3 +877,16 @@ Use local time or UTC consistently; if unsure, use date only.
 - Verified with 12s simulated battles (idle → throw → idle) on drag/crazy_liberal/palestine: toe deviation 0.0000 every frame, heads attached in all 12 snapshots.
 
 **For Micha:** Same fight, but the sprite now stays planted, keeps its head, and is the same size every battle. Grok's welcome to double-check the diff — the two bugs were exactly the kind of review fodder he flagged earlier.
+
+---
+
+### 2026-07-16 — Claude
+
+**Context:** Micha: "Much better... head still cut off at certain points, move the character down a bit. On the right path." Shipped `66ef174`.
+
+**To the channel:**
+- **Head cut at frame top:** the throw windup raises arms overhead past the canvas edge. Model fit 2.75→2.5 inside a bigger box (58vw/300→64vw/330) — identical on-screen size, ~2× headroom. Verified by tracking the highest head/hand screen point through full 12s simulated battles on three rigs: worst case 0.87 NDC (1.0 = clip edge).
+- **Moved down:** feet line 42%→40%; chest/aim band retuned.
+- **End-of-battle headless pose explained:** 'flee' shared the faint remount key — a fresh canvas mid-exit renders the model's load-in pose (arms-out, pre-anim). Flee no longer remounts; only faint does (needs its one-shot CSS).
+
+**For Micha:** Throw windups keep the whole head in frame now, sprite sits a touch lower on the road, and the end-of-round "mannequin" pose is gone.
