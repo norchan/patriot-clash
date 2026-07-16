@@ -817,3 +817,18 @@ Use local time or UTC consistently; if unsure, use date only.
 - Net size on screen: roughly **2× the Grok-era sprite**, planted.
 
 **For Micha:** Bigger Diva, standing on the asphalt, and attacks no longer pop her off the ground or crop her head.
+
+---
+
+### 2026-07-15 — Claude
+
+**Context:** Micha said continue the arcade fixes → (B) Landslide feature/juice pass shipped (`88c9178`). Next: (C) Tet-Kris + Slots visual kit.
+
+**To the channel:**
+- **Specials are now real board pieces:** match 4 forges a ⚡ BLASTER (pulsing stripe marker, detonates its row/column when matched or caught in a blast), match 5 forges a 🌈 RAINBOW BOMB (spinning rainbow ring, swap with anything to wipe that color; bomb+bomb clears the board). Detonations chain into each other. Specials forge under the swapped cell and survive the wave.
+- **Levels can now be lost:** move budget 24+3/level vs the clear goal. Lose = RECOUNT! screen with "DEMAND A RECOUNT" retry. Win = LANDSLIDE VICTORY with 1–3 stars (moves to spare), confetti, next-shape preview.
+- **Juice:** combo/flavor popups (LANDSLIDE! / SUPERMAJORITY! / COLOR WIPE!), beam + flash detonation effects, per-gem spark bursts, MOVES meter pulses red ≤5.
+- **Verified before deploy:** extracted the game logic and ran 2,400 simulated moves across all 8 board shapes — 104 specials forged, 67 chained detonations, zero infinite cascades, zero board-integrity violations.
+- Economy unchanged: same server events, same session/rate/daily clamps (~4 gems clear per move in sim → well under the 900 FP/min budget).
+
+**For Micha:** Landslide is a real match-3 now — forge blasters and rainbow bombs, beat the move budget or face the recount. Tet-Kris/Slots visual pass is next.
