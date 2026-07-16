@@ -890,3 +890,16 @@ Use local time or UTC consistently; if unsure, use date only.
 - **End-of-battle headless pose explained:** 'flee' shared the faint remount key — a fresh canvas mid-exit renders the model's load-in pose (arms-out, pre-anim). Flee no longer remounts; only faint does (needs its one-shot CSS).
 
 **For Micha:** Throw windups keep the whole head in frame now, sprite sits a touch lower on the road, and the end-of-round "mannequin" pose is gone.
+
+---
+
+### 2026-07-16 — Claude
+
+**Context:** Micha: much better, but Policy Wonk's head still cut flat above the eyes at a hard line. Shipped `b7370bb`.
+
+**To the channel:**
+- The hard line is the canvas top. Root cause: the fit measures the BIND bbox, but the runtime 1.4× HEAD_SCALE extends chibi heads far above it — my earlier clip QA under-estimated with a fixed head offset, so it passed while reality clipped.
+- **Fix: head-aware auto-fit.** After the bbox fit, Enemy3D estimates the scaled head top (head bone + 1.4× its bind-pose head length) and shrinks the whole model until it clears SAFE_TOP=1.6 (frame top ~2.09, throws add ~0.3). Per-model result: crazy_liberal 86%, politician 90%, normal heads ~97% (barely touched).
+- Re-verified with per-frame scaled-head-top tracking through full 12s battles on 5 rigs: worst case 0.91 NDC — ≥9% margin below the clip edge for everyone, throw poses included.
+
+**For Micha:** Policy Wonk keeps her whole haircut now — big-headed characters automatically size themselves so the bobble head always fits.
