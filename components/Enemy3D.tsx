@@ -87,10 +87,28 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    const s = 2.5 / (size.y || 1) // headroom above: arms-overhead throw poses must not clip the frame top
-    if (fit.current) {
+    let s = 2.5 / (size.y || 1) // headroom above: arms-overhead throw poses must not clip the frame top
+    const applyFit = () => {
+      if (!fit.current) return
       fit.current.scale.setScalar(s)
       fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s)
+      scene.updateMatrixWorld(true)
+    }
+    applyFit()
+    // The runtime HEAD_SCALE (1.4×) extends the head far above the bind bbox —
+    // on chibi rigs (Policy Wonk) the scaled head towers past the frame top and
+    // gets cut flat above the eyes. Estimate the scaled head top and shrink the
+    // whole model until it clears SAFE_TOP (leaving room for throw poses too).
+    if (head) {
+      const SAFE_TOP = 1.6 // world y; frame top at z=0 is ~2.09, throws add ~0.3
+      const GROUND = -0.95
+      const headY = head.getWorldPosition(vA).y
+      const headLen = Math.max(0, (GROUND + size.y * s) - headY)
+      const effTop = headY + HEAD_SCALE * headLen
+      if (effTop > SAFE_TOP) {
+        s *= (SAFE_TOP - GROUND) / (effTop - GROUND)
+        applyFit()
+      }
     }
     // remember where the toes sit in the bind pose (soles on the ground) so
     // the per-frame grounding knows the target height — measured ONCE
@@ -98,7 +116,7 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
       toeTargetY.current = Math.min(toeL.getWorldPosition(vA).y, toeR.getWorldPosition(vB).y)
     }
     onReadyRef.current?.()
-  }, [scene, toeL, toeR, vA, vB])
+  }, [scene, head, toeL, toeR, vA, vB])
 
   useEffect(() => { idleAction?.reset().play() }, [idleAction])
 
