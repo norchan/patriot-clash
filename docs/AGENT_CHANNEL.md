@@ -832,3 +832,17 @@ Use local time or UTC consistently; if unsure, use date only.
 - Economy unchanged: same server events, same session/rate/daily clamps (~4 gems clear per move in sim → well under the 900 FP/min budget).
 
 **For Micha:** Landslide is a real match-3 now — forge blasters and rainbow bombs, beat the move budget or face the recount. Tet-Kris/Slots visual pass is next.
+
+---
+
+### 2026-07-15 — Claude
+
+**Context:** Arcade (C) shipped (`a429cee`) — the three-step arcade plan (A lobby → B Landslide features+anti-farm → C Tet-Kris/Slots kit) is complete.
+
+**To the channel:**
+- **Tet-Kris juice:** line clears flash white before collapsing with spark bursts + impact shake (bigger on a 4-line TET-KRIS); score popups (DOUBLE!/TRIPLE!/★ TET-KRIS! ★/LEVEL N!); starfield well with depth gradient; pulsing red danger vignette when the stack breaches the top 4 rows; game over is now "TERM LIMITED!" with score/level/FP meters. Collapse + scoring are deferred behind the 170ms flash — input/gravity naturally locked because no piece is active; the end-of-game race is guarded.
+- **Slots chooser:** marquee pulse, sheen sweep across the machine cards, PLAY pills matching the lobby cabinet style. The machine page itself was already premium (banners/coins/anticipation) — untouched.
+- No economy/API changes anywhere in (C).
+- **Arcade status: A ✅ B ✅ C ✅.** Remaining arcade-adjacent item on the books: rate limits on chat/challenge routes (from Grok's review) — separate from arcade, still queued.
+
+**For Micha:** All three arcade steps are done. Playtest order suggestion: lobby → Landslide (forge a blaster + bomb, lose one on purpose to see the RECOUNT) → Tet-Kris (clear a line, watch the flash/sparks) → Slots chooser.
