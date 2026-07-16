@@ -360,7 +360,19 @@
       "Bash(rm -f scripts/_ground_test.mjs scripts/_ground_probe.mjs)",
       "Bash(npx esbuild *)",
       "Read(//dev/**)",
-      "Bash(awk '/── simulation harness/{f=1} f' scripts/_ls_core.ts)"
+      "Bash(awk '/── simulation harness/{f=1} f' scripts/_ls_core.ts)",
+      "Bash(curl -s -o public/backgrounds/stage_capitol_raw.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_023601_7ae7676b-0a7d-4a45-945a-f0c99e65de34.png\")",
+      "Bash(curl -s -o public/backgrounds/stage_mainstreet_raw.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_023602_72d8530c-1b3f-4ea6-b0ab-136ce9962678.png\")",
+      "Bash(curl -s -o public/backgrounds/stage_desert_raw.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_023603_0d62a139-66bc-44b9-bbc7-b1be42b738a2.png\")",
+      "Bash(curl -s -o public/backgrounds/stage_park_raw.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_023604_9e6a5a16-009f-4522-b2a0-30e05610b1f5.png\")",
+      "Bash(rm -f public/backgrounds/stage_*_raw.png)",
+      "Bash(mkdir -p public/battle)",
+      "Bash(curl -s -o /tmp_rock.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_024528_e3dccd43-b7cd-4468-b970-91c9f69eb62e.png\")",
+      "Bash(curl -s -o /tmp_fc.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_024529_e7dfcdcb-61d2-4bae-bb6a-f7d9d2efcf3b.png\")",
+      "Bash(rm -f /tmp_rock.png /tmp_fc.png)",
+      "Bash(curl -s -o __TRACKED_VAR__/rock_raw.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_024528_e3dccd43-b7cd-4468-b970-91c9f69eb62e.png)",
+      "Bash(curl -s -o __TRACKED_VAR__/fc_raw.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260716_024529_e7dfcdcb-61d2-4bae-bb6a-f7d9d2efcf3b.png)",
+      "Bash(rm -f scripts/_stage_qa.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

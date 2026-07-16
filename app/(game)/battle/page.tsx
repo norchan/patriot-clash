@@ -2,18 +2,16 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
-import { getEnemyById, getRandomEnemy } from '@/config/enemies'
+import { getEnemyById, getRandomEnemy, getEnemiesForParty } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
 import { THROWS, TIER_DEFENSE } from '@/config/attacks'
 import { fighterLevel } from '@/lib/fighter'
 import { sfx, buzz } from '@/lib/juice'
 import dynamic from 'next/dynamic'
 
-// 3D enemy renderer (client-only). Enemies with a 3D model use it instead of
-// the 2D sprite.
+// 3D enemy renderer (client-only). The battle stage is 3D-ONLY: every fighter
+// renders through Enemy3D so size, ground contact, and motion are identical.
 const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
-// Enemies with generated 3D models (value = model prefix → <prefix>_idle/_throw.glb).
-// eagle stays 2D (a bird — no humanoid rig).
 const ENEMY_3D: Record<string, string> = Object.fromEntries(
   ['comrade', 'oil_baron', 'cowboy', 'politician', 'hick', 'ice_agent', 'soldier_boy', 'preppy', 'influencer',
    'billionaire', 'crazy_liberal', 'crying_liberal', 'dem_politician', 'purple_hair', 'protestor', 'anchor',
@@ -21,87 +19,97 @@ const ENEMY_3D: Record<string, string> = Object.fromEntries(
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SPRITE BATTLE — carnival dodgeball edition.
-// Swipe toward the sprite to hurl rocks and firecrackers along your swipe
-// line. The sprite sidesteps to dodge, pulls a hilarious OUCH face when you
-// connect, and throws character-themed junk back (the Oil Baron throws oil).
-// Tap incoming projectiles to swat them away. Win the fight = catch the
-// sprite. No gestures to memorize, no FP per throw — pure aim.
+// SPRITE BATTLE — 12-second showdown.
+// Pokémon staging: one 3D sprite planted on the ground of a rotating backdrop,
+// sidestepping left and right. TAP throws rocks (free), SWIPE UP throws
+// firecrackers (rationed: level + 2 per battle — the only way to drop a
+// legendary in time). Beat the sprite before the 12s timer runs out or it
+// escapes. Winning ≠ keeping: the server rolls the capture, and low-level
+// players can never keep a legendary. The sprite throws character-themed junk
+// back — tap it mid-air to swat it away.
 // ═════════════════════════════════════════════════════════════════════════════
 
-const PLAYER_MAX_HP = 150
+const PLAYER_MAX_HP = 120
+const BATTLE_MS = 12_000
+const ROCK_CD = 320
+const FC_CD = 650
 
-// Enemy counterattack tuning (damage when their projectile lands on you)
-const ENEMY_DMG_SCALE = { common: 0.32, rare: 0.45, legendary: 0.4 }
+// Rotating battle stages. `ground` = feet line, % from the bottom of the
+// screen — tuned per backdrop so the sprite stands on the visible ground.
+const BACKDROPS: { src: string; name: string; ground: number }[] = [
+  { src: '/backgrounds/stage_capitol.jpg', name: 'Capitol Plaza', ground: 42 },
+  { src: '/backgrounds/stage_mainstreet.jpg', name: 'Main Street', ground: 42 },
+  { src: '/backgrounds/stage_desert.jpg', name: 'Desert Highway', ground: 42 },
+  { src: '/backgrounds/stage_park.jpg', name: 'Rally Park', ground: 42 },
+]
 
 const TIER_LEVELS = { common: 12, rare: 35, legendary: 70 }
+const TIER_COLORS = { common: '#9ca3af', rare: '#a78bfa', legendary: '#facc15' }
 
-// How eagerly the sprite dodges an incoming throw, and how often it attacks
+// Dodge eagerness + counterattack cadence. MOVEMENT itself is identical for
+// every sprite — higher tiers just dodge more often and attack faster.
 const TIER_AI = {
-  common:    { dodge: 0.28, attackMs: 3600 },
-  rare:      { dodge: 0.45, attackMs: 3000 },
-  legendary: { dodge: 0.62, attackMs: 2400 },
+  common:    { dodge: 0.26, attackMs: 3200 },
+  rare:      { dodge: 0.42, attackMs: 2600 },
+  legendary: { dodge: 0.58, attackMs: 2100 },
 }
 
 // What each character throws back at you
-const FOE_THROWS: Record<string, { emoji: string; label: string; splat: string }> = {
-  oil_baron:       { emoji: '🛢️', label: 'Crude Oil',      splat: 'rgba(20,16,10,0.85)' },
-  cowboy:          { emoji: '🪢', label: 'Lasso',          splat: 'rgba(146,102,52,0.55)' },
-  eagle:           { emoji: '🪶', label: 'Feather Dart',   splat: 'rgba(220,215,200,0.5)' },
-  hick:            { emoji: '🫙', label: 'Moonshine Jug',  splat: 'rgba(210,180,120,0.55)' },
-  politician:      { emoji: '📜', label: 'Red Tape',       splat: 'rgba(200,60,60,0.5)' },
-  crazy_liberal:   { emoji: '☕', label: 'Oat Milk Latte', splat: 'rgba(160,120,80,0.6)' },
-  crying_liberal:  { emoji: '💧', label: 'Tear Flood',     splat: 'rgba(96,165,250,0.55)' },
-  politician_dems: { emoji: '📋', label: 'Regulations',    splat: 'rgba(59,130,246,0.5)' },
-  protestor:       { emoji: '🪧', label: 'Protest Sign',   splat: 'rgba(250,204,21,0.5)' },
-  purple_hair:     { emoji: '📢', label: 'Megaphone Blast', splat: 'rgba(168,85,247,0.55)' },
-  ice_agent:       { emoji: '🧊', label: 'Ice Block',      splat: 'rgba(147,197,253,0.65)' },
-  soldier_boy:     { emoji: '🥾', label: 'Combat Boot',    splat: 'rgba(120,110,80,0.6)' },
-  preppy:          { emoji: '⛳', label: 'Golf Ball',      splat: 'rgba(134,180,90,0.55)' },
-  influencer:      { emoji: '🎤', label: 'Hot Mic',        splat: 'rgba(120,120,130,0.6)' },
-  billionaire:     { emoji: '🚀', label: 'Toy Rocket',     splat: 'rgba(251,146,60,0.6)' },
-  anchor:          { emoji: '📺', label: 'Breaking News',  splat: 'rgba(96,165,250,0.55)' },
-  palestine:       { emoji: '🍉', label: 'Watermelon',     splat: 'rgba(220,60,60,0.55)' },
-  comrade:         { emoji: '🚩', label: 'Red Banner',     splat: 'rgba(200,40,40,0.6)' },
-  drag:            { emoji: '💄', label: 'Lipstick Bomb',  splat: 'rgba(219,39,119,0.55)' },
-  senator:         { emoji: '💊', label: 'Tampon',         splat: 'rgba(220,70,90,0.5)' },
+const FOE_THROWS: Record<string, { emoji: string; label: string }> = {
+  oil_baron:       { emoji: '🛢️', label: 'Crude Oil' },
+  cowboy:          { emoji: '🪢', label: 'Lasso' },
+  hick:            { emoji: '🫙', label: 'Moonshine Jug' },
+  politician:      { emoji: '📜', label: 'Red Tape' },
+  crazy_liberal:   { emoji: '☕', label: 'Oat Milk Latte' },
+  crying_liberal:  { emoji: '💧', label: 'Tear Flood' },
+  protestor:       { emoji: '🪧', label: 'Protest Sign' },
+  purple_hair:     { emoji: '📢', label: 'Megaphone Blast' },
+  ice_agent:       { emoji: '🧊', label: 'Ice Block' },
+  soldier_boy:     { emoji: '🥾', label: 'Combat Boot' },
+  preppy:          { emoji: '⛳', label: 'Golf Ball' },
+  influencer:      { emoji: '🎤', label: 'Hot Mic' },
+  billionaire:     { emoji: '🚀', label: 'Toy Rocket' },
+  anchor:          { emoji: '📺', label: 'Breaking News' },
+  palestine:       { emoji: '🍉', label: 'Watermelon' },
+  comrade:         { emoji: '🚩', label: 'Red Banner' },
+  drag:            { emoji: '💄', label: 'Lipstick Bomb' },
+  senator:         { emoji: '💊', label: 'Tampon' },
+  dem_politician:  { emoji: '📋', label: 'Regulations' },
 }
-const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot', splat: 'rgba(120,100,80,0.55)' }
+const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot' }
 
 interface Projectile {
   id: number
   side: 'mine' | 'foe'
-  emoji: string
-  x0: number; y0: number     // px, arena coords
+  kind?: 'rock' | 'firecracker'
+  emoji?: string
+  x0: number; y0: number
   x1: number; y1: number
   dur: number
   deflected?: boolean
 }
 
-function HpBar({ current, max }: { current: number; max: number }) {
+function HpBar({ current, max, color }: { current: number; max: number; color?: string }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100))
-  const barColor = pct > 50 ? '#22c55e' : pct > 25 ? '#facc15' : '#ef4444'
+  const barColor = color ?? (pct > 50 ? '#22c55e' : pct > 25 ? '#facc15' : '#ef4444')
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ color: '#9ca3af', fontSize: 11, fontWeight: 800, fontFamily: 'monospace', minWidth: 20 }}>HP</span>
       <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 4, overflow: 'hidden', border: '1px solid #374151' }}>
         <div style={{
-          height: '100%', width: `${pct}%`,
-          background: barColor,
-          borderRadius: 4,
-          transition: 'width 0.5s ease, background-color 0.5s ease',
-          boxShadow: `0 0 6px ${barColor}88`,
+          height: '100%', width: `${pct}%`, background: barColor, borderRadius: 4,
+          transition: 'width 0.4s ease, background-color 0.4s ease', boxShadow: `0 0 6px ${barColor}88`,
         }} />
       </div>
       <span style={{ color: '#6b7280', fontSize: 10, fontFamily: 'monospace', minWidth: 52, textAlign: 'right' }}>
-        {current}/{max}
+        {Math.max(0, current)}/{max}
       </span>
     </div>
   )
 }
 
-// One flying object. Mounts at its start point, then glides to its end point;
-// foe projectiles grow as they approach (depth) and can be tapped to deflect.
+// One flying object. Player projectiles use the real art; foe projectiles are
+// character-themed emoji that grow as they approach and can be tapped away.
 function Missile({ p, onDeflect }: { p: Projectile; onDeflect?: (id: number) => void }) {
   const [fly, setFly] = useState(false)
   useEffect(() => {
@@ -110,16 +118,20 @@ function Missile({ p, onDeflect }: { p: Projectile; onDeflect?: (id: number) => 
   }, [])
   const dx = p.x1 - p.x0
   const dy = p.y1 - p.y0
+  const body = p.side === 'mine'
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={p.kind === 'firecracker' ? '/battle/firecracker.png' : '/battle/rock.png'} alt=""
+        style={{ width: p.kind === 'firecracker' ? 52 : 42, height: 'auto', display: 'block' }} draggable={false} />
+    : <span style={{ fontSize: 30 }}>{p.emoji}</span>
   return (
     <div
       onPointerDown={p.side === 'foe' && onDeflect && !p.deflected ? (e => { e.stopPropagation(); onDeflect(p.id) }) : undefined}
       style={{
         position: 'absolute', left: p.x0, top: p.y0, zIndex: 30,
-        fontSize: p.side === 'foe' ? 30 : 40,
         transform: p.deflected
           ? `translate(${dx * 0.4 + (Math.random() > 0.5 ? 220 : -220)}px, ${dy * 0.4 - 120}px) rotate(720deg) scale(0.6)`
           : fly
-            ? `translate(${dx}px, ${dy}px) rotate(${p.side === 'mine' ? 540 : 360}deg) scale(${p.side === 'foe' ? 1.7 : 0.9})`
+            ? `translate(${dx}px, ${dy}px) rotate(${p.side === 'mine' ? 480 : 360}deg) scale(${p.side === 'foe' ? 1.7 : 0.85})`
             : 'translate(0px, 0px) rotate(0deg) scale(1)',
         transition: p.deflected
           ? 'transform 450ms ease-out'
@@ -127,11 +139,11 @@ function Missile({ p, onDeflect }: { p: Projectile; onDeflect?: (id: number) => 
         cursor: p.side === 'foe' ? 'pointer' : 'default',
         filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))',
         touchAction: 'none',
-        padding: p.side === 'foe' ? 14 : 0, // fat hit target for swatting
+        padding: p.side === 'foe' ? 14 : 0,
         margin: p.side === 'foe' ? -14 : 0,
       }}
     >
-      {p.emoji}
+      {body}
     </div>
   )
 }
@@ -147,156 +159,114 @@ function BattleContent() {
   const [enemyHp, setEnemyHp] = useState(0)
   const [maxHp, setMaxHp] = useState(0)
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP)
-  const [phase, setPhase] = useState<'fighting' | 'victory' | 'defeat'>('fighting')
-  const [movesUsed, setMovesUsed] = useState<any[]>([])
+  const [phase, setPhase] = useState<'fighting' | 'victory' | 'defeat' | 'escaped'>('fighting')
+  // move log lives in a ref — resolves can land close together and the server
+  // validates victory damage against this log, so it must never lag a render
+  const movesRef = useRef<{ name: string; power: number; damage: number }[]>([])
   const [captured, setCaptured] = useState(false)
   const [fpEarned, setFpEarned] = useState(0)
+  const [timeLeft, setTimeLeft] = useState(BATTLE_MS)
 
-  // Sprite presentation
-  const [enemyX, setEnemyX] = useState(50)           // % across the arena
-  const [enemyY, setEnemyY] = useState(0)            // px vertical dodge offset
-  const [fcLeft, setFcLeft] = useState(0)            // firecrackers remaining
-  const [ouch, setOuch] = useState(false)            // comic OUCH face
-  const [spriteAnim, setSpriteAnim] = useState<'idle' | 'lowHp' | 'hit' | 'charge' | 'faint'>('idle')
+  // Stage: pick a backdrop once per battle
+  const [stage] = useState(() => BACKDROPS[Math.floor(Math.random() * BACKDROPS.length)])
+
+  // Sprite presentation — every sprite starts dead-center, feet on the line
+  const [enemyX, setEnemyX] = useState(50)
+  const [fcLeft, setFcLeft] = useState(0)
+  const [spriteAnim, setSpriteAnim] = useState<'idle' | 'hit' | 'charge' | 'faint' | 'flee'>('idle')
   const [spriteKey, setSpriteKey] = useState(0)
-  const [enemy3dReady, setEnemy3dReady] = useState(false) // 3D model finished loading
-  const ouchMissing = useRef(false)                  // no _ouch.png for this enemy
-  const [throwGone, setThrowGone] = useState(false)  // no _throw.png → single-frame
+  const [enemy3dReady, setEnemy3dReady] = useState(false)
 
   // Projectiles + effects
   const [projectiles, setProjectiles] = useState<Projectile[]>([])
-  const [splat, setSplat] = useState<{ color: string; emoji: string } | null>(null)
-  const [screenShake, setScreenShake] = useState(false)
   const [dmgNums, setDmgNums] = useState<{ id: number; val: number; onEnemy: boolean; color: string; xPct: number }[]>([])
   const [missAt, setMissAt] = useState<{ id: number; xPct: number } | null>(null)
   const [dialogLine, setDialogLine] = useState('')
+  const [screenShake, setScreenShake] = useState(false)
 
-  // ── Level-based difficulty ─────────────────────────────────────────────
-  // Underleveled players face meaner sprites: better dodges, harder counter
-  // hits, and their own throws chip less. The Don is a WALL below level 5.
   const playerLevel = fighterLevel(profile?.total_battles_won ?? 0)
-  const diff = (() => {
-    if (!enemy) return { dodgeBonus: 0, foeDmgMult: 1, playerDmgMult: 1, donGate: false }
-    const reqLevel = enemy.minLevel ?? (enemy.tier === 'legendary' ? 4 : enemy.tier === 'rare' ? 3 : 1)
-    const donGate = enemy.id === 'politician' && playerLevel < 5
-    const gap = Math.max(0, reqLevel - playerLevel)
-    const lowVsCommon = enemy.tier === 'common' && playerLevel <= 2
-    return {
-      donGate,
-      dodgeBonus: donGate ? 0.32 : Math.min(0.24, gap * 0.08) + (lowVsCommon ? 0.05 : 0),
-      foeDmgMult: donGate ? 2.4 : 1 + Math.min(1.2, gap * 0.35) + (lowVsCommon ? 0.3 : 0),
-      playerDmgMult: donGate ? 0.35 : 1 / (1 + Math.min(1, gap * 0.3)),
-    }
-  })()
-  const diffRef = useRef(diff)
-  diffRef.current = diff
 
   const arenaRef = useRef<HTMLDivElement>(null)
   const S = useRef({
     over: false,
     enemyHp: 0, playerHp: PLAYER_MAX_HP,
-    throwCd: 0, nextFoeThrowAt: 0, dodgeBusyUntil: 0, nextWanderAt: 0,
-    // enemy x tween tracking, for hit tests against a MOVING target
+    rockCd: 0, fcCd: 0, nextFoeThrowAt: 0, dodgeBusyUntil: 0, nextStepAt: 0,
     exFrom: 50, exTo: 50, exStart: 0, exDur: 1,
-    ey: 0,  // current vertical dodge offset (px)
-    swipe: null as { x: number; y: number; t: number } | null,
-    idc: 0,
-    throwsMade: 0,
-    hitCount: 0,
-    fcLeft: 0,  // firecrackers remaining this battle
+    idc: 0, fcLeft: 0,
+    endAt: 0,
   })
   const startTime = useRef(Date.now())
 
   // ── Keyframes ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (document.getElementById('battle-kf2')) return
+    if (document.getElementById('battle-kf3')) return
     const s = document.createElement('style')
-    s.id = 'battle-kf2'
+    s.id = 'battle-kf3'
     s.textContent = `
-      /* Constant throwing motion: bob → wind up (lean back, twist) → snap forward */
-      @keyframes pokeIdle { 0%,100%{transform:translateY(0) rotate(0) scaleX(1)} 30%{transform:translateY(-6px) rotate(-7deg) scaleX(0.96)} 46%{transform:translateY(-3px) rotate(9deg) scaleX(1.04)} 60%{transform:translateY(0) rotate(2deg)} }
-      @keyframes pokeLowHp { 0%,100%{transform:translateY(0) rotate(-8deg) scale(0.97)} 35%{transform:translateY(-5px) rotate(6deg) scale(1.03)} 55%{transform:translateY(0) rotate(-3deg)} }
-      @keyframes pokeHit { 0%{transform:translateX(0)} 20%{transform:translateX(14px) rotate(6deg)} 45%{transform:translateX(-11px) rotate(-6deg)} 70%{transform:translateX(6px)} 100%{transform:translateX(0)} }
-      @keyframes pokeChrg { 0%{transform:rotate(0) translateX(0)} 35%{transform:rotate(-14deg) translateX(-10px)} 70%{transform:rotate(16deg) translateX(14px); filter:brightness(1.5)} 100%{transform:rotate(0) translateX(0)} }
       @keyframes poke3dHit { 0%{transform:translateX(0)} 30%{transform:translateX(7px)} 65%{transform:translateX(-5px)} 100%{transform:translateX(0)} }
       @keyframes poke3dChrg { 0%,100%{transform:scale(1)} 55%{transform:scale(1.02)} }
-      @keyframes poke3dLow { 0%,100%{transform:translateY(0)} 50%{transform:translateY(2px)} }
       @keyframes pokeFaint { 0%{transform:translateY(0) rotate(0);opacity:1} 20%{transform:translateY(18px) rotate(14deg);opacity:0.85} 100%{transform:translateY(160px) rotate(42deg);opacity:0} }
       @keyframes screenShake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-12px,-5px) rotate(-1deg)} 30%{transform:translate(12px,5px) rotate(1deg)} 50%{transform:translate(-7px,-3px)} 70%{transform:translate(7px,3px)} 85%{transform:translate(-3px,0)} }
       @keyframes dmgFloat { 0%{transform:translateX(-50%) translateY(0);opacity:1} 100%{transform:translateX(-50%) translateY(-60px);opacity:0} }
-      @keyframes splatFade { 0%{opacity:0.95; transform:scale(0.7)} 25%{opacity:0.9; transform:scale(1.05)} 100%{opacity:0; transform:scale(1.15)} }
-      @keyframes starTwinkle { 0%,100%{opacity:0.3} 50%{opacity:0.9} }
       @keyframes boomPop { 0%{transform:scale(0.3);opacity:1} 100%{transform:scale(2.4);opacity:0} }
-      /* Constant cock-and-throw: hold the wind-up, snap to the release, repeat */
-      @keyframes throwCycleA { 0%,52%{opacity:1} 60%,86%{opacity:0} 94%,100%{opacity:1} }
-      @keyframes throwCycleB { 0%,52%{opacity:0} 60%,86%{opacity:1} 94%,100%{opacity:0} }
+      @keyframes fcPulse { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 100%{transform:scale(1)} }
+      @keyframes timerBlink { 0%,100%{opacity:1} 50%{opacity:0.45} }
     `
     document.head.appendChild(s)
   }, [])
 
-  // ── Load the enemy ─────────────────────────────────────────────────────────
+  // ── Load the enemy (3D-only: non-rigged enemies swap to a rigged stand-in) ─
   useEffect(() => {
     if (!profile) return
     const opponentParty = profile.party === 'republican' ? 'democrat' : 'republican'
-    const e = enemyId ? getEnemyById(enemyId) : getRandomEnemy(opponentParty)
-    if (e) {
+    let e = enemyId ? getEnemyById(enemyId) : getRandomEnemy(opponentParty)
+    if (e && !ENEMY_3D[e.id]) {
+      const tier = e.tier
+      const pool = getEnemiesForParty(e.party).filter(x => ENEMY_3D[x.id] && x.tier === tier)
+      if (pool.length) e = pool[Math.floor(Math.random() * pool.length)]
+    }
+    if (e && ENEMY_3D[e.id]) {
       setEnemy(e)
-      setThrowGone(false)  // assume a _throw frame until an onError proves otherwise
-      ouchMissing.current = false
-      setEnemyHp(e.hp)
-      setMaxHp(e.hp)
+      setEnemyHp(e.hp); setMaxHp(e.hp)
       S.current.enemyHp = e.hp
-      S.current.nextFoeThrowAt = Date.now() + 2500
+      const now = Date.now()
+      S.current.nextFoeThrowAt = now + 2200
+      S.current.nextStepAt = now + 1600
+      S.current.endAt = now + BATTLE_MS
+      startTime.current = now
       const lvl = fighterLevel(profile.total_battles_won ?? 0)
-      const req = e.minLevel ?? (e.tier === 'legendary' ? 4 : e.tier === 'rare' ? 3 : 1)
-      // Firecracker allowance: 3 at low levels → 10 at the highest
-      const fc = Math.max(3, Math.min(10, 3 + Math.floor((lvl - 1) * 0.5)))
+      const fc = lvl + 2 // level 1 → 3, level 2 → 4, and so on
       S.current.fcLeft = fc
       setFcLeft(fc)
-      setDialogLine(e.id === 'politician' && lvl < 5
-        ? `⚠️ ${e.name} is WAY above your level. This will not go well...`
-        : lvl < req
-          ? `⚠️ ${e.name} outclasses you (Lv.${req} fight). TAP rocks · SWIPE firecrackers!`
-          : `A wild ${e.name} appeared! TAP for rocks · SWIPE for firecrackers!`)
+      setDialogLine(e.tier === 'legendary' && lvl < 15
+        ? `⚠️ ${e.name} can NEVER be kept below Lv.15 — fight for the FP!`
+        : `A wild ${e.name} appeared! 12 seconds — GO!`)
     }
   }, [enemyId, profile])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  function playAnim(name: typeof spriteAnim) {
-    setSpriteAnim(name)
-    setSpriteKey(k => k + 1)
-  }
-  function shake() {
-    setScreenShake(true)
-    setTimeout(() => setScreenShake(false), 450)
-  }
+  function playAnim(name: typeof spriteAnim) { setSpriteAnim(name); setSpriteKey(k => k + 1) }
+  function shake() { setScreenShake(true); setTimeout(() => setScreenShake(false), 450) }
   function addDmg(val: number, onEnemy: boolean, color: string, xPct: number) {
     const id = ++S.current.idc
     setDmgNums(p => [...p, { id, val, onEnemy, color, xPct }])
     setTimeout(() => setDmgNums(p => p.filter(d => d.id !== id)), 1000)
   }
 
-  function moveEnemyTo(x: number, dur = 380, y?: number) {
+  function moveEnemyTo(x: number, dur = 600, clamp = true) {
     const st = S.current
     const now = Date.now()
     st.exFrom = enemyXAt(now)
-    st.exTo = Math.max(16, Math.min(84, x))
+    st.exTo = clamp ? Math.max(28, Math.min(72, x)) : x
     st.exStart = now
     st.exDur = dur
     setEnemyX(st.exTo)
-    // Vertical dodge too — the sprite juks in all directions
-    if (y !== undefined) {
-      st.ey = Math.max(-32, Math.min(70, y))
-      setEnemyY(st.ey)
-    }
   }
-  // A natural SIDESTEP left or right along the ground line (no vertical hop,
-  // no teleporty jumps) — used when a throw is incoming
-  function jukeEnemy(dur = 550) {
+  // One standard sidestep — SAME move for every sprite in the game
+  function sidestep(dur = 600) {
     const cur = enemyXAt(Date.now())
-    const dir = cur > 66 ? -1 : cur < 34 ? 1 : (Math.random() < 0.5 ? -1 : 1)
-    const dx = dir * (8 + Math.random() * 8)
-    moveEnemyTo(cur + dx, dur, 0)
+    const dir = cur > 62 ? -1 : cur < 38 ? 1 : (Math.random() < 0.5 ? -1 : 1)
+    moveEnemyTo(cur + dir * (10 + Math.random() * 5), dur)
   }
   function enemyXAt(t: number) {
     const st = S.current
@@ -304,86 +274,79 @@ function BattleContent() {
     return st.exFrom + (st.exTo - st.exFrom) * k
   }
 
-  // ── Player throw: TAP = rock (auto-aim), SWIPE up = firecracker (aimed) ────
-  function launchThrow(x0: number, y0: number, x1: number, y1: number, kind: keyof typeof THROWS) {
+  // Geometry: the sprite box and its chest line, derived from the stage
+  function geom() {
+    const rect = arenaRef.current!.getBoundingClientRect()
+    const boxPx = Math.min(rect.width * 0.58, 300)
+    const feetY = rect.height * (1 - stage.ground / 100)
+    const chestY = feetY - boxPx * 0.5
+    return { rect, boxPx, feetY, chestY }
+  }
+
+  // ── Player throws: TAP = rock (auto-aim) · SWIPE UP = firecracker ─────────
+  function launchThrow(x0: number, y0: number, x1: number, y1: number, kind: 'rock' | 'firecracker') {
     const st = S.current
     if (st.over || phase !== 'fighting' || !enemy || !arenaRef.current) return
     const now = Date.now()
-    if (now < st.throwCd) return
-    st.throwCd = now + 300
+    if (kind === 'rock') { if (now < st.rockCd) return; st.rockCd = now + ROCK_CD }
+    else {
+      if (now < st.fcCd) return
+      if (st.fcLeft <= 0) { setDialogLine('🧨 Out of firecrackers!'); return }
+      st.fcCd = now + FC_CD
+      st.fcLeft -= 1; setFcLeft(st.fcLeft)
+    }
 
-    const rect = arenaRef.current.getBoundingClientRect()
-    // Chest band for the enemy (feet on the 42% line; must match hit resolve below)
-    const enemyCy = rect.height * 0.44 + st.ey
+    const { rect, boxPx, chestY } = geom()
     let endX: number
     if (kind === 'firecracker') {
-      // aim along the swipe vector
       const dirY = (y1 - y0) || -1
-      endX = x0 + (x1 - x0) * ((enemyCy - y0) / dirY)
+      endX = x0 + (x1 - x0) * ((chestY - y0) / dirY)
     } else {
-      // rocks auto-aim at the sprite's current x
       endX = rect.width * (enemyXAt(now) / 100)
     }
 
-    st.throwsMade++
     const weapon = THROWS[kind]
     const id = ++st.idc
-    const dur = 430
-    setProjectiles(p => [...p, { id, side: 'mine', emoji: weapon.emoji, x0, y0, x1: endX, y1: enemyCy, dur }])
+    const dur = 400
+    setProjectiles(p => [...p, { id, side: 'mine', kind, x0, y0, x1: endX, y1: chestY, dur }])
     sfx.whoosh()
 
-    // The sprite may juke mid-flight in ANY direction (dodgier vs underleveled)
+    // The sprite may sidestep the incoming throw (dodgier tiers step more)
     const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
-    if (Math.random() < Math.min(0.92, ai.dodge + diffRef.current.dodgeBonus) && now > st.dodgeBusyUntil) {
-      st.dodgeBusyUntil = now + 620
-      setTimeout(() => { if (!S.current.over) jukeEnemy(550) }, 80)
+    if (Math.random() < ai.dodge && now > st.dodgeBusyUntil) {
+      st.dodgeBusyUntil = now + 650
+      setTimeout(() => { if (!S.current.over) sidestep(460) }, 60)
     }
 
-    // Resolve at impact time against the sprite's LIVE position
+    // Resolve at impact against the LIVE position
     setTimeout(() => {
       setProjectiles(p => p.filter(x => x.id !== id))
       if (S.current.over || !enemy) return
-      const impactT = Date.now()
-      const exPct = enemyXAt(impactT)
-      const exPx = rect.width * (exPct / 100)
-      const hitRadius = Math.min(rect.width * 0.13, 78)
-      // Same chest band as aim (0.44 = chest with feet on the 42% line)
-      const nowCy = rect.height * 0.44 + S.current.ey
-      const vGap = Math.abs(nowCy - enemyCy)
-      if (Math.abs(endX - exPx) <= hitRadius && vGap <= 72) {
-        // HIT — comic ouch + damage (underleveled players chip for less)
+      const exPx = rect.width * (enemyXAt(Date.now()) / 100)
+      const hitRadius = boxPx * 0.33
+      if (Math.abs(endX - exPx) <= hitRadius) {
         const tierMult = TIER_DEFENSE[enemy.tier as keyof typeof TIER_DEFENSE]
-        const dmg = Math.floor(weapon.damage * (0.8 + Math.random() * 0.4) * tierMult * diffRef.current.playerDmgMult)
+        const dmg = Math.floor(weapon.damage * (0.8 + Math.random() * 0.4) * tierMult)
         S.current.enemyHp = Math.max(0, S.current.enemyHp - dmg)
         setEnemyHp(S.current.enemyHp)
-        setMovesUsed(p => [...p, { name: weapon.name, power: weapon.damage, damage: dmg }])
-        addDmg(dmg, true, weapon.color, exPct)
-        // Comic OUCH face only lands every few hits — every hit was overkill
-        S.current.hitCount = (S.current.hitCount ?? 0) + 1
-        const showOuch = !ouchMissing.current && (S.current.hitCount % 3 === 0 || kind === 'firecracker')
-        if (showOuch) setOuch(true)
+        movesRef.current.push({ name: weapon.name, power: weapon.damage, damage: dmg })
+        addDmg(dmg, true, weapon.color, (exPx / rect.width) * 100)
         playAnim('hit')
         sfx.punch(kind === 'firecracker')
         buzz(20)
-        if (kind === 'firecracker') { sfx.crowd(0.3) }
-        setDialogLine(`Direct hit with ${weapon.name}!`)
-        setTimeout(() => {
-          setOuch(false)
-          if (!S.current.over) playAnim(S.current.enemyHp <= maxHp * 0.25 ? 'lowHp' : 'idle')
-        }, 650)
-        if (S.current.enemyHp <= 0) winBattle(dmg, weapon)
+        if (kind === 'firecracker') sfx.crowd(0.3)
+        if (S.current.enemyHp <= 0) winBattle()
+        else setTimeout(() => { if (!S.current.over) playAnim('idle') }, 500)
       } else {
-        // MISS — it dodged
         const missId = ++S.current.idc
         setMissAt({ id: missId, xPct: (endX / rect.width) * 100 })
-        setTimeout(() => setMissAt(m => (m?.id === missId ? null : m)), 800)
-        setDialogLine(`${enemy.name} dodged it!`)
+        setTimeout(() => setMissAt(m => (m?.id === missId ? null : m)), 700)
         sfx.whoosh()
       }
     }, dur)
   }
 
-  async function winBattle(lastDmg: number, weapon: typeof THROWS['rock']) {
+  async function winBattle() {
     const st = S.current
     st.over = true
     playAnim('faint')
@@ -392,15 +355,60 @@ function BattleContent() {
     if (spawnId) {
       try { localStorage.setItem(`spawn_dead_${spawnId}`, Date.now().toString()) } catch {}
     }
-    const moves = [...movesUsed, { name: weapon.name, power: weapon.damage, damage: lastDmg }]
-    const data = await recordBattle('victory', 0, moves)
+    const data = await recordBattle('victory', movesRef.current)
     setCaptured(!!data?.captured)
     setFpEarned(data?.fp_earned ?? enemy!.fpReward)
     setPhase('victory')
-    sfx.victory()
+    if (data?.captured) sfx.capture(); else sfx.victory()
   }
 
-  // ── Enemy AI: wander, and throw themed junk back ──────────────────────────
+  function loseBattle() {
+    const st = S.current
+    if (st.over) return
+    st.over = true
+    setDialogLine(`${enemy!.name} wins this round...`)
+    recordBattle('defeat', movesRef.current).then(() => { setPhase('defeat'); sfx.defeat() })
+  }
+
+  function fleeTimeout() {
+    const st = S.current
+    if (st.over) return
+    st.over = true
+    playAnim('flee')
+    setDialogLine(`⏱ Time! ${enemy!.name} got away!`)
+    moveEnemyTo(130, 700, false)
+    recordBattle('fled', movesRef.current).then(() => setTimeout(() => setPhase('escaped'), 650))
+  }
+
+  async function recordBattle(result: 'victory' | 'defeat' | 'fled', moves: any[]) {
+    try {
+      const res = await fetch('/api/battles', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enemy_id: enemy!.id, result, moves_used: moves,
+          duration_secs: Math.round((Date.now() - startTime.current) / 1000),
+        }),
+      })
+      const data = await res.json()
+      refetch()
+      return data
+    } catch { return null }
+  }
+
+  // ── The 12-second clock ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!enemy || phase !== 'fighting') return
+    const iv = setInterval(() => {
+      const st = S.current
+      if (st.over) return
+      const left = st.endAt - Date.now()
+      setTimeLeft(Math.max(0, left))
+      if (left <= 0) fleeTimeout()
+    }, 100)
+    return () => clearInterval(iv)
+  }, [enemy, phase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Enemy AI: paced sidesteps + themed counterattacks ─────────────────────
   useEffect(() => {
     if (!enemy || phase !== 'fighting') return
     const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
@@ -411,133 +419,81 @@ function BattleContent() {
       if (st.over || !arenaRef.current) return
       const now = Date.now()
 
-      // idle wander — horizontal strafe only, paced so moves finish before the
-      // next one starts (constant transition restarts read as jitter)
-      if (now > st.dodgeBusyUntil && now > st.nextWanderAt) {
-        st.nextWanderAt = now + 1600 + Math.random() * 1000
-        moveEnemyTo(28 + Math.random() * 44, 550, 0)
+      // one smooth sidestep at a time, paced so each finishes before the next
+      if (now > st.dodgeBusyUntil && now > st.nextStepAt) {
+        st.nextStepAt = now + 1500 + Math.random() * 900
+        sidestep(600)
       }
 
       // themed counterattack
       if (now >= st.nextFoeThrowAt) {
         st.nextFoeThrowAt = now + ai.attackMs * (0.8 + Math.random() * 0.5)
-        const rect = arenaRef.current.getBoundingClientRect()
         playAnim('charge')
         setDialogLine(`${enemy.name} throws ${theme.label}! Tap it!`)
         setTimeout(() => {
           if (S.current.over || !arenaRef.current) return
-          const r = arenaRef.current.getBoundingClientRect()
-          const fromX = r.width * (enemyXAt(Date.now()) / 100)
-          const fromY = r.height * 0.44
-          const toX = r.width * (0.3 + Math.random() * 0.4)
-          const toY = r.height * 0.86
+          const { rect, chestY } = geom()
+          const fromX = rect.width * (enemyXAt(Date.now()) / 100)
+          const toX = rect.width * (0.3 + Math.random() * 0.4)
+          const toY = rect.height * 0.86
           const id = ++S.current.idc
-          const dur = 1050
-          setProjectiles(p => [...p, { id, side: 'foe', emoji: theme.emoji, x0: fromX, y0: fromY, x1: toX, y1: toY, dur }])
+          const dur = 1000
+          setProjectiles(p => [...p, { id, side: 'foe', emoji: theme.emoji, x0: fromX, y0: chestY, x1: toX, y1: toY, dur }])
           sfx.tap()
 
           setTimeout(() => {
             setProjectiles(p => {
-              const hit = p.find(x => x.id === id && !x.deflected)
-              if (hit && !S.current.over) {
-                // SPLAT — it landed on you
+              const hit = p.find(x => x.id === id)
+              if (hit && !hit.deflected && !S.current.over) {
                 const move = enemy.moves[Math.floor(Math.random() * enemy.moves.length)]
-                const tierScale = ENEMY_DMG_SCALE[enemy.tier as keyof typeof ENEMY_DMG_SCALE] ?? 0.4
-                const dmg = Math.max(1, Math.floor(move.damage * (0.7 + Math.random() * 0.6) * tierScale * diffRef.current.foeDmgMult))
+                const scale = enemy.tier === 'legendary' ? 0.5 : enemy.tier === 'rare' ? 0.45 : 0.35
+                const dmg = Math.max(1, Math.floor(move.damage * (0.7 + Math.random() * 0.6) * scale))
                 S.current.playerHp = Math.max(0, S.current.playerHp - dmg)
                 setPlayerHp(S.current.playerHp)
-                setSplat({ color: theme.splat, emoji: theme.emoji })
-                setTimeout(() => setSplat(null), 900)
                 addDmg(dmg, false, '#ef4444', 50)
-                setDialogLine(`${theme.label} got you! (−${dmg})`)
-                shake()
-                sfx.kick()
-                buzz([40, 30, 40])
-                if (S.current.playerHp <= 0) {
-                  S.current.over = true
-                  setDialogLine(`${enemy.name} wins this round...`)
-                  recordBattle('defeat', 0, movesUsed).then(() => {
-                    setPhase('defeat')
-                    sfx.defeat()
-                  })
-                }
+                shake(); sfx.kick(); buzz(40)
+                if (S.current.playerHp <= 0) loseBattle()
               }
               return p.filter(x => x.id !== id)
             })
           }, dur)
         }, 380)
       }
-    }, 250)
+    }, 200)
     return () => clearInterval(iv)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enemy, phase])
+  }, [enemy, phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function deflect(id: number) {
     setProjectiles(p => p.map(x => x.id === id ? { ...x, deflected: true } : x))
-    setDialogLine('Swatted it away! 💪')
     sfx.block()
     buzz(15)
     setTimeout(() => setProjectiles(p => p.filter(x => x.id !== id)), 460)
   }
 
-  // ── Input: TAP = rock, SWIPE up = firecracker (limited by level) ───────────
-  function onPointerDown(e: React.PointerEvent) {
-    if (phase !== 'fighting' || !arenaRef.current) return
-    const rect = arenaRef.current.getBoundingClientRect()
-    S.current.swipe = { x: e.clientX - rect.left, y: e.clientY - rect.top, t: Date.now() }
+  // ── Input: TAP anywhere = rock · SWIPE up = firecracker ───────────────────
+  const touchRef = useRef<{ x: number; y: number; t: number } | null>(null)
+  function onDown(e: React.PointerEvent) {
+    touchRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }
   }
-  function onPointerUp(e: React.PointerEvent) {
-    const sw = S.current.swipe
-    S.current.swipe = null
-    if (!sw || phase !== 'fighting' || !arenaRef.current) return
+  function onUp(e: React.PointerEvent) {
+    const t0 = touchRef.current
+    touchRef.current = null
+    if (!t0 || !arenaRef.current) return
     const rect = arenaRef.current.getBoundingClientRect()
-    const x1 = e.clientX - rect.left
-    const y1 = e.clientY - rect.top
-    const dist = Math.hypot(x1 - sw.x, y1 - sw.y)
-    const isSwipe = dist > 26 && (y1 - sw.y) < -18 // meaningful upward drag
-
-    if (isSwipe) {
-      // Firecracker — bigger hit, but rationed by level
-      if (S.current.fcLeft <= 0) {
-        setDialogLine('🧨 Out of firecrackers! Tap to keep throwing rocks.')
-        launchThrow(sw.x, sw.y, x1, y1, 'rock')
-        return
-      }
-      S.current.fcLeft--
-      setFcLeft(S.current.fcLeft)
-      launchThrow(sw.x, sw.y, x1, y1, 'firecracker')
-    } else {
-      // Tap — rock, straight at the sprite
-      launchThrow(sw.x, sw.y, x1, y1, 'rock')
+    const x0 = e.clientX - rect.left, y0 = e.clientY - rect.top
+    const dx = e.clientX - t0.x, dy = e.clientY - t0.y
+    const dist = Math.hypot(dx, dy)
+    const launchY = rect.height * 0.92
+    if (dist > 40 && dy < -30) {
+      // SWIPE UP → firecracker, aimed along the swipe
+      launchThrow(t0.x - rect.left, launchY, x0, y0, 'firecracker')
+    } else if (dist < 24) {
+      // TAP → rock, auto-aimed
+      launchThrow(x0, launchY, x0, y0, 'rock')
     }
   }
 
-  // ── API ────────────────────────────────────────────────────────────────────
-  async function recordBattle(result: string, fpCost: number, moves: any[]) {
-    if (!enemy || !profile) return null
-    try {
-      const res = await fetch('/api/battles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          enemy_id: enemy.id, result, fp_spent: fpCost, moves_used: moves,
-          duration_secs: Math.floor((Date.now() - startTime.current) / 1000),
-        }),
-      })
-      const data = await res.json()
-      await refetch()
-      return data
-    } catch { return null }
-  }
-
-  async function flee() {
-    if (!enemy) return
-    await recordBattle('fled', 0, movesUsed)
-    router.push('/map')
-  }
-
-  // ── Guards ─────────────────────────────────────────────────────────────────
-  if (!enemy || !profile) {
+  if (!profile || !enemy) {
     return (
       <div style={{ minHeight: '100vh', background: '#050a14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ color: '#6b7280', fontSize: 14 }}>Loading battle...</span>
@@ -545,99 +501,80 @@ function BattleContent() {
     )
   }
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const partyColor = profile.party === 'democrat' ? '#2563eb' : '#dc2626'
-  const tierColor = enemy.tier === 'legendary' ? '#f59e0b' : enemy.tier === 'rare' ? '#a78bfa' : '#9ca3af'
+  const tierColor = TIER_COLORS[enemy.tier as keyof typeof TIER_COLORS] ?? '#9ca3af'
+  const partyColor = profile.party === 'republican' ? '#dc2626' : '#2563eb'
   const enemyLevel = TIER_LEVELS[enemy.tier as keyof typeof TIER_LEVELS]
-  const enemyTint = enemy.party === 'democrat' ? ['#60a5fa', '#2563eb'] : ['#f87171', '#dc2626']
-  const ouchSrc = enemy.image.replace('.png', '_ouch.png')
-  const throwSrc = enemy.image.replace('.png', '_throw.png')
-  // Sprites with a _throw frame constantly cock-and-throw; a hit briefly
-  // holds the release (follow-through) pose
-  const hasThrow = !throwGone
-
-  const is3dEnemy = !!ENEMY_3D[enemy.id]
-  // 3D enemies get SOFT container motion (the model itself animates); 2D
-  // sprites keep the punchy cartoon keyframes
-  const animDefs = is3dEnemy ? {
-    idle:   { css: 'none',        dur: 0,    iter: '1', fill: 'none' },
-    lowHp:  { css: 'poke3dLow',   dur: 1400, iter: 'infinite', fill: 'none' },
-    hit:    { css: 'poke3dHit',   dur: 420,  iter: '1', fill: 'none' },
-    charge: { css: 'poke3dChrg',  dur: 380,  iter: '1', fill: 'none' },
-    faint:  { css: 'pokeFaint',   dur: 900,  iter: '1', fill: 'forwards' },
-  } : {
-    idle:   { css: 'pokeIdle',  dur: 2400, iter: 'infinite', fill: 'none' },
-    lowHp:  { css: 'pokeLowHp', dur: 900,  iter: 'infinite', fill: 'none' },
-    hit:    { css: 'pokeHit',   dur: 500,  iter: '1', fill: 'none' },
-    charge: { css: 'pokeChrg',  dur: 380,  iter: '1', fill: 'none' },
-    faint:  { css: 'pokeFaint', dur: 900,  iter: '1', fill: 'forwards' },
-  }
-  const anim = animDefs[spriteAnim]
+  const secsLeft = Math.ceil(timeLeft / 1000)
+  const timerPct = (timeLeft / BATTLE_MS) * 100
+  const timerColor = timeLeft > 6000 ? '#22c55e' : timeLeft > 3000 ? '#facc15' : '#ef4444'
+  const theme = FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW
 
   return (
     <div
       ref={arenaRef}
+      onPointerDown={onDown}
+      onPointerUp={onUp}
       style={{
-        height: '100dvh', minHeight: '100vh', position: 'relative', overflow: 'hidden',
-        userSelect: 'none',
-        // Real street-battle backdrop (protest crowds behind barricades, open
-        // asphalt stage) with a readability grade over it; gradient fallback
-        // paints instantly while the image streams in.
-        background: 'linear-gradient(180deg, rgba(4,8,18,0.5) 0%, rgba(4,8,18,0.12) 32%, rgba(4,8,18,0) 55%, rgba(4,8,18,0.28) 100%), url(/backgrounds/street_battle.jpg) center / cover no-repeat, linear-gradient(180deg, #060d1a 0%, #0c1533 40%, #1a2028 70%, #141a12 100%)',
-        touchAction: phase === 'fighting' ? 'none' : 'auto',
-        animation: screenShake ? 'screenShake 0.45s ease-in-out' : 'none',
+        position: 'fixed', inset: 0, overflow: 'hidden', touchAction: 'none', userSelect: 'none',
+        background: '#0a0f1a',
+        animation: screenShake ? 'screenShake 0.45s ease' : undefined,
       }}
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
     >
-      <div className="battle-wipe" />
+      {/* ── Rotating backdrop ────────────────────────────────────────────────── */}
+      <img src={stage.src} alt="" draggable={false} style={{
+        position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0,
+      }} />
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(180deg, rgba(4,8,16,0.55) 0%, transparent 22%, transparent 62%, rgba(4,8,16,0.62) 100%)' }} />
 
-      {/* Edge vignette so the character + UI pop off the backdrop */}
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 92% 78% at 50% 48%, transparent 56%, rgba(4,8,16,0.55) 100%)', pointerEvents: 'none' }} />
-
-      {/* ── Enemy status (top-left) ─────────────────────────────────────────── */}
+      {/* ── Enemy card (top-left) ───────────────────────────────────────────── */}
       <div style={{
-        position: 'absolute', top: 14, left: 12, zIndex: 10,
-        background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
-        borderRadius: 14, padding: '8px 12px', minWidth: 170,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+        position: 'absolute', top: 12, left: 12, right: 100, zIndex: 10, maxWidth: 320,
+        background: 'rgba(8,12,22,0.92)', border: `2px solid ${tierColor}55`,
+        borderRadius: 14, padding: '8px 12px', boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
           <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>{enemy.name}</span>
-          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6, border: `1px solid ${tierColor}`, color: tierColor }}>
+          <span style={{ color: tierColor, fontSize: 11, fontWeight: 800, border: `1px solid ${tierColor}66`, borderRadius: 8, padding: '1px 7px' }}>
             Lv.{enemyLevel}
           </span>
         </div>
         <HpBar current={enemyHp} max={maxHp} />
-        <div style={{ marginTop: 4 }}>
-          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: `${tierColor}22`, color: tierColor, border: `1px solid ${tierColor}44`, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {enemy.tier}
-          </span>
-        </div>
+        <span style={{ display: 'inline-block', marginTop: 5, color: tierColor, fontSize: 9, fontWeight: 900, letterSpacing: 1.5, background: `${tierColor}1c`, borderRadius: 6, padding: '2px 8px' }}>
+          {enemy.tier.toUpperCase()}
+        </span>
       </div>
 
-      {/* ── Flee ────────────────────────────────────────────────────────────── */}
+      {/* ── Flee ─────────────────────────────────────────────────────────────── */}
       {phase === 'fighting' && (
         <button
-          onClick={(e) => { e.stopPropagation(); flee() }}
           onPointerDown={e => e.stopPropagation()}
-          onPointerUp={e => e.stopPropagation()}
+          onClick={async () => { S.current.over = true; await recordBattle('fled', movesRef.current); router.push('/map') }}
           style={{
-            position: 'absolute', top: 14, right: 12, zIndex: 10,
-            background: 'rgba(8,12,22,0.85)', border: '1px solid rgba(255,255,255,0.14)',
-            borderRadius: 10, padding: '7px 12px',
-            color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            position: 'absolute', top: 12, right: 12, zIndex: 10,
+            background: 'rgba(8,12,22,0.9)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: 12, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
           }}>
           🏃 Flee
         </button>
       )}
 
-      {/* ── The enemy — big, feet ON the street just past the barricade line ─ */}
+      {/* ── 12-second timer ──────────────────────────────────────────────────── */}
+      <div style={{ position: 'absolute', top: 86, left: '50%', transform: 'translateX(-50%)', zIndex: 10, width: 'min(60vw, 260px)', textAlign: 'center' }}>
+        <div style={{
+          color: timerColor, fontWeight: 900, fontSize: 26, fontFamily: 'monospace',
+          textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+          animation: timeLeft <= 3000 && phase === 'fighting' ? 'timerBlink 0.5s linear infinite' : undefined,
+        }}>{secsLeft}s</div>
+        <div style={{ height: 6, background: 'rgba(0,0,0,0.55)', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.25)' }}>
+          <div style={{ height: '100%', width: `${timerPct}%`, background: timerColor, transition: 'width 0.1s linear, background-color 0.4s' }} />
+        </div>
+      </div>
+
+      {/* ── The sprite — 3D only, feet ON the stage ground line ─────────────── */}
       <div style={{
-        position: 'absolute', bottom: '42%', left: `${enemyX}%`, zIndex: 5,
-        transform: `translateX(-50%) translateY(${enemyY}px)`,
-        transition: `left ${S.current.exDur}ms ease-in-out, transform ${S.current.exDur}ms ease-in-out`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        position: 'absolute', bottom: `${stage.ground}%`, left: `${enemyX}%`, zIndex: 5,
+        transform: 'translateX(-50%)',
+        transition: `left ${S.current.exDur}ms ease-in-out`,
         pointerEvents: 'none',
       }}>
         {/* damage numbers over the sprite */}
@@ -649,131 +586,70 @@ function BattleContent() {
             animation: 'dmgFloat 1s ease-out forwards', zIndex: 20, whiteSpace: 'nowrap',
           }}>−{d.val}</div>
         ))}
-
-        {ENEMY_3D[enemy.id] ? (
-          <div style={{
-            width: 'min(52vw, 260px)', aspectRatio: '1 / 1', position: 'relative',
-            animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
-            transformOrigin: 'bottom center',
-          }}>
-            {/* 2D sprite shows instantly; crossfades out once the 3D model is in */}
-            <img src={enemy.image} alt={enemy.name} style={{
-              position: 'absolute', inset: 0, margin: 'auto', width: '58%', height: 'auto',
-              objectFit: 'contain', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))',
-              opacity: enemy3dReady ? 0 : 1, transition: 'opacity 300ms ease',
-              pointerEvents: 'none',
-            }} />
-            <Enemy3D prefix={ENEMY_3D[enemy.id]} attackKey={spriteAnim === 'charge' ? spriteKey : 0}
-              onReady={() => setEnemy3dReady(true)} />
-          </div>
-        ) : (
-        <div
-          key={spriteKey}
-          style={{
-            width: 'min(34vw, 150px)',
-            aspectRatio: '3 / 4.2',
-            position: 'relative',
-            animation: `${anim.css} ${anim.dur}ms ease-in-out ${anim.iter} ${anim.fill}`,
-            transformOrigin: 'bottom center',
-          }}
-        >
-          <div style={{
-            position: 'absolute', inset: '8%', borderRadius: '50%',
-            background: `radial-gradient(ellipse 60% 60% at 50% 55%, ${enemyTint[0]}40 0%, ${enemyTint[1]}18 48%, transparent 72%)`,
-            filter: 'blur(4px)',
-          }} />
-          {hasThrow && !(ouch && !ouchMissing.current) ? (
-            // Two-frame cock-and-throw crossfade
-            <>
-              <img src={enemy.image} alt={enemy.name} draggable={false}
-                style={{
-                  width: '100%', height: '100%', objectFit: 'contain', position: 'absolute', inset: 0,
-                  animation: 'throwCycleA 1150ms ease-in-out infinite',
-                  filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
-                }} />
-              <img src={throwSrc} alt="" draggable={false}
-                onError={() => setThrowGone(true)}
-                style={{
-                  width: '100%', height: '100%', objectFit: 'contain', position: 'absolute', inset: 0,
-                  animation: 'throwCycleB 1150ms ease-in-out infinite',
-                  filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
-                }} />
-            </>
-          ) : (
-            <img
-              src={ouch && !ouchMissing.current ? ouchSrc : enemy.image}
-              alt={enemy.name}
-              draggable={false}
-              onError={() => { ouchMissing.current = true; setOuch(false) }}
-              style={{
-                width: '100%', height: '100%', objectFit: 'contain', display: 'block', position: 'relative',
-                filter: `drop-shadow(0 0 14px ${enemyTint[1]}55) drop-shadow(0 8px 10px rgba(0,0,0,0.55))`,
-              }}
-            />
-          )}
-          {ouch && (
-            <div style={{
-              position: 'absolute', top: '-4%', right: '-6%',
-              fontSize: 26, fontWeight: 900, color: '#fde047',
-              textShadow: '0 2px 4px rgba(0,0,0,0.8)', transform: 'rotate(12deg)',
-            }}>💥OUCH!</div>
-          )}
+        <div key={spriteAnim === 'faint' || spriteAnim === 'flee' ? `end${spriteKey}` : 'live'} style={{
+          width: 'min(58vw, 300px)', aspectRatio: '1 / 1', position: 'relative',
+          animation: spriteAnim === 'faint' ? 'pokeFaint 0.9s ease-in forwards'
+            : spriteAnim === 'hit' ? `poke3dHit 420ms ease-in-out`
+            : spriteAnim === 'charge' ? `poke3dChrg 380ms ease-in-out`
+            : undefined,
+          transformOrigin: 'bottom center',
+          opacity: enemy3dReady ? 1 : 0, transition: 'opacity 250ms ease',
+        }}>
+          <Enemy3D prefix={ENEMY_3D[enemy.id]} attackKey={spriteAnim === 'charge' ? spriteKey : 0}
+            onReady={() => setEnemy3dReady(true)} />
         </div>
-        )}
-        <div style={{ width: '46%', height: 18, background: 'radial-gradient(ellipse, rgba(0,0,0,0.65) 0%, transparent 70%)', borderRadius: '50%', marginTop: '-9%', filter: 'blur(6px)' }} />
       </div>
+      {!enemy3dReady && (
+        <div style={{ position: 'absolute', bottom: `${stage.ground + 6}%`, left: '50%', transform: 'translateX(-50%)', zIndex: 5, color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 700, textShadow: '0 2px 6px #000' }}>
+          {enemy.name} approaches…
+        </div>
+      )}
 
-      {/* miss marker */}
+      {/* MISS marker */}
       {missAt && (
         <div style={{
-          position: 'absolute', top: '26%', left: `${missAt.xPct}%`, zIndex: 20,
-          transform: 'translateX(-50%)', pointerEvents: 'none',
-          fontSize: 16, fontWeight: 900, color: '#9ca3af',
-          textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-          animation: 'dmgFloat 0.8s ease-out forwards',
+          position: 'absolute', bottom: `${stage.ground + 8}%`, left: `${missAt.xPct}%`, zIndex: 25,
+          transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.55)', fontWeight: 900, fontSize: 20,
+          textShadow: '0 2px 6px #000', animation: 'dmgFloat 0.7s ease-out forwards',
         }}>MISS</div>
       )}
 
-      {/* flying projectiles */}
-      {projectiles.map(p => (
-        <Missile key={p.id} p={p} onDeflect={deflect} />
-      ))}
+      {/* projectiles */}
+      {projectiles.map(p => <Missile key={p.id} p={p} onDeflect={deflect} />)}
 
-      {/* splat overlay when their junk lands on you */}
-      {splat && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 40, pointerEvents: 'none' }}>
-          <div style={{
-            position: 'absolute', bottom: '-12%', left: '50%', transform: 'translateX(-50%)',
-            width: '130%', height: '55%', borderRadius: '50%',
-            background: `radial-gradient(ellipse at 50% 100%, ${splat.color} 0%, transparent 70%)`,
-            animation: 'splatFade 0.9s ease-out forwards',
-          }} />
-          <div style={{
-            position: 'absolute', bottom: '18%', left: '50%', transform: 'translateX(-50%)',
-            fontSize: 64, animation: 'boomPop 0.7s ease-out forwards',
-          }}>{splat.emoji}</div>
-        </div>
-      )}
-
-      {/* player damage numbers (center-low) */}
+      {/* player damage numbers */}
       {dmgNums.filter(d => !d.onEnemy).map(d => (
         <div key={d.id} style={{
-          position: 'absolute', bottom: '30%', left: '50%',
-          fontSize: 26, fontWeight: 900, color: d.color,
-          textShadow: `0 0 10px ${d.color}`,
-          animation: 'dmgFloat 1s ease-out forwards', zIndex: 20, whiteSpace: 'nowrap',
+          position: 'absolute', bottom: 150, left: '50%',
+          fontSize: 32, fontWeight: 900, color: d.color,
+          textShadow: `0 0 12px ${d.color}`, animation: 'dmgFloat 1s ease-out forwards', zIndex: 40,
         }}>−{d.val}</div>
       ))}
 
-      {/* ── Player HP (bottom bar, compact) ─────────────────────────────────── */}
+      {/* ── Firecracker counter ─────────────────────────────────────────────── */}
+      {phase === 'fighting' && (
+        <div key={fcLeft} style={{
+          position: 'absolute', bottom: 148, right: 14, zIndex: 10,
+          display: 'flex', alignItems: 'center', gap: 7,
+          background: 'rgba(8,12,22,0.92)', border: `2px solid ${fcLeft > 0 ? '#f97316' : '#374151'}88`,
+          borderRadius: 999, padding: '7px 14px 7px 9px',
+          animation: 'fcPulse 0.35s ease',
+          opacity: fcLeft > 0 ? 1 : 0.55,
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/battle/firecracker.png" alt="firecracker" style={{ width: 26, height: 'auto' }} draggable={false} />
+          <span style={{ color: fcLeft > 0 ? '#fdba74' : '#6b7280', fontWeight: 900, fontSize: 17, fontFamily: 'monospace' }}>×{fcLeft}</span>
+        </div>
+      )}
+
+      {/* ── Player card ─────────────────────────────────────────────────────── */}
       <div style={{
         position: 'absolute', bottom: 96, left: 12, right: 12, zIndex: 10,
         background: 'rgba(8,12,22,0.92)', border: '2px solid rgba(255,255,255,0.16)',
-        borderRadius: 14, padding: '8px 12px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+        borderRadius: 14, padding: '8px 12px', boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-          <span style={{ color: 'white', fontWeight: 800, fontSize: 13 }}>{profile.username}</span>
+          <span style={{ color: 'white', fontWeight: 800, fontSize: 13 }}>{profile.username} <span style={{ color: '#9ca3af', fontWeight: 700, fontSize: 11 }}>Lv.{playerLevel}</span></span>
           <span style={{ color: '#facc15', fontSize: 11, fontWeight: 700 }}>⚡ {profile.fp_balance.toLocaleString()}</span>
         </div>
         <HpBar current={playerHp} max={PLAYER_MAX_HP} />
@@ -793,13 +669,11 @@ function BattleContent() {
       {phase === 'fighting' && (
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
-          textAlign: 'center',
-          padding: '8px 12px calc(12px + env(safe-area-inset-bottom))',
-          background: 'linear-gradient(0deg, rgba(4,8,14,0.9) 0%, transparent 100%)',
-          pointerEvents: 'none',
+          textAlign: 'center', padding: '8px 12px calc(12px + env(safe-area-inset-bottom))',
+          background: 'linear-gradient(0deg, rgba(4,8,14,0.9) 0%, transparent 100%)', pointerEvents: 'none',
         }}>
           <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700 }}>
-            👆 TAP = 🪨 rock · ☝️ SWIPE up = 🧨 {fcLeft} left · TAP their {(FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW).emoji} to swat
+            👆 TAP = rock · ☝️ SWIPE up = firecracker · TAP their {theme.emoji} to swat it
           </span>
         </div>
       )}
@@ -809,9 +683,9 @@ function BattleContent() {
         <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(4,8,16,0.78)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 44 }}>🎯</div>
+              <div style={{ fontSize: 44 }}>{captured ? '🎯' : '💨'}</div>
               <h2 style={{ color: 'white', fontWeight: 900, fontSize: 24, margin: '4px 0' }}>
-                {captured ? `${enemy.name} Captured!` : 'Victory!'}
+                {captured ? `${enemy.name} Captured!` : `${enemy.name} slipped away!`}
               </h2>
               <p style={{ color: '#4ade80', fontSize: 14, fontWeight: 700, margin: 0 }}>+{fpEarned} FP earned!</p>
             </div>
@@ -820,16 +694,37 @@ function BattleContent() {
               padding: '14px', textAlign: 'center',
             }}>
               <img src={enemy.image} alt={enemy.name}
-                style={{ width: 110, height: 110, objectFit: 'contain', filter: `drop-shadow(0 0 14px ${tierColor}66)` }} />
+                style={{ width: 110, height: 110, objectFit: 'contain', filter: `drop-shadow(0 0 14px ${tierColor}66)${captured ? '' : ' grayscale(0.7)'}` }} />
               <p style={{ color: 'white', fontWeight: 800, fontSize: 14, margin: '6px 0 0' }}>
-                {captured ? '📦 Added to your collection' : 'Defeated!'}
+                {captured ? '📦 Added to your collection' : 'Beaten — but not caught'}
               </p>
               <p style={{ color: '#9ca3af', fontSize: 11, margin: '2px 0 0' }}>
-                Duplicates sell back for FP in your Collection
+                {captured
+                  ? 'Duplicates sell back for FP in your Collection'
+                  : enemy.tier === 'legendary'
+                    ? playerLevel < 15 ? 'Legendaries can only be kept at Lv.15+' : 'Legendaries rarely stay down — try again!'
+                    : 'Win fast for a better capture chance!'}
               </p>
             </div>
             <button onClick={() => router.push('/map')}
               style={{ padding: '14px 0', background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)`, border: 'none', borderRadius: 12, color: 'white', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>
+              Back to Map
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ESCAPED overlay (timer ran out) */}
+      {phase === 'escaped' && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(4,8,16,0.78)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+            <div style={{ fontSize: 48 }}>⏱️</div>
+            <h2 style={{ color: 'white', fontWeight: 900, fontSize: 22, margin: '4px 0' }}>{enemy.name} got away!</h2>
+            <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 12px', textAlign: 'center' }}>
+              12 seconds is all you get. Hit harder and faster next time — firecrackers do triple damage.
+            </p>
+            <button onClick={() => router.push('/map')}
+              style={{ width: '100%', padding: '12px 0', background: '#1f2937', border: '1px solid #374151', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
               Back to Map
             </button>
           </div>
@@ -843,7 +738,7 @@ function BattleContent() {
             <div style={{ fontSize: 48 }}>💀</div>
             <h2 style={{ color: 'white', fontWeight: 900, fontSize: 22, margin: '4px 0' }}>Defeated!</h2>
             <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 12px', textAlign: 'center' }}>
-              {enemy.name}&apos;s {(FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW).label} was too much!
+              {enemy.name}&apos;s {theme.label} was too much!
             </p>
             <button onClick={() => router.push('/map')}
               style={{ width: '100%', padding: '12px 0', background: '#1f2937', border: '1px solid #374151', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>

@@ -27,8 +27,10 @@ export const ATTACKS: Record<GestureType, PlayerAttack> = {
 // Sprite-battle projectiles: swipe toward the sprite to throw. Both free —
 // skill (aiming at a dodging sprite) is the cost.
 export const THROWS: Record<'rock' | 'firecracker', PlayerAttack> = {
-  rock:        { name: 'Rock Throw',  emoji: '🪨', damage: 20, fp: 0, color: '#a8a29e', hint: 'SWIPE', type: 'Normal' },
-  firecracker: { name: 'Firecracker', emoji: '🧨', damage: 30, fp: 0, color: '#f97316', hint: 'SWIPE', type: 'Fire'   },
+  rock:        { name: 'Rock Throw',  emoji: '🪨', damage: 20, fp: 0, color: '#a8a29e', hint: 'TAP',   type: 'Normal' },
+  // Firecrackers are the heavy hitter — rationed per battle (level + 2) and
+  // the only realistic way to drop a legendary inside the 12s timer.
+  firecracker: { name: 'Firecracker', emoji: '🧨', damage: 60, fp: 0, color: '#f97316', hint: 'SWIPE', type: 'Fire'   },
 }
 
 export const ATTACK_BY_NAME: Record<string, PlayerAttack> = Object.fromEntries(

@@ -3,6 +3,17 @@ import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { getEnemyById } from '@/config/enemies'
 import { ATTACK_BY_NAME, TIER_DEFENSE } from '@/config/attacks'
+import { fighterLevel } from '@/lib/fighter'
+
+// Capture odds by tier. Winning the fight does NOT guarantee the catch:
+// below minLevel the sprite always slips away (a low-level player can never
+// keep The Don), above it the odds grow slowly with level and get a small
+// bonus for finishing fast. Sprites are meant to be hard to keep.
+const CAPTURE_ODDS = {
+  common:    { minLevel: 1,  base: 0.50, perLevel: 0.02,  cap: 0.80 },
+  rare:      { minLevel: 6,  base: 0.22, perLevel: 0.015, cap: 0.55 },
+  legendary: { minLevel: 15, base: 0.06, perLevel: 0.012, cap: 0.30 },
+} as const
 
 // =============================================================================
 // POST /api/battles
@@ -123,28 +134,39 @@ export async function POST(req: NextRequest) {
 
     if (battleError) throw battleError
 
-    // Update profile stats for victories — and CAPTURE the beaten sprite.
-    // Winning a sprite battle catches the character automatically (duplicates
-    // welcome; extras sell back for FP from the Collection).
+    // Update profile stats for victories — then ROLL the capture. Winning
+    // knocks the sprite down; keeping it is the hard part (see CAPTURE_ODDS).
     let captured = false
     if (result === 'victory') {
+      const level = fighterLevel(profile.total_battles_won ?? 0)
+      const odds = CAPTURE_ODDS[enemy.tier as keyof typeof CAPTURE_ODDS] ?? CAPTURE_ODDS.common
+      let chance = 0
+      if (level >= odds.minLevel) {
+        chance = Math.min(odds.cap, odds.base + (level - odds.minLevel) * odds.perLevel)
+        // quick-win bonus: finish inside 9s and the sprite is too dazed to bolt
+        if (Number(duration_secs) > 0 && Number(duration_secs) <= 9) chance += 0.08
+      }
+      captured = Math.random() < chance
+
       await admin
         .from('profiles')
         .update({
           total_battles_won: profile.total_battles_won + 1,
-          total_captures: (profile.total_captures ?? 0) + 1,
+          total_captures: (profile.total_captures ?? 0) + (captured ? 1 : 0),
         })
         .eq('id', profile.id)
-      const { error: capErr } = await admin.from('captured_characters').insert({
-        profile_id: profile.id,
-        enemy_id: enemy.id,
-        enemy_name: enemy.name,
-        enemy_tier: enemy.tier,
-        enemy_image: enemy.image,
-        enemy_party: enemy.party,
-        battle_id: battle?.id ?? null,
-      })
-      captured = !capErr
+      if (captured) {
+        const { error: capErr } = await admin.from('captured_characters').insert({
+          profile_id: profile.id,
+          enemy_id: enemy.id,
+          enemy_name: enemy.name,
+          enemy_tier: enemy.tier,
+          enemy_image: enemy.image,
+          enemy_party: enemy.party,
+          battle_id: battle?.id ?? null,
+        })
+        captured = !capErr
+      }
     } else if (result === 'defeat') {
       await admin
         .from('profiles')
@@ -170,7 +192,9 @@ export async function POST(req: NextRequest) {
       fp_earned: fpReward,
       new_balance: updated?.fp_balance || 0,
       message: result === 'victory'
-        ? `🎯 ${enemy.name} captured! +${fpReward} FP earned!`
+        ? captured
+          ? `🎯 ${enemy.name} captured! +${fpReward} FP earned!`
+          : `💨 ${enemy.name} beaten (+${fpReward} FP) — but slipped away!`
         : result === 'defeat'
         ? `💀 Defeated. +${fpReward} FP consolation`
         : `🏃 You fled the battle`,
