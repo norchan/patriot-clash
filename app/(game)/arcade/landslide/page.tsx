@@ -6,9 +6,13 @@ import { useProfile } from '@/hooks/useProfile'
 import * as sfx from '@/lib/match3-sfx'
 
 // Landslide — an original match-3 (swap adjacent gems, match 3+, cascades).
-// Each level is a differently-shaped board. All art/code here is our own.
+// Match 4 forges a BLASTER gem (clears its row/column when matched);
+// match 5 forges a RAINBOW BOMB (swap it with any gem to wipe that color).
+// Levels have a move budget: clear the goal before it runs out or face the
+// RECOUNT. Each level is a differently-shaped board. All art/code is our own.
 const COLS = 8, ROWS = 8, TYPES = 6
-type Gem = { id: number; type: number; isNew?: boolean }
+type Special = 'H' | 'V' | 'bomb'
+type Gem = { id: number; type: number; special?: Special; isNew?: boolean }
 type Cell = Gem | null
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -51,10 +55,12 @@ function makeBoard(mask: Mask): Cell[][] {
   return b
 }
 
-function computeClears(b: Cell[][]): Set<string> {
+// Scan for runs. 3 = clear · 4 = forge a BLASTER (H run clears its row, V run
+// its column) · 5+ = forge a RAINBOW BOMB. The forge cell survives the clear —
+// prefer the cell the player just swapped so specials appear under the finger.
+function computeClears(b: Cell[][], pref?: { r: number; c: number }[]) {
   const cleared = new Set<string>()
-  const blastRC: [number, number][] = []
-  const blastType = new Set<number>()
+  const spawns: { r: number; c: number; special: Special }[] = []
   const scan = (horizontal: boolean) => {
     const outer = horizontal ? ROWS : COLS, inner = horizontal ? COLS : ROWS
     for (let o = 0; o < outer; o++) {
@@ -68,23 +74,51 @@ function computeClears(b: Cell[][]): Set<string> {
           if (nxt && nxt.type === cell.type) len++; else break
         }
         if (len >= 3) {
-          for (let k = 0; k < len; k++) cleared.add(horizontal ? `${o},${i+k}` : `${i+k},${o}`)
-          const midK = i + Math.floor(len / 2)
-          if (len >= 4) blastRC.push(horizontal ? [o, midK] : [midK, o])
-          if (len >= 5) blastType.add(cell.type)
+          const keys: [number, number][] = []
+          for (let k = 0; k < len; k++) {
+            const rc: [number, number] = horizontal ? [o, i + k] : [i + k, o]
+            keys.push(rc); cleared.add(`${rc[0]},${rc[1]}`)
+          }
+          if (len >= 4) {
+            let at = keys[Math.floor(len / 2)]
+            const hit = pref && keys.find(([r, c]) => pref.some(p => p.r === r && p.c === c))
+            if (hit) at = hit
+            if (!spawns.some(s => s.r === at[0] && s.c === at[1]))
+              spawns.push({ r: at[0], c: at[1], special: len >= 5 ? 'bomb' : (horizontal ? 'H' : 'V') })
+          }
         }
         i += len
       }
     }
   }
   scan(true); scan(false)
-  for (const [r, c] of blastRC) {
-    for (let i = 0; i < COLS; i++) if (b[r][i]) cleared.add(`${r},${i}`)
-    for (let i = 0; i < ROWS; i++) if (b[i][c]) cleared.add(`${i},${c}`)
+  return { cleared, spawns }
+}
+
+type Effect = { id: number; kind: 'row' | 'col' | 'flash'; idx: number }
+
+// Any special caught in a clear detonates: blasters take their row/column,
+// bombs take every gem of their color. Detonations chain into each other.
+function expandSpecials(b: Cell[][], cleared: Set<string>, effects: Omit<Effect, 'id'>[]) {
+  const done = new Set<string>()
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const key of [...cleared]) {
+      if (done.has(key)) continue
+      done.add(key)
+      const [r, c] = key.split(',').map(Number)
+      const g = b[r][c]
+      if (!g?.special) continue
+      const add = (rr: number, cc: number) => {
+        const k = `${rr},${cc}`
+        if (b[rr][cc] && !cleared.has(k)) { cleared.add(k); changed = true }
+      }
+      if (g.special === 'H') { effects.push({ kind: 'row', idx: r }); for (let i = 0; i < COLS; i++) add(r, i) }
+      else if (g.special === 'V') { effects.push({ kind: 'col', idx: c }); for (let i = 0; i < ROWS; i++) add(i, c) }
+      else { effects.push({ kind: 'flash', idx: 0 }); for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) if (b[rr][cc]?.type === g.type) add(rr, cc) }
+    }
   }
-  if (blastType.size) for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
-    if (b[r][c] && blastType.has(b[r][c]!.type)) cleared.add(`${r},${c}`)
-  return cleared
 }
 
 // Gravity within each contiguous open segment of a column (so walls hold gems).
@@ -103,10 +137,12 @@ function applyGravity(b: Cell[][], mask: Mask) {
 }
 
 function hasMoves(b: Cell[][], mask: Mask): boolean {
+  // a rainbow bomb can always be swapped into any neighbor
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (b[r][c]?.special === 'bomb') return true
   const test = (r1: number, c1: number, r2: number, c2: number) => {
     if (!b[r1][c1] || !b[r2][c2]) return false
     ;[b[r1][c1], b[r2][c2]] = [b[r2][c2], b[r1][c1]]
-    const ok = computeClears(b).size > 0
+    const ok = computeClears(b).cleared.size > 0
     ;[b[r1][c1], b[r2][c2]] = [b[r2][c2], b[r1][c1]]
     return ok
   }
@@ -118,7 +154,8 @@ function hasMoves(b: Cell[][], mask: Mask): boolean {
   return false
 }
 
-const goalFor = (lvl: number) => 40 + lvl * 20 // gems to clear to finish a puzzle
+const goalFor = (lvl: number) => 40 + lvl * 20  // gems to clear to finish a puzzle
+const movesFor = (lvl: number) => 24 + lvl * 3  // move budget — run out = RECOUNT
 
 export default function LandslidePage() {
   const router = useRouter()
@@ -129,7 +166,7 @@ export default function LandslidePage() {
   const rerender = () => force(v => v + 1)
   const maskRef = useRef<Mask>(designFor(0).mask)
   const boardRef = useRef<Cell[][]>(makeBoard(maskRef.current))
-  const [removing, setRemoving] = useState<{ id: number; type: number; r: number; c: number }[]>([])
+  const [removing, setRemoving] = useState<{ id: number; type: number; special?: Special; r: number; c: number }[]>([])
   const resolving = useRef(false)
   const [sel, setSel] = useState<{ r: number; c: number } | null>(null)
 
@@ -138,13 +175,19 @@ export default function LandslidePage() {
   const [designName, setDesignName] = useState(designFor(0).name)
   const [cleared, setCleared] = useState(0)
   const [goal, setGoal] = useState(goalFor(0))
-  const [phase, setPhase] = useState<'start' | 'playing' | 'won'>('start')
+  const [moves, setMoves] = useState(movesFor(0))
+  const [phase, setPhase] = useState<'start' | 'playing' | 'won' | 'lost'>('start')
   const [savedLevel, setSavedLevel] = useState(0)
   const [balance, setBalance] = useState<number | null>(null)
   const [fpGame, setFpGame] = useState(0)
   const [fpToast, setFpToast] = useState('')
+  const [effects, setEffects] = useState<Effect[]>([])
+  const [sparks, setSparks] = useState<{ id: number; x: number; y: number; color: string; dx: number; dy: number }[]>([])
+  const [popup, setPopup] = useState<{ text: string; key: number; big: boolean } | null>(null)
 
-  const scoreRef = useRef(0), clearedRef = useRef(0), fpGameRef = useRef(0)
+  const scoreRef = useRef(0), clearedRef = useRef(0), fpGameRef = useRef(0), movesRef = useRef(movesFor(0))
+  const fxId = useRef(1)
+  const popupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     for (let i = 0; i < TYPES; i++) { const im = new Image(); im.src = `/gems/gem${i}.png` }
@@ -198,16 +241,57 @@ export default function LandslidePage() {
   // the gems would never visibly fall.
   const commit = () => rerender()
 
-  const resolveCascades = useCallback(async (lvl: number) => {
+  function showPopup(text: string, big = false) {
+    if (popupTimer.current) clearTimeout(popupTimer.current)
+    setPopup({ text, big, key: fxId.current++ })
+    popupTimer.current = setTimeout(() => setPopup(null), big ? 1100 : 800)
+  }
+
+  function burstSparks(cells: { r: number; c: number; type: number }[]) {
+    const out: typeof sparks = []
+    for (const { r, c, type } of cells.slice(0, 18)) {
+      for (let i = 0; i < 3; i++) {
+        const a = Math.random() * Math.PI * 2, d = 18 + Math.random() * 30
+        out.push({ id: fxId.current++, x: c * cell + cell / 2, y: r * cell + cell / 2,
+          color: GEMS[type].main, dx: Math.cos(a) * d, dy: Math.sin(a) * d - 12 })
+      }
+    }
+    setSparks(s => [...s, ...out])
+    setTimeout(() => setSparks(s => s.filter(x => !out.some(o => o.id === x.id))), 600)
+  }
+
+  function playEffects(fx: Omit<Effect, 'id'>[]) {
+    if (!fx.length) return
+    const withIds = fx.slice(0, 6).map(f => ({ ...f, id: fxId.current++ }))
+    setEffects(e => [...e, ...withIds])
+    setTimeout(() => setEffects(e => e.filter(x => !withIds.some(w => w.id === x.id))), 450)
+  }
+
+  const resolveCascades = useCallback(async (lvl: number, pref?: { r: number; c: number }[]) => {
     let combo = 1, gain = 0, total = 0
     while (true) {
       const b = boardRef.current
-      const clr = computeClears(b)
+      const { cleared: clr, spawns } = computeClears(b, combo === 1 ? pref : undefined)
       if (clr.size === 0) break
-      const rem = [...clr].map(k => { const [r, c] = k.split(',').map(Number); const g = b[r][c]!; return { id: g.id, type: g.type, r, c } })
+      const fx: Omit<Effect, 'id'>[] = []
+      expandSpecials(b, clr, fx)
+      // forge cells transform instead of clearing — the special survives the wave
+      for (const sp of spawns) {
+        clr.delete(`${sp.r},${sp.c}`)
+        const g = b[sp.r][sp.c]
+        if (g) g.special = sp.special
+      }
+      const rem = [...clr].map(k => { const [r, c] = k.split(',').map(Number); const g = b[r][c]!; return { id: g.id, type: g.type, special: g.special, r, c } })
       setRemoving(rem)
       for (const k of clr) { const [r, c] = k.split(',').map(Number); b[r][c] = null }
-      combo >= 3 ? sfx.blast() : sfx.match(combo)
+      playEffects(fx)
+      burstSparks(rem)
+      fx.length || combo >= 3 ? sfx.blast() : sfx.match(combo)
+      if (spawns.some(s => s.special === 'bomb')) showPopup('🌈 RAINBOW BOMB!', true)
+      else if (spawns.length) showPopup('⚡ BLASTER FORGED!')
+      else if (clr.size >= 14) showPopup('SUPERMAJORITY!', true)
+      else if (combo >= 4) showPopup('LANDSLIDE!', true)
+      else if (combo >= 2) showPopup(`COMBO ×${combo}`)
       commit(); await sleep(200)
       setRemoving([])
       gain += clr.size * 30 * combo; total += clr.size
@@ -219,29 +303,70 @@ export default function LandslidePage() {
       clearedRef.current += total; setCleared(clearedRef.current)
       reward('clear', { count: total, level: lvl })
     }
-  }, [])
+  }, [cell]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function spendMove() { movesRef.current -= 1; setMoves(movesRef.current) }
+
+  async function endOfMove() {
+    if (!hasMoves(boardRef.current, maskRef.current)) {
+      boardRef.current = makeBoard(maskRef.current); commit(); await sleep(120)
+    }
+    resolving.current = false
+    if (clearedRef.current >= goal) winLevel()
+    else if (movesRef.current <= 0) loseLevel()
+  }
 
   const adj = (a: { r: number; c: number }, b: { r: number; c: number }) => Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1
 
   const trySwap = useCallback(async (a: { r: number; c: number }, b: { r: number; c: number }) => {
     if (resolving.current || phase !== 'playing') return
     const bd = boardRef.current
-    if (!bd[a.r][a.c] || !bd[b.r][b.c]) return
+    const ga = bd[a.r][a.c], gb = bd[b.r][b.c]
+    if (!ga || !gb) return
     resolving.current = true
+
+    // RAINBOW BOMB swap: wipe every gem of the partner's color right now
+    if (ga.special === 'bomb' || gb.special === 'bomb') {
+      ;[bd[a.r][a.c], bd[b.r][b.c]] = [bd[b.r][b.c], bd[a.r][a.c]]
+      sfx.swap(); commit(); await sleep(160)
+      const bomb = ga.special === 'bomb' ? ga : gb
+      const other = bomb === ga ? gb : ga
+      const both = other.special === 'bomb'
+      const clr = new Set<string>()
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const g = bd[r][c]
+        if (g && (g.id === bomb.id || g.id === other.id || both || g.type === other.type)) clr.add(`${r},${c}`)
+      }
+      const fx: Omit<Effect, 'id'>[] = [{ kind: 'flash', idx: 0 }]
+      expandSpecials(bd, clr, fx)
+      const rem = [...clr].map(k => { const [r, c] = k.split(',').map(Number); const g = bd[r][c]!; return { id: g.id, type: g.type, special: g.special, r, c } })
+      setRemoving(rem)
+      for (const k of clr) { const [r, c] = k.split(',').map(Number); bd[r][c] = null }
+      playEffects(fx); burstSparks(rem); sfx.blast()
+      showPopup(both ? '💥 TOTAL LANDSLIDE!' : '🌈 COLOR WIPE!', true)
+      commit(); await sleep(220)
+      setRemoving([])
+      const gained = clr.size * 40
+      scoreRef.current += gained; setScore(scoreRef.current)
+      clearedRef.current += clr.size; setCleared(clearedRef.current)
+      reward('clear', { count: clr.size, level })
+      applyGravity(bd, maskRef.current); commit(); await sleep(260)
+      spendMove()
+      await resolveCascades(level)
+      await endOfMove()
+      return
+    }
+
     ;[bd[a.r][a.c], bd[b.r][b.c]] = [bd[b.r][b.c], bd[a.r][a.c]]
     sfx.swap(); commit(); await sleep(160)
-    if (computeClears(bd).size === 0) {
+    if (computeClears(bd).cleared.size === 0) {
       ;[bd[a.r][a.c], bd[b.r][b.c]] = [bd[b.r][b.c], bd[a.r][a.c]]
       sfx.invalid(); commit(); await sleep(160)
       resolving.current = false; return
     }
-    await resolveCascades(level)
-    // reshuffle if no moves remain
-    if (!hasMoves(boardRef.current, maskRef.current)) {
-      boardRef.current = makeBoard(maskRef.current); commit(); await sleep(120)
-    }
-    resolving.current = false
-    if (clearedRef.current >= goal) winLevel()
+    spendMove()
+    await resolveCascades(level, [a, b])
+    await endOfMove()
   }, [phase, level, goal, resolveCascades]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function winLevel() {
@@ -254,6 +379,8 @@ export default function LandslidePage() {
     refetch()
   }
 
+  function loseLevel() { setPhase('lost'); sfx.gameOver() }
+
   function startLevel(lvl: number) {
     const d = designFor(lvl)
     maskRef.current = d.mask
@@ -261,9 +388,9 @@ export default function LandslidePage() {
     // guarantee an opening move
     let guard = 0
     while (!hasMoves(boardRef.current, d.mask) && guard++ < 30) boardRef.current = makeBoard(d.mask)
-    setSel(null); setRemoving([]); resolving.current = false
-    scoreRef.current = 0; clearedRef.current = 0; fpGameRef.current = 0
-    setScore(0); setCleared(0); setFpGame(0)
+    setSel(null); setRemoving([]); setEffects([]); setSparks([]); setPopup(null); resolving.current = false
+    scoreRef.current = 0; clearedRef.current = 0; fpGameRef.current = 0; movesRef.current = movesFor(lvl)
+    setScore(0); setCleared(0); setFpGame(0); setMoves(movesFor(lvl))
     setLevel(lvl); setDesignName(d.name); setGoal(goalFor(lvl))
     commit(); setPhase('playing')
   }
@@ -297,6 +424,8 @@ export default function LandslidePage() {
 
   const boardPx = COLS * cell
   const pct = Math.min(100, (cleared / goal) * 100)
+  const movesTotal = movesFor(level)
+  const stars = phase === 'won' ? (moves / movesTotal >= 0.35 ? 3 : moves / movesTotal >= 0.12 ? 2 : 1) : 0
 
   return (
     <div className="min-h-screen text-white relative select-none overflow-hidden"
@@ -307,8 +436,9 @@ export default function LandslidePage() {
         <span className="ml-auto text-yellow-300 text-sm font-black">💰 {(balance ?? 0).toLocaleString()}</span>
       </div>
 
-      <div className="px-3 grid grid-cols-3 gap-2 max-w-md mx-auto mt-1">
+      <div className="px-3 grid grid-cols-4 gap-1.5 max-w-md mx-auto mt-1">
         <Meter label="SCORE" value={score.toLocaleString()} color="#67e8f9" />
+        <Meter label="MOVES" value={String(moves)} color={moves <= 5 ? '#f87171' : '#fbbf24'} pulse={phase === 'playing' && moves <= 5} />
         <Meter label={`LEVEL ${level}`} value={designName} color="#f0abfc" small />
         <Meter label="CLEARED" value={`${Math.min(cleared, goal)}/${goal}`} color="#4ade80" />
       </div>
@@ -335,23 +465,55 @@ export default function LandslidePage() {
                 selected={!!sel && sel.r === r && sel.c === c} onDown={e => onGemDown(r, c, e)} />
             )))}
             {removing.map(x => (
-              <GemView key={`x${x.id}`} g={{ id: x.id, type: x.type }} r={x.r} c={x.c} cell={cell} removing onDown={() => {}} />
+              <GemView key={`x${x.id}`} g={{ id: x.id, type: x.type, special: x.special }} r={x.r} c={x.c} cell={cell} removing onDown={() => {}} />
+            ))}
+            {/* blaster beams + bomb flash */}
+            {effects.map(f => f.kind === 'flash' ? (
+              <div key={f.id} className="absolute inset-0 pointer-events-none z-30" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.75), rgba(250,204,21,0.25) 60%, transparent)', animation: 'fxFade 0.45s ease-out forwards' }} />
+            ) : (
+              <div key={f.id} className="absolute pointer-events-none z-30" style={{
+                left: f.kind === 'col' ? f.idx * cell : 0, top: f.kind === 'row' ? f.idx * cell : 0,
+                width: f.kind === 'col' ? cell : boardPx, height: f.kind === 'row' ? cell : boardPx,
+                background: f.kind === 'row'
+                  ? 'linear-gradient(180deg, transparent, rgba(255,255,255,0.9), transparent)'
+                  : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)',
+                animation: 'fxFade 0.45s ease-out forwards',
+              }} />
+            ))}
+            {/* clear-burst sparks */}
+            {sparks.map(s => (
+              <div key={s.id} className="absolute rounded-full pointer-events-none z-30" style={{
+                left: s.x - 3, top: s.y - 3, width: 6, height: 6, background: s.color,
+                boxShadow: `0 0 6px ${s.color}`,
+                ['--dx' as string]: `${s.dx}px`, ['--dy' as string]: `${s.dy}px`,
+                animation: 'sparkFly 0.55s ease-out forwards',
+              }} />
             ))}
           </div>
           {fpToast && (
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-green-300 font-black text-lg pointer-events-none z-30" style={{ textShadow: '0 0 8px #22c55e' }}>{fpToast}</div>
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-green-300 font-black text-lg pointer-events-none z-30 whitespace-nowrap" style={{ textShadow: '0 0 8px #22c55e' }}>{fpToast}</div>
+          )}
+          {popup && (
+            <div key={popup.key} className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+              <div className={`font-black ${popup.big ? 'text-4xl' : 'text-2xl'}`} style={{
+                color: '#fff', textShadow: '0 0 18px #f0abfc, 0 0 6px #fff, 0 3px 0 #000',
+                animation: 'popIn 0.7s cubic-bezier(.2,1.6,.4,1) forwards',
+              }}>{popup.text}</div>
+            </div>
           )}
         </div>
       </div>
 
-      <p className="text-center text-white/50 text-[11px] mt-3">Swipe a gem toward a neighbor · match 3+ · match 4/5 blasts!</p>
+      <p className="text-center text-white/50 text-[11px] mt-3">Match 3 to clear · 4 forges a ⚡ BLASTER · 5 forges a 🌈 RAINBOW BOMB</p>
 
       {phase !== 'playing' && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-sm px-6 max-w-md mx-auto">
-          <div className="text-center w-full">
+          {phase === 'won' && <Confetti />}
+          <div className="text-center w-full relative">
             {phase === 'start' && <>
               <h2 className="text-4xl font-black" style={{ color: '#fff', textShadow: '0 0 16px #f0abfc' }}>LANDSLIDE</h2>
-              <p className="text-white/70 text-sm mt-2">Clear gems to finish each puzzle. Every level is a new shape.</p>
+              <p className="text-white/70 text-sm mt-2">Hit the clear goal before your moves run out.</p>
+              <p className="text-white/60 text-xs mt-1.5">Match 4 → ⚡ blaster clears a full line · Match 5 → 🌈 bomb wipes a color</p>
               <p className="text-pink-200 text-xs mt-3">Saved level: <b className="text-white">{savedLevel}</b> · {designFor(savedLevel).name}</p>
               <button onClick={() => startLevel(savedLevel)} className="w-full mt-5 py-3.5 rounded-xl font-black text-lg" style={{ background: 'radial-gradient(circle at 50% 30%,#f472b6,#be185d)' }}>
                 {savedLevel > 0 ? `▶ CONTINUE — LEVEL ${savedLevel}` : '▶ START'}
@@ -359,13 +521,27 @@ export default function LandslidePage() {
               {savedLevel > 0 && <button onClick={resetToZero} className="w-full mt-2 py-2.5 rounded-xl font-bold text-sm bg-white/10">Reset to Level 0</button>}
             </>}
             {phase === 'won' && <>
-              <h2 className="text-3xl font-black text-green-300">PUZZLE {level} CLEARED!</h2>
+              <div className="text-3xl tracking-[0.4em] mb-1">
+                {[1, 2, 3].map(i => <span key={i} style={{ opacity: i <= stars ? 1 : 0.22, textShadow: i <= stars ? '0 0 12px #facc15' : 'none' }}>⭐</span>)}
+              </div>
+              <h2 className="text-3xl font-black text-green-300" style={{ textShadow: '0 0 14px #22c55e' }}>LANDSLIDE VICTORY!</h2>
+              <p className="text-white/60 text-xs mt-1">Level {level} · {designName} · {moves} moves to spare</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Meter label="SCORE" value={score.toLocaleString()} color="#67e8f9" />
                 <Meter label="FP EARNED" value={`+${fpGame.toLocaleString()}`} color="#4ade80" />
               </div>
-              <p className="text-pink-200 text-xs mt-3">Next: <b className="text-white">{designFor(level + 1).name}</b></p>
+              <p className="text-pink-200 text-xs mt-3">Next: <b className="text-white">{designFor(level + 1).name}</b> · goal {goalFor(level + 1)} · {movesFor(level + 1)} moves</p>
               <button onClick={nextLevel} className="w-full mt-4 py-3.5 rounded-xl font-black text-lg" style={{ background: 'radial-gradient(circle at 50% 30%,#f472b6,#be185d)' }}>▶ NEXT PUZZLE</button>
+            </>}
+            {phase === 'lost' && <>
+              <h2 className="text-3xl font-black text-red-400" style={{ textShadow: '0 0 14px #ef4444' }}>RECOUNT!</h2>
+              <p className="text-white/70 text-sm mt-2">Out of moves — {Math.min(cleared, goal)}/{goal} cleared.</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Meter label="SCORE" value={score.toLocaleString()} color="#67e8f9" />
+                <Meter label="FP EARNED" value={`+${fpGame.toLocaleString()}`} color="#4ade80" />
+              </div>
+              <button onClick={() => startLevel(level)} className="w-full mt-5 py-3.5 rounded-xl font-black text-lg" style={{ background: 'radial-gradient(circle at 50% 30%,#f87171,#b91c1c)' }}>↻ DEMAND A RECOUNT</button>
+              <button onClick={() => router.push('/arcade')} className="w-full mt-2 py-2.5 rounded-xl font-bold text-sm bg-white/10">Back to Arcade</button>
             </>}
           </div>
         </div>
@@ -374,6 +550,13 @@ export default function LandslidePage() {
       <style>{`
         @keyframes landBg { 0%,100% { background-position: 0% 50% } 50% { background-position: 100% 50% } }
         @keyframes gemDrop { from { transform: translateY(-560%) } to { transform: translateY(0) } }
+        @keyframes fxFade { from { opacity: 1 } to { opacity: 0 } }
+        @keyframes sparkFly { from { transform: translate(0,0); opacity: 1 } to { transform: translate(var(--dx), var(--dy)); opacity: 0 } }
+        @keyframes popIn { 0% { transform: scale(0.3); opacity: 0 } 25% { transform: scale(1.15); opacity: 1 } 75% { transform: scale(1); opacity: 1 } 100% { transform: scale(1); opacity: 0 } }
+        @keyframes specialPulse { 0%,100% { opacity: 0.75 } 50% { opacity: 1 } }
+        @keyframes bombSpin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes meterPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.08) } }
+        @keyframes confFall { from { transform: translateY(-8vh) rotate(0deg); opacity: 1 } to { transform: translateY(105vh) rotate(720deg); opacity: 0.6 } }
       `}</style>
     </div>
   )
@@ -393,16 +576,53 @@ function GemView({ g, r, c, cell, selected, removing, onDown }:
       <img src={`/gems/gem${g.type}.png`} alt="" draggable={false}
         style={{
           width: '100%', height: '100%', objectFit: 'contain',
-          filter: selected ? `drop-shadow(0 0 12px ${gem.main}) drop-shadow(0 0 4px #fff)` : 'drop-shadow(0 3px 4px rgba(0,0,0,0.55))',
+          filter: selected ? `drop-shadow(0 0 12px ${gem.main}) drop-shadow(0 0 4px #fff)`
+            : g.special ? `drop-shadow(0 0 8px ${g.special === 'bomb' ? '#fff' : gem.main}) drop-shadow(0 3px 4px rgba(0,0,0,0.55))`
+            : 'drop-shadow(0 3px 4px rgba(0,0,0,0.55))',
           animation: g.isNew ? 'gemDrop 0.34s ease-in' : undefined,
         }} />
+      {/* special markers: blaster stripe / rainbow bomb ring */}
+      {g.special === 'H' && (
+        <div className="absolute pointer-events-none" style={{ left: '10%', right: '10%', top: '42%', height: '16%', borderRadius: 4,
+          background: 'linear-gradient(90deg, transparent, #fff, transparent)', animation: 'specialPulse 0.9s ease-in-out infinite' }} />
+      )}
+      {g.special === 'V' && (
+        <div className="absolute pointer-events-none" style={{ top: '10%', bottom: '10%', left: '42%', width: '16%', borderRadius: 4,
+          background: 'linear-gradient(180deg, transparent, #fff, transparent)', animation: 'specialPulse 0.9s ease-in-out infinite' }} />
+      )}
+      {g.special === 'bomb' && (
+        <div className="absolute pointer-events-none" style={{ inset: '6%', borderRadius: '50%',
+          border: '3px solid transparent',
+          background: 'conic-gradient(#ff3b6b,#facc15,#22c55e,#3b82f6,#a855f7,#ff3b6b) border-box',
+          WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor', maskComposite: 'exclude',
+          animation: 'bombSpin 1.6s linear infinite' }} />
+      )}
     </button>
   )
 }
 
-function Meter({ label, value, color, small }: { label: string; value: string; color: string; small?: boolean }) {
+function Confetti() {
+  const [pieces] = useState(() => Array.from({ length: 26 }, (_, i) => ({
+    id: i, left: Math.random() * 100, delay: Math.random() * 0.9,
+    color: GEMS[i % GEMS.length].main, size: 6 + Math.random() * 7, dur: 1.4 + Math.random() * 1.2,
+  })))
   return (
-    <div className="rounded-lg py-1.5 border text-center" style={{ background: 'rgba(0,0,0,0.32)', borderColor: 'rgba(255,255,255,0.14)' }}>
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {pieces.map(p => (
+        <div key={p.id} className="absolute" style={{
+          left: `${p.left}%`, top: 0, width: p.size, height: p.size * 0.55, background: p.color,
+          animation: `confFall ${p.dur}s ease-in ${p.delay}s forwards`, borderRadius: 2,
+        }} />
+      ))}
+    </div>
+  )
+}
+
+function Meter({ label, value, color, small, pulse }: { label: string; value: string; color: string; small?: boolean; pulse?: boolean }) {
+  return (
+    <div className="rounded-lg py-1.5 border text-center" style={{ background: 'rgba(0,0,0,0.32)', borderColor: 'rgba(255,255,255,0.14)',
+      animation: pulse ? 'meterPulse 0.9s ease-in-out infinite' : undefined }}>
       <div className="text-[8px] tracking-widest text-white/50">{label}</div>
       <div className={`font-black tabular-nums ${small ? 'text-xs' : 'text-base'}`} style={{ color }}>{value}</div>
     </div>

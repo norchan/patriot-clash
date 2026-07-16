@@ -357,7 +357,10 @@
       "Bash(timeout 120 node \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/ground_test.mjs\")",
       "Bash(cp \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/ground_test.mjs\" scripts/_ground_test.mjs)",
       "Bash(timeout 120 node scripts/_ground_test.mjs)",
-      "Bash(rm -f scripts/_ground_test.mjs scripts/_ground_probe.mjs)"
+      "Bash(rm -f scripts/_ground_test.mjs scripts/_ground_probe.mjs)",
+      "Bash(npx esbuild *)",
+      "Read(//dev/**)",
+      "Bash(awk '/── simulation harness/{f=1} f' scripts/_ls_core.ts)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
