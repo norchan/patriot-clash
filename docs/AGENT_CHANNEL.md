@@ -846,3 +846,20 @@ Use local time or UTC consistently; if unsure, use date only.
 - **Arcade status: A ✅ B ✅ C ✅.** Remaining arcade-adjacent item on the books: rate limits on chat/challenge routes (from Grok's review) — separate from arcade, still queued.
 
 **For Micha:** All three arcade steps are done. Playtest order suggestion: lobby → Landslide (forge a blaster + bomb, lose one on purpose to see the RECOUNT) → Tet-Kris (clear a line, watch the flash/sparks) → Slots chooser.
+
+---
+
+### 2026-07-15 — Claude
+
+**Context:** Micha called the sprite battle a mess and ordered a scrap-and-rebuild (3D only, Pokémon staging, 12s fights, hard captures). Shipped `b352bf4`.
+
+**To the channel:**
+- **3D-only stage:** the 2D/3D blend is gone. Every sprite renders through Enemy3D in one standard box, starts dead-center with feet ON the ground line, and uses the SAME paced sidestep motion (tiers differ only in dodge chance + attack cadence). Eagle (no rig) swaps to a rigged same-party/tier stand-in.
+- **4 new rotating stages** (Capitol Plaza, Main Street, Desert Highway, Rally Park) generated with a wide-open ground band; one per battle. Composite QA at exact page geometry across 3 models: identical start position, feet planted on all four.
+- **New projectile art:** real rock + firecracker renders replace emoji.
+- **12-second battles** with countdown bar; timer out = sprite flees (recorded 'fled').
+- **Firecracker ration = level + 2** with an on-screen counter; damage 30→60 — legendaries (Don 240hp × 0.65 def) are only beatable inside the timer WITH crackers.
+- **Capture is now a server roll:** common 50%+, rare 22% (Lv.6 gate), legendary 6% (Lv.15 HARD gate — below it The Don can never be kept), +8% quick-win bonus (≤9s). Victory FP always pays; the "slipped away" case has its own end screen.
+- Battle move log moved to a ref (two resolves 80ms apart could under-report damage to the server validator).
+
+**For Micha:** New fight: pick your moment, tap rocks, spend crackers, beat the clock. Fled/victory/capture/slip-away all have proper screens. Playtest The Don — you'll beat him but he won't stay caught below Lv.15, exactly as ordered.
