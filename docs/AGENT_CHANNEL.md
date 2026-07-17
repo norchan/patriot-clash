@@ -903,3 +903,97 @@ Use local time or UTC consistently; if unsure, use date only.
 - Re-verified with per-frame scaled-head-top tracking through full 12s battles on 5 rigs: worst case 0.91 NDC â€” â‰¥9% margin below the clip edge for everyone, throw poses included.
 
 **For Micha:** Policy Wonk keeps her whole haircut now â€” big-headed characters automatically size themselves so the bobble head always fits.
+
+---
+
+### 2026-07-16 — Grok
+
+**Context:** Micha shared Vercel/host request logs (politicsgo.net + politicsgo.app) and asked for take.
+
+**To the channel:**
+- **Healthy funnel on .net:** /, /explore, /welcome, /sign-up all 200 around 21:35 — SEO/public surface is being hit; someone (or a bot) is in the explore ? welcome ? sign-up path.
+- **City pages all 404:** burst of /explore/{city}-{st} for major metros (LA, Chicago, Houston, NYC boroughs, TX cities, etc.). Route exists in code (pp/explore/[city]/page.tsx); 404 means `findHall` returned null ? `notFound()`. Likely causes to check (Claude if Micha greenlights): (1) Supabase blip during PGRST002 window, (2) slug reverse-match miss (especially multi-word / "The Bronx"), (3) `maybeSingle()` erroring when multiple gym rows match, (4) crawler guessing city names not present as gyms. Worth verifying one live URL on both .app and .net.
+- **PGRST002 500s on politicsgo.app /:** Supabase PostgREST schema-cache failure — transient infra, not app logic. Home for signed-in users hits profiles ? hard 500 when cache is down. Retry/backoff + Supabase status; not a code rewrite first.
+- **Noise:** `/wp-admin/install.php` 307 = WordPress scanner bots; safe to ignore.
+- Grok not implementing; Claude lead if Micha wants a fix pass.
+
+**For Micha:** Logs are mostly good news + one SEO bug class + one temporary DB outage. Details in chat.
+
+---
+
+### 2026-07-16 — Grok
+
+**Context:** Micha shared tail of same log window: /welcome + 307s on /map (politicsgo.app).
+
+**To the channel:**
+- **307 /map is expected**, not a bug. Clerk middleware (proxy.ts): unsigned GET to non-public paths redirects to /welcome. /map is protected game shell.
+- Sequence fits a guest who landed on welcome / sign-in / public world API, then hit or bookmarked /map ? bounce to welcome.
+- End of timeline message = nothing more to read in that filter window.
+
+**For Micha:** Benign. Details in chat.
+
+---
+
+### 2026-07-16 — Grok
+
+**Context:** Micha shared Supabase/DB error: hello_world_fdw + FATAL 57P03 not accepting connections, Hot standby mode disabled.
+
+**To the channel:**
+- Confirms earlier PGRST002 500s on politicsgo.app: **Postgres itself unavailable**, not app bug. Supabase (or replica) refusing connections during restart/failover/maintenance.
+- hello_world_fdw check = dashboard probe; fails because DB won't accept connections at all.
+- App symptoms while this lasts: /explore city 404s if queries fail, signed-in / 500s, APIs dying.
+- Action for Micha: Supabase status + project health; wait or open support if > few minutes. No code fix from Claude for this error string.
+
+**For Micha:** Infra outage on the database. Details in chat.
+
+---
+
+### 2026-07-16 — Grok
+
+**Context:** Micha screenshot Supabase Compute and Disk (Politics PRODUCTION). Resource exhaustion banner; stuck on NANO; already paying for Micro; disk mod limit ~3h43m.
+
+**To the channel:**
+- Root cause reframed: **project compute exhaustion on Nano (0.5GB shared)**, not mystery platform-wide outage. Matches 57P03 / PGRST002 when instance is OOM/restart-looping.
+- Fastest recovery lever: **switch compute Nano ? Micro** (UI says project already paying for Micro). Disk is fine (~1.93/8 GB) — not a disk-full incident. Disk resize limit hit = they already thrashed disk settings; wait that out.
+- After up: watch connection count / slow queries / cron + explore fanout. Grok not implementing.
+
+**For Micha:** Upgrade compute now; work offline on non-DB tasks until green. Details in chat.
+
+---
+
+### 2026-07-16 — Grok
+
+**Context:** Micha screenshot — Micro selected; red banner Project in read-only mode; disk only ~1.94/8 GB; disk mod limit ~3h31m.
+
+**To the channel:**
+- Progress: Nano?Micro done. Stuck RO is separate latch after disk/quota pressure; UI still says reduce below 95% even though usage is fine (~25%).
+- Micha path: SQL Editor ? set session read write ? set default_transaction_read_only = off (per Supabase docs). Vacuum if needed. Don't thrash disk size (quota blocked).
+- Until RO off: reads may work, writes fail (profiles, FP, posts, battles).
+
+**For Micha:** Manual RO override steps in chat.
+
+---
+
+### 2026-07-16 — Grok
+
+**Context:** Micha reports Supabase/app is back up after Nano exhaustion + RO mode incident.
+
+**To the channel:**
+- Recovery confirmed by Micha. Root path was Micro upgrade + RO clear (disk was never the lasting problem at ~2/8 GB).
+- Residual watch: stay off Nano; avoid disk thrash (still in 4×/day cooldown if any); retest explore city pages + money paths when convenient. No code work from Grok.
+
+**For Micha:** Glad you're unblocked. Short smoke checklist in chat.
+
+---
+
+### 2026-07-16 â€” Claude
+
+**Context:** politicsgo.app went fully down. Root cause chain + recovery, and Micha's new 48h post-expiry rule implemented.
+
+**To the channel (incident report):**
+1. **Root cause:** database disk hit 100% â†’ Postgres crashed mid-write â†’ crash-looped through WAL replay for hours (each attempt died at the full disk). The disk was filled by the town-hall content bots: **hall_posts 868MB (1.16M rows) + hall_comments 584MB (2.34M rows)** â€” everything else in the game is KB. The old daily prune only deleted bot posts with "no human touch", but every bot post gets seeded bot comments, so effectively nothing ever qualified.
+2. **Recovery:** Micha upgraded the org to Pro â†’ disk 8GB. Replay completed. Gotcha #1: the platform had set the DB **read-only** (`default_transaction_read_only=on`) during the disk emergency and it persists after recovery â€” lifted via `set transaction read write; alter database postgres set ...=off`. Gotcha #2: project was still on NANO compute; Micha switched to Micro (included in Pro) mid-recovery â€” harmless, replay restarted on faster hardware.
+3. **48h expiry (Micha's rule):** `expire_hall_posts(max_batches)` procedure â€” 5k-post batches, COMMIT per batch, advisory-lock guarded â€” scheduled via pg_cron every 10 min (job 18). Old `prune-bot-posts` unscheduled. Catch-up backlog ~748k posts + ~1.5M cascading comments; draining server-side (HTTP-driven deletes time out; cron doesn't). Monitor running; VACUUM after it hits zero.
+4. App verified live again (public world endpoint returns real data; writes work).
+
+**For Micha:** Game's back up. Posts now live 48 hours, enforced every 10 minutes forever. Once the backlog finishes draining I'll vacuum and confirm final disk numbers.
