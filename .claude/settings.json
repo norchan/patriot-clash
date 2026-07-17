@@ -376,7 +376,22 @@
       "Bash(timeout 240 node scripts/_fix_qa.mjs)",
       "Bash(rm -f scripts/_fix_qa.mjs)",
       "Bash(grep -n \"0.58, 300\\\\|min\\(58vw, 300px\\)\\\\|boxPx \\\\* 0.5\\\\|end\\\\${spriteKey}\" \"app/\\(game\\)/battle/page.tsx\")",
-      "Bash(rm -f scripts/_clip_qa.mjs)"
+      "Bash(rm -f scripts/_clip_qa.mjs)",
+      "Bash(curl -s -o /dev/null -w \"politicsgo.app: HTTP %{http_code} in %{time_total}s\\\\n\" https://politicsgo.app)",
+      "Bash(curl -s -o /dev/null -w \"map page: HTTP %{http_code}\\\\n\" https://politicsgo.app/map)",
+      "mcp__claude_ai_Supabase__get_project",
+      "mcp__claude_ai_Supabase__get_logs",
+      "mcp__claude_ai_Supabase__get_organization",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://kwwvvkrooefaoqaggdrl.supabase.co/rest/v1/\" -H \"apikey: invalid\")",
+      "mcp__claude_ai_Higgs__get_workflow_instructions",
+      "Bash(curl -s -o /dev/null -w \"site: %{http_code}\\\\n\" https://politicsgo.app)",
+      "Bash(curl -s \"https://politicsgo.app/api/public/world\")",
+      "Bash(curl -s \"https://politicsgo.app/api/public/world?lat=44.32&lng=-93.96\")",
+      "Skill(schedule)",
+      "Skill(schedule:*)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomUUID\\(\\)\\)\")",
+      "Bash(echo \"/marketing\")",
+      "Bash(mkdir -p marketing)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

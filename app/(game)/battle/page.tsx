@@ -33,6 +33,10 @@ const PLAYER_MAX_HP = 120
 const BATTLE_MS = 12_000
 const ROCK_CD = 320
 const FC_CD = 650
+// Sprites were dying too easily (Micha) — battle HP is scaled up from the
+// config values. Server victory validation checks damage >= config hp, so a
+// kill at scaled HP always validates.
+const HP_SCALE = 1.4
 
 // Rotating battle stages. `ground` = feet line, % from the bottom of the
 // screen — tuned per backdrop so the sprite stands on the visible ground.
@@ -227,8 +231,9 @@ function BattleContent() {
     }
     if (e && ENEMY_3D[e.id]) {
       setEnemy(e)
-      setEnemyHp(e.hp); setMaxHp(e.hp)
-      S.current.enemyHp = e.hp
+      const hp = Math.round(e.hp * HP_SCALE)
+      setEnemyHp(hp); setMaxHp(hp)
+      S.current.enemyHp = hp
       const now = Date.now()
       S.current.nextFoeThrowAt = now + 2200
       S.current.nextStepAt = now + 1600
