@@ -248,8 +248,30 @@ function Backdrop({ url }: { url: string }) {
 }
 
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry' }:
-  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string }) {
+// PORTRAIT follow-cam: classic 2D-fighter framing for the vertical layout —
+// tracks the midpoint of the two fighters and zooms with their separation, so
+// fighters stay big (builder-preview size) when they close in.
+function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
+  const { camera } = useThree()
+  useLayoutEffect(() => {
+    const c = camera as THREE.PerspectiveCamera
+    c.fov = 48; c.updateProjectionMatrix()
+  }, [camera])
+  useFrame((_, dt) => {
+    const mid = (playerX + oppX) / 2
+    const gap = Math.abs(oppX - playerX)
+    const tz = Math.min(6.2, Math.max(3.1, 2.1 + gap * 0.95))
+    const k = Math.min(1, dt * 6) // smooth chase, no snapping
+    camera.position.x += (mid - camera.position.x) * k
+    camera.position.z += (tz - camera.position.z) * k
+    camera.position.y += (1.12 - camera.position.y) * k
+    camera.lookAt(camera.position.x, 1.02, 0)
+  })
+  return null
+}
+
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false }:
+  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
@@ -261,6 +283,7 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
       <directionalLight position={[5, 8, 4]} intensity={2.4} color="#ffd6a0" castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
       <directionalLight position={[-6, 3, -3]} intensity={1.1} color="#6a8bff" />
       <spotLight position={[0, 7, 6]} angle={0.7} penumbra={0.6} intensity={1.4} color="#ffb877" />
+      {follow && !solo && <FollowCam playerX={playerX} oppX={oppX} />}
       <Suspense fallback={null}>
         <Backdrop url={`/arenas/${arena}.jpg`} />
         {solo ? (

@@ -152,12 +152,26 @@ function StreetFightPage() {
   useEffect(() => { if (phase === 'live') { setPlayerX(-ANCHOR); setOppX(ANCHOR); L.current.playerX = -ANCHOR; L.current.oppX = ANCHOR } }, [phase])
   // Landscape brawler: nudge the phone sideways (and best-effort lock)
   const [landscape, setLandscape] = useState(true)
+  // LAYOUT MODE: 'portrait' = vertical fight with a bottom control deck (new,
+  // default for the trial); 'landscape' = the original rotate-your-phone
+  // brawler. Persisted so players keep their preference.
+  const [layout, setLayoutState] = useState<'landscape' | 'portrait'>('portrait')
+  useEffect(() => {
+    try { const v = localStorage.getItem('pvp_layout'); if (v === 'landscape' || v === 'portrait') setLayoutState(v) } catch {}
+  }, [])
+  const setLayout = (v: 'landscape' | 'portrait') => {
+    setLayoutState(v)
+    try { localStorage.setItem('pvp_layout', v) } catch {}
+  }
+  useEffect(() => {
+    if (layout === 'landscape') { try { (screen.orientation as any)?.lock?.('landscape')?.catch?.(() => {}) } catch {} }
+    else { try { (screen.orientation as any)?.unlock?.() } catch {} }
+  }, [layout])
   useEffect(() => {
     const check = () => setLandscape(window.innerWidth >= window.innerHeight)
     check()
     window.addEventListener('resize', check)
     window.addEventListener('orientationchange', check)
-    try { (screen.orientation as any)?.lock?.('landscape')?.catch?.(() => {}) } catch {}
     return () => { window.removeEventListener('resize', check); window.removeEventListener('orientationchange', check) }
   }, [])
   const [myHp, setMyHp] = useState(100)
@@ -1113,7 +1127,7 @@ function StreetFightPage() {
       <div className="battle-wipe" />
 
       {/* Landscape brawler — ask the player to turn sideways in portrait */}
-      {!landscape && !endCard && (
+      {layout === 'landscape' && !landscape && !endCard && (
         <div className="fixed inset-0 z-[100] bg-gray-950 flex flex-col items-center justify-center text-center p-8">
           <div className="text-6xl mb-4 animate-pulse">🔄</div>
           <p className="text-white font-black text-xl">Rotate your phone sideways</p>
@@ -1287,9 +1301,13 @@ function StreetFightPage() {
         )}
 
         {/* ── 3D STREET ARENA (fighters + cheering crowd) ── */}
-        {/* pointer-events-none so taps/swipes still reach the stage controller */}
-        <div className="absolute inset-0 z-[5] pointer-events-none">
+        {/* pointer-events-none so taps/swipes still reach the stage controller.
+            Portrait: the arena stops above the control deck; the follow-cam
+            keeps the fighters builder-preview big. */}
+        <div className="absolute z-[5] pointer-events-none"
+          style={layout === 'portrait' ? { top: 0, left: 0, right: 0, bottom: 200 } : { inset: 0 }}>
           <PvpArena3D
+            follow={layout === 'portrait'}
             playerPrefix={myPvpFighter}
             oppPrefix={oppPvpFighter}
             playerHeadId={myHeadId}
@@ -1316,7 +1334,8 @@ function StreetFightPage() {
         {/* move ticker */}
         {/* meter + special (live only) */}
         {phase === 'live' && (
-          <div className="absolute bottom-9 left-3 right-3 z-20 flex items-center gap-2">
+          <div className="absolute left-3 right-3 z-20 flex items-center gap-2"
+            style={{ bottom: layout === 'portrait' ? 208 : 36 }}>
             <div className="flex-1 h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/15">
               <div className="h-full transition-all duration-200"
                 style={{ width: `${meter}%`, background: 'linear-gradient(90deg, #f59e0b, #fde047)' }} />
@@ -1350,71 +1369,84 @@ function StreetFightPage() {
         )}
 
         {(phase === 'fighting' || phase === 'live') && moveText && (
-          <div className="absolute bottom-2 left-0 right-0 z-20 text-center pointer-events-none">
+          <div className="absolute left-0 right-0 z-20 text-center pointer-events-none"
+            style={{ bottom: layout === 'portrait' ? 224 : 8 }}>
             <span className="text-white/80 text-xs font-bold tracking-widest" style={{ textShadow: '0 2px 4px #000' }}>
               {moveText}
             </span>
           </div>
         )}
 
-        {/* ── D-PAD controller (live fights): move / jump / duck / block ── */}
-        {phase === 'live' && (
-          <div className="absolute z-30 pointer-events-auto select-none"
-            style={{ left: 52, bottom: 16, width: 138, height: 138 }}
-            onClick={e => e.stopPropagation()}
-            onTouchStart={e => e.stopPropagation()}
-            onTouchEnd={e => e.stopPropagation()}>
-            {(() => {
-              const base = 'absolute w-11 h-11 rounded-full bg-black/55 border border-white/25 text-white text-lg flex items-center justify-center active:bg-white/30 transition'
-              const stop = (e: any) => { e.stopPropagation(); e.preventDefault() }
-              return (
-                <>
-                  <button title="Jump" className={base} style={{ top: 0, left: 47 }}
-                    onPointerDown={e => { stop(e); doJump() }}>▲</button>
-                  <button title="Duck" className={base} style={{ bottom: 0, left: 47 }}
-                    onPointerDown={e => { stop(e); setPlayerDuck(true) }} onPointerUp={e => { stop(e); setPlayerDuck(false) }} onPointerLeave={() => setPlayerDuck(false)}>▼</button>
-                  <button title="Back up" className={base} style={{ top: 47, left: 0 }}
-                    onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.6, x - 0.4)) }}>◀</button>
-                  <button title="Move in" className={base} style={{ top: 47, right: 0 }}
-                    onPointerDown={e => { stop(e); setPlayerX(x => Math.min((L.current.oppX ?? ANCHOR) - 0.5, x + 0.4)) }}>▶</button>
-                  <button title="Block" className={`${base} ${blocking ? 'bg-blue-500/70' : ''}`} style={{ top: 47, left: 47 }}
-                    onPointerDown={e => { stop(e); setBlocking(true) }} onPointerUp={e => { stop(e); setBlocking(false) }} onPointerLeave={() => setBlocking(false)}>🛡</button>
-                </>
-              )
-            })()}
-          </div>
-        )}
-
-        {/* ── ATTACK PAD (live fights): same visual family as the left D-pad.
-            Diamond: 🦵 high kick N · 🦶 low kick S · 👊 punch E · ⚡ power W ·
-            ★ special CENTER. Block lives on the LEFT D-pad only. ── */}
-        {phase === 'live' && (
-          <div className="absolute z-30 pointer-events-auto select-none"
-            style={{ right: 52, bottom: 16, width: 138, height: 138 }}
-            onClick={e => e.stopPropagation()}
-            onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-            {(() => {
-              const base = 'absolute w-11 h-11 rounded-full bg-black/55 border border-white/25 text-white text-lg flex items-center justify-center active:bg-white/30 transition'
-              const stop = (e: any) => { e.stopPropagation(); e.preventDefault() }
-              return (
-                <>
-                  <button title="Head kick (high)" className={base} style={{ top: 0, left: 47 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerHighKick() }}>🦵</button>
-                  <button title="Leg kick (low)" className={base} style={{ bottom: 0, left: 47 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerLowKick() }}>🦶</button>
-                  <button title="Punch" className={base} style={{ top: 47, right: 0 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunch() }}>👊</button>
-                  <button title="Power (spend meter — next hit lands harder)"
-                    className={`${base} ${powerArmed ? 'bg-yellow-500/50 border-yellow-300/60' : ''}`} style={{ top: 47, left: 0 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPower() }}>⚡</button>
-                  <button title="Special (full power bar)"
-                    className={`${base} ${meter >= 100 ? 'bg-yellow-500/50 border-yellow-300/60 animate-pulse' : ''}`} style={{ top: 47, left: 47 }}
-                    onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerSpecial() }}>★</button>
-                </>
-              )
-            })()}
-          </div>
-        )}
+        {/* ── CONTROLLER PADS (live fights).
+            LANDSCAPE: floated over the stage corners (original layout).
+            PORTRAIT: docked side-by-side in a bottom control deck — no phone
+            rotation needed; the arena's follow-cam keeps fighters big. ── */}
+        {phase === 'live' && (() => {
+          const base = 'absolute w-11 h-11 rounded-full bg-black/55 border border-white/25 text-white text-lg flex items-center justify-center active:bg-white/30 transition'
+          const stop = (e: any) => { e.stopPropagation(); e.preventDefault() }
+          const dpad = (
+            <div className="relative select-none" style={{ width: 138, height: 138 }}>
+              <button title="Jump" className={base} style={{ top: 0, left: 47 }}
+                onPointerDown={e => { stop(e); doJump() }}>▲</button>
+              <button title="Duck" className={base} style={{ bottom: 0, left: 47 }}
+                onPointerDown={e => { stop(e); setPlayerDuck(true) }} onPointerUp={e => { stop(e); setPlayerDuck(false) }} onPointerLeave={() => setPlayerDuck(false)}>▼</button>
+              <button title="Back up" className={base} style={{ top: 47, left: 0 }}
+                onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.6, x - 0.4)) }}>◀</button>
+              <button title="Move in" className={base} style={{ top: 47, right: 0 }}
+                onPointerDown={e => { stop(e); setPlayerX(x => Math.min((L.current.oppX ?? ANCHOR) - 0.5, x + 0.4)) }}>▶</button>
+              <button title="Block" className={`${base} ${blocking ? 'bg-blue-500/70' : ''}`} style={{ top: 47, left: 47 }}
+                onPointerDown={e => { stop(e); setBlocking(true) }} onPointerUp={e => { stop(e); setBlocking(false) }} onPointerLeave={() => setBlocking(false)}>🛡</button>
+            </div>
+          )
+          const attack = (
+            <div className="relative select-none" style={{ width: 138, height: 138 }}>
+              <button title="Head kick (high)" className={base} style={{ top: 0, left: 47 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerHighKick() }}>🦵</button>
+              <button title="Leg kick (low)" className={base} style={{ bottom: 0, left: 47 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerLowKick() }}>🦶</button>
+              <button title="Punch" className={base} style={{ top: 47, right: 0 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunch() }}>👊</button>
+              <button title="Power (spend meter — next hit lands harder)"
+                className={`${base} ${powerArmed ? 'bg-yellow-500/50 border-yellow-300/60' : ''}`} style={{ top: 47, left: 0 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPower() }}>⚡</button>
+              <button title="Special (full power bar)"
+                className={`${base} ${meter >= 100 ? 'bg-yellow-500/50 border-yellow-300/60 animate-pulse' : ''}`} style={{ top: 47, left: 47 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerSpecial() }}>★</button>
+            </div>
+          )
+          const swallow = {
+            onClick: (e: any) => e.stopPropagation(),
+            onTouchStart: (e: any) => e.stopPropagation(),
+            onTouchEnd: (e: any) => e.stopPropagation(),
+          }
+          return layout === 'portrait' ? (
+            <div className="absolute left-0 right-0 bottom-0 z-30 pointer-events-auto" {...swallow}
+              style={{
+                height: 200, paddingBottom: 'env(safe-area-inset-bottom)',
+                background: 'linear-gradient(180deg, rgba(6,10,18,0.25) 0%, rgba(6,10,18,0.94) 34%)',
+                borderTop: '1px solid rgba(255,255,255,0.09)',
+              }}>
+              <div className="h-full max-w-md mx-auto flex items-center justify-between px-5">
+                {dpad}
+                <button onClick={() => setLayout('landscape')}
+                  className="text-white/40 hover:text-white/80 text-[10px] font-bold flex flex-col items-center gap-1">
+                  <span className="text-base">⤢</span>LANDSCAPE
+                </button>
+                {attack}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="absolute z-30 pointer-events-auto" {...swallow} style={{ left: 52, bottom: 16 }}>{dpad}</div>
+              <div className="absolute z-30 pointer-events-auto" {...swallow} style={{ right: 52, bottom: 16 }}>{attack}</div>
+              <button onClick={e => { e.stopPropagation(); setLayout('portrait') }}
+                className="absolute z-30 pointer-events-auto text-white/40 hover:text-white/80 text-[10px] font-bold flex flex-col items-center gap-0.5"
+                style={{ right: 10, bottom: 60 }}>
+                <span className="text-base">⤡</span>VERTICAL
+              </button>
+            </>
+          )
+        })()}
 
         {/* skip hint */}
       </div>
@@ -1432,10 +1464,12 @@ function StreetFightPage() {
         ) : submitting ? (
           <p className="text-gray-400 text-xs text-center">⏳ Recording the result...</p>
         ) : phase === 'live' ? (
-          <div className="text-center space-y-1">
-            <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ⚡ power · ★ special</p>
-            <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — land hits to fill the ⚡ bar</p>
-          </div>
+          layout === 'portrait' ? null : (
+            <div className="text-center space-y-1">
+              <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ⚡ power · ★ special</p>
+              <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — land hits to fill the ⚡ bar</p>
+            </div>
+          )
         ) : phase !== 'done' ? (
           <p className="text-gray-600 text-xs text-center">🥊 Street fight in progress — one round, 30 seconds</p>
         ) : (
