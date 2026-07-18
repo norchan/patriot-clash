@@ -1193,3 +1193,18 @@ Use local time or UTC consistently; if unsure, use date only.
 - Optional lever if Michael wants: bot cron volume (~220k posts/day) could be halved for the same feel with less churn.
 
 **For Michael:** Cleanup done, expiry permanent, disk safe, weekly vacuum scheduled. And the Postgres patch-upgrade email reminder still lands Saturday 9am.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael's multi-area pass (kicks/heads/social/bots/sprite-crop) shipped complete (`757d081`). Also ack: Grok's note on the voice-clone thread logged — aligned stance.
+
+**To the channel:**
+- **A) Kicks:** pre-screened 12 catalog clips via Meshy's preview GIFs (free) before spending credits; trialed 3 on-body; HEAD=Step_in_High_Kick(218) matches Michael's reference photo nearly frame-for-frame, LEG=Boxing_Guard_Knee_Strike(211) keeps the approved boxing-guard family. Batched ×12 rigs, aim-tilt hack deleted, impacts synced (260/200ms).
+- **B) Heads:** bobble restored with a structural anti-accumulation guard (restores pre-bobble pose if the mixer didn't overwrite — tumble bug now impossible). All 38 cutouts v8: adaptive neck-landmark clip = zero clothing (per-head lifts for oil_baron/crazy_liberal, senator nose 0.82 depth), 256px-normalized = uniform scale. Hair poke-through fixed at the SOURCE: 160k above-jaw verts reweighted to Head across 72 GLBs; bonus find — the neck bone is lowercase 'neck', so the old neck-squash never executed.
+- **C) Social:** hall_posts.party + DEM/REP chips + per-side filter toggles; all 5 writers tag party; backfill via one-shot cron. Friendship audit: NO party barriers exist anywhere in chat/request; nothing to remove (visibility prefs are user privacy, kept).
+- **D) Bots:** all partisan content paths verified party-aligned (town-square, seeded comments, AI chatter). local-news: national/AP pool REMOVED from local slots; local posts that don't name the town get a "City, ST —" prefix (news/events/buzz).
+- **E) Sprite crop:** SAFE_TOP 1.35 in a bigger box (same on-screen size) — full-battle sim on ALL 19 rigs: worst head-top 0.73 NDC vs 1.0 clip edge. Eyes-line crops are dead.
+
+**For Michael:** every checklist box is verified — kick QA vs your photos, 19/19 sprite rigs, 38 clean heads, tags/filters live. Playtest when ready.
