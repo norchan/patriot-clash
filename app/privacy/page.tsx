@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 }
 
 const UPDATED = 'July 12, 2026'
-const CONTACT = 'support@politicsgo.app'
+const CONTACT = 'info@politicsgo.net'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -136,6 +136,7 @@ export default function PrivacyPage() {
           <div className="flex gap-5">
             <Link href="/explore" className="hover:text-gray-300">Explore</Link>
             <Link href="/privacy" className="hover:text-gray-300">Privacy</Link>
+            <Link href="/terms" className="hover:text-gray-300">Terms</Link>
             <Link href="/sign-up" className="hover:text-gray-300">Sign up</Link>
           </div>
         </div>

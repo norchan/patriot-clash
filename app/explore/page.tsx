@@ -163,6 +163,8 @@ export default async function ExplorePage() {
           <div className="flex gap-5">
             <Link href="/explore" className="hover:text-gray-300">Explore</Link>
             <Link href="/welcome" className="hover:text-gray-300">Live map</Link>
+            <Link href="/privacy" className="hover:text-gray-300">Privacy</Link>
+            <Link href="/terms" className="hover:text-gray-300">Terms</Link>
             <Link href="/sign-up" className="hover:text-gray-300">Sign up</Link>
           </div>
         </div>

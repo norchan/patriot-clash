@@ -764,9 +764,9 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
-### 2026-07-14 — Grok
+### 2026-07-14 ï¿½ Grok
 
-**Context:** Micha — enemies still bottom of screen; want ~2/3 up; still really jittery. Code review + recommendations (not full rewrite).
+**Context:** Micha ï¿½ enemies still bottom of screen; want ~2/3 up; still really jittery. Code review + recommendations (not full rewrite).
 
 **To the channel:**
 - **Position bug:** still using `bottom: 31%` ? feet in lower third. User wants character ~2/3 up. Use `top: ~28-32%` (or bottom ~50%+) + keep small size; retune aim/hit Y to match.
@@ -906,14 +906,14 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
-### 2026-07-16 — Grok
+### 2026-07-16 ï¿½ Grok
 
 **Context:** Micha shared Vercel/host request logs (politicsgo.net + politicsgo.app) and asked for take.
 
 **To the channel:**
-- **Healthy funnel on .net:** /, /explore, /welcome, /sign-up all 200 around 21:35 — SEO/public surface is being hit; someone (or a bot) is in the explore ? welcome ? sign-up path.
+- **Healthy funnel on .net:** /, /explore, /welcome, /sign-up all 200 around 21:35 ï¿½ SEO/public surface is being hit; someone (or a bot) is in the explore ? welcome ? sign-up path.
 - **City pages all 404:** burst of /explore/{city}-{st} for major metros (LA, Chicago, Houston, NYC boroughs, TX cities, etc.). Route exists in code (pp/explore/[city]/page.tsx); 404 means `findHall` returned null ? `notFound()`. Likely causes to check (Claude if Micha greenlights): (1) Supabase blip during PGRST002 window, (2) slug reverse-match miss (especially multi-word / "The Bronx"), (3) `maybeSingle()` erroring when multiple gym rows match, (4) crawler guessing city names not present as gyms. Worth verifying one live URL on both .app and .net.
-- **PGRST002 500s on politicsgo.app /:** Supabase PostgREST schema-cache failure — transient infra, not app logic. Home for signed-in users hits profiles ? hard 500 when cache is down. Retry/backoff + Supabase status; not a code rewrite first.
+- **PGRST002 500s on politicsgo.app /:** Supabase PostgREST schema-cache failure ï¿½ transient infra, not app logic. Home for signed-in users hits profiles ? hard 500 when cache is down. Retry/backoff + Supabase status; not a code rewrite first.
 - **Noise:** `/wp-admin/install.php` 307 = WordPress scanner bots; safe to ignore.
 - Grok not implementing; Claude lead if Micha wants a fix pass.
 
@@ -921,7 +921,7 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
-### 2026-07-16 — Grok
+### 2026-07-16 ï¿½ Grok
 
 **Context:** Micha shared tail of same log window: /welcome + 307s on /map (politicsgo.app).
 
@@ -934,7 +934,7 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
-### 2026-07-16 — Grok
+### 2026-07-16 ï¿½ Grok
 
 **Context:** Micha shared Supabase/DB error: hello_world_fdw + FATAL 57P03 not accepting connections, Hot standby mode disabled.
 
@@ -948,22 +948,22 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
-### 2026-07-16 — Grok
+### 2026-07-16 ï¿½ Grok
 
 **Context:** Micha screenshot Supabase Compute and Disk (Politics PRODUCTION). Resource exhaustion banner; stuck on NANO; already paying for Micro; disk mod limit ~3h43m.
 
 **To the channel:**
 - Root cause reframed: **project compute exhaustion on Nano (0.5GB shared)**, not mystery platform-wide outage. Matches 57P03 / PGRST002 when instance is OOM/restart-looping.
-- Fastest recovery lever: **switch compute Nano ? Micro** (UI says project already paying for Micro). Disk is fine (~1.93/8 GB) — not a disk-full incident. Disk resize limit hit = they already thrashed disk settings; wait that out.
+- Fastest recovery lever: **switch compute Nano ? Micro** (UI says project already paying for Micro). Disk is fine (~1.93/8 GB) ï¿½ not a disk-full incident. Disk resize limit hit = they already thrashed disk settings; wait that out.
 - After up: watch connection count / slow queries / cron + explore fanout. Grok not implementing.
 
 **For Micha:** Upgrade compute now; work offline on non-DB tasks until green. Details in chat.
 
 ---
 
-### 2026-07-16 — Grok
+### 2026-07-16 ï¿½ Grok
 
-**Context:** Micha screenshot — Micro selected; red banner Project in read-only mode; disk only ~1.94/8 GB; disk mod limit ~3h31m.
+**Context:** Micha screenshot ï¿½ Micro selected; red banner Project in read-only mode; disk only ~1.94/8 GB; disk mod limit ~3h31m.
 
 **To the channel:**
 - Progress: Nano?Micro done. Stuck RO is separate latch after disk/quota pressure; UI still says reduce below 95% even though usage is fine (~25%).
@@ -974,13 +974,13 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
-### 2026-07-16 — Grok
+### 2026-07-16 ï¿½ Grok
 
 **Context:** Micha reports Supabase/app is back up after Nano exhaustion + RO mode incident.
 
 **To the channel:**
 - Recovery confirmed by Micha. Root path was Micro upgrade + RO clear (disk was never the lasting problem at ~2/8 GB).
-- Residual watch: stay off Nano; avoid disk thrash (still in 4×/day cooldown if any); retest explore city pages + money paths when convenient. No code work from Grok.
+- Residual watch: stay off Nano; avoid disk thrash (still in 4ï¿½/day cooldown if any); retest explore city pages + money paths when convenient. No code work from Grok.
 
 **For Micha:** Glad you're unblocked. Short smoke checklist in chat.
 
@@ -1000,29 +1000,29 @@ Use local time or UTC consistently; if unsure, use date only.
 
 ---
 
-### 2026-07-17 18:57 — Grok
+### 2026-07-17 18:57 ï¿½ Grok
 
 **Context:** Micha asked if I can create voice agents.
 
 **To the channel:**
-- Pure Q&A / capability — no code change. Answered: yes via xAI Grok Voice (Voice Agent Builder no-code + Voice Agent API speech-to-speech, TTS/STT). Not implementing in PoliticsGo unless Micha asks; Claude remains lead if that product work starts.
+- Pure Q&A / capability ï¿½ no code change. Answered: yes via xAI Grok Voice (Voice Agent Builder no-code + Voice Agent API speech-to-speech, TTS/STT). Not implementing in PoliticsGo unless Micha asks; Claude remains lead if that product work starts.
 
 **For Micha:** Capability overview in chat.
 
 ---
 
-### 2026-07-17 19:00 — Grok
+### 2026-07-17 19:00 ï¿½ Grok
 
 **Context:** Micha wants a voice that sounds like him (same accent) for TikTok videos.
 
 **To the channel:**
-- Advice only, no PoliticsGo work. Recommended path: xAI Custom Voices clone + TTS for voiceovers (or ElevenLabs Instant/Pro clone for creator UX). Not a phone agent — pure TTS pipeline for video.
+- Advice only, no PoliticsGo work. Recommended path: xAI Custom Voices clone + TTS for voiceovers (or ElevenLabs Instant/Pro clone for creator UX). Not a phone agent ï¿½ pure TTS pipeline for video.
 
 **For Micha:** Step-by-step in chat.
 
 ---
 
-### 2026-07-17 — Grok
+### 2026-07-17 ï¿½ Grok
 
 **Context:** Micha: ElevenLabs disappointed; wants xAI Custom Voices; asks cost + whether Grok Heavy includes free API credits.
 
@@ -1221,3 +1221,13 @@ Use local time or UTC consistently; if unsure, use date only.
 - HUD reflow: meter bar + move ticker sit above the deck; live-instructions hidden in portrait (the deck IS the instructions).
 
 **For Michael:** open any PvP fight â€” it starts vertical now. The â¤¢ button between the pads flips back to landscape if it doesn't feel right.
+
+---
+
+### 2026-07-18 â€” Grok
+
+**Context:** Michael asked for a broad code review + improvement suggestions (no implementation).
+
+**To the channel:** Full suggestions in chat for Michael. Themes: (1) economy residual races in clampArcadeAward; (2) still dual service-role clients; (3) god pages (map 1.5k, pvp 1.4k); (4) zero app tests; (5) sprite dual-GLB identity; (6) docs/AGENTS still lag features; (7) bot volume / hall churn; (8) rate limits still thin outside arcade; (9) asset load strategy for 134MB models. Not a task list for Claude unless Michael prioritizes.
+
+**For Michael:** Prioritized recommendations in the chat reply.
