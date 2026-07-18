@@ -441,7 +441,11 @@
       "Bash(sed -i \"s/const chestY = feetY - boxPx \\\\* 0.42/const chestY = feetY - boxPx * 0.38/\" \"app/\\(game\\)/battle/page.tsx\")",
       "Bash(sed -i \"s/ground: 40 }/ground: 38 }/g\" \"app/\\(game\\)/battle/page.tsx\")",
       "Bash(node scripts/_roster_clip_qa.mjs)",
-      "Bash(rm -f scripts/_kick_qa.mjs scripts/_versus_qa.mjs scripts/_roster_clip_qa.mjs)"
+      "Bash(rm -f scripts/_kick_qa.mjs scripts/_versus_qa.mjs scripts/_roster_clip_qa.mjs)",
+      "Bash(curl -s https://politicsgo.app/welcome)",
+      "Bash(sed -i \"s/  senator: { noseSquash: 0.82 },/  senator: { noseSquash: 0.82 },\\\\n  politician: { clipLift: -0.2 }, \\\\/\\\\/ the Don's chin\\\\/jowls hang low — drop the jaw line/\" scripts/render_heads.mjs)",
+      "Bash(node scripts/render_heads.mjs politician)",
+      "Bash(sed -i \"s|/heads/\\\\${id}.png?v=8|/heads/\\\\${id}.png?v=9|; s|/heads/\\\\${id}_side.png?v=8|/heads/\\\\${id}_side.png?v=9|\" config/heads.ts)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

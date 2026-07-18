@@ -42,7 +42,7 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
   const v = useMemo(() => new THREE.Vector3(), [])
-  const dy = 0.3 + (meta?.dy ?? 0) // jaw lands at the shoulder line with slight overlap
+  const dy = 0.36 + (meta?.dy ?? 0) // small bump up (Michael) — jaw clears the shoulder line
   useFrame(() => {
     const bone = getHeadBone()
     if (!bone || !ref.current?.parent) return
@@ -260,7 +260,8 @@ function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
   useFrame((_, dt) => {
     const mid = (playerX + oppX) / 2
     const gap = Math.abs(oppX - playerX)
-    const tz = Math.min(6.2, Math.max(3.1, 2.1 + gap * 0.95))
+    // slightly farther than v1 — heads must clear the top HUD bars (Michael)
+    const tz = Math.min(6.6, Math.max(3.7, 2.7 + gap * 1.0))
     const k = Math.min(1, dt * 6) // smooth chase, no snapping
     camera.position.x += (mid - camera.position.x) * k
     camera.position.z += (tz - camera.position.z) * k

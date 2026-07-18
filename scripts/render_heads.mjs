@@ -76,6 +76,7 @@ const ONLY = process.argv[2] // optional single id for testing
 // jaw line still catches clothing (odd rig proportions)
 const TWEAKS = {
   senator: { noseSquash: 0.82 },
+  politician: { clipLift: -0.2 }, // the Don's chin/jowls hang low — drop the jaw line
   oil_baron: { clipLift: 0.35 },
   crazy_liberal: { clipLift: 0.2, chinScrub: { band: 0.09 } },
 }
