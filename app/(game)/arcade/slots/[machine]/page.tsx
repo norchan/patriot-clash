@@ -255,14 +255,23 @@ export default function SlotMachinePage({ params }: { params: Promise<{ machine:
         </div>
       </div>
 
-      {/* reel cabinet */}
-      <div className="mx-auto max-w-sm px-4 mt-3 relative z-20">
-        <div className="rounded-2xl p-2.5" style={{ background: m.frame, boxShadow: `0 0 26px ${m.accent}88, inset 0 0 10px rgba(0,0,0,0.4)` }}>
-          <div className="rounded-xl p-2" style={{ background: 'rgba(0,0,0,0.55)' }}>
+      {/* reel cabinet — 3D: the whole face leans back like a real machine, each
+          reel is shaded as a curved drum and the rows wrap around it */}
+      <div className="mx-auto max-w-sm px-4 mt-3 relative z-20" style={{ perspective: 950 }}>
+        <div className="rounded-2xl p-2.5" style={{
+          background: m.frame,
+          transform: 'rotateX(7deg)', transformOrigin: '50% 0%',
+          boxShadow: `0 0 26px ${m.accent}88, 0 18px 30px -10px rgba(0,0,0,0.8), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -3px 6px rgba(0,0,0,0.55)`,
+        }}>
+          {/* metallic bezel lip */}
+          <div className="rounded-xl p-2 relative" style={{
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.5))',
+            boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.9), inset 0 -1px 0 rgba(255,255,255,0.12)',
+          }}>
             <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${REELS}, 1fr)` }}>
               {Array.from({ length: REELS }).map((_, ri) => (
                 <div key={ri} className="rounded-lg overflow-hidden relative"
-                  style={{ height: cell * ROWS, background: m.reelBg, boxShadow: antic[ri] ? `0 0 16px 3px #fde047, inset 0 0 12px #f59e0b` : 'inset 0 2px 6px rgba(0,0,0,0.25)' }}>
+                  style={{ height: cell * ROWS, background: m.reelBg, perspective: 420, boxShadow: antic[ri] ? `0 0 16px 3px #fde047, inset 0 0 12px #f59e0b` : 'inset 0 2px 6px rgba(0,0,0,0.25)' }}>
                   {spinning[ri] ? (
                     <div style={{ animation: `reelspin ${0.22 + ri * 0.02}s linear infinite`, filter: 'blur(0.6px)' }}>
                       {strips[ri].concat(strips[ri]).map((sym, k) => (
@@ -271,13 +280,21 @@ export default function SlotMachinePage({ params }: { params: Promise<{ machine:
                     </div>
                   ) : (
                     grid[ri].map((sym, row) => (
-                      <SymCell key={row} m={m} sym={sym} size={cell} glow={highlight.has(key(ri, row))} dim={highlight.size > 0 && !highlight.has(key(ri, row))} land />
+                      <SymCell key={row} m={m} sym={sym} size={cell} row={row} glow={highlight.has(key(ri, row))} dim={highlight.size > 0 && !highlight.has(key(ri, row))} land />
                     ))
                   )}
+                  {/* curved-drum shading: dark wrap at top/bottom, lit center band */}
+                  <div className="absolute inset-0 pointer-events-none" style={{
+                    background: 'linear-gradient(180deg, rgba(0,0,0,0.52), rgba(0,0,0,0.08) 22%, rgba(255,255,255,0.07) 46%, rgba(255,255,255,0.07) 54%, rgba(0,0,0,0.08) 78%, rgba(0,0,0,0.52))',
+                  }} />
                   {antic[ri] && <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(253,224,71,0.25), transparent 70%)' }} />}
                 </div>
               ))}
             </div>
+            {/* glass reflection across the reel window */}
+            <div className="absolute inset-2 rounded-lg pointer-events-none" style={{
+              background: 'linear-gradient(115deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04) 24%, transparent 38%)',
+            }} />
           </div>
         </div>
       </div>
@@ -308,8 +325,9 @@ export default function SlotMachinePage({ params }: { params: Promise<{ machine:
 
           {/* spin */}
           <button onClick={spin} disabled={busy}
-            className="flex-1 h-16 rounded-2xl font-black text-xl tracking-widest transition active:scale-95 disabled:opacity-70 relative overflow-hidden"
-            style={{ background: 'radial-gradient(circle at 50% 30%, #34d399, #15803d)', color: '#052e16', boxShadow: '0 0 22px rgba(34,197,94,0.6), inset 0 2px 0 rgba(255,255,255,0.5)' }}>
+            className="flex-1 h-16 rounded-2xl font-black text-xl tracking-widest transition active:translate-y-[3px] disabled:opacity-70 relative overflow-hidden"
+            style={{ background: 'radial-gradient(circle at 50% 30%, #34d399, #15803d)', color: '#052e16',
+              boxShadow: '0 5px 0 #14532d, 0 9px 16px rgba(0,0,0,0.55), 0 0 22px rgba(34,197,94,0.5), inset 0 2px 0 rgba(255,255,255,0.5)' }}>
             {busy ? (inFs ? 'BONUS' : '···') : 'SPIN'}
           </button>
 
@@ -358,22 +376,26 @@ export default function SlotMachinePage({ params }: { params: Promise<{ machine:
   )
 }
 
-function SymCell({ m, sym, size, glow, dim, land }: { m: any; sym: number; size: number; glow?: boolean; dim?: boolean; land?: boolean }) {
+function SymCell({ m, sym, size, row, glow, dim, land }: { m: any; sym: number; size: number; row?: number; glow?: boolean; dim?: boolean; land?: boolean }) {
   const s = m.symbols[sym]
   const isWild = sym === WILD, isScat = sym === SCATTER
+  // wrap the visible rows around the drum: top row tilts away up, bottom away down
+  const drumTilt = row === 0 ? 'rotateX(26deg)' : row === 2 ? 'rotateX(-26deg)' : undefined
   return (
     <div className="flex items-center justify-center relative"
-      style={{
-        height: size,
-        animation: glow ? 'cellglow 0.6s ease-in-out infinite' : land ? 'landbounce 0.28s ease-out' : undefined,
-        opacity: dim ? 0.4 : 1,
-        background: glow ? 'radial-gradient(circle, rgba(253,224,71,0.5), transparent 72%)' : isWild ? 'radial-gradient(circle, rgba(250,204,21,0.28), transparent 72%)' : isScat ? 'radial-gradient(circle, rgba(236,72,153,0.28), transparent 72%)' : undefined,
-      }}>
-      <span style={{ fontSize: size * 0.5, filter: glow ? 'drop-shadow(0 0 6px #facc15)' : undefined }}>{s.emoji}</span>
-      {s.label && (
-        <span className="absolute bottom-0.5 text-[7px] font-black tracking-wider px-1 rounded"
-          style={{ color: '#111', background: isWild ? '#facc15' : '#f9a8d4' }}>{s.label}</span>
-      )}
+      style={{ height: size, transform: drumTilt, transformOrigin: row === 0 ? '50% 100%' : row === 2 ? '50% 0%' : undefined }}>
+      <div className="absolute inset-0 flex items-center justify-center"
+        style={{
+          animation: glow ? 'cellglow 0.6s ease-in-out infinite' : land ? 'landbounce 0.28s ease-out' : undefined,
+          opacity: dim ? 0.4 : 1,
+          background: glow ? 'radial-gradient(circle, rgba(253,224,71,0.5), transparent 72%)' : isWild ? 'radial-gradient(circle, rgba(250,204,21,0.28), transparent 72%)' : isScat ? 'radial-gradient(circle, rgba(236,72,153,0.28), transparent 72%)' : undefined,
+        }}>
+        <span style={{ fontSize: size * 0.5, filter: glow ? 'drop-shadow(0 0 6px #facc15)' : 'drop-shadow(0 3px 3px rgba(0,0,0,0.45))' }}>{s.emoji}</span>
+        {s.label && (
+          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[7px] font-black tracking-wider px-1 rounded"
+            style={{ color: '#111', background: isWild ? '#facc15' : '#f9a8d4' }}>{s.label}</span>
+        )}
+      </div>
     </div>
   )
 }

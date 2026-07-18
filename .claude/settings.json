@@ -28,7 +28,9 @@
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spotit_card.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_194910_578eb3e3-25dc-4d3a-888e-1aa04cb52aaa.png)",
       "Bash(SPD=C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad node -e 'const sharp=require\\('\\\\''sharp'\\\\''\\);const sp=process.env.SPD;Promise.all\\([sharp\\(sp+'\\\\''/chess_card.png'\\\\''\\).jpeg\\({quality:82}\\).toFile\\('\\\\''public/arcade/chess.jpg'\\\\''\\),sharp\\(sp+'\\\\''/spotit_card.png'\\\\''\\).jpeg\\({quality:82}\\).toFile\\('\\\\''public/arcade/spotit.jpg'\\\\''\\)]\\).then\\(\\(\\)=>console.log\\('\\\\''cards saved'\\\\''\\)\\)')",
       "Bash(npx vitest *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(cp public/icons/icon-512.png /c/Users/Micha/Desktop/PoliticsGo-logo.png)",
+      "Bash(cp marketing/store-assets/feature-graphic-1024x500.png /c/Users/Micha/Desktop/PoliticsGo-banner.png)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

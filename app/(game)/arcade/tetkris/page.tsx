@@ -295,15 +295,36 @@ export default function TetKrisPage() {
       ctx.strokeStyle = 'rgba(255,255,255,0.04)'
       for (let x = 0; x <= COLS; x++) { ctx.beginPath(); ctx.moveTo(x * s, 0); ctx.lineTo(x * s, ROWS * s); ctx.stroke() }
       for (let y = 0; y <= ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * s); ctx.lineTo(COLS * s, y * s); ctx.stroke() }
+      // 3D beveled cube: lit top/left edges, shadowed bottom/right edges,
+      // glossy face — light source top-left
       const block = (px: number, py: number, color: string, alpha = 1) => {
         ctx.globalAlpha = alpha
-        const grad = ctx.createLinearGradient(px, py, px + s, py + s)
-        grad.addColorStop(0, color); grad.addColorStop(1, shade(color, -30))
+        const b = Math.max(2, s * 0.17) // bevel width
+        const x0 = px + 1, y0 = py + 1, x1 = px + s - 1, y1 = py + s - 1
+        // face
+        const grad = ctx.createLinearGradient(x0, y0, x1, y1)
+        grad.addColorStop(0, shade(color, 8)); grad.addColorStop(1, shade(color, -34))
         ctx.fillStyle = grad
-        ctx.fillRect(px + 1, py + 1, s - 2, s - 2)
-        ctx.fillStyle = 'rgba(255,255,255,0.35)'
-        ctx.fillRect(px + 2, py + 2, s - 4, Math.max(2, s * 0.18))
-        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.strokeRect(px + 1, py + 1, s - 2, s - 2)
+        ctx.fillRect(x0, y0, s - 2, s - 2)
+        // top bevel (brightest)
+        ctx.fillStyle = shade(color, 55)
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1 - b, y0 + b); ctx.lineTo(x0 + b, y0 + b); ctx.closePath(); ctx.fill()
+        // left bevel (bright)
+        ctx.fillStyle = shade(color, 28)
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + b, y0 + b); ctx.lineTo(x0 + b, y1 - b); ctx.lineTo(x0, y1); ctx.closePath(); ctx.fill()
+        // bottom bevel (darkest)
+        ctx.fillStyle = shade(color, -55)
+        ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1 - b, y1 - b); ctx.lineTo(x0 + b, y1 - b); ctx.closePath(); ctx.fill()
+        // right bevel (dark)
+        ctx.fillStyle = shade(color, -38)
+        ctx.beginPath(); ctx.moveTo(x1, y0); ctx.lineTo(x1, y1); ctx.lineTo(x1 - b, y1 - b); ctx.lineTo(x1 - b, y0 + b); ctx.closePath(); ctx.fill()
+        // specular gloss on the face
+        ctx.fillStyle = 'rgba(255,255,255,0.28)'
+        ctx.beginPath()
+        ctx.ellipse(x0 + (s - 2) * 0.34, y0 + (s - 2) * 0.3, (s - 2) * 0.2, (s - 2) * 0.11, -0.5, 0, Math.PI * 2)
+        ctx.fill()
+        // crisp outline
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.strokeRect(x0, y0, s - 2, s - 2)
         ctx.globalAlpha = 1
       }
       const gg = g.current
@@ -412,8 +433,14 @@ export default function TetKrisPage() {
       </div>
 
       {/* board + side panels */}
-      <div className="flex justify-center gap-3 mt-2 px-3">
-        <div className="relative rounded-lg overflow-hidden" style={{ boxShadow: '0 0 24px rgba(168,85,247,0.45)', border: '2px solid #7c3aed' }}>
+      <div className="flex justify-center gap-3 mt-2 px-3" style={{ perspective: 900 }}>
+        {/* the well leans back slightly — a 3D cabinet face, not a flat sheet */}
+        <div className="relative rounded-lg overflow-hidden" style={{
+          transform: 'rotateX(5deg)', transformOrigin: '50% 0%',
+          boxShadow: '0 0 24px rgba(168,85,247,0.45), 0 16px 26px -8px rgba(0,0,0,0.85), inset 0 2px 0 rgba(255,255,255,0.18)',
+          border: '2px solid #7c3aed',
+          borderTopColor: '#a78bfa', borderBottomColor: '#4c1d95',
+        }}>
           <canvas ref={canvasRef} width={boardW} height={boardH} style={{ width: boardW, height: boardH, display: 'block' }}
             onClick={rotate} />
           {fpToast && (
@@ -533,7 +560,10 @@ function MiniPiece({ k }: { k: Key | null }) {
       {m.map((row, r) => (
         <div key={r} className="flex gap-0.5">
           {row.map((v, c) => (
-            <div key={c} className="w-3 h-3 rounded-[2px]" style={{ background: v ? PIECES[k].c : 'transparent' }} />
+            <div key={c} className="w-3 h-3 rounded-[2px]" style={v ? {
+              background: `linear-gradient(135deg, ${PIECES[k].c}, ${PIECES[k].c})`,
+              boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.55), inset -1px -1px 0 rgba(0,0,0,0.5)',
+            } : { background: 'transparent' }} />
           ))}
         </div>
       ))}
