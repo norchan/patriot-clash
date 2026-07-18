@@ -67,25 +67,17 @@ export async function POST(req: NextRequest) {
       .eq('id', profile.id)
       .single()
 
-    // Daily bonus (first sync of the day). Claim it ATOMICALLY: a single
-    // conditional UPDATE that only matches if today's bonus isn't already
-    // claimed. Concurrent first-syncs then can't both win → no double 1000 FP.
-    let dailyBonusAwarded = 0
-    const { data: claimedRows } = await admin
-      .from('profiles')
-      .update({ last_daily_bonus: recordDate })
-      .eq('id', profile.id)
-      .or(`last_daily_bonus.is.null,last_daily_bonus.neq.${recordDate}`)
-      .select('id')
-    if (claimedRows && claimedRows.length > 0) {
-      dailyBonusAwarded = 1000 // we won the claim → grant exactly once
-      await admin.rpc('grant_fp', {
-        p_profile_id: profile.id,
-        p_amount: dailyBonusAwarded,
-        p_type: 'daily_bonus',
-        p_description: `Daily login bonus: ${recordDate}`,
-      })
-    }
+    // Daily bonus (first sync of the day). claim_daily_bonus does the
+    // conditional claim AND the grant in one database transaction: concurrent
+    // first-syncs can't double-pay, and a failed grant rolls back the claim
+    // so the day can't lose its bonus. Returns 0 if already claimed today.
+    const { data: bonusGranted, error: bonusErr } = await admin.rpc('claim_daily_bonus', {
+      p_profile_id: profile.id,
+      p_date: recordDate,
+      p_amount: 1000,
+    })
+    if (bonusErr) console.error('claim_daily_bonus error:', bonusErr)
+    const dailyBonusAwarded = (bonusGranted as number) || 0
 
     return NextResponse.json({
       success: true,

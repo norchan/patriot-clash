@@ -15,8 +15,31 @@ export const FREE_GAMES = ['landslide', 'tetkris'] as const
 export type FreeGame = (typeof FREE_GAMES)[number]
 
 /**
+ * Pure clamp math (mirrors the SQL in record_arcade_award) — exported so the
+ * test suite can pin the budget behavior without a database.
+ */
+export function computeArcadeBudget(
+  ageMs: number,
+  sessionAwarded: number,
+  earnedToday: number,
+  requested: number,
+): { allowed: number; reason?: string } {
+  if (ageMs > SESSION_MAX_AGE_MS) return { allowed: 0, reason: 'SESSION_EXPIRED' }
+  const rateBudget = Math.floor((ageMs / 60000 + 0.5) * SESSION_RATE_PER_MIN) - sessionAwarded
+  const dailyBudget = ARCADE_DAILY_CAP - earnedToday
+  const allowed = Math.max(0, Math.min(requested, rateBudget, dailyBudget))
+  return {
+    allowed,
+    reason: allowed === 0 ? (dailyBudget <= 0 ? 'DAILY_CAP' : 'RATE_CAP') : undefined,
+  }
+}
+
+/**
  * Validates the session and clamps `requested` FP by the session rate and the
- * daily cap, then atomically records the award on the session.
+ * daily cap, then records the award on the session. The whole
+ * check-clamp-record runs as ONE database transaction under a per-profile
+ * lock (record_arcade_award), so parallel reward calls can't both pass the
+ * same budget and double-pay.
  * Returns the amount actually allowed (0 = capped out / invalid session).
  */
 export async function clampArcadeAward(
@@ -30,39 +53,19 @@ export async function clampArcadeAward(
   }
   const admin = createSupabaseAdminClient()
 
-  const { data: session } = await admin
-    .from('arcade_sessions')
-    .select('id, game, awarded_fp, created_at')
-    .eq('id', sessionId)
-    .eq('profile_id', profileId)
-    .maybeSingle()
-  if (!session || session.game !== game) return { allowed: 0, reason: 'NO_SESSION' }
-
-  const ageMs = Date.now() - new Date(session.created_at).getTime()
-  if (ageMs > SESSION_MAX_AGE_MS) return { allowed: 0, reason: 'SESSION_EXPIRED' }
-
-  // per-session rate: you can't have earned faster than real play time allows
-  const rateBudget = Math.floor((ageMs / 60000 + 0.5) * SESSION_RATE_PER_MIN) - session.awarded_fp
-
-  // shared daily cap across the free games
-  const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0)
-  const { data: todays } = await admin
-    .from('arcade_sessions')
-    .select('awarded_fp')
-    .eq('profile_id', profileId)
-    .gte('created_at', dayStart.toISOString())
-  const earnedToday = (todays ?? []).reduce((s, r) => s + (r.awarded_fp ?? 0), 0)
-  const dailyBudget = ARCADE_DAILY_CAP - earnedToday
-
-  const allowed = Math.max(0, Math.min(requested, rateBudget, dailyBudget))
-  if (allowed > 0) {
-    await admin
-      .from('arcade_sessions')
-      .update({ awarded_fp: session.awarded_fp + allowed, last_event_at: new Date().toISOString() })
-      .eq('id', session.id)
+  const { data, error } = await admin.rpc('record_arcade_award', {
+    p_profile_id: profileId,
+    p_session_id: sessionId,
+    p_game: game,
+    p_requested: Math.max(0, Math.floor(requested)),
+    p_rate_per_min: SESSION_RATE_PER_MIN,
+    p_daily_cap: ARCADE_DAILY_CAP,
+    p_max_age_ms: SESSION_MAX_AGE_MS,
+  })
+  if (error) {
+    console.error('record_arcade_award error:', error)
+    return { allowed: 0, reason: 'ERROR' }
   }
-  return {
-    allowed,
-    reason: allowed === 0 ? (dailyBudget <= 0 ? 'DAILY_CAP' : 'RATE_CAP') : undefined,
-  }
+  const row = Array.isArray(data) ? data[0] : data
+  return { allowed: row?.allowed ?? 0, reason: row?.reason ?? undefined }
 }

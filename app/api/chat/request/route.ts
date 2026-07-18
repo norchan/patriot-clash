@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { isBlockedEitherWay } from '@/lib/blocks'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 
 // POST /api/chat/request — send a chat request to another player
 export async function POST(req: NextRequest) {
   try {
     const profile = await requireProfile()
+    if (rateLimited(`chatreq:${profile.id}`, 8, 60_000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
     const { receiver_id } = await req.json()
 

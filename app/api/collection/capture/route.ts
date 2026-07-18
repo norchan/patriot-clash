@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { getEnemyById } from '@/config/enemies'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 
 const CAPTURE_RATES = { common: 0.75, rare: 0.40, legendary: 0.15 }
 const CAPTURE_COSTS = { common: 15, rare: 30, legendary: 75 }
@@ -10,6 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (rateLimited(`capture:${userId}`, 15, 60_000)) return rateLimitResponse()
 
     const admin = createSupabaseAdminClient()
     const { enemy_id, battle_id } = await req.json()

@@ -51,24 +51,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Atomic: deduct the bet (fails if the balance raced below it), then credit
-    // the winnings. Each is a ledger row; never read-modify-write the balance.
-    const { data: afterBet, error: betErr } = await admin.rpc('spend_fp', {
-      p_profile_id: profile.id, p_amount: bet,
-      p_type: 'arcade', p_reference_type: 'slots', p_description: 'Slots bet',
+    // ONE transaction: bet deduction + win credit together (slots_settle).
+    // Fails atomically — a mid-settle error can't eat the bet, and an
+    // insufficient balance (raced below the bet) rejects cleanly.
+    const { data: settled, error: settleErr } = await admin.rpc('slots_settle', {
+      p_profile_id: profile.id, p_bet: bet, p_payout: totalPayout,
     })
-    if (betErr) {
-      return NextResponse.json({ error: 'INSUFFICIENT_FP', balance: profile.fp_balance }, { status: 400 })
+    if (settleErr) {
+      if (settleErr.message?.includes('INSUFFICIENT_FP')) {
+        return NextResponse.json({ error: 'INSUFFICIENT_FP', balance: profile.fp_balance }, { status: 400 })
+      }
+      throw settleErr
     }
-    let newBalance = afterBet as number
-    if (totalPayout > 0) {
-      const { data: afterWin, error: winErr } = await admin.rpc('grant_fp', {
-        p_profile_id: profile.id, p_amount: totalPayout,
-        p_type: 'arcade', p_reference_type: 'slots', p_description: 'Slots win',
-      })
-      if (winErr) throw winErr
-      newBalance = afterWin as number
-    }
+    const newBalance = settled as number
 
     return NextResponse.json({
       bet,

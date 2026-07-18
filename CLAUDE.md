@@ -2,7 +2,7 @@
 
 ## Shared agent channel (required)
 
-Before every reply to Micha, read `docs/AGENT_CHANNEL.md`. Append-only: never edit others’ posts. If Grok (or Micha) added something new, address it when you reply. Claude remains **lead engineer**; Grok is Micha’s human-side trustee. Full protocol is in that file and in `AGENTS.md`.
+Before every reply to Michael, read `docs/AGENT_CHANNEL.md`. Append-only: never edit others’ posts. If Grok (or Michael) added something new, address it when you reply. Claude remains **lead engineer**; Grok is Michael’s human-side trustee. Full protocol is in that file and in `AGENTS.md`. (His name is **Michael** — an early typo made "Micha" stick in old docs; don't repeat it.)
 
 # PoliticsGo — patriot-clash
 
@@ -33,48 +33,61 @@ A location-based AR mobile-web game (think Pokémon Go, US politics edition). Pl
 ```
 app/
   (auth)/          Clerk sign-in / sign-up catch-all routes
-  (game)/          Main game shell — layout has 4-tab bottom nav
-    map/           Mapbox map: enemy spawns, gym markers, location tracking
-    battle/        Turn-based battle screen (animations, capture, FP)
-    collection/    Captured characters gallery
-    townhall/      Town Hall list + [id] challenge page
-    profile/       Player stats
-    shop/          Stripe FP pack purchase (5 tiers: 100–32 000 FP)
-  api/             All API routes (see table below)
-  onboarding/      Party-selection screen (POST /api/profile/onboard)
-config/
-  enemies.ts       Full enemy roster (10 enemies, 2 parties, 3 tiers)
-lib/
-  auth.ts          getCurrentProfile, requireProfile, createProfileForUser
-  supabase-server.ts  Server-side Supabase clients
-  supabase-client.ts  Browser-side Supabase client
+  (game)/          Main game shell — bottom-nav layout
+    map/           Mapbox map: enemy spawns, hall markers, nearby players, tap-menus
+    battle/        Sprite battle vs config enemies (Enemy3D, HP_SCALE 1.4, capture)
+    battle/pvp/    Live PvP fight screen (PvpArena3D; portrait default + landscape toggle)
+    fighter/ fighter3d/  Fighter builder (body + bobblehead picker, config/heads.ts)
+    arcade/        Slots (FP bets) + free games Landslide/TetKris (session-capped FP)
+    active/        Active Players — 50 closest matching players, no radius cap
+    townhall/      Hall list + [id] page (feed, siege, boost, donate)
+    collection/    Captured characters gallery (+ sell-back)
+    cliques/       Player groups with feeds
+    messages/      DM inbox / threads (image DMs, moderation)
+    leaderboard/ notifications/ player/ profile/ settings/ shop/
+  api/             ~70 routes (see grouping below)
+  explore/         Public crawlable content pages (SEO/AdSense)
+  privacy/ terms/  Legal pages (public; required by stores + AdSense)
+  onboarding/      Party-selection screen
+components/        Enemy3D, PvpArena3D, FighterRig/Sprite, HallFeed, CliqueFeed, …
+config/            enemies, heads (bobbleheads v9), slots, attacks, siege-attacks, items, banners
+lib/               auth, arcade (anti-farm), ratelimit, pvp, fighter, moderation,
+                   blocks, notify, bot-chat, garrison, supabase-server/client
 hooks/             useLocation, useProfile, useSteps
-public/
-  animations/      MP4 animated enemy sprites
-  enemies/         Character images (democrat/, republican/)
-  flags/           Lottie JSON flag animations
+scripts/           Meshy character/animation generation, head cutout rendering
+                   (render_heads.mjs), hair-weight fixes, hall seeding, QA harnesses
+public/heads/      Bobblehead cutout PNGs (?v=9); public/models/ fighter GLBs (?v=3)
+public/.well-known/assetlinks.json  Android TWA domain verification
 ```
 
-## API routes
+## API route groups (all under `app/api/`)
 
-| Route | Methods | Purpose |
+| Group | Routes | Notes |
 |---|---|---|
-| `/api/battles` | GET, POST | Record battle; award/spend FP via Supabase RPCs |
-| `/api/collection` | GET | Fetch captured characters |
-| `/api/collection/capture` | POST | Spend FP, roll capture, insert to `captured_characters` |
-| `/api/collection/check` | GET | Check if enemy already captured |
-| `/api/gyms` | GET | Gyms within 100 mi via `gyms_near` PostGIS RPC |
-| `/api/gyms/[id]/challenge` | POST | Challenge a Town Hall |
-| `/api/profile` | GET | Current player profile |
-| `/api/profile/onboard` | POST | Set party (democrat/republican) |
-| `/api/shop/checkout` | POST | Create Stripe Checkout Session |
-| `/api/steps` | GET, POST | Sync steps; award FP (100 FP/150 steps, 30k steps/day clamp, +1000 daily login bonus) |
-| `/api/webhooks/clerk` | POST | Create Supabase profile on `user.created` (svix-verified) |
-| `/api/webhooks/stripe` | POST | Fulfill FP on `checkout.session.completed` (idempotent) |
+| Economy | `battles`, `collection/*`, `steps`, `items/buy`, `shop/checkout`, `arcade/*` | ALL FP mutations go through Supabase RPCs — never read-modify-write balances |
+| Halls | `gyms/*` (challenge/defend/strike/boost/donate/posts/message), `hall-posts/*`, `hall-comments/*` | posts have `party` tags; 48h expiry via pg_cron |
+| Social | `chat/*`, `cliques/*`, `posts/*`, `players/*`, `notifications`, `report` | `players/closest` = Active screen; `players/nearby` = map (radius-capped) |
+| PvP | `pvp/challenge`, `pvp/pending`, `pvp/[id]/*` | server-validated fight settlement |
+| Infra | `webhooks/clerk`, `webhooks/stripe`, `cron/*` (bot content), `public/world`, `avatar/*` | cron routes auth via CRON_SECRET bearer |
 
-## Supabase RPCs (defined server-side)
+Burst rate limits (`lib/ratelimit.ts`, per-instance in-memory): chat send/request, gym challenge/defend/strike, capture.
 
-`gyms_near`, `grant_fp`, `spend_fp`, `award_step_fp`
+## Supabase server-side functions
+
+- FP ledger: `grant_fp`, `spend_fp`, `award_step_fp`
+- Atomic money paths (added 2026-07-18, one transaction each): `record_arcade_award`
+  (session+daily budget clamp under per-profile advisory lock), `slots_settle`
+  (bet + win together), `claim_daily_bonus` (claim + grant together)
+- Geo: `gyms_near`
+- pg_cron: bot content ticks, `expire_hall_posts` (48h, every 10 min), weekly
+  `vacuum-halls`, leaderboard refresh. Bot post volume HALVED 2026-07-18 for a
+  one-week trial (old schedules in the cron job comments / channel log).
+
+## Tests
+
+`npm test` (vitest) — `tests/economy.test.ts` pins the arcade budget clamp,
+slots paytable/RTP, head-catalog gate, and rate limiter. Add a test when
+touching economy math.
 
 ## Environment variables
 

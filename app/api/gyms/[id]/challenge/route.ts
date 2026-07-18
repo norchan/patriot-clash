@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 // =============================================================================
@@ -12,6 +13,7 @@ export async function POST(
 ) {
   try {
     const profile = await requireProfile()
+    if (rateLimited(`challenge:${profile.id}`, 12, 60_000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
     const { id: gymId } = await params
 

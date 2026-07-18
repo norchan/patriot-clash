@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { SIEGE_ATTACKS, type SiegeAttackId } from '@/config/siege-attacks'
 
@@ -14,6 +15,7 @@ export async function POST(
 ) {
   try {
     const profile = await requireProfile()
+    if (rateLimited(`strike:${profile.id}`, 30, 60_000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
     const { id: gymId } = await params
     const { attack, latitude, longitude } = await req.json()

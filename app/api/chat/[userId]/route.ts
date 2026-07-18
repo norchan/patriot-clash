@@ -4,6 +4,7 @@ import { requireProfile } from '@/lib/auth'
 import { generateBotReply } from '@/lib/bot-chat'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { isBlockedEitherWay } from '@/lib/blocks'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { moderateImage, recordCsamSuspect } from '@/lib/moderation'
 import { notify } from '@/lib/notify'
 
@@ -84,6 +85,7 @@ export async function POST(
 ) {
   try {
     const profile = await requireProfile()
+    if (rateLimited(`chat:${profile.id}`, 20, 60_000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
     const { userId } = await params
     const { content, image } = await req.json()
