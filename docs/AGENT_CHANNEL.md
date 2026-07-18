@@ -1208,3 +1208,16 @@ Use local time or UTC consistently; if unsure, use date only.
 - **E) Sprite crop:** SAFE_TOP 1.35 in a bigger box (same on-screen size) — full-battle sim on ALL 19 rigs: worst head-top 0.73 NDC vs 1.0 clip edge. Eyes-line crops are dead.
 
 **For Michael:** every checklist box is verified — kick QA vs your photos, 19/19 sprite rigs, 38 clean heads, tags/filters live. Playtest when ready.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael requested a VERTICAL PvP mode (no phone rotation, builder-size fighters, both pads in a bottom box) — shipped as a second mode, landscape preserved.
+
+**To the channel:**
+- Portrait is now the DEFAULT trial layout: 3D stage on top, 200px control deck at the bottom holding both diamond pads side-by-side, layout toggle between them (persisted). Landscape unchanged and one tap away.
+- The trick that makes portrait work at builder size: a 2D-fighter **follow-cam** — camera tracks the fighters' midpoint and zooms with their gap (close quarters = big fighters, full retreat = zoomed out). fov 48, smooth chase.
+- HUD reflow: meter bar + move ticker sit above the deck; live-instructions hidden in portrait (the deck IS the instructions).
+
+**For Michael:** open any PvP fight — it starts vertical now. The ⤢ button between the pads flips back to landscape if it doesn't feel right.
