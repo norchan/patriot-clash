@@ -23,7 +23,7 @@ export const FIGHTERS: FighterMeta[] = [
 const HEAD_SCALE = 1.0 // natural proportions — match the reference guard stills
 // Bump when the GLBs are regenerated at the same path, to bust browser/CDN cache
 // (v2 = closed-fist rebuild).
-const MODEL_VER = 2
+const MODEL_VER = 3 // v3: kicklo swapped to Simple_Kick (103)
 
 // Correction for the model's front axis (these Meshy models' front is local -X).
 // Fighters always aim at their target; change by ±PI/2 if they don't face it.
@@ -115,8 +115,8 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
         jabL: oneShot(jabLGltf, 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
         // HEAD KICK: Step_in_High_Kick (218) — leg extended head-height at ~0.56s
         kickHi: oneShot(kickHiGltf, 0.2, 1.4),
-        // LEG KICK: Boxing_Guard_Step_Knee_Strike (211) — knee lands ~1.06s raw
-        kickLo: oneShot(kickLoGltf, 0.7, 1.8),
+        // LEG KICK: Simple_Kick (103) — thrust kick extends at ~1.0s raw
+        kickLo: oneShot(kickLoGltf, 0.55, 1.8),
         hit: oneShot(hitGltf, 0.12, 1.6),
       },
     }
@@ -260,8 +260,8 @@ function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
   useFrame((_, dt) => {
     const mid = (playerX + oppX) / 2
     const gap = Math.abs(oppX - playerX)
-    // slightly farther than v1 — heads must clear the top HUD bars (Michael)
-    const tz = Math.min(6.6, Math.max(3.7, 2.7 + gap * 1.0))
+    // farther still (Michael round 2) — smaller fighters, full clearance
+    const tz = Math.min(7.2, Math.max(4.5, 3.4 + gap * 1.05))
     const k = Math.min(1, dt * 6) // smooth chase, no snapping
     camera.position.x += (mid - camera.position.x) * k
     camera.position.z += (tz - camera.position.z) * k

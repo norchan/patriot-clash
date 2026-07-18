@@ -445,7 +445,12 @@
       "Bash(curl -s https://politicsgo.app/welcome)",
       "Bash(sed -i \"s/  senator: { noseSquash: 0.82 },/  senator: { noseSquash: 0.82 },\\\\n  politician: { clipLift: -0.2 }, \\\\/\\\\/ the Don's chin\\\\/jowls hang low — drop the jaw line/\" scripts/render_heads.mjs)",
       "Bash(node scripts/render_heads.mjs politician)",
-      "Bash(sed -i \"s|/heads/\\\\${id}.png?v=8|/heads/\\\\${id}.png?v=9|; s|/heads/\\\\${id}_side.png?v=8|/heads/\\\\${id}_side.png?v=9|\" config/heads.ts)"
+      "Bash(sed -i \"s|/heads/\\\\${id}.png?v=8|/heads/\\\\${id}.png?v=9|; s|/heads/\\\\${id}_side.png?v=8|/heads/\\\\${id}_side.png?v=9|\" config/heads.ts)",
+      "Bash(timeout 240 node scripts/_kick_qa2.mjs trial_lo649 trial_lo103)",
+      "Bash(timeout 240 node scripts/_kick_qa2.mjs trial_lo103)",
+      "Bash(rm -f public/models/fighter*_kicklo.glb)",
+      "Bash(sed -e \"s/\\\\[\\\\[218, 'kickhi'\\\\], \\\\[211, 'kicklo'\\\\]\\\\]/[[103, 'kicklo']]/\" -e \"s/trial_\\\\${action === 218 ? 'hi218' : 'lo211'}/trial_lo103/\" -e \"s/action === 218/action === 103/\" scripts/meshy_kicks2.mjs)",
+      "Bash(node scripts/_kicklo_batch.mjs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",

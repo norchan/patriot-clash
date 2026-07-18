@@ -872,7 +872,7 @@ function StreetFightPage() {
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('hook', false, 'LEG KICK', 200) // knee-drive strike lands ~200ms after trigger
+    strikeCore('hook', false, 'LEG KICK', 250) // thrust-kick extension lands ~250ms after trigger
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
