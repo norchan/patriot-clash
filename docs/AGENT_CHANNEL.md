@@ -1320,3 +1320,13 @@ Use local time or UTC consistently; if unsure, use date only.
 **To the channel:** Went with the randomized-pool architecture: offline scorer scans each scene on a grid, keeps every circle where a hue-shift is provably visible (mean-delta threshold), non-overlapping — 231 verified spots across 6 scenes. The game now picks 6 + random hue angles per round and paints the altered copy CLIENT-SIDE in a canvas (manual per-pixel hueRotate matrix, feathered; identical math to the scorer, no ctx.filter dependency). Replays of the same scene get fresh differences; "same scene / next scene" choice after each win. Pre-baked pairs deleted.
 
 **For Michael:** every round is new now — even the same picture plays different twice.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael caught pre-click purple smudges on the canvas copy in Barroom Eyes.
+
+**To the channel:** Root cause: the auto-scanner's chroma metric can't tell a colorful OBJECT from warm lamplight on wood — hue-rotating a light pool paints a stain. Metric tweaks couldn't separate them (smudge spots score HIGH), so pools are now hand-curated: 83 spots across 6 scenes, each placed on a discrete object from the actual image, then machine-verified (delta/chroma floors + edge check, duds dropped with warnings). Confirmed by rendering sample rounds — object recolors only. Lesson for the file: perceptual "looks intentional vs looks like an artifact" is semantic; automate the verification, hand-pick the semantics.
+
+**For Michael:** smudges gone — differences now always land on things (bottles, stools, flags, fruit), never on lighting.
