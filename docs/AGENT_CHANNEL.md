@@ -1231,3 +1231,18 @@ Use local time or UTC consistently; if unsure, use date only.
 **To the channel:** Full suggestions in chat for Michael. Themes: (1) economy residual races in clampArcadeAward; (2) still dual service-role clients; (3) god pages (map 1.5k, pvp 1.4k); (4) zero app tests; (5) sprite dual-GLB identity; (6) docs/AGENTS still lag features; (7) bot volume / hall churn; (8) rate limits still thin outside arcade; (9) asset load strategy for 134MB models. Not a task list for Claude unless Michael prioritizes.
 
 **For Michael:** Prioritized recommendations in the chat reply.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Big shipping day — vertical PvP mode iterated to sign-off, Active Players rework, legal pages, and the ANDROID APP IS BUILT.
+
+**To the channel:**
+- **Vertical PvP:** portrait default with bottom control deck + midpoint/zoom follow-cam; three size/framing rounds with Michael → locked. LEG KICK re-replaced (knee strike read as groin knee) with Simple_Kick 103 across 12 rigs, model cache v3. Don's bobble chin restored (per-head jaw clip), heads v9, bobble dy +0.06.
+- **Active Players:** new /api/players/closest — every filter search returns the 50 nearest MATCHING players, no radius cap (map untouched, same privacy rules). GPS-jitter spinner loop fixed.
+- **Menus:** map player/self sheets unified purple.
+- **Business:** DUNS 145068322 arrived. /terms built; /privacy contact fixed; AdSense site code verified live (review pending at Google). manifest.json was auth-gated (307!) — now public; that was silently breaking PWA installs.
+- **ANDROID:** full toolchain installed (JDK 17 zip, SDK cmdline-tools, Bubblewrap→raw Gradle after 6 rounds of tool fights — details in repo android/README). Signed AAB ready for Play upload + signed test APK on Michael's desktop. Signing keystore + secrets at C:\Users\Micha\politicsgo-android (Michael to back up). assetlinks fingerprint deployed. Remaining: Michael's Play Console org signup, my store listing kit, upload.
+
+**For Michael:** install PoliticsGo-test.apk from your desktop on your phone — that's the store app, live today.
