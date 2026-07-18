@@ -1,22 +1,50 @@
-// Build the RANDOMIZED difference pool for Barroom Eyes. For each scene base
-// image (public/spotit/<id>_a.jpg) it scans a grid of candidate circles and
-// scores how VISIBLE a hue-shift would be there (mean |original - hue-rotated|
-// per pixel). High-scoring, mutually non-overlapping circles go into the pool;
-// the game picks 6 at random each round and paints them client-side, so every
-// round has different differences. Output: config/spotit-pool.json
+// Build the RANDOMIZED difference pool for Barroom Eyes — HAND-CURATED spots.
+// Auto-scanning failed on warm photos: high-chroma lamplight on wood counts as
+// "colorful", and hue-rotating a glow paints a smudge, not a recolored object.
+// So every pool spot below was placed BY HAND on a discrete object (viewed on
+// the actual image), then machine-verified: a spot must produce a strong pixel
+// change (delta) on a sufficiently colorful surface (chroma) or it's dropped
+// with a warning. The game picks 6 random spots + random hue angles per round.
+// Coordinates are in ORIGINAL source pixels (sw × sh); output is normalized.
 // Usage: node scripts/gen_spotit_pool.mjs
 import sharp from 'sharp'
 import fs from 'fs'
 
-const SCENES = JSON.parse(fs.readFileSync('config/spotit.json', 'utf8'))
-const MIN_SCORE = 45   // mean RGB delta a circle must produce to count as findable
-const MIN_CHROMA = 42  // mean saturation floor — recolors on dull surfaces read
-                       // as smudgy "marks", not as a different-colored object
-const MAX_POOL = 40    // cap per scene
-const RADII = [42, 56]
-const STEP = 36        // grid step for candidate centers
+const MIN_DELTA = 15
+const MIN_CHROMA = 22
 
-// standard feColorMatrix hueRotate coefficients
+// [x, y, r] in source px
+const HAND = {
+  bar: { sw: 1200, sh: 896, label: 'The Dive Bar', spots: [
+    [133, 57, 42], [912, 320, 80], [872, 428, 34], [778, 550, 27], [1095, 245, 52], [505, 545, 40],
+    [270, 160, 45], [480, 110, 55], [700, 160, 45], [665, 520, 45], [770, 650, 50], [95, 745, 45],
+    [60, 330, 55], [1145, 340, 45],
+  ]},
+  rally: { sw: 1200, sh: 896, label: 'Rally Day', spots: [
+    [118, 268, 60], [280, 163, 60], [1048, 466, 52], [113, 612, 62], [255, 793, 34],
+    [500, 430, 55], [75, 185, 55], [735, 105, 50], [745, 255, 40], [105, 725, 55],
+    [135, 405, 40], [185, 688, 40], [1105, 455, 55], [640, 545, 45],
+  ]},
+  pub: { sw: 1200, sh: 896, label: 'The Corner Pub', spots: [
+    [728, 305, 58], [975, 205, 52], [1148, 468, 52], [636, 462, 38], [372, 585, 52], [748, 700, 58],
+    [75, 470, 60], [545, 505, 38], [285, 250, 45], [300, 390, 45], [880, 585, 45], [615, 140, 40],
+  ]},
+  market: { sw: 1200, sh: 896, label: 'Farmers Market', spots: [
+    [855, 330, 72], [415, 578, 55], [832, 560, 62], [285, 793, 64], [495, 152, 38], [800, 722, 55],
+    [270, 565, 50], [640, 570, 45], [535, 570, 45], [380, 380, 50], [135, 110, 40], [325, 120, 40],
+    [240, 55, 55], [95, 720, 60], [1105, 570, 45], [130, 455, 45], [455, 765, 45],
+  ]},
+  photodiner: { sw: 1200, sh: 896, label: 'The Chrome Counter', spots: [
+    [230, 300, 85], [105, 390, 42], [865, 140, 50], [450, 398, 50], [752, 388, 30], [740, 775, 78],
+    [540, 105, 52], [700, 445, 45], [595, 465, 45], [940, 690, 60], [1060, 610, 50], [340, 790, 70],
+    [330, 375, 40], [1120, 390, 55], [950, 330, 35],
+  ]},
+  diner: { sw: 578, sh: 758, label: 'Rollerskate Diner', spots: [
+    [460, 70, 38], [212, 318, 40], [69, 220, 52], [374, 262, 30], [529, 105, 38], [517, 570, 40],
+    [196, 202, 50], [150, 545, 45], [310, 470, 35], [390, 680, 40], [145, 635, 35], [185, 45, 45], [95, 700, 45],
+  ]},
+}
+
 function hueMatrix(deg) {
   const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a)
   return [
@@ -27,51 +55,40 @@ function hueMatrix(deg) {
 }
 
 const out = []
-for (const scene of SCENES) {
-  const { data, info } = await sharp(`public/spotit/${scene.id}_a.jpg`).raw().toBuffer({ resolveWithObject: true })
+for (const [id, def] of Object.entries(HAND)) {
+  const { data, info } = await sharp(`public/spotit/${id}_a.jpg`).raw().toBuffer({ resolveWithObject: true })
   const { width: W, height: H, channels: C } = info
   const M = hueMatrix(120)
-  // precompute per-pixel hue-shift delta AND chroma (saturation)
-  const delta = new Float32Array(W * H)
-  const chroma = new Float32Array(W * H)
-  for (let i = 0, p = 0; p < W * H; p++, i += C) {
-    const r = data[i], g = data[i + 1], b = data[i + 2]
-    const nr = M[0] * r + M[1] * g + M[2] * b
-    const ng = M[3] * r + M[4] * g + M[5] * b
-    const nb = M[6] * r + M[7] * g + M[8] * b
-    delta[p] = (Math.abs(r - nr) + Math.abs(g - ng) + Math.abs(b - nb)) / 3
-    chroma[p] = Math.max(r, g, b) - Math.min(r, g, b)
-  }
-  // score candidate circles — need BOTH a strong shift and a colorful surface
-  const cands = []
-  for (const r of RADII) {
-    for (let cy = r + 8; cy < H - r - 8; cy += STEP) {
-      for (let cx = r + 8; cx < W - r - 8; cx += STEP) {
-        let sum = 0, csum = 0, n = 0
-        for (let y = cy - r; y <= cy + r; y += 3) {
-          for (let x = cx - r; x <= cx + r; x += 3) {
-            if ((x - cx) ** 2 + (y - cy) ** 2 > r * r) continue
-            const p = y * W + x
-            sum += delta[p]; csum += chroma[p]; n++
-          }
-        }
-        const score = sum / n, mchroma = csum / n
-        if (score >= MIN_SCORE && mchroma >= MIN_CHROMA) cands.push({ x: cx, y: cy, r, score })
+  const kept = []
+  for (const [sx, sy, sr] of def.spots) {
+    // normalized → jpg pixel space
+    const nx = sx / def.sw, ny = sy / def.sh, nr = sr / def.sw
+    const px = Math.round(nx * W), py = Math.round(ny * H), pr = Math.round(nr * W)
+    if (px - pr < 0 || py - pr < 0 || px + pr >= W || py + pr >= H) {
+      console.log(`  DROP ${id} [${sx},${sy}] — clips the edge`); continue
+    }
+    let dsum = 0, csum = 0, n = 0
+    for (let y = py - pr; y <= py + pr; y += 2) {
+      for (let x = px - pr; x <= px + pr; x += 2) {
+        if ((x - px) ** 2 + (y - py) ** 2 > pr * pr) continue
+        const i = (y * W + x) * C
+        const r = data[i], g = data[i + 1], b = data[i + 2]
+        dsum += (Math.abs(r - (M[0] * r + M[1] * g + M[2] * b))
+               + Math.abs(g - (M[3] * r + M[4] * g + M[5] * b))
+               + Math.abs(b - (M[6] * r + M[7] * g + M[8] * b))) / 3
+        csum += Math.max(r, g, b) - Math.min(r, g, b)
+        n++
       }
     }
+    const delta = dsum / n, chroma = csum / n
+    if (delta < MIN_DELTA || chroma < MIN_CHROMA) {
+      console.log(`  DROP ${id} [${sx},${sy}] — delta ${delta.toFixed(0)} chroma ${chroma.toFixed(0)} (too dull, would smudge)`)
+      continue
+    }
+    kept.push({ x: +nx.toFixed(4), y: +ny.toFixed(4), r: +nr.toFixed(4) })
   }
-  // greedy non-overlapping pick, best first
-  cands.sort((a, b) => b.score - a.score)
-  const picked = []
-  for (const c of cands) {
-    if (picked.length >= MAX_POOL) break
-    if (picked.every(p => Math.hypot(p.x - c.x, p.y - c.y) > (p.r + c.r) * 0.95)) picked.push(c)
-  }
-  out.push({
-    id: scene.id, label: scene.label, w: W, h: H,
-    pool: picked.map(p => ({ x: +(p.x / W).toFixed(4), y: +(p.y / H).toFixed(4), r: +(p.r / W).toFixed(4) })),
-  })
-  console.log(`${scene.id}: ${cands.length} candidates → pool of ${picked.length} (best score ${cands[0]?.score.toFixed(0) ?? '-'}, cutoff ${MIN_SCORE})`)
+  out.push({ id, label: def.label, w: W, h: H, pool: kept })
+  console.log(`${id}: ${kept.length}/${def.spots.length} hand spots verified`)
 }
 fs.writeFileSync('config/spotit-pool.json', JSON.stringify(out, null, 1))
 console.log('DONE → config/spotit-pool.json')

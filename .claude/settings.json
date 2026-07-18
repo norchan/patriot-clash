@@ -38,7 +38,10 @@
       "Bash(rm -f public/spotit/*_b.jpg)",
       "Bash(git add *)",
       "Bash(git commit -q -m 'Spotit: kill the purple-smudge tells *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(export OUT=\"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/pub_sample.jpg\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);let s=fs.readFileSync\\('scripts/gen_spotit_pool.mjs','utf8'\\);s=s.replace\\('const MIN_DELTA = 28','const MIN_DELTA = 15'\\).replace\\('const MIN_CHROMA = 30','const MIN_CHROMA = 22'\\);fs.writeFileSync\\('scripts/gen_spotit_pool.mjs',s\\);console.log\\('ok'\\)\")",
+      "Bash(export OUT=\"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/pub_sample2.jpg\")"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
