@@ -1398,14 +1398,17 @@ export default function MapPage() {
             <button onClick={() => setSelfSheet(false)} className="ml-auto self-start text-gray-500 hover:text-white text-xl leading-none">✕</button>
           </div>
           <div className="space-y-2">
+            {/* One color family for every menu button (Michael): purple */}
             <button
               onClick={() => router.push('/profile')}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-gray-800 hover:bg-gray-700 border border-gray-700">
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
               👤 My Profile
             </button>
             <button
               onClick={() => router.push('/messages')}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700">
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
               💬 My Messages
             </button>
             <button
@@ -1420,8 +1423,8 @@ export default function MapPage() {
                 if (nearest) router.push(`/townhall/${nearest.id}`)
                 else showPvpToast('🏛️ No town halls in range yet')
               }}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95"
-              style={{ background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)` }}>
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
               🏛️ Local Town Hall
             </button>
           </div>
@@ -1470,10 +1473,11 @@ export default function MapPage() {
           </div>
 
           <div className="space-y-2">
-            {/* View profile — public page with posts + click */}
+            {/* One color family for every menu button (Michael): purple */}
             <button
               onClick={() => router.push(`/player/${selectedPlayer.profile_id}`)}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-gray-800 hover:bg-gray-700 border border-gray-700"
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
             >
               👤 View Profile
             </button>
@@ -1482,7 +1486,7 @@ export default function MapPage() {
               <button
                 onClick={() => sendChallenge(selectedPlayer)}
                 disabled={challengeLoading || profile.fp_balance < 50}
-                className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50"
+                className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50 border border-purple-800"
                 style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
               >
                 {challengeLoading ? '⏳ Sending...' : '⚔️ Challenge to Battle (free)'}
@@ -1492,15 +1496,16 @@ export default function MapPage() {
             {/* Direct Message — anyone you can see, you can message */}
             <button
               onClick={() => startChat(selectedPlayer)}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 bg-blue-900 hover:bg-blue-800 border border-blue-700"
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
             >
               💬 Direct Message
             </button>
 
-            {/* Block */}
+            {/* Block — same purple family, quiet outline (red only on hover) */}
             <button
               onClick={() => blockPlayer(selectedPlayer.profile_id, selectedPlayer.username)}
-              className="w-full py-2 rounded-xl text-gray-500 hover:text-red-400 text-sm transition border border-gray-800 hover:border-red-900"
+              className="w-full py-2 rounded-xl text-purple-300/80 hover:text-red-400 text-sm transition bg-purple-950/40 border border-purple-800 hover:border-red-900"
             >
               🚫 Block {selectedPlayer.username}
             </button>
@@ -1533,7 +1538,7 @@ export default function MapPage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => respondToChallenge(false)}
-                className="py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-bold transition"
+                className="py-3 rounded-xl font-bold transition text-purple-200 bg-purple-950/50 border border-purple-800 hover:bg-purple-900/50"
               >
                 Decline
               </button>
