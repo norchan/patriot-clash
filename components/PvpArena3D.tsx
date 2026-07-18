@@ -265,8 +265,10 @@ function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
     const k = Math.min(1, dt * 6) // smooth chase, no snapping
     camera.position.x += (mid - camera.position.x) * k
     camera.position.z += (tz - camera.position.z) * k
-    camera.position.y += (1.12 - camera.position.y) * k
-    camera.lookAt(camera.position.x, 1.02, 0)
+    // view panned UP ~0.4 world units (pure pan, no tilt) → fighters sit
+    // about half an inch LOWER on the phone screen (Michael's framing call)
+    camera.position.y += (1.52 - camera.position.y) * k
+    camera.lookAt(camera.position.x, 1.42, 0)
   })
   return null
 }
