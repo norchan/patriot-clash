@@ -17,6 +17,7 @@
     "@stripe/stripe-js": "^9.6.0",
     "@supabase/supabase-js": "^2.106.2",
     "@types/mapbox-gl": "^3.4.1",
+    "chess.js": "^1.4.0",
     "date-fns": "^4.3.0",
     "expo-sensors": "^56.0.5",
     "lucide-react": "^1.16.0",

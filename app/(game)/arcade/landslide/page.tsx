@@ -35,7 +35,9 @@ const DESIGNS: { name: string; mask: Mask }[] = [
   { name: 'Circle', mask: gen((r, c) => (r - C) ** 2 + (c - C) ** 2 <= 4.3 ** 2) },
   { name: 'Cross', mask: gen((r, c) => (c >= 2 && c <= 5) || (r >= 2 && r <= 5)) },
   { name: 'Heart', mask: gen((r, c) => HEART[r][c] === '1') },
-  { name: 'Ring', mask: gen((r, c) => r <= 1 || r >= 6 || c <= 1 || c >= 6) },
+  // 3-thick ring (the old 2-thick frame starved the board of matches — the
+  // top/bottom bands had no room for vertical runs and level 5 was a wall)
+  { name: 'Ring', mask: gen((r, c) => r <= 2 || r >= 5 || c <= 2 || c >= 5) },
   { name: 'Pyramid', mask: gen((r, c) => Math.abs(c - C) <= r * 0.5 + 1) },
   { name: 'Hourglass', mask: gen((r, c) => Math.abs(c - C) <= Math.abs(r - C) + 1) },
 ]
@@ -156,6 +158,7 @@ function hasMoves(b: Cell[][], mask: Mask): boolean {
 
 const goalFor = (lvl: number) => 40 + lvl * 20  // gems to clear to finish a puzzle
 const movesFor = (lvl: number) => 24 + lvl * 3  // move budget — run out = RECOUNT
+const timeFor = (lvl: number) => Math.min(240, 120 + lvl * 10)  // seconds — moves OR clock, whichever runs out first
 
 export default function LandslidePage() {
   const router = useRouter()
@@ -177,6 +180,9 @@ export default function LandslidePage() {
   const [goal, setGoal] = useState(goalFor(0))
   const [moves, setMoves] = useState(movesFor(0))
   const [phase, setPhase] = useState<'start' | 'playing' | 'won' | 'lost'>('start')
+  const [timeLeft, setTimeLeft] = useState(timeFor(0))
+  const [loseReason, setLoseReason] = useState<'moves' | 'time'>('moves')
+  const timeUpRef = useRef(false)
   const [savedLevel, setSavedLevel] = useState(0)
   const [balance, setBalance] = useState<number | null>(null)
   const [fpGame, setFpGame] = useState(0)
@@ -313,7 +319,8 @@ export default function LandslidePage() {
     }
     resolving.current = false
     if (clearedRef.current >= goal) winLevel()
-    else if (movesRef.current <= 0) loseLevel()
+    else if (timeUpRef.current) loseLevel('time')
+    else if (movesRef.current <= 0) loseLevel('moves')
   }
 
   const adj = (a: { r: number; c: number }, b: { r: number; c: number }) => Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1
@@ -379,7 +386,26 @@ export default function LandslidePage() {
     refetch()
   }
 
-  function loseLevel() { setPhase('lost'); sfx.gameOver() }
+  function loseLevel(reason: 'moves' | 'time' = 'moves') { setLoseReason(reason); setPhase('lost'); sfx.gameOver() }
+
+  // Level clock — moves OR time, whichever runs out first. If time expires
+  // mid-cascade, the cascade finishes (endOfMove sees timeUpRef) so a win at
+  // the buzzer still counts.
+  useEffect(() => {
+    if (phase !== 'playing') return
+    const t = setInterval(() => {
+      setTimeLeft(v => {
+        if (v <= 1) {
+          clearInterval(t)
+          timeUpRef.current = true
+          if (!resolving.current) loseLevel('time')
+          return 0
+        }
+        return v - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function startLevel(lvl: number) {
     const d = designFor(lvl)
@@ -390,6 +416,7 @@ export default function LandslidePage() {
     while (!hasMoves(boardRef.current, d.mask) && guard++ < 30) boardRef.current = makeBoard(d.mask)
     setSel(null); setRemoving([]); setEffects([]); setSparks([]); setPopup(null); resolving.current = false
     scoreRef.current = 0; clearedRef.current = 0; fpGameRef.current = 0; movesRef.current = movesFor(lvl)
+    timeUpRef.current = false; setTimeLeft(timeFor(lvl)); setLoseReason('moves')
     setScore(0); setCleared(0); setFpGame(0); setMoves(movesFor(lvl))
     setLevel(lvl); setDesignName(d.name); setGoal(goalFor(lvl))
     commit(); setPhase('playing')
@@ -429,16 +456,25 @@ export default function LandslidePage() {
 
   return (
     <div className="min-h-screen text-white relative select-none overflow-hidden"
-      style={{ background: 'linear-gradient(135deg,#4c1d95,#831843,#1e3a8a,#312e81)', backgroundSize: '400% 400%', animation: 'landBg 18s ease infinite', fontFamily: 'ui-monospace, monospace' }}>
+      style={{
+        // painted key-art backdrop (gem landslide valley) with a dark overlay
+        // so the board and HUD stay readable on top of it
+        backgroundImage: 'linear-gradient(180deg, rgba(24,10,44,0.50), rgba(18,8,36,0.66) 45%, rgba(14,6,30,0.78)), url(/arcade/landslide-bg.jpg)',
+        backgroundSize: 'cover', backgroundPosition: 'center top',
+        backgroundColor: '#2a1650',
+        fontFamily: 'ui-monospace, monospace',
+      }}>
       <div className="px-4 pt-4 pb-1 flex items-center gap-3 relative z-20">
         <button onClick={() => router.push('/arcade')} className="text-white/80 hover:text-white"><ArrowLeft size={18} /></button>
         <h1 className="font-black tracking-[0.12em] text-xl" style={{ color: '#fff', textShadow: '0 0 12px #f0abfc, 0 2px 0 #000' }}>LANDSLIDE</h1>
         <span className="ml-auto text-yellow-300 text-sm font-black">💰 {(balance ?? 0).toLocaleString()}</span>
       </div>
 
-      <div className="px-3 grid grid-cols-4 gap-1.5 max-w-md mx-auto mt-1">
+      <div className="px-3 grid grid-cols-5 gap-1.5 max-w-md mx-auto mt-1">
         <Meter label="SCORE" value={score.toLocaleString()} color="#67e8f9" />
         <Meter label="MOVES" value={String(moves)} color={moves <= 5 ? '#f87171' : '#fbbf24'} pulse={phase === 'playing' && moves <= 5} />
+        <Meter label="TIME" value={`${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`}
+          color={timeLeft <= 20 ? '#f87171' : '#67e8f9'} pulse={phase === 'playing' && timeLeft <= 20} />
         <Meter label={`LEVEL ${level}`} value={designName} color="#f0abfc" small />
         <Meter label="CLEARED" value={`${Math.min(cleared, goal)}/${goal}`} color="#4ade80" />
       </div>
@@ -512,7 +548,7 @@ export default function LandslidePage() {
           <div className="text-center w-full relative">
             {phase === 'start' && <>
               <h2 className="text-4xl font-black" style={{ color: '#fff', textShadow: '0 0 16px #f0abfc' }}>LANDSLIDE</h2>
-              <p className="text-white/70 text-sm mt-2">Hit the clear goal before your moves run out.</p>
+              <p className="text-white/70 text-sm mt-2">Hit the clear goal before your moves — or the clock — run out.</p>
               <p className="text-white/60 text-xs mt-1.5">Match 4 → ⚡ blaster clears a full line · Match 5 → 🌈 bomb wipes a color</p>
               <p className="text-pink-200 text-xs mt-3">Saved level: <b className="text-white">{savedLevel}</b> · {designFor(savedLevel).name}</p>
               <button onClick={() => startLevel(savedLevel)} className="w-full mt-5 py-3.5 rounded-xl font-black text-lg" style={{ background: 'radial-gradient(circle at 50% 30%,#f472b6,#be185d)' }}>
@@ -535,7 +571,7 @@ export default function LandslidePage() {
             </>}
             {phase === 'lost' && <>
               <h2 className="text-3xl font-black text-red-400" style={{ textShadow: '0 0 14px #ef4444' }}>RECOUNT!</h2>
-              <p className="text-white/70 text-sm mt-2">Out of moves — {Math.min(cleared, goal)}/{goal} cleared.</p>
+              <p className="text-white/70 text-sm mt-2">{loseReason === 'time' ? "Time's up" : 'Out of moves'} — {Math.min(cleared, goal)}/{goal} cleared.</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Meter label="SCORE" value={score.toLocaleString()} color="#67e8f9" />
                 <Meter label="FP EARNED" value={`+${fpGame.toLocaleString()}`} color="#4ade80" />

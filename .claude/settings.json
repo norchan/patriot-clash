@@ -1,6 +1,5 @@
 {
   "permissions": {
-    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(*)",
       "PowerShell(*)",
@@ -12,8 +11,26 @@
       "WebSearch",
       "Skill(*)",
       "mcp__claude_ai_Supabase",
-      "mcp__claude_ai_Higgs"
+      "mcp__claude_ai_Higgs",
+      "mcp__claude_ai_Higgs__generate_image",
+      "Bash(npm install *)",
+      "Bash(npm ls *)",
+      "Bash(node scripts/gen_chess_puzzles.mjs)",
+      "mcp__claude_ai_Higgs__job_status",
+      "Bash(node -e \"const p=require\\('./config/chess-puzzles.json'\\);console.log\\('puzzles:',p.length,'| by depth:',[1,2,3].map\\(d=>d+':'+p.filter\\(x=>x.depth===d\\).length\\).join\\(' '\\)\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_bar2.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_195439_de41a8e6-45f4-422e-86cf-f2db0e0e3c4c.png)",
+      "Bash(node scripts/gen_spotit.mjs \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad\")",
+      "Bash(curl -s -o /tmp/chess_card.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_194908_1dc27889-d45d-463c-ba04-698572b9110b.png\")",
+      "Bash(curl -s -o /tmp/spotit_card.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_194910_578eb3e3-25dc-4d3a-888e-1aa04cb52aaa.png\")",
+      "Bash(node -e \"const sharp=require\\('sharp'\\);Promise.all\\([sharp\\('/tmp/chess_card.png'\\).jpeg\\({quality:82}\\).toFile\\('public/arcade/chess.jpg'\\),sharp\\('/tmp/spotit_card.png'\\).jpeg\\({quality:82}\\).toFile\\('public/arcade/spotit.jpg'\\)]\\).then\\(\\(\\)=>console.log\\('cards saved'\\)\\)\")",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/chess_card.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_194908_1dc27889-d45d-463c-ba04-698572b9110b.png)",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spotit_card.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_194910_578eb3e3-25dc-4d3a-888e-1aa04cb52aaa.png)",
+      "Bash(SPD=C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad node -e 'const sharp=require\\('\\\\''sharp'\\\\''\\);const sp=process.env.SPD;Promise.all\\([sharp\\(sp+'\\\\''/chess_card.png'\\\\''\\).jpeg\\({quality:82}\\).toFile\\('\\\\''public/arcade/chess.jpg'\\\\''\\),sharp\\(sp+'\\\\''/spotit_card.png'\\\\''\\).jpeg\\({quality:82}\\).toFile\\('\\\\''public/arcade/spotit.jpg'\\\\''\\)]\\).then\\(\\(\\)=>console.log\\('\\\\''cards saved'\\\\''\\)\\)')",
+      "Bash(npx vitest *)",
+      "Bash(npm run *)"
     ],
+    "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "C:\\Users\\Micha\\patriot-clash\\app\\(game)\\townhall\\[id]\\chat",
       "\\tmp",

@@ -25,6 +25,14 @@ const GAMES: GameEntry[] = [
     tagline: 'Stack the blocks · clear rows · earn FP', href: '/arcade/tetkris', badge: 'EARN FP',
   },
   {
+    id: 'chess', name: 'Checkmate Chamber', art: '/arcade/chess.jpg', accent: '#ffd700',
+    tagline: 'Chess puzzles · mate in 1, 2 or 3 · classic board', href: '/arcade/chess', badge: 'EARN FP',
+  },
+  {
+    id: 'spotit', name: 'Barroom Eyes', art: '/arcade/spotit.jpg', accent: '#38bdf8',
+    tagline: 'Spot the differences before the clock runs out', href: '/arcade/spotit', badge: 'EARN FP',
+  },
+  {
     id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15',
     tagline: '3 machines · bet FP · match 3 to win big', href: '/arcade/slots', badge: 'BET FP',
   },
