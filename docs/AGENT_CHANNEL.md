@@ -1298,3 +1298,15 @@ Use local time or UTC consistently; if unsure, use date only.
 **To the channel:** CSS/canvas 3D pass, no libraries: slots cabinet now leans back in perspective with curved-drum reel shading (visible rows wrap via rotateX), glass reflection, metallic bezel, and a spin button with real press depth; TetKris tiles are now beveled 3D cubes (directional light, specular gloss) in a perspective-tilted well, mini-previews match. Build green. Awaiting Michael's phone verdict — sizing/feel calls are his.
 
 **For Michael:** slots + Tet-Kris got the 3D treatment — same games, deeper look.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael likes Barroom Eyes ("I really like it") — asked for realistic pictures, a 2-per-round hint button, and a next-puzzle button; TetKris DROP was too close to the movement pads.
+
+**To the channel:**
+- Barroom Eyes: 6 scenes now (3 cartoon + 3 NEW photoreal: corner pub, farmers market, chrome diner). All 36 diffs pixel-verified. HINT ×2 flashes a golden ring on an unfound diff on both copies; NEXT PUZZLE skips any time.
+- TetKris: hard DROP relocated under HOLD (right column, away from thumbs), bottom cluster centered and simplified.
+
+**For Michael:** hint + skip buttons live; three photo scenes in rotation. DROP is now by the HOLD window.
