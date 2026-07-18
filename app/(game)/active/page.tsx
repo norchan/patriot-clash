@@ -36,27 +36,32 @@ export default function ActivePlayersPage() {
   const [party, setParty] = useState<'all' | 'democrat' | 'republican'>('all')
   const [gender, setGender] = useState<'all' | 'male' | 'female'>('all')
 
+  // Every search always fills a page: the server returns the 50 CLOSEST
+  // players MATCHING the current filter, with no mileage cap (the map keeps
+  // its own radius-limited feed — this endpoint is list-only).
   useEffect(() => {
     if (!location) return
+    setLoading(true)
+    const qs = new URLSearchParams({ lat: String(location.lat), lng: String(location.lng) })
+    if (party !== 'all') qs.set('party', party)
+    if (gender !== 'all') qs.set('gender', gender)
     const load = () => {
-      fetch(`/api/players/nearby?lat=${location.lat}&lng=${location.lng}`)
+      fetch(`/api/players/closest?${qs}`)
         .then(r => r.json())
         .then(d => setPlayers(d.players ?? []))
         .catch(() => {})
         .finally(() => setLoading(false))
     }
     load()
-    const iv = setInterval(load, 12000)
+    const iv = setInterval(load, 20000)
     return () => clearInterval(iv)
-  }, [location?.lat, location?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location?.lat, location?.lng, party, gender]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const shown = (location
+  const shown = location
     ? [...players].sort((a, b) =>
         milesBetween(location.lat, location.lng, a.lat, a.lng) -
         milesBetween(location.lat, location.lng, b.lat, b.lng))
-    : players)
-    .filter(p => party === 'all' || p.party === party)
-    .filter(p => gender === 'all' || p.gender === gender)
+    : players
 
   const distOf = (p: NearbyPlayer) => location ? milesBetween(location.lat, location.lng, p.lat, p.lng) : 0
   const Seg = ({ options, value, onChange }: { options: [string, string][]; value: string; onChange: (v: any) => void }) => (
