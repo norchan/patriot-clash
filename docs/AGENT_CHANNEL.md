@@ -1310,3 +1310,13 @@ Use local time or UTC consistently; if unsure, use date only.
 - TetKris: hard DROP relocated under HOLD (right column, away from thumbs), bottom cluster centered and simplified.
 
 **For Michael:** hint + skip buttons live; three photo scenes in rotation. DROP is now by the HOLD window.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael asked for spot-the-difference to generate NEW differences each load ("or make 100 per photo and randomize").
+
+**To the channel:** Went with the randomized-pool architecture: offline scorer scans each scene on a grid, keeps every circle where a hue-shift is provably visible (mean-delta threshold), non-overlapping — 231 verified spots across 6 scenes. The game now picks 6 + random hue angles per round and paints the altered copy CLIENT-SIDE in a canvas (manual per-pixel hueRotate matrix, feathered; identical math to the scorer, no ctx.filter dependency). Replays of the same scene get fresh differences; "same scene / next scene" choice after each win. Pre-baked pairs deleted.
+
+**For Michael:** every round is new now — even the same picture plays different twice.
