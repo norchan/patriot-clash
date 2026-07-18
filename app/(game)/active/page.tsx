@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Radar, LayoutGrid, List } from 'lucide-react'
 import { useLocation } from '@/hooks/useLocation'
@@ -39,23 +39,32 @@ export default function ActivePlayersPage() {
   // Every search always fills a page: the server returns the 50 CLOSEST
   // players MATCHING the current filter, with no mileage cap (the map keeps
   // its own radius-limited feed — this endpoint is list-only).
+  // GPS jitter must NOT retrigger the visible "scanning" state — the effect
+  // only re-runs on first fix / filter change; the 20s interval refreshes
+  // silently with the latest coordinates from a ref.
+  const locRef = useRef(location)
+  locRef.current = location
+  const hasLocation = !!location
   useEffect(() => {
-    if (!location) return
-    setLoading(true)
-    const qs = new URLSearchParams({ lat: String(location.lat), lng: String(location.lng) })
-    if (party !== 'all') qs.set('party', party)
-    if (gender !== 'all') qs.set('gender', gender)
-    const load = () => {
+    if (!hasLocation) return
+    let dead = false
+    const load = (showSpinner: boolean) => {
+      const loc = locRef.current
+      if (!loc) return
+      if (showSpinner) setLoading(true)
+      const qs = new URLSearchParams({ lat: String(loc.lat), lng: String(loc.lng) })
+      if (party !== 'all') qs.set('party', party)
+      if (gender !== 'all') qs.set('gender', gender)
       fetch(`/api/players/closest?${qs}`)
         .then(r => r.json())
-        .then(d => setPlayers(d.players ?? []))
+        .then(d => { if (!dead) setPlayers(d.players ?? []) })
         .catch(() => {})
-        .finally(() => setLoading(false))
+        .finally(() => { if (!dead) setLoading(false) })
     }
-    load()
-    const iv = setInterval(load, 20000)
-    return () => clearInterval(iv)
-  }, [location?.lat, location?.lng, party, gender]) // eslint-disable-line react-hooks/exhaustive-deps
+    load(true)
+    const iv = setInterval(() => load(false), 20000)
+    return () => { dead = true; clearInterval(iv) }
+  }, [hasLocation, party, gender])
 
   const shown = location
     ? [...players].sort((a, b) =>
