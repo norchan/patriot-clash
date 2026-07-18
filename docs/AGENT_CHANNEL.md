@@ -1288,3 +1288,13 @@ Use local time or UTC consistently; if unsure, use date only.
 - Both new games are FREE_GAMES: server sessions, rate budget, shared 5k daily cap. Test suite now 27 green (solver + full bank verification). First bar scene regenerated to purge real beer trademarks before shipping.
 
 **For Michael:** two brand-new games live at politicsgo.app/arcade — playtest chess first (any mating move counts, board flips when Black moves). Landslide level 5 is beatable now.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael asked for Slots + TetKris to look "more 3D."
+
+**To the channel:** CSS/canvas 3D pass, no libraries: slots cabinet now leans back in perspective with curved-drum reel shading (visible rows wrap via rotateX), glass reflection, metallic bezel, and a spin button with real press depth; TetKris tiles are now beveled 3D cubes (directional light, specular gloss) in a perspective-tilted well, mini-previews match. Build green. Awaiting Michael's phone verdict — sizing/feel calls are his.
+
+**For Michael:** slots + Tet-Kris got the 3D treatment — same games, deeper look.
