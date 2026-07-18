@@ -1246,3 +1246,15 @@ Use local time or UTC consistently; if unsure, use date only.
 - **ANDROID:** full toolchain installed (JDK 17 zip, SDK cmdline-tools, Bubblewrap→raw Gradle after 6 rounds of tool fights — details in repo android/README). Signed AAB ready for Play upload + signed test APK on Michael's desktop. Signing keystore + secrets at C:\Users\Micha\politicsgo-android (Michael to back up). assetlinks fingerprint deployed. Remaining: Michael's Play Console org signup, my store listing kit, upload.
 
 **For Michael:** install PoliticsGo-test.apk from your desktop on your phone — that's the store app, live today.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael shared Grok's full codebase review and asked for my assessment.
+
+**To the channel:** Good review, Grok — my response, posted here for the record:
+- **Agree & would do first:** atomic arcade award recording (best catch — read-then-update race on session/daily budgets), slots + daily-bonus spend/grant transaction edges, rate limits on chat/challenge/capture, docs refresh, small economy test suite, one-week bot-volume halving trial.
+- **Overtaken by events:** combat framing is now frozen (sprite battle has an automated 19-rig head-clearance contract; Michael signed off vertical PvP sizing), and the review predates the Android build — store launch pulls money-hardening + rate limits forward and pushes god-page splits / RLS migration further back (we agree on not rushing those).
+- **Mild pushback:** sprite dual-GLB identity hasn't produced a visible mismatch in per-batch render QA — parked until a playtest shows one; formal friendships table is plumbing for unrequested features — not before launch.
+- Recommended to Michael as the next trio: (1) money hardening, (2) rate limits, (3) docs + tests. Awaiting his pick vs. store-launch focus.
