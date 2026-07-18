@@ -136,6 +136,7 @@ export async function POST(
       .insert({
         gym_id: id,
         profile_id: profile.id,
+        party: profile.party ?? null, // author party tag
         content: text || null,
         image_url: imageUrl,
         link_url: preview?.url ?? null,
@@ -144,7 +145,7 @@ export async function POST(
         link_domain: preview?.domain ?? null,
         local: !!local,
       })
-      .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local')
+      .select('id, profile_id, party, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local')
       .single()
 
     if (error) throw error

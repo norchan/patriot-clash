@@ -100,7 +100,7 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     // gets cut flat above the eyes. Estimate the scaled head top and shrink the
     // whole model until it clears SAFE_TOP (leaving room for throw poses too).
     if (head) {
-      const SAFE_TOP = 1.6 // world y; frame top at z=0 is ~2.09, throws add ~0.3
+      const SAFE_TOP = 1.35 // world y; frame top at z=0 is ~2.09 — big margin so hats/hair survive throw poses (canvas box grew to compensate size)
       const GROUND = -0.95
       const headY = head.getWorldPosition(vA).y
       const headLen = Math.max(0, (GROUND + size.y * s) - headY)

@@ -853,12 +853,12 @@ function StreetFightPage() {
   function playerHighKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('kick', false, 'HEAD KICK', 250) // aimed high — hits harder
+    strikeCore('kick', false, 'HEAD KICK', 260) // Step_in_High_Kick peak lands ~260ms after trigger
   }
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('hook', false, 'LEG KICK', 250) // aimed low — chops the legs
+    strikeCore('hook', false, 'LEG KICK', 200) // knee-drive strike lands ~200ms after trigger
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {

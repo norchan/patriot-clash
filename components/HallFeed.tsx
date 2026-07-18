@@ -111,6 +111,9 @@ export default function HallFeed({ gymId }: { gymId: string }) {
   const [shared, setShared] = useState('')
   const [reported, setReported] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<'top' | 'local' | 'new'>('top')
+  // party visibility toggles — both sides shown by default
+  const [showDem, setShowDem] = useState(true)
+  const [showRep, setShowRep] = useState(true)
   const [markLocal, setMarkLocal] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -214,7 +217,7 @@ export default function HallFeed({ gymId }: { gymId: string }) {
       </div>
 
       {/* Sort tabs: Top (24h, default) | Local (48h, ranked) | Latest */}
-      <div className="flex gap-2 mt-2 mb-1">
+      <div className="flex gap-2 mt-2 mb-1 items-center flex-wrap">
         {([
           { key: 'top' as const, label: '🔥 Top' },
           { key: 'local' as const, label: '📍 Local' },
@@ -228,6 +231,23 @@ export default function HallFeed({ gymId }: { gymId: string }) {
             {t.label}
           </button>
         ))}
+        {/* Party filters: hide either side's posts (both on by default) */}
+        <div className="ml-auto flex gap-1.5">
+          <button onClick={() => setShowDem(v => !v)}
+            title={showDem ? 'Hide Democrat posts' : 'Show Democrat posts'}
+            className={`px-2.5 py-1.5 rounded-full text-[10px] font-black tracking-wide border transition ${
+              showDem ? 'text-blue-300 border-blue-600 bg-blue-600/20' : 'text-gray-600 border-gray-800 bg-gray-900 line-through'
+            }`}>
+            🔵 DEM
+          </button>
+          <button onClick={() => setShowRep(v => !v)}
+            title={showRep ? 'Hide Republican posts' : 'Show Republican posts'}
+            className={`px-2.5 py-1.5 rounded-full text-[10px] font-black tracking-wide border transition ${
+              showRep ? 'text-red-300 border-red-600 bg-red-600/20' : 'text-gray-600 border-gray-800 bg-gray-900 line-through'
+            }`}>
+            🔴 REP
+          </button>
+        </div>
       </div>
 
       {/* Feed — X-style flat cards divided by hairlines */}
@@ -241,7 +261,7 @@ export default function HallFeed({ gymId }: { gymId: string }) {
         </p>
       ) : (
         <div className="divide-y divide-gray-800/80">
-          {posts.map(p => (
+          {posts.filter(p => p.party === 'democrat' ? showDem : p.party === 'republican' ? showRep : true).map(p => (
             <article key={p.id}
               onClick={() => router.push(`/townhall/${gymId}/post/${p.id}`)}
               className="py-3 px-1 cursor-pointer hover:bg-gray-900/40 transition rounded-lg">
@@ -256,6 +276,12 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-xs">
                     <span className="text-white font-bold truncate">{p.username}</span>
+                    {p.party && (
+                      <span className="text-[9px] font-black tracking-wider px-1.5 py-px rounded-full flex-shrink-0"
+                        style={{ color: partyColor(p.party), background: `${partyColor(p.party)}1e`, border: `1px solid ${partyColor(p.party)}55` }}>
+                        {p.party === 'democrat' ? 'DEM' : 'REP'}
+                      </span>
+                    )}
                     <span className="text-gray-600">· {timeAgo(p.created_at)}</span>
                     {p.local && (
                       <span className="flex items-center gap-0.5 text-emerald-400 text-[10px] font-bold flex-shrink-0">

@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   const gymId = url.searchParams.get('gym')
   const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') ?? '140', 10)))
 
-  const { data: bots } = await admin.from('profiles').select('id').like('clerk_user_id', 'bot%')
+  const { data: bots } = await admin.from('profiles').select('id, party').like('clerk_user_id', 'bot%')
   if (!bots?.length) return NextResponse.json({ error: 'no bots' }, { status: 500 })
 
   // Load candidate halls
@@ -92,10 +92,14 @@ export async function GET(req: NextRequest) {
     ], 80) ?? '')
     if (!text) return
     if (seen[h.id]?.has(text.trim().toLowerCase())) return
+    const bot = bots[Math.floor(Math.random() * bots.length)]
+    // LOCAL chatter must NAME the town — pin it if the model's text didn't
+    const named = text.includes(h.city_name) || text.includes(h.state)
     rows.push({
       gym_id: h.id,
-      profile_id: bots[Math.floor(Math.random() * bots.length)].id,
-      content: text.slice(0, 400),
+      profile_id: bot.id,
+      party: (bot as any).party ?? null,
+      content: (named ? text : `${h.city_name}: ${text}`).slice(0, 400),
       score: 2 + Math.floor(Math.random() * 9),
       created_at: new Date().toISOString(),
       local: true, // hometown chatter → shows in the Local tab

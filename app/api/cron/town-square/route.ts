@@ -143,6 +143,7 @@ export async function GET(req: NextRequest) {
       rows.push({
         gym_id: gym.id,
         profile_id: bot.id,
+        party, // author party tag (feeds are already party-matched to bots)
         content: post.title,
         link_url: post.link,
         link_title: post.title,

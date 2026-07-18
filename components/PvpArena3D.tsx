@@ -70,7 +70,8 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   // (Boxing_Guard_Right_Straight_Kick), and a hit reaction.
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb?v=${MODEL_VER}`)
   const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb?v=${MODEL_VER}`)
-  const kickGltf = useGLTF(`/models/${prefix}_kick.glb?v=${MODEL_VER}`)
+  const kickHiGltf = useGLTF(`/models/${prefix}_kickhi.glb?v=${MODEL_VER}`)
+  const kickLoGltf = useGLTF(`/models/${prefix}_kicklo.glb?v=${MODEL_VER}`)
   const blockGltf = useGLTF(`/models/${prefix}_block.glb?v=${MODEL_VER}`)
   const hitGltf = useGLTF(`/models/${prefix}_hit.glb?v=${MODEL_VER}`)
   const scene = jabLGltf.scene
@@ -80,7 +81,9 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   // These Meshy meshes have OPEN flat hands baked in (no finger bones — the
   // t-pose conversion discards the fist art). Squash the hand bones every frame
   // (short along the fingers, chunkier across) so they read as closed FISTS.
-  const neck = useMemo(() => scene.getObjectByName('Neck') ?? null, [scene])
+  // NOTE: these rigs name the bone lowercase 'neck' — the capitalized lookup
+  // silently returned null forever (why neck-hiding never worked)
+  const neck = useMemo(() => scene.getObjectByName('Neck') ?? scene.getObjectByName('neck') ?? null, [scene])
   const handL = useMemo(() => scene.getObjectByName('LeftHand') ?? null, [scene])
   const handR = useMemo(() => scene.getObjectByName('RightHand') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
@@ -110,11 +113,14 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
       shots: {
         jabR: oneShot(punchGltf, 1.45, 2.4), // straight: strike at ~2.0s in the raw clip
         jabL: oneShot(jabLGltf, 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
-        kick: oneShot(kickGltf, 0.35, 1.6),  // straight kick: extension ~0.75s in the raw clip
+        // HEAD KICK: Step_in_High_Kick (218) — leg extended head-height at ~0.56s
+        kickHi: oneShot(kickHiGltf, 0.2, 1.4),
+        // LEG KICK: Boxing_Guard_Step_Knee_Strike (211) — knee lands ~1.06s raw
+        kickLo: oneShot(kickLoGltf, 0.7, 1.8),
         hit: oneShot(hitGltf, 0.12, 1.6),
       },
     }
-  }, [scene, punchGltf.animations, jabLGltf.animations, kickGltf.animations, blockGltf.animations, hitGltf.animations])
+  }, [scene, punchGltf.animations, jabLGltf.animations, kickHiGltf.animations, kickLoGltf.animations, blockGltf.animations, hitGltf.animations])
 
   useLayoutEffect(() => {
     // The GLTF scene is CACHED across mounts — reset every mutation we may have
@@ -143,7 +149,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   }
   const playShot = (s: Shot | null) => {
     if (!s) return
-    for (const o of [shots.jabR, shots.jabL, shots.kick, shots.hit]) {
+    for (const o of [shots.jabR, shots.jabL, shots.kickHi, shots.kickLo, shots.hit]) {
       if (o && o.a !== s.a) { o.a.stop(); o.a.setEffectiveWeight(0) }
     }
     guard?.setEffectiveWeight(0)
@@ -156,7 +162,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   }
   useEffect(() => {
     const onFin = (e: any) => {
-      if (e.action === shots.jabR?.a || e.action === shots.jabL?.a || e.action === shots.kick?.a || e.action === shots.hit?.a) {
+      if (e.action === shots.jabR?.a || e.action === shots.jabL?.a || e.action === shots.kickHi?.a || e.action === shots.kickLo?.a || e.action === shots.hit?.a) {
         e.action.setEffectiveWeight(0); e.action.stop()
         // only fall back to guard if this was the most recent move
         if (active.current === e.action) { active.current = null; restoreGuard() }
@@ -165,14 +171,11 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     mixer.addEventListener('finished', onFin)
     return () => mixer.removeEventListener('finished', onFin)
   }, [mixer, shots, guard, guardHold]) // eslint-disable-line react-hooks/exhaustive-deps
-  // HEAD vs LEG kick: same clean straight-kick clip, aimed by a brief body
-  // tilt — lean back sends the foot HIGH (head), lean forward drops it LOW (legs).
-  const aim = useRef({ v: 0, until: 0 })
   // BLOCK visual: holding block swaps the held guard for the forearms-up cover
   useEffect(() => {
     if (!guard || !block) return
     if (blocking) {
-      for (const o of [shots.jabR, shots.jabL, shots.kick, shots.hit]) { if (o) { o.a.stop(); o.a.setEffectiveWeight(0) } }
+      for (const o of [shots.jabR, shots.jabL, shots.kickHi, shots.kickLo, shots.hit]) { if (o) { o.a.stop(); o.a.setEffectiveWeight(0) } }
       active.current = null
       guard.setEffectiveWeight(0)
       block.time = 1.2; block.paused = true; block.setEffectiveWeight(1)
@@ -184,30 +187,41 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   const pR = useRef(0), pL = useRef(0), pKH = useRef(0), pKL = useRef(0), pH = useRef(0)
   useEffect(() => { if (jabRKey > pR.current) { pR.current = jabRKey; playShot(shots.jabR) } }, [jabRKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (jabLKey > pL.current) { pL.current = jabLKey; playShot(shots.jabL) } }, [jabLKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (kickHiKey > pKH.current) { pKH.current = kickHiKey; playShot(shots.kick); aim.current = { v: -0.3, until: performance.now() + 700 } } }, [kickHiKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (kickLoKey > pKL.current) { pKL.current = kickLoKey; playShot(shots.kick); aim.current = { v: 0.28, until: performance.now() + 700 } } }, [kickLoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (kickHiKey > pKH.current) { pKH.current = kickHiKey; playShot(shots.kickHi) } }, [kickHiKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (kickLoKey > pKL.current) { pKL.current = kickLoKey; playShot(shots.kickLo) } }, [kickLoKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (hitKey > pH.current) { pH.current = hitKey; playShot(shots.hit) } }, [hitKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // BOBBLE: clamped oscillation layered on the head bone. Anti-accumulation
+  // guard: if the mixer did NOT overwrite the head quaternion this frame (clip
+  // without a head track), the quaternion still equals our last post-bobble
+  // value — restore the pre-bobble pose first, so the wobble can never
+  // compound into the old tumble-into-torso bug.
+  const headPre = useRef(new THREE.Quaternion())
+  const headPost = useRef(new THREE.Quaternion())
+  const bobbleQ = useRef(new THREE.Quaternion())
+  const bobbleE = useRef(new THREE.Euler())
   useFrame((state, dt) => {
     mixer.update(dt)
     // PLANT the fighter: strip horizontal root motion so they stay on their
     // side and don't wander/pass through each other (2D-fighter feel)
     if (hips && hips0.current) { hips.position.x = hips0.current.x; hips.position.z = hips0.current.z }
-    // oversized head, but NO sway — the fighter stays focused on the opponent.
+    // Oversized head with readable BOBBLE energy (clamped sine — see guard above).
     // With a swapped head, squash the model's own head so the billboard replaces it.
     if (head) head.scale.setScalar(headId ? 0.001 : HEAD_SCALE)
+    if (head && !headId) {
+      const t = state.clock.elapsedTime
+      if (head.quaternion.equals(headPost.current)) head.quaternion.copy(headPre.current)
+      headPre.current.copy(head.quaternion)
+      bobbleE.current.set(Math.sin(t * 2.7) * 0.09, 0, Math.cos(t * 2.15) * 0.11)
+      bobbleQ.current.setFromEuler(bobbleE.current)
+      head.quaternion.multiply(bobbleQ.current)
+      headPost.current.copy(head.quaternion)
+    }
     if (neck) neck.scale.setScalar(headId ? 0.001 : 1) // swapped head hides the neck too
     // CLOSED FISTS: squash the open-paddle hands into compact fists every frame
     // (short along the fingers, chunkier across) — render-verified at game distance
     if (handL) handL.scale.set(1.2, 0.45, 1.2)
     if (handR) handR.scale.set(1.2, 0.45, 1.2)
-    // kick AIM tilt (head = lean back, foot rises high / leg = lean forward,
-    // foot drops low) — axis calibrated by render: rotation.x is the pitch
-    // along the fight line for these rigs
-    if (fit.current) {
-      const target = performance.now() < aim.current.until ? aim.current.v : 0
-      fit.current.rotation.x += (target - fit.current.rotation.x) * Math.min(1, dt * 14)
-    }
   })
 
   // Opponent (player 2) is MIRRORED across X — like every fighting game — so its

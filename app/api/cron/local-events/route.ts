@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
   }
 
   const [{ data: bots }, gyms] = await Promise.all([
-    admin.from('profiles').select('id').like('clerk_user_id', 'bot%'),
+    admin.from('profiles').select('id, party').like('clerk_user_id', 'bot%'),
     pageAll<{ id: string; city_name: string; state: string }>((from, to) =>
       admin.from('gyms').select('id, city_name, state').order('id').range(from, to)),
   ])
@@ -154,10 +154,15 @@ export async function GET(req: NextRequest) {
     const pick = items.find(i => !seen.has(`${gym.id}|${i.link}`))
     if (!pick) continue
     seen.add(`${gym.id}|${pick.link}`)
+    const bot = bots[Math.floor(Math.random() * bots.length)]
+    // LOCAL events must NAME the town/state in the visible post
+    const stateName = STATE_NAMES[gym.state] ?? gym.state
+    const namesPlace = pick.title.includes(gym.city_name) || pick.title.includes(stateName) || pick.title.includes(gym.state)
     rows.push({
       gym_id: gym.id,
-      profile_id: bots[Math.floor(Math.random() * bots.length)].id,
-      content: pick.title,
+      profile_id: bot.id,
+      party: (bot as any).party ?? null,
+      content: namesPlace ? pick.title : `${gym.city_name}, ${gym.state} — ${pick.title}`,
       link_url: pick.link,
       link_title: pick.title,
       link_image: null,

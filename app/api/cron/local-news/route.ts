@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
   }
 
   const [{ data: bots }, gyms] = await Promise.all([
-    admin.from('profiles').select('id').like('clerk_user_id', 'bot%'),
+    admin.from('profiles').select('id, party').like('clerk_user_id', 'bot%'),
     pageAll<{ id: string; city_name: string; state: string }>((from, to) =>
       admin.from('gyms').select('id, city_name, state').order('id').range(from, to)),
   ])
@@ -120,8 +120,8 @@ export async function GET(req: NextRequest) {
   const statePools: Record<string, NewsItem[]> = {}
   await mapLimit(states, 8, async s => { statePools[s] = await gnews(`${STATE_NAMES[s]} news when:1d`) })
 
-  // National major news from the Associated Press, shared by every hall
-  const apPool = await gnews('Associated Press when:1d')
+  // NO national pool: local slots carry LOCAL stories only (Michael's rule —
+  // national wire content was masquerading as hometown news)
 
   // ── City pools: rotating batch — every run city-scans the next slice ─────
   const sorted = [...gyms].sort((a, b) => a.id.localeCompare(b.id))
@@ -153,9 +153,8 @@ export async function GET(req: NextRequest) {
   for (const gym of gyms) {
     const cityItems = shuffle(cityPools.get(gym.id) ?? [])
     const stateItems = shuffle(statePools[gym.state] ?? [])
-    const apItems = shuffle(apPool).slice(0, 2) // national AP major news
     const picks: NewsItem[] = []
-    for (const item of [...cityItems, ...apItems, ...stateItems]) {
+    for (const item of [...cityItems, ...stateItems]) {
       if (picks.length >= 2) break
       if (seen.has(`${gym.id}|${item.link}`)) continue
       if (picks.some(p => p.link === item.link)) continue
@@ -163,10 +162,16 @@ export async function GET(req: NextRequest) {
     }
     for (const item of picks) {
       seen.add(`${gym.id}|${item.link}`)
+      const bot = bots[Math.floor(Math.random() * bots.length)]
+      // LOCAL posts must NAME the town/state — if the headline doesn't, the
+      // post body pins it explicitly
+      const stateName = STATE_NAMES[gym.state] ?? gym.state
+      const namesPlace = item.title.includes(gym.city_name) || item.title.includes(stateName) || item.title.includes(gym.state)
       rows.push({
         gym_id: gym.id,
-        profile_id: bots[Math.floor(Math.random() * bots.length)].id,
-        content: item.title,
+        profile_id: bot.id,
+        party: (bot as any).party ?? null,
+        content: namesPlace ? item.title : `${gym.city_name}, ${gym.state} — ${item.title}`,
         link_url: item.link,
         link_title: item.title,
         link_image: null,

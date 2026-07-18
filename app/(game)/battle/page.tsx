@@ -41,10 +41,10 @@ const HP_SCALE = 1.4
 // Rotating battle stages. `ground` = feet line, % from the bottom of the
 // screen — tuned per backdrop so the sprite stands on the visible ground.
 const BACKDROPS: { src: string; name: string; ground: number }[] = [
-  { src: '/backgrounds/stage_capitol.jpg', name: 'Capitol Plaza', ground: 40 },
-  { src: '/backgrounds/stage_mainstreet.jpg', name: 'Main Street', ground: 40 },
-  { src: '/backgrounds/stage_desert.jpg', name: 'Desert Highway', ground: 40 },
-  { src: '/backgrounds/stage_park.jpg', name: 'Rally Park', ground: 40 },
+  { src: '/backgrounds/stage_capitol.jpg', name: 'Capitol Plaza', ground: 38 },
+  { src: '/backgrounds/stage_mainstreet.jpg', name: 'Main Street', ground: 38 },
+  { src: '/backgrounds/stage_desert.jpg', name: 'Desert Highway', ground: 38 },
+  { src: '/backgrounds/stage_park.jpg', name: 'Rally Park', ground: 38 },
 ]
 
 const TIER_LEVELS = { common: 12, rare: 35, legendary: 70 }
@@ -282,9 +282,9 @@ function BattleContent() {
   // Geometry: the sprite box and its chest line, derived from the stage
   function geom() {
     const rect = arenaRef.current!.getBoundingClientRect()
-    const boxPx = Math.min(rect.width * 0.64, 330)
+    const boxPx = Math.min(rect.width * 0.72, 375)
     const feetY = rect.height * (1 - stage.ground / 100)
-    const chestY = feetY - boxPx * 0.42
+    const chestY = feetY - boxPx * 0.38
     return { rect, boxPx, feetY, chestY }
   }
 
@@ -594,7 +594,7 @@ function BattleContent() {
         {/* faint remounts for its one-shot CSS animation; flee must NOT remount —
             a fresh canvas replays the model's load-in pose mid-exit */}
         <div key={spriteAnim === 'faint' ? `end${spriteKey}` : 'live'} style={{
-          width: 'min(64vw, 330px)', aspectRatio: '1 / 1', position: 'relative',
+          width: 'min(72vw, 375px)', aspectRatio: '1 / 1', position: 'relative',
           animation: spriteAnim === 'faint' ? 'pokeFaint 0.9s ease-in forwards'
             : spriteAnim === 'hit' ? `poke3dHit 420ms ease-in-out`
             : spriteAnim === 'charge' ? `poke3dChrg 380ms ease-in-out`

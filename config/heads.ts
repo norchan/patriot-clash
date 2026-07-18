@@ -42,10 +42,11 @@ export const HEADS: HeadMeta[] = [
   { id: 'senator', label: 'The Senator', party: 'democrat' },
 ]
 
-// v3 = helmet coverage (jaw/neck/collar in the cutout) + 65° side view
-export const headImage = (id: string) => `/heads/${id}.png?v=7`
+// v8 = adaptive jaw clip (zero clothing on every head), normalized head
+// heights (uniform bobble scale), senator nose fix
+export const headImage = (id: string) => `/heads/${id}.png?v=8`
 // side-profile render of the same head — used IN FIGHTS so the face looks at
 // the opponent (the frontal art stays in the designer grid)
-export const headSideImage = (id: string) => `/heads/${id}_side.png?v=7`
+export const headSideImage = (id: string) => `/heads/${id}_side.png?v=8`
 export const isValidHead = (id: unknown): id is string =>
   typeof id === 'string' && HEADS.some(h => h.id === id)

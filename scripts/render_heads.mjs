@@ -14,7 +14,8 @@ const html = `<!doctype html><meta charset=utf8>
 <script type="importmap">{"imports":{"three":"${B}/node_modules/three/build/three.module.js","three/addons/":"${B}/node_modules/three/examples/jsm/"}}</script>
 <canvas id=c width=640 height=640></canvas><script type=module>
 import * as THREE from 'three'; import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js'
-window.head = async (url, rotY) => {
+window.head = async (url, rotY, opts) => {
+ opts = opts || {}
  const canvas = document.getElementById('c')
  const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true })
  r.setSize(640, 640, false); r.setClearColor(0x000000, 0)
@@ -34,15 +35,26 @@ window.head = async (url, rotY) => {
  sc.add(spin); spin.updateMatrixWorld(true)
  let bone = null; root.traverse(o => { if (o.isBone && o.name === 'Head') bone = bone || o })
  if (!bone) return 'NO HEAD BONE'
+ // per-head geometry tweaks (e.g. senator nose depth) applied to the bone
+ if (opts.noseSquash) { bone.scale.z = opts.noseSquash; spin.updateMatrixWorld(true) }
  const p = new THREE.Vector3(); bone.getWorldPosition(p)
  // model height to scale the framing
  const box = new THREE.Box3().setFromObject(root); const size = new THREE.Vector3(); box.getSize(size)
  const headSpan = size.y * 0.30 // generous head region for bobble models
  // clip below the chin + beyond the head's width so ONLY the head renders
- // (bind-pose T arms would otherwise leave floating stubs beside chibi heads)
+ // (bind-pose T arms would otherwise leave floating stubs beside chibi heads).
+ // JAW LINE is adaptive: at least 55% of the way up from the neck bone to the
+ // head bone — collars/ties always sit below the neck bone, so this guarantees
+ // ZERO clothing on every rig; the old fixed fraction is kept as a floor.
+ let clipY = p.y - size.y * 0.055
+ const neckB = root.getObjectByName('neck') || root.getObjectByName('Neck')
+ if (neckB) {
+   const ny = new THREE.Vector3(); neckB.getWorldPosition(ny)
+   clipY = Math.max(clipY, ny.y + (p.y - ny.y) * (0.55 + (opts.clipLift || 0)))
+ }
  const w = size.y * 0.42
  const clips = [
-   new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.y - size.y * 0.055)),
+   new THREE.Plane(new THREE.Vector3(0, 1, 0), -clipY),
    new THREE.Plane(new THREE.Vector3(1, 0, 0), -(p.x - w)),
    new THREE.Plane(new THREE.Vector3(-1, 0, 0), (p.x + w)),
  ]
@@ -60,10 +72,17 @@ pg.on('console', m => { if (m.type() === 'error') console.log('ERR', m.text()) }
 await pg.goto(`${B}/__heads.html`, { waitUntil: 'networkidle0' }); await pg.waitForFunction('window.__ready === true', { timeout: 15000 })
 fs.mkdirSync(path.join(ROOT, 'public/heads'), { recursive: true })
 const ONLY = process.argv[2] // optional single id for testing
+// per-head geometry fixes: senator nose depth; clip lifts where the default
+// jaw line still catches clothing (odd rig proportions)
+const TWEAKS = {
+  senator: { noseSquash: 0.82 },
+  oil_baron: { clipLift: 0.35 },
+  crazy_liberal: { clipLift: 0.2, chinScrub: { band: 0.09 } },
+}
 for (const id of IDS) {
   if (ONLY && id !== ONLY) continue
   for (const [suffix, rotY] of [['', 0], ['_side', Math.PI * 0.36]]) {
-    const res = await pg.evaluate((u, r) => window.head(u, r), `${B}/public/models/${id}_idle.glb`, rotY)
+    const res = await pg.evaluate((u, r, o) => window.head(u, r, o), `${B}/public/models/${id}_idle.glb`, rotY, TWEAKS[id] || {})
     if (res !== 'ok') { console.log(id, 'SKIP:', res); continue }
     await new Promise(r => setTimeout(r, 120))
     const raw = path.join(ROOT, `__head_raw.png`)
@@ -75,8 +94,23 @@ for (const id of IDS) {
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 70) { data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0 }
       }
-      await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-        .trim({ threshold: 40 }).resize({ height: 256, fit: 'inside' }).png()
+      // trim FIRST so band math is relative to the head, not the empty canvas
+      const trimmed = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+        .trim({ threshold: 40 }).raw().toBuffer({ resolveWithObject: true })
+      // some collars peek out BEHIND the chin, above the clip plane — scrub
+      // saturated clothing-colored pixels in the bottom band (per-head opt-in)
+      const t = TWEAKS[id] || {}
+      if (t.chinScrub) {
+        const td = trimmed.data, ti = trimmed.info
+        const bandTop = Math.floor(ti.height * (1 - t.chinScrub.band))
+        for (let y = bandTop; y < ti.height; y++) for (let x = 0; x < ti.width; x++) {
+          const i = (y * ti.width + x) * 4
+          const [r2, g2, b2] = [td[i], td[i + 1], td[i + 2]]
+          if (r2 > g2 * 1.45 && r2 > b2 * 1.45 && r2 > 90) { td[i + 3] = 0 }
+        }
+      }
+      await sharp(trimmed.data, { raw: { width: trimmed.info.width, height: trimmed.info.height, channels: 4 } })
+        .resize({ height: 256, fit: 'inside' }).png()
         .toFile(path.join(ROOT, `public/heads/${id}${suffix}.png`))
     }
     console.log('saved', id + suffix)
