@@ -35,7 +35,10 @@
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/photo_market.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_215837_3a1f70cf-96f3-4c63-b3a2-27ab249e0950.png)",
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/photo_diner.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260718_215838_2ab96203-04be-4cdb-823e-dda7aa741776.png)",
       "Bash(node scripts/gen_spotit_pool.mjs)",
-      "Bash(rm -f public/spotit/*_b.jpg)"
+      "Bash(rm -f public/spotit/*_b.jpg)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'Spotit: kill the purple-smudge tells *)",
+      "Bash(git push *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

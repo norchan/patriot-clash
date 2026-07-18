@@ -98,7 +98,7 @@ export default function SpotItPage() {
         const w = Math.min(W, px + pr) - x0, h = Math.min(H, py + pr) - y0
         const patch = ctx.getImageData(x0, y0, w, h)
         const M = hueMatrix(d.deg)
-        const feather = pr * 0.22
+        const feather = pr * 0.32
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             const dist = Math.hypot(x0 + x - px, y0 + y - py)
