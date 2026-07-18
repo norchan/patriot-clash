@@ -1,0 +1,10 @@
+import puppeteer from 'puppeteer';
+const b = await puppeteer.launch({ headless: 'shell', args: ['--use-gl=swiftshader', '--no-sandbox', '--allow-file-access-from-files'] });
+const p = await b.newPage();
+await p.setViewport({ width: 1024, height: 500, deviceScaleFactor: 1 });
+const src = process.argv[2].split('\\').join('/');
+await p.goto('file:///' + src, { waitUntil: 'networkidle0' });
+await new Promise(r => setTimeout(r, 300));
+await p.screenshot({ path: process.argv[3] });
+await b.close();
+console.log('SHOT-OK', process.argv[3]);
