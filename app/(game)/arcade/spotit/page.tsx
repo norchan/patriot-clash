@@ -28,6 +28,8 @@ export default function SpotItPage() {
   const [balance, setBalance] = useState<number | null>(null)
   const [fpToast, setFpToast] = useState('')
   const [fpGame, setFpGame] = useState(0)
+  const [hintsLeft, setHintsLeft] = useState(2)
+  const [hintMark, setHintMark] = useState<{ k: number; key: number } | null>(null)
   const penaltyRef = useRef(0)
 
   const scene = BANK[sceneIdx % BANK.length]
@@ -81,6 +83,7 @@ export default function SpotItPage() {
 
   function start() {
     setFound([]); setTimeLeft(SCENE_TIME); setFpGame(0); penaltyRef.current = 0
+    setHintsLeft(2); setHintMark(null)
     setPhase('playing')
   }
   function nextScene() {
@@ -88,7 +91,20 @@ export default function SpotItPage() {
     localStorage.setItem('spotit_scene', String(n))
     setSceneIdx(n)
     setFound([]); setTimeLeft(SCENE_TIME); setFpGame(0); penaltyRef.current = 0
+    setHintsLeft(2); setHintMark(null)
     setPhase('playing')
+  }
+
+  // 2 hints per round: flash a golden ring around one unfound difference
+  function useHint() {
+    if (phase !== 'playing' || hintsLeft <= 0 || hintMark) return
+    const unfound = scene.diffs.map((_, k) => k).filter(k => !found.includes(k))
+    if (!unfound.length) return
+    const k = unfound[Math.floor(Math.random() * unfound.length)]
+    setHintsLeft(h => h - 1)
+    setHintMark({ k, key: Date.now() })
+    sfx.swap()
+    setTimeout(() => setHintMark(null), 2200)
   }
 
   function tap(img: 'a' | 'b', e: React.PointerEvent<HTMLDivElement>) {
@@ -139,6 +155,19 @@ export default function SpotItPage() {
           textShadow: '0 0 8px #000', animation: 'wrongFade 0.7s ease-out forwards',
         }}>✕ -5s</div>
       )}
+      {/* hint: golden pulse around an unfound difference (both copies) */}
+      {hintMark && !found.includes(hintMark.k) && (() => {
+        const d = scene.diffs[hintMark.k]
+        const rr = d.r * 1.5
+        return (
+          <div key={hintMark.key} className="absolute rounded-full pointer-events-none" style={{
+            left: `${(d.x - rr) * 100}%`, top: `${(d.y - rr * (scene.w / scene.h)) * 100}%`,
+            width: `${rr * 2 * 100}%`, paddingBottom: `${rr * 2 * 100}%`,
+            border: '4px solid #fbbf24', boxShadow: '0 0 16px #f59e0b, inset 0 0 12px rgba(251,191,36,0.5)',
+            animation: 'hintRing 2.2s ease-out forwards',
+          }} />
+        )
+      })()}
     </div>
   )
 
@@ -158,6 +187,20 @@ export default function SpotItPage() {
           ⏱ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
         </span>
         <span className="text-green-300">{found.length}/{scene.diffs.length} FOUND</span>
+      </div>
+
+      {/* hint + skip row */}
+      <div className="max-w-md mx-auto px-4 mt-1.5 flex items-center justify-center gap-2">
+        <button onClick={useHint} disabled={phase !== 'playing' || hintsLeft <= 0 || !!hintMark}
+          className="flex-1 py-2 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
+          style={{ background: 'rgba(251,191,36,0.14)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.4)' }}>
+          💡 HINT ({hintsLeft} left)
+        </button>
+        <button onClick={nextScene} disabled={phase === 'won'}
+          className="flex-1 py-2 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
+          style={{ background: 'rgba(125,211,252,0.12)', color: '#7dd3fc', border: '1px solid rgba(125,211,252,0.35)' }}>
+          NEXT PUZZLE ⏭
+        </button>
       </div>
 
       <div className="max-w-md mx-auto px-3 mt-2 space-y-2 relative">
@@ -201,6 +244,7 @@ export default function SpotItPage() {
 
       <style>{`
         @keyframes foundPop { 0% { transform: scale(0.3); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
+        @keyframes hintRing { 0% { transform: scale(1.6); opacity: 0 } 15% { opacity: 1 } 80% { transform: scale(1); opacity: 1 } 100% { opacity: 0 } }
         @keyframes wrongFade { 0% { opacity: 1 } 100% { opacity: 0; transform: translate(-50%,-90%) } }
         @keyframes meterPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.1) } }
       `}</style>

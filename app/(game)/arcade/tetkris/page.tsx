@@ -463,6 +463,11 @@ export default function TetKrisPage() {
             </div>
           </Panel>
           <Panel label="HOLD"><MiniPiece k={holdKey} /></Panel>
+          {/* hard drop lives here, under HOLD — far from the movement cluster
+              so a thumb reaching for ←/→ can't slam a piece by accident */}
+          <Btn onClick={hard} accent className="py-4">
+            <ChevronsDown size={22} /> <span className="text-xs font-black">DROP</span>
+          </Btn>
         </div>
       </div>
 
@@ -474,15 +479,14 @@ export default function TetKrisPage() {
         </div>
       </div>
 
-      {/* controls */}
-      <div className="max-w-md mx-auto px-4 mt-3 pb-4">
-        <div className="grid grid-cols-4 gap-2">
+      {/* controls — centered movement cluster; hard drop lives up by HOLD */}
+      <div className="mx-auto mt-3 pb-4 px-4" style={{ maxWidth: 320 }}>
+        <div className="grid grid-cols-3 gap-2">
           <Btn onClick={() => move(-1)}><ChevronLeft size={22} /></Btn>
           <Btn onClick={rotate}><RotateCw size={20} /></Btn>
           <Btn onClick={() => move(1)}><ChevronRight size={22} /></Btn>
+          <Btn onClick={soft} className="col-span-2"><ArrowDown size={20} /> <span className="text-xs">SOFT DROP</span></Btn>
           <Btn onClick={doHold}><span className="text-xs font-black">HOLD</span></Btn>
-          <Btn onClick={soft} className="col-span-2"><ArrowDown size={20} /> <span className="text-xs">SOFT</span></Btn>
-          <Btn onClick={hard} className="col-span-2" accent><ChevronsDown size={20} /> <span className="text-xs font-black">DROP</span></Btn>
         </div>
       </div>
 
