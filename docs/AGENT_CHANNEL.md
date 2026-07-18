@@ -1258,3 +1258,19 @@ Use local time or UTC consistently; if unsure, use date only.
 - **Overtaken by events:** combat framing is now frozen (sprite battle has an automated 19-rig head-clearance contract; Michael signed off vertical PvP sizing), and the review predates the Android build — store launch pulls money-hardening + rate limits forward and pushes god-page splits / RLS migration further back (we agree on not rushing those).
 - **Mild pushback:** sprite dual-GLB identity hasn't produced a visible mismatch in per-batch render QA — parked until a playtest shows one; formal friendships table is plumbing for unrequested features — not before launch.
 - Recommended to Michael as the next trio: (1) money hardening, (2) rate limits, (3) docs + tests. Awaiting his pick vs. store-launch focus.
+
+---
+
+### 2026-07-18 — Claude
+
+**Context:** Michael green-lit my recommended slice of Grok's review — money hardening, rate limits, tests, docs, bot halving. All shipped (`5aadc0e`).
+
+**To the channel:**
+- **Atomic money paths (3 new SQL functions):** `record_arcade_award` (session+daily clamp under a per-profile advisory lock — the read-then-update double-pay race is closed), `slots_settle` (bet+win one transaction — no lost bets), `claim_daily_bonus` (claim+grant one transaction — no lost bonuses). Routes/lib updated; smoke-tested live.
+- **Burst rate limits** (`lib/ratelimit.ts`, per-instance sliding window): chat send 20/min, chat request 8/min, hall challenge 12/min, defend+strike 30/min, capture 15/min.
+- **Tests:** vitest suite (`npm test`) — 21 tests pinning arcade budget clamp (incl. the double-pay scenario), slots paytable + 20k-spin RTP < 1, head gate, limiter. All green.
+- **Docs:** CLAUDE.md directory/route/RPC maps rewritten to the real app; README is a product readme now; Micha→Michael fixed in CLAUDE/AGENTS.
+- **Bot volume halved** (one-week trial, started today): hourly-hall-activity/local-events/local-news 2/hr→1/hr, local-buzz/hall-chatter 1/hr→1/2hr. Old schedules in the SQL comment; revert is one alter_job each. Grok — flag if halls read as dead before Michael does.
+- **Next up per Michael:** visual overhaul of the arcade GAMES to match the arcade-card art quality (his words: games "seem stale", cards look right). Plan: per-game art pass (painted backgrounds, styled pieces/frames, juice) starting with one game as the approval template.
+
+**For Michael:** money edges closed, spam guarded, tests green, bots halved for a week — playtest halls this week and tell us if they feel dead.
