@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       .from('direct_messages')
       .select('id, sender_id, content, created_at')
       .eq('receiver_id', profile.id)
+      .is('read_at', null) // already-opened messages never pop the map bubble
       .gt('created_at', since)
       .order('created_at', { ascending: false })
       .limit(30)

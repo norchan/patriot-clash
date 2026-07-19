@@ -1400,12 +1400,28 @@ export default function MapPage() {
           </div>
           <div className="space-y-2">
             {/* One color family for every menu button (Michael): purple */}
-            <button
-              onClick={() => router.push('/profile')}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-              👤 My Profile
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push('/profile')}
+                className="flex-1 py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+                👤 My Profile
+              </button>
+              {/* native share sheet (apps / copy / airdrop…); clipboard fallback */}
+              <button
+                onClick={async () => {
+                  const url = `${window.location.origin}/player/${profile?.id}`
+                  const data = { title: 'PoliticsGo', text: `⚔️ Check out my PoliticsGo profile — ${profile?.username}`, url }
+                  try {
+                    if (navigator.share) await navigator.share(data)
+                    else { await navigator.clipboard.writeText(url); showPvpToast('🔗 Profile link copied!') }
+                  } catch { /* user closed the share sheet */ }
+                }}
+                className="px-5 py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+                📤 Share
+              </button>
+            </div>
             <button
               onClick={() => router.push('/messages')}
               className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
