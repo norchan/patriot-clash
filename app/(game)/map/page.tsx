@@ -1241,7 +1241,7 @@ export default function MapPage() {
       )}
 
       {/* ── HUD: Top Left ───────────────────────────────────────────────── */}
-      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+      <div className="absolute left-4 z-20 flex flex-col gap-2" style={{ top: 'calc(1rem + env(safe-area-inset-top))' }}>
         {/* Row 1: party + FP, with the steps bubble to the RIGHT (same height) */}
         <div className="flex items-stretch gap-2">
           <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2">
@@ -1350,7 +1350,7 @@ export default function MapPage() {
 
       {/* ── FP Toast ─────────────────────────────────────────────────────── */}
       {fpToast && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30">
+        <div className="absolute left-1/2 transform -translate-x-1/2 z-30" style={{ top: 'calc(5rem + env(safe-area-inset-top))' }}>
           <div className="bg-yellow-500 text-black font-bold px-4 py-2 rounded-full text-sm shadow-lg">
             {fpToast}
           </div>
@@ -1359,7 +1359,7 @@ export default function MapPage() {
 
       {/* ── PvP Toast (declined / error) ─────────────────────────────────── */}
       {pvpToast && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30 w-max max-w-xs">
+        <div className="absolute left-1/2 transform -translate-x-1/2 z-30 w-max max-w-xs" style={{ top: 'calc(5rem + env(safe-area-inset-top))' }}>
           <div className="bg-gray-800 border border-gray-600 text-white px-4 py-2 rounded-full text-sm shadow-lg text-center">
             {pvpToast}
           </div>
@@ -1368,7 +1368,7 @@ export default function MapPage() {
 
       {/* ── Waiting for challenger response ──────────────────────────────── */}
       {sentChallenge && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30 w-max">
+        <div className="absolute left-1/2 transform -translate-x-1/2 z-30 w-max" style={{ top: 'calc(5rem + env(safe-area-inset-top))' }}>
           <div className="bg-purple-900/90 border border-purple-500/50 text-white px-4 py-2 rounded-full text-sm shadow-lg flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
             Waiting for {sentChallenge.opponentName}...
