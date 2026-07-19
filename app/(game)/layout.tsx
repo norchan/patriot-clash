@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut, Radar } from 'lucide-react'
@@ -28,6 +28,16 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter()
   const { signOut } = useClerk()
   const [menuOpen, setMenuOpen] = useState(false)
+  // unopened-DM badge on the Messages tab — polls lightly, refreshes on nav
+  const [unreadDms, setUnreadDms] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const load = () => fetch('/api/chat/unread').then(r => r.json())
+      .then(d => { if (alive) setUnreadDms(d.count ?? 0) }).catch(() => {})
+    load()
+    const iv = setInterval(load, 25_000)
+    return () => { alive = false; clearInterval(iv) }
+  }, [pathname])
   // Immersive full-screen surfaces — no global menu button or ads over the
   // action: the battle screens and an actual slot machine (/arcade/slots/<id>,
   // but NOT the /arcade/slots chooser).
@@ -98,7 +108,14 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
                   isActive ? 'text-white' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 1.5} />
+                <span className="relative">
+                  <Icon size={22} strokeWidth={isActive ? 2.5 : 1.5} />
+                  {href === '/messages' && unreadDms > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border border-gray-950">
+                      {unreadDms > 99 ? '99+' : unreadDms}
+                    </span>
+                  )}
+                </span>
                 <span className="text-[10px] font-medium">{label}</span>
               </button>
             )

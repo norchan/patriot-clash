@@ -31,6 +31,13 @@ export async function GET(
       .order('created_at', { ascending: true })
       .limit(100)
 
+    // opening the thread reads everything they sent you (feeds the nav badge)
+    await admin.from('direct_messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', convId)
+      .eq('receiver_id', profile.id)
+      .is('read_at', null)
+
     return NextResponse.json({ messages: messages ?? [] })
 
   } catch (err: any) {

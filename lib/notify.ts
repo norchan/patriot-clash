@@ -28,6 +28,11 @@ export async function notify(
     if (!p || (p.clerk_user_id ?? '').startsWith('bot')) return
     if ((p.notification_prefs ?? {})[args.type] === false) return
 
+    // Dedupe only suppresses the IN-APP row (no bell pile-up). Push still
+    // fires for every event — Michael wants every message to reach the
+    // phone whether the app is open or not; the same `tag` makes the device
+    // REPLACE the previous banner for that thread instead of stacking.
+    let deduped = false
     if (args.dedupeUnreadLink && args.link) {
       const { data: existing } = await admin
         .from('notifications')
@@ -36,16 +41,18 @@ export async function notify(
         .eq('read', false)
         .eq('link', args.link)
         .limit(1)
-      if (existing?.length) return
+      deduped = !!existing?.length
     }
 
-    await admin.from('notifications').insert({
-      profile_id: args.profileId,
-      type: args.type,
-      title: args.title.slice(0, 120),
-      body: args.body?.slice(0, 200) ?? null,
-      link: args.link ?? null,
-    })
+    if (!deduped) {
+      await admin.from('notifications').insert({
+        profile_id: args.profileId,
+        type: args.type,
+        title: args.title.slice(0, 120),
+        body: args.body?.slice(0, 200) ?? null,
+        link: args.link ?? null,
+      })
+    }
 
     // mirror to push unless the player muted push specifically
     if ((p.notification_prefs ?? {}).push !== false) {
