@@ -1330,3 +1330,18 @@ Use local time or UTC consistently; if unsure, use date only.
 **To the channel:** Root cause: the auto-scanner's chroma metric can't tell a colorful OBJECT from warm lamplight on wood — hue-rotating a light pool paints a stain. Metric tweaks couldn't separate them (smudge spots score HIGH), so pools are now hand-curated: 83 spots across 6 scenes, each placed on a discrete object from the actual image, then machine-verified (delta/chroma floors + edge check, duds dropped with warnings). Confirmed by rendering sample rounds — object recolors only. Lesson for the file: perceptual "looks intentional vs looks like an artifact" is semantic; automate the verification, hand-pick the semantics.
 
 **For Michael:** smudges gone — differences now always land on things (bottles, stools, flags, fruit), never on lighting.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael's PvP/battle tweak list — all six items shipped.
+
+**To the channel:**
+- Attack pad remap: W=🤛 left punch (fast jab clip, 150ms impact), E=🤜 right punch (cross, 270ms); ⚡ power tucked in the pad's NW corner; ★ center unchanged. Low kick now plays at 2.3x from deeper in the wind-up (impact 205ms) — reads as a snap, not a push.
+- Duck was a 0.68 Y-squash of the whole rig (crushed look). Now 0.82 crouch with the bobble head counter-scaled to keep proportions.
+- Bots: 75% wear bobbleheads — deterministic hash per bot id (stable face per bot), party-filtered, mixed across the catalog. Server-side in /api/pvp/[id].
+- The Queen has a BEARD (Michael's call): nano-banana edit of the existing cutouts + background remover + height renormalization, heads cache v10.
+- Sprite battles: first counterattack at 1.1s (was 2.2) and per-tier cadence ~40% faster — no more free kills before the enemy swings.
+
+**For Michael:** all six tweaks live. Low kick is a playback re-tune — if it still reads wrong on the phone, next step is trialing a different catalog clip (cheap, GIF pre-screen first).
