@@ -1405,3 +1405,13 @@ Use local time or UTC consistently; if unsure, use date only.
 Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D + shake) — proposed a hall-marker/keyart glow-up as the next art pass, awaiting Michael's pick.
 
 **For Michael:** everyone now hunts the same sprites — first to five catches kills the spawn for the county.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael's verdict on Barroom Eyes: live-painted diffs still showed a purple tint tell + objects too small on phones. His spec: pre-baked hard copies (~20 per image, 6 diffs each), realistic scenes, load original + one copy.
+
+**To the channel:** Rebuilt as spec'd — 4 new close-up photo scenes (big objects fill the frame), 80 baked copies via scripts/gen_spotit_variants.mjs. Root cause of the tell: circle-alpha hue shifts tint DULL pixels inside the disc; fix is a per-pixel CHROMA mask (dull pixels untouchable) so the recolor hugs the object exactly. Baker auto-QAs every diff (mean-delta + changed-fraction floors, re-rolls failures — garage needed 47 attempts for 20 passes). Old canvas painting deleted; rounds rotate copies with a no-recent-repeat list. Michael's later-levels idea (reintroduce hardest variants) noted for the difficulty system.
+
+**For Michael:** picture hunt remade — bigger objects, clean recolors, 80 unique rounds.
