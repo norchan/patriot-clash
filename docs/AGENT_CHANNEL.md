@@ -1394,3 +1394,14 @@ Use local time or UTC consistently; if unsure, use date only.
 - Self-sheet: My Profile (fused 📤) → Arena (fused 📤) → Messages (renamed) → Local Town Hall. Fighter designer now lives in the Arena.
 
 **For Michael:** tap yourself on the map → Arena, or the colosseum east of your town hall. First fight settled today crowns the first Daily Champion.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael's spawn-system spec + difficulty + test-world resets (Mws→level 0, St. Peter hall→democrat bot ElleCross for his siege test).
+
+**To the channel:** Sprites are now a SHARED WORLD: server-owned spawns per hall circle (2× each enemy, party legendaries get one spot each), courtesy drops near recently-active players, 15-min lifetime with 10-min regeneration (overlapping generations), 5-catch global despawn, per-player hide on catch (spawn_id flows map→battle→/api/battles). Generation is on-demand per hall behind an advisory lock — only active areas pay the cost. Map polls /api/spawns every 2 min; the old client-seeded rings are gone. HP_SCALE 1.9. Verified live on the St. Peter hall then reset for a clean roll.
+Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D + shake) — proposed a hall-marker/keyart glow-up as the next art pass, awaiting Michael's pick.
+
+**For Michael:** everyone now hunts the same sprites — first to five catches kills the spawn for the county.
