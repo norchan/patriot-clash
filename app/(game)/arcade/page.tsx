@@ -29,7 +29,7 @@ const GAMES: GameEntry[] = [
     tagline: 'Chess puzzles · mate in 1, 2 or 3 · classic board', href: '/arcade/chess', badge: 'EARN FP',
   },
   {
-    id: 'spotit', name: 'Barroom Eyes', art: '/arcade/spotit.jpg', accent: '#38bdf8',
+    id: 'spotit', name: 'Pic Hunt', art: '/arcade/spotit.jpg', accent: '#38bdf8',
     tagline: 'Spot the differences before the clock runs out', href: '/arcade/spotit', badge: 'EARN FP',
   },
   {

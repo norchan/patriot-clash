@@ -6,7 +6,7 @@ import { useProfile } from '@/hooks/useProfile'
 import * as sfx from '@/lib/match3-sfx'
 import SCENES from '@/config/spotit-scenes.json'
 
-// Barroom Eyes — spot the differences, like the machines at the bar.
+// Pic Hunt — spot the differences, like the machines at the bar.
 // v3 (Michael's spec): every scene ships as ONE original + ~20 PRE-BAKED
 // copies, each carrying 6 differences. A round loads the original and one
 // copy — nothing is painted on the fly, so there are no rendering tells.
@@ -189,7 +189,7 @@ export default function SpotItPage() {
       style={{ background: 'radial-gradient(circle at 50% 0%, #1e3a5f, #101c2e 55%, #0a1220)', fontFamily: 'ui-monospace, monospace' }}>
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
         <button onClick={() => router.push('/arcade')} className="text-white/70 hover:text-white"><ArrowLeft size={18} /></button>
-        <h1 className="font-black tracking-[0.12em] text-lg" style={{ color: '#7dd3fc', textShadow: '0 0 12px #0ea5e9, 0 2px 0 #000' }}>BARROOM EYES</h1>
+        <h1 className="font-black tracking-[0.12em] text-lg" style={{ color: '#7dd3fc', textShadow: '0 0 12px #0ea5e9, 0 2px 0 #000' }}>PIC HUNT</h1>
         <span className="ml-auto text-yellow-300 text-sm font-black">💰 {(balance ?? 0).toLocaleString()}</span>
       </div>
 
@@ -241,7 +241,7 @@ export default function SpotItPage() {
             style={{ background: 'rgba(6,12,24,0.82)', backdropFilter: 'blur(3px)' }}>
             <div className="text-center w-full">
               {phase === 'start' && <>
-                <h2 className="text-3xl font-black" style={{ color: '#7dd3fc', textShadow: '0 0 16px #0ea5e9' }}>BARROOM EYES</h2>
+                <h2 className="text-3xl font-black" style={{ color: '#7dd3fc', textShadow: '0 0 16px #0ea5e9' }}>PIC HUNT</h2>
                 <p className="text-white/70 text-sm mt-2">Two pictures, 6 differences — a different set every round. Tap them on either picture; wrong taps cost 5 seconds.</p>
                 <p className="text-white/50 text-xs mt-1.5">25 FP per find · 250 FP for a clean sweep</p>
                 <button onClick={start} className="w-full mt-5 py-3.5 rounded-xl font-black text-lg"
