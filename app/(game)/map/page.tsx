@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useLocation } from '@/hooks/useLocation'
 import { useProfile } from '@/hooks/useProfile'
 import { useSteps } from '@/hooks/useSteps'
-import { getRandomEnemy } from '@/config/enemies'
+import { getEnemyById } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -115,10 +115,10 @@ export default function MapPage() {
   const [spawnedEnemies, setSpawnedEnemies] = useState<SpawnedEnemy[]>([])
   const [spawnTick, setSpawnTick] = useState(0)
 
-  // Re-evaluate spawns every 5 min: respawns come back and the 90-min
-  // rotation kicks in even if the player never moves
+  // Re-sync shared spawns every 2 min: fresh generations + other players'
+  // catches show up without moving
   useEffect(() => {
-    const iv = setInterval(() => setSpawnTick(t => t + 1), 5 * 60_000)
+    const iv = setInterval(() => setSpawnTick(t => t + 1), 2 * 60_000)
     return () => clearInterval(iv)
   }, [])
   const [nearbyPlayers, setNearbyPlayers] = useState<NearbyPlayer[]>([])
@@ -1077,99 +1077,31 @@ export default function MapPage() {
     const loc = locationRef.current
     if (!loc) return
 
-    // Seeded random so enemies stay in the same spots per grid cell
-    function seededRand(seed: string): number {
-      let h = 0
-      for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0
-      return Math.abs(h) / 2147483647
-    }
-
-    const RESPAWN_MS = 5 * 60 * 1000
-
-    function isAlive(spawnId: string): boolean {
-      try {
-        const t = localStorage.getItem(`spawn_dead_${spawnId}`)
-        return !t || Date.now() - parseInt(t) > RESPAWN_MS
-      } catch { return true }
-    }
-
-    const enemies: SpawnedEnemy[] = []
-
-    // Opponents are always the OPPOSING party
-    const opponentParty = profile.party === 'republican' ? 'democrat' : 'republican'
-
-    // Spawns rotate every 90 minutes: the bucket is part of every seed, so
-    // enemies hold their positions long enough to walk to, then the whole
-    // board reshuffles into fresh random spots.
-    const bucket = Math.floor(Date.now() / 5_400_000)
-
-    // CLOSE RING: 3 enemies within ~0.2-0.9 mi — these are attackable now
-    // (or after a short walk). Seeded by grid cell so GPS jitter doesn't
-    // teleport them.
-    for (let i = 0; i < 3; i++) {
-      const spawnId = `local_${i}_${bucket}`
-      if (!isAlive(spawnId)) continue
-      const seed = `${spawnId}_${gridLat}_${gridLng}`
-      const angle = seededRand(seed + 'a') * Math.PI * 2
-      const distMiles = 0.2 + seededRand(seed + 'd') * 0.7
-      enemies.push({
-        id: spawnId,
-        enemy: getRandomEnemy(opponentParty),
-        lat: loc.lat + Math.sin(angle) * (distMiles / 69),
-        lng: loc.lng + Math.cos(angle) * (distMiles / (69 * Math.cos(loc.lat * Math.PI / 180))),
-      })
-    }
-
-    // WALK-TO RING: 5 enemies scattered 1.2-4.5 mi out in random directions —
-    // visible on the map as targets worth walking toward
-    for (let i = 0; i < 5; i++) {
-      const spawnId = `ring_${i}_${bucket}`
-      if (!isAlive(spawnId)) continue
-      const seed = `${spawnId}_${gridLat}_${gridLng}`
-      const angle = seededRand(seed + 'a') * Math.PI * 2
-      const distMiles = 1.2 + seededRand(seed + 'd') * 3.3
-      enemies.push({
-        id: spawnId,
-        enemy: getRandomEnemy(opponentParty),
-        lat: loc.lat + Math.sin(angle) * (distMiles / 69),
-        lng: loc.lng + Math.cos(angle) * (distMiles / (69 * Math.cos(loc.lat * Math.PI / 180))),
-      })
-    }
-
-    // 2-4 enemies seeded inside each NEARBY gym circle. Gyms come back from
-    // /api/gyms up to 100 miles out — only consider gyms whose zone could
-    // put an enemy within the 5-mile visibility range.
-    gyms
-      .filter(gym => {
-        const d = parseFloat(gym.distance_miles)
-        const zr = gym.radius_miles || DEFAULT_RADIUS_MILES
-        return Number.isFinite(d) && d <= 5 + zr
-      })
-      .forEach(gym => {
-        const count = 2 + Math.floor(seededRand(gym.id + 'n' + bucket) * 3)
-        for (let i = 0; i < count; i++) {
-          const spawnId = `gym_${gym.id}_${i}_${bucket}`
-          if (!isAlive(spawnId)) continue
-          const seed = gym.id + i + bucket
-          const angle = seededRand(seed + 'a') * Math.PI * 2
-          // Spawn inside this gym's own zone, whatever its radius
-          const zoneRadius = gym.radius_miles || DEFAULT_RADIUS_MILES
-          const radiusMiles = 0.5 + seededRand(seed + 'r') * Math.max(1, zoneRadius - 1)
-          const radiusLat = radiusMiles / 69.0
-          const radiusLng = radiusMiles / (69.0 * Math.cos(gym.latitude * Math.PI / 180))
-          enemies.push({
-            id: spawnId,
-            enemy: getRandomEnemy(opponentParty),
-            lat: gym.latitude + Math.sin(angle) * radiusLat,
-            lng: gym.longitude + Math.cos(angle) * radiusLng,
-          })
+    // SHARED spawns (server-owned): every player sees the same enemies in the
+    // same places. Halls re-roll their drop every 10 minutes, spawns live 15;
+    // a spawn you caught is filtered server-side, one you just KO'd is hidden
+    // locally until the next generation replaces it.
+    let cancelled = false
+    fetch(`/api/spawns?lat=${loc.lat}&lng=${loc.lng}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        const rows: { id: string; enemy_id: string; lat: number; lng: number }[] = d.spawns ?? []
+        const isAlive = (id: string) => {
+          try { return !localStorage.getItem(`spawn_dead_${id}`) } catch { return true }
         }
+        const visible: SpawnedEnemy[] = []
+        for (const r of rows) {
+          if (!isAlive(r.id)) continue
+          if (milesBetween(loc.lat, loc.lng, r.lat, r.lng) > 5) continue
+          const enemy = getEnemyById(r.enemy_id)
+          if (!enemy) continue
+          visible.push({ id: r.id, enemy, lat: r.lat, lng: r.lng })
+        }
+        setSpawnedEnemies(visible)
       })
-
-    // Visibility: enemies within 5 miles are shown; battle range is 1 mile
-    const visible = enemies.filter(e => milesBetween(loc.lat, loc.lng, e.lat, e.lng) <= 5)
-
-    setSpawnedEnemies(visible)
+      .catch(() => {})
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gridLat, gridLng, profile, gyms, gymsLoaded, spawnTick])
 

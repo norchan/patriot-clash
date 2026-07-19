@@ -36,7 +36,7 @@ const FC_CD = 650
 // Sprites were dying too easily (Micha) — battle HP is scaled up from the
 // config values. Server victory validation checks damage >= config hp, so a
 // kill at scaled HP always validates.
-const HP_SCALE = 1.4
+const HP_SCALE = 1.9 // Michael: sprites were still dying too fast
 
 // Rotating battle stages. `ground` = feet line, % from the bottom of the
 // screen — tuned per backdrop so the sprite stands on the visible ground.
@@ -392,7 +392,7 @@ function BattleContent() {
       const res = await fetch('/api/battles', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          enemy_id: enemy!.id, result, moves_used: moves,
+          enemy_id: enemy!.id, result, moves_used: moves, spawn_id: spawnId,
           duration_secs: Math.round((Date.now() - startTime.current) / 1000),
         }),
       })

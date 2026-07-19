@@ -167,6 +167,17 @@ export async function POST(req: NextRequest) {
         })
         captured = !capErr
       }
+      // shared-spawn bookkeeping: a catch hides the spawn for THIS player
+      // and, at 5 catches, for everyone
+      if (captured && typeof body.spawn_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.spawn_id)) {
+        const { data: firstCatch } = await admin.from('spawn_catches')
+          .upsert({ spawn_id: body.spawn_id, profile_id: profile.id },
+                  { onConflict: 'spawn_id,profile_id', ignoreDuplicates: true })
+          .select('spawn_id')
+        if (firstCatch?.length) {
+          await admin.rpc('increment_spawn_catches', { p_spawn_id: body.spawn_id })
+        }
+      }
     } else if (result === 'defeat') {
       await admin
         .from('profiles')
