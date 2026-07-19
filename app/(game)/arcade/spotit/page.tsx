@@ -268,7 +268,7 @@ export default function SpotItPage() {
         )}
       </div>
 
-      <p className="text-center text-white/40 text-[11px] mt-3">4 scenes · 20 versions each — no two rounds alike.</p>
+      <p className="text-center text-white/40 text-[11px] mt-3">{BANK.length} scene{BANK.length===1?'':'s'} · 20 hand-made versions each — no two rounds alike. More scenes landing soon.</p>
 
       <style>{`
         @keyframes foundPop { 0% { transform: scale(0.3); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
