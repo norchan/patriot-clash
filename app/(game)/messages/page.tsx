@@ -9,6 +9,7 @@ interface Conversation {
   avatar_url: string | null
   party: 'democrat' | 'republican' | null
   last_message: string
+  unread?: number
   last_from_me: boolean
   last_at: string
 }
@@ -72,7 +73,12 @@ export default function MessagesPage() {
             const color = c.party === 'democrat' ? '#2563eb' : c.party === 'republican' ? '#dc2626' : '#6b7280'
             return (
               <div key={c.user_id}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-900 transition">
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-900 transition"
+                style={(c.unread ?? 0) > 0 ? {
+                  // unopened thread: soft purple wash + edge bar so it pops
+                  background: 'linear-gradient(90deg, rgba(124,58,237,0.16), rgba(124,58,237,0.05))',
+                  boxShadow: 'inset 3px 0 0 #7c3aed',
+                } : undefined}>
                 <button onClick={() => router.push(`/messages/${c.user_id}`)}
                   className="flex items-center gap-3 flex-1 min-w-0 text-left">
                   {c.avatar_url ? (
@@ -87,9 +93,16 @@ export default function MessagesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-white font-bold text-sm truncate">{c.username}</span>
-                      <span className="text-gray-600 text-[11px] flex-shrink-0">{timeAgo(c.last_at)}</span>
+                      <span className="flex items-center gap-1.5 flex-shrink-0">
+                        {(c.unread ?? 0) > 0 && (
+                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-purple-500 text-white text-[10px] font-black flex items-center justify-center">
+                            {c.unread! > 99 ? '99+' : c.unread}
+                          </span>
+                        )}
+                        <span className="text-gray-600 text-[11px]">{timeAgo(c.last_at)}</span>
+                      </span>
                     </div>
-                    <p className="text-gray-500 text-xs truncate mt-0.5">
+                    <p className={`text-xs truncate mt-0.5 ${(c.unread ?? 0) > 0 ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>
                       {c.last_from_me ? 'You: ' : ''}{c.last_message}
                     </p>
                   </div>

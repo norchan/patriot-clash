@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest) {
 
     const { data: msgs } = await admin
       .from('direct_messages')
-      .select('conversation_id, sender_id, receiver_id, content, created_at')
+      .select('conversation_id, sender_id, receiver_id, content, created_at, read_at')
       .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`)
       .order('created_at', { ascending: false })
       .limit(400)
@@ -30,10 +30,14 @@ export async function GET(_req: NextRequest) {
       if (b.blocked_id === profile.id) hidden.add(b.blocker_id)
     })
 
-    // Latest message per conversation (msgs are newest-first)
+    // Latest message per conversation (msgs are newest-first) + unread tally
     const latest = new Map<string, typeof msgs[number]>()
+    const unread = new Map<string, number>()
     for (const m of msgs) {
       if (!latest.has(m.conversation_id)) latest.set(m.conversation_id, m)
+      if (m.receiver_id === profile.id && !m.read_at) {
+        unread.set(m.conversation_id, (unread.get(m.conversation_id) ?? 0) + 1)
+      }
     }
 
     const otherIds = [...new Set(
@@ -62,6 +66,7 @@ export async function GET(_req: NextRequest) {
           last_message: (m.content ?? '📷 Photo').slice(0, 90),
           last_from_me: m.sender_id === profile.id,
           last_at: m.created_at,
+          unread: unread.get(m.conversation_id) ?? 0,
         }
       })
       .filter(Boolean)
