@@ -152,6 +152,8 @@ export default function MapPage() {
   const gymMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   // Arcade markers sit just west of each hall; every one opens /arcade
   const arcadeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  // Arena — mirrored east of the LOCAL hall only; opens /arena
+  const arenaMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const enemyMarkersRef = useRef<mapboxgl.Marker[]>([])
   const playerMarkerRef = useRef<mapboxgl.Marker | null>(null)
   // Keyed by profile_id so refreshes UPDATE markers in place — tearing down
@@ -266,6 +268,10 @@ export default function MapPage() {
     // zoom (z12) so they never linger at city scale
     const showArcades = z >= 12
     const arcadeScale = Math.max(0.85, Math.min(1.4, 1.4 - (z - 12) * 0.13))
+    arenaMarkersRef.current.forEach(mk => {
+      const inner = mk.getElement().querySelector('.arc-scale') as HTMLElement | null
+      if (inner) inner.style.transform = `scale(${arcadeScale})`
+    })
     arcadeMarkersRef.current.forEach(mk => {
       const el = mk.getElement()
       el.style.display = showArcades ? '' : 'none'
@@ -939,6 +945,29 @@ export default function MapPage() {
         arcadeMarkersRef.current.set(g.id, marker)
       }
 
+      // ── Arena — ONE only, east of the hall nearest the PLAYER ────────────
+      for (const [id, mk] of arenaMarkersRef.current) {
+        if (!arcadeKeep.has(id)) { mk.remove(); arenaMarkersRef.current.delete(id) }
+      }
+      if (nearestGym && !arenaMarkersRef.current.has(nearestGym.id)) {
+        const g = nearestGym
+        const arenaLng = g.longitude + 0.0062 / Math.cos(g.latitude * Math.PI / 180) // ~0.43 mi east
+        const el = document.createElement('div')
+        el.innerHTML = `
+          <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
+            <img src="/arena.png" alt="Arena" draggable="false" style="
+              width:64px;height:auto;pointer-events:none;
+              filter:drop-shadow(0 0 6px #d97706) drop-shadow(0 3px 5px rgba(0,0,0,0.6));" />
+          </div>`
+        el.style.cursor = 'pointer'
+        el.title = 'The Arena'
+        el.addEventListener('click', () => router.push('/arena'))
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([arenaLng, g.latitude])
+          .addTo(map.current!)
+        arenaMarkersRef.current.set(g.id, marker)
+      }
+
       visible.forEach(gym => {
         if (gymMarkersRef.current.has(gym.id)) return
         const partyColor = gym.holder_party === 'democrat' ? '#2563eb'
@@ -1424,17 +1453,34 @@ export default function MapPage() {
                 📤
               </button>
             </div>
+            {/* Arena — fused share, mirrors the profile row */}
+            <div className="flex rounded-xl overflow-hidden border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+              <button
+                onClick={() => router.push('/arena')}
+                className="flex-1 py-3 font-bold text-white transition active:bg-black/20">
+                🏟️ Arena
+              </button>
+              <div className="w-px my-2 bg-white/25" />
+              <button
+                aria-label="Share the Arena"
+                onClick={async () => {
+                  const url = `${window.location.origin}/arena`
+                  const data = { title: 'PoliticsGo Arena', text: '🏟️ Meet me in the PoliticsGo Arena — national rankings on the line', url }
+                  try {
+                    if (navigator.share) await navigator.share(data)
+                    else { await navigator.clipboard.writeText(url); showPvpToast('🔗 Arena link copied!') }
+                  } catch { /* user closed the share sheet */ }
+                }}
+                className="px-5 py-3 text-white text-lg transition active:bg-black/20">
+                📤
+              </button>
+            </div>
             <button
               onClick={() => router.push('/messages')}
               className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
               style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-              💬 My Messages
-            </button>
-            <button
-              onClick={() => router.push('/fighter3d')}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-              🥊 Choose Your Fighter
+              💬 Messages
             </button>
             <button
               onClick={() => {
