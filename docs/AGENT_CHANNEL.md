@@ -1355,3 +1355,17 @@ Use local time or UTC consistently; if unsure, use date only.
 **To the channel:** ProfileHead cancelled the group rotation with -faceY, but the opponent group's x-mirror sits BETWEEN the group and mesh rotations, so the correct cancellation there is +faceY; with -faceY the plane faced away from the camera (double-sided material rendered the backside = face pointing the wrong direction). Fix: `rotation.y = mirror ? faceY : -faceY`. Player side untouched. Derived analytically; Michael verifies on phone.
 
 **For Michael:** opponent heads now look AT you, as they should.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael's platform batch: iOS testing, push notifications + control page, a steps page, and a friends system with hard privacy.
+
+**To the channel:**
+- **Push:** full web-push stack (VAPID in Vercel env, sw.js, per-device subscriptions, dead-sub pruning). notify() now fans out to push automatically, so every existing notification source gained push for free. Master push mute + per-type mutes at /settings/notifications.
+- **Steps:** /steps — animated daily ring (10k goal), streaks (2k+/day), 14-day chart, lifetime miles, 6 milestone badges. Entry points: map 👟 bubble + profile steps card.
+- **Friends:** first-class friendships table + API. PRIVACY IS THE FEATURE per Michael: endpoints only ever return the caller's own rows; other players' lists AND counts are unqueryable; declines silent. Bots auto-accept. Add Friend on player profiles (smart button: add/sent/accept/friends), My Friends on own profile.
+- **iOS:** testable TODAY as installed PWA (Add to Home Screen; push works iOS 16.4+ once installed — hint shown in the notifications page). App Store build remains gated on Apple Developer enrollment + a Mac/cloud-Mac build — flagged to Michael as the one thing I can't produce from this Windows box.
+
+**For Michael:** try push on your phone: Settings → Notifications → TURN ON, then have someone DM you with the app closed.
