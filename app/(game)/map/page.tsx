@@ -107,6 +107,11 @@ export default function MapPage() {
 
   // Map state
   const [gyms, setGyms] = useState<Gym[]>([])
+  // staged load: player → halls/buildings → sprites → players; set once hall
+  // data (cached or fresh) is available
+  const [gymsLoaded, setGymsLoaded] = useState(false)
+  const didFitRef = useRef(false)
+  const playersStartedRef = useRef(false)
   const [spawnedEnemies, setSpawnedEnemies] = useState<SpawnedEnemy[]>([])
   const [spawnTick, setSpawnTick] = useState(0)
 
@@ -565,9 +570,13 @@ export default function MapPage() {
       }
     }
 
-    fetchAndRender()
+    // stage 4: other players load last on the first paint, instantly after
+    const firstDelay = playersStartedRef.current ? 0 : (gymsLoaded ? 900 : 1800)
+    playersStartedRef.current = true
+    const t = setTimeout(fetchAndRender, firstDelay)
     const interval = setInterval(fetchAndRender, 8000)
     return () => {
+      clearTimeout(t)
       clearInterval(interval)
       otherPlayerMarkersRef.current.forEach(m => m.remove())
       otherPlayerMarkersRef.current = new Map()
@@ -809,13 +818,45 @@ export default function MapPage() {
   }
 
   // ── Gyms (refetch only when moving to a new ~1km grid cell) ───────────────
+  // Cache-first: last fetch is rendered instantly (hall positions never move;
+  // holder colors may be seconds stale until the fresh copy lands right after)
   useEffect(() => {
     if (!gridLat || !gridLng) return
     const loc = locationRef.current
     if (!loc) return
+
+    const firstFit = (arr: Gym[]) => {
+      // opening shot: the player AND their closest town hall in one frame
+      if (didFitRef.current || !map.current || !arr.length) return
+      const at = displayedLocRef.current ?? loc
+      const nearest = [...arr].sort((a, b) =>
+        Math.hypot(a.latitude - at.lat, a.longitude - at.lng) -
+        Math.hypot(b.latitude - at.lat, b.longitude - at.lng))[0]
+      if (!nearest || milesBetween(at.lat, at.lng, nearest.latitude, nearest.longitude) > 30) return
+      didFitRef.current = true
+      const b = new mapboxgl.LngLatBounds([at.lng, at.lat], [at.lng, at.lat])
+      b.extend([nearest.longitude, nearest.latitude])
+      map.current.fitBounds(b, { padding: { top: 150, bottom: 230, left: 70, right: 70 }, maxZoom: 15.5, pitch: 30, duration: 1400 })
+    }
+
+    try {
+      const c = JSON.parse(localStorage.getItem('gyms_cache_v1') || 'null')
+      if (c && Date.now() - c.at < 15 * 60_000 && milesBetween(c.lat, c.lng, loc.lat, loc.lng) < 2) {
+        setGyms(g => (g.length ? g : c.gyms))
+        setGymsLoaded(true)
+        firstFit(c.gyms)
+      }
+    } catch {}
+
     fetch(`/api/gyms?lat=${loc.lat}&lng=${loc.lng}`)
       .then(r => r.json())
-      .then(data => setGyms(data.gyms || []))
+      .then(data => {
+        const arr = data.gyms || []
+        setGyms(arr)
+        setGymsLoaded(true)
+        firstFit(arr)
+        try { localStorage.setItem('gyms_cache_v1', JSON.stringify({ at: Date.now(), lat: loc.lat, lng: loc.lng, gyms: arr })) } catch {}
+      })
       .catch(console.error)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gridLat, gridLng])
@@ -1032,6 +1073,7 @@ export default function MapPage() {
   // ── Enemy spawns ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!gridLat || !gridLng || !profile) return
+    if (!gymsLoaded) return // stage 3: sprites come after the halls are up
     const loc = locationRef.current
     if (!loc) return
 
@@ -1129,7 +1171,7 @@ export default function MapPage() {
 
     setSpawnedEnemies(visible)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridLat, gridLng, profile, gyms, spawnTick])
+  }, [gridLat, gridLng, profile, gyms, gymsLoaded, spawnTick])
 
   useEffect(() => {
     if (!map.current || spawnedEnemies.length === 0) return

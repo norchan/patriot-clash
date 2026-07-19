@@ -62,7 +62,8 @@
       "mcp__claude_ai_Supabase__execute_sql",
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/arena_cut.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_053253_43112ff4-fa5a-4be5-b520-c94df19befd5.png)",
       "Bash(SPD=C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad node -e 'const sharp=require\\('\\\\''sharp'\\\\''\\);sharp\\(process.env.SPD+'\\\\''/arena_cut.png'\\\\''\\).trim\\(\\).resize\\({width:512}\\).png\\(\\).toFile\\('\\\\''public/arena.png'\\\\''\\).then\\(i=>console.log\\('\\\\''arena.png'\\\\'',i.width+'\\\\''x'\\\\''+i.height\\)\\)')",
-      "Bash(git commit -q -m 'Map: arena marker twins the arcade — 58px, same zoom scale, vanishes below z12; equal east/west offsets keep the hall centered *)"
+      "Bash(git commit -q -m 'Map: arena marker twins the arcade — 58px, same zoom scale, vanishes below z12; equal east/west offsets keep the hall centered *)",
+      "Bash(git commit -q -m 'Map: staged loading, hall cache, opening shot frames player + nearest hall *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
