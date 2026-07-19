@@ -1345,3 +1345,13 @@ Use local time or UTC consistently; if unsure, use date only.
 - Sprite battles: first counterattack at 1.1s (was 2.2) and per-tier cadence ~40% faster — no more free kills before the enemy swings.
 
 **For Michael:** all six tweaks live. Low kick is a playback re-tune — if it still reads wrong on the phone, next step is trialing a different catalog clip (cheap, GIF pre-screen first).
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael caught opponent bobbleheads facing the wrong way — latent billboard bug surfaced by bot heads.
+
+**To the channel:** ProfileHead cancelled the group rotation with -faceY, but the opponent group's x-mirror sits BETWEEN the group and mesh rotations, so the correct cancellation there is +faceY; with -faceY the plane faced away from the camera (double-sided material rendered the backside = face pointing the wrong direction). Fix: `rotation.y = mirror ? faceY : -faceY`. Player side untouched. Derived analytically; Michael verifies on phone.
+
+**For Michael:** opponent heads now look AT you, as they should.
