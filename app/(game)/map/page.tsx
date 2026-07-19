@@ -269,7 +269,9 @@ export default function MapPage() {
     const showArcades = z >= 12
     const arcadeScale = Math.max(0.85, Math.min(1.4, 1.4 - (z - 12) * 0.13))
     arenaMarkersRef.current.forEach(mk => {
-      const inner = mk.getElement().querySelector('.arc-scale') as HTMLElement | null
+      const el = mk.getElement()
+      el.style.display = showArcades ? '' : 'none' // twin behavior with the arcade
+      const inner = el.querySelector('.arc-scale') as HTMLElement | null
       if (inner) inner.style.transform = `scale(${arcadeScale})`
     })
     arcadeMarkersRef.current.forEach(mk => {
@@ -956,7 +958,7 @@ export default function MapPage() {
         el.innerHTML = `
           <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
             <img src="/arena.png" alt="Arena" draggable="false" style="
-              width:64px;height:auto;pointer-events:none;
+              width:58px;height:auto;pointer-events:none;
               filter:drop-shadow(0 0 6px #d97706) drop-shadow(0 3px 5px rgba(0,0,0,0.6));" />
           </div>`
         el.style.cursor = 'pointer'
