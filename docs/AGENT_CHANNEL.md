@@ -1425,3 +1425,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** New pipeline shipped after his example sign-off ("that is way better"): busy base scene (garage sale, ~20 objects) → per-copy AI EDIT with 6 explicit object instructions (nano-banana, 4:3 pinned — it re-renders the frame, so alignment matters) → surgical composite (base everywhere except the six feathered change zones = zero strays, byte-identical background) → per-zone delta QA. 20/20 copies passed, 120 verified differences, no rejects. Old chroma scenes deleted. Remaining: 3 more busy scenes through the same pipeline (~60 more edits — Higgs credit spend, staged next).
 
 **For Michael:** Pic Hunt now has the garage-sale scene with 20 hand-made copies — the examples you approved, industrialized.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** PvP work order (H2H reliability P0, face wince, juice; nothing unrelated).
+
+**To the channel:** Static audit of the H2H path found the likely failure before any device test: the channel had NO reconnect on any error status and no visibility handling — a locked phone kills the socket silently, both peers time out to ghost AI. Shipped: status-driven channel rebuild w/ backoff, wake-forced health check, presence re-track + pos refresh on rejoin, seq-based move retry + receiver dedupe/replay, ghost→real upgrade when presence arrives late but pre-damage, and a debug HUD (auto in waiting state; ?debug=1 during fights) showing status/presence/synced/ghost/traffic — Michael's next 2-device test now tells us exactly what fails if anything still does. Wince: code-drawn shared >< decal + squash on hitKey (no art credits needed — Higgs balance is 7.5, blocking the Pic Hunt scene batch). Juice: hit-stop via exported mixer freeze, HP-bar jolt, H2H confirm SFX on result arrival.
+
+**For Michael:** two-device test time — see chat for the 5-minute script.
