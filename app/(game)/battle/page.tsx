@@ -52,10 +52,12 @@ const TIER_COLORS = { common: '#9ca3af', rare: '#a78bfa', legendary: '#facc15' }
 
 // Dodge eagerness + counterattack cadence. MOVEMENT itself is identical for
 // every sprite — higher tiers just dodge more often and attack faster.
+// Aggression buffed (Michael: sprites died before landing one strike) —
+// enemies open earlier and throw ~40% more often
 const TIER_AI = {
-  common:    { dodge: 0.26, attackMs: 3200 },
-  rare:      { dodge: 0.42, attackMs: 2600 },
-  legendary: { dodge: 0.58, attackMs: 2100 },
+  common:    { dodge: 0.26, attackMs: 2300 },
+  rare:      { dodge: 0.42, attackMs: 1900 },
+  legendary: { dodge: 0.58, attackMs: 1500 },
 }
 
 // What each character throws back at you
@@ -235,7 +237,7 @@ function BattleContent() {
       setEnemyHp(hp); setMaxHp(hp)
       S.current.enemyHp = hp
       const now = Date.now()
-      S.current.nextFoeThrowAt = now + 2200
+      S.current.nextFoeThrowAt = now + 1100 // first counterattack comes fast — no free opening burst
       S.current.nextStepAt = now + 1600
       S.current.endAt = now + BATTLE_MS
       startTime.current = now

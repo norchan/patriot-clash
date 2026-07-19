@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { headMeta } from '@/config/heads'
+import { headMeta, HEADS } from '@/config/heads'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fighterLevel, sanitizeFighter } from '@/lib/fighter'
@@ -12,6 +12,17 @@ function partyHead(headId?: string | null, party?: string | null): string | null
   if (!headId) return null
   const hp = headMeta(headId)?.party
   return hp && hp !== party ? null : headId
+}
+
+// 75% of bots wear a bobblehead (Michael) — deterministic per bot id so a
+// bot keeps the same face between fights, party-appropriate, well mixed.
+function botHead(id: string, party?: string | null): string | null {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (Math.imul(33, h) + id.charCodeAt(i)) | 0
+  if (Math.abs(h) % 100 >= 75) return null // the bare-headed 25%
+  const pool = HEADS.filter(x => !x.party || x.party === party)
+  if (!pool.length) return null
+  return pool[Math.abs(Math.imul(h, 2654435761)) % pool.length].id
 }
 
 function pickFighter(id: string, party?: string | null): string {
@@ -76,8 +87,10 @@ export async function GET(
         // chosen 3D fighter (falls back deterministically if unset, e.g. bots)
         challenger_pvp_fighter: c?.pvp_fighter ?? pickFighter(challenge.challenger_id, c?.party),
         defender_pvp_fighter: d?.pvp_fighter ?? pickFighter(challenge.defender_id, d?.party),
-        challenger_head_id: partyHead(c?.head_id, c?.party),
-        defender_head_id: partyHead(d?.head_id, d?.party),
+        challenger_head_id: partyHead(c?.head_id, c?.party)
+          ?? (c?.clerk_user_id?.startsWith('bot_') ? botHead(challenge.challenger_id, c?.party) : null),
+        defender_head_id: partyHead(d?.head_id, d?.party)
+          ?? (d?.clerk_user_id?.startsWith('bot_') ? botHead(challenge.defender_id, d?.party) : null),
         challenger_is_bot: !!c?.clerk_user_id?.startsWith('bot_'),
         defender_is_bot: !!d?.clerk_user_id?.startsWith('bot_'),
       })

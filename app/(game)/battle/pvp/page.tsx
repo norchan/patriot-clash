@@ -856,13 +856,21 @@ function StreetFightPage() {
   //    ⚡ power W (spend meter, buff next contact) · ★ special CENTER ─────────
   // Impact timings match each clip's visible strike frame:
   // straight clip lands ~270ms after press, jab clip ~150ms.
+  // Explicit arms (Michael): pad W = left-hand punch, pad E = right-hand punch
+  function playerPunchL() {
+    if (!canStrike(PUNCH_CD)) return
+    strikeCore('cross', false, 'LEFT PUNCH', 150)
+  }
+  function playerPunchR() {
+    if (!canStrike(PUNCH_CD)) return
+    strikeCore('cross', true, 'RIGHT PUNCH', 270)
+  }
+  // keyboard/legacy entry: alternate arms
   function playerPunch() {
     const S = L.current
-    const now = Date.now()
-    const right = (now - S.lastHit > 700) ? true : !S.tapAlt // alternate arms
-    if (!canStrike(PUNCH_CD)) return
+    const right = (Date.now() - S.lastHit > 700) ? true : !S.tapAlt
     S.tapAlt = right
-    strikeCore('cross', right, 'PUNCH', right ? 270 : 150)
+    if (right) playerPunchR(); else playerPunchL()
   }
   function playerHighKick() {
     if (!canStrike(KICK_CD)) return
@@ -872,7 +880,7 @@ function StreetFightPage() {
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('hook', false, 'LEG KICK', 250) // thrust-kick extension lands ~250ms after trigger
+    strikeCore('hook', false, 'LEG KICK', 205) // faster clip (2.3x) — extension lands ~205ms after trigger
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
@@ -1400,18 +1408,23 @@ function StreetFightPage() {
           )
           const attack = (
             <div className="relative select-none" style={{ width: 138, height: 138 }}>
+              {/* N head kick · S low kick · W LEFT punch · E RIGHT punch ·
+                  CENTER special · ⚡ power tucked in the NW corner */}
               <button title="Head kick (high)" className={base} style={{ top: 0, left: 47 }}
                 onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerHighKick() }}>🦵</button>
               <button title="Leg kick (low)" className={base} style={{ bottom: 0, left: 47 }}
                 onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerLowKick() }}>🦶</button>
-              <button title="Punch" className={base} style={{ top: 47, right: 0 }}
-                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunch() }}>👊</button>
-              <button title="Power (spend meter — next hit lands harder)"
-                className={`${base} ${powerArmed ? 'bg-yellow-500/50 border-yellow-300/60' : ''}`} style={{ top: 47, left: 0 }}
-                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPower() }}>⚡</button>
+              <button title="Left-hand punch" className={base} style={{ top: 47, left: 0 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunchL() }}>🤛</button>
+              <button title="Right-hand punch" className={base} style={{ top: 47, right: 0 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunchR() }}>🤜</button>
               <button title="Special (full power bar)"
                 className={`${base} ${meter >= 100 ? 'bg-yellow-500/50 border-yellow-300/60 animate-pulse' : ''}`} style={{ top: 47, left: 47 }}
                 onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerSpecial() }}>★</button>
+              <button title="Power (spend meter — next hit lands harder)"
+                className={`${base} ${powerArmed ? 'bg-yellow-500/50 border-yellow-300/60' : ''}`}
+                style={{ top: 0, left: 0, transform: 'scale(0.82)' }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPower() }}>⚡</button>
             </div>
           )
           const swallow = {

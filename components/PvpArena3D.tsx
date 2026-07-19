@@ -37,7 +37,7 @@ const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan
 // the plane is body-locked (rotY cancels the fighter's facing so the plane
 // stays screen-parallel) — the player's head looks RIGHT at the opponent, and
 // the mirrored foe's flips to look left. Not a camera billboard.
-function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: number; getHeadBone: () => THREE.Object3D | null }) {
+function ProfileHead({ headId, faceY, duck = false, getHeadBone }: { headId: string; faceY: number; duck?: boolean; getHeadBone: () => THREE.Object3D | null }) {
   const tex = useTexture(headSideImage(headId))
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
@@ -54,8 +54,11 @@ function ProfileHead({ headId, faceY, getHeadBone }: { headId: string; faceY: nu
   const img = tex.image as { width?: number; height?: number } | undefined
   const aspect = img?.width && img?.height ? img.width / img.height : 1
   const H = 0.85 * (meta?.scale ?? 1) // full head to the jaw line — no clothing
+  // the crouch squashes the parent group — un-squash the head so the bobble
+  // keeps its proportions while the body ducks
+  const yFix = duck ? 1 / 0.82 : 1
   return (
-    <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H, 1]}>
+    <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H * yFix, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={tex} transparent alphaTest={0.3} depthWrite={false} side={THREE.DoubleSide} />
     </mesh>
@@ -116,7 +119,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
         // HEAD KICK: Step_in_High_Kick (218) — leg extended head-height at ~0.56s
         kickHi: oneShot(kickHiGltf, 0.2, 1.4),
         // LEG KICK: Simple_Kick (103) — thrust kick extends at ~1.0s raw
-        kickLo: oneShot(kickLoGltf, 0.55, 1.8),
+        kickLo: oneShot(kickLoGltf, 0.62, 2.3), // skip deeper into the wind-up + faster = a snapping leg kick, not a slow push
         hit: oneShot(hitGltf, 0.12, 1.6),
       },
     }
@@ -227,9 +230,9 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   // Opponent (player 2) is MIRRORED across X — like every fighting game — so its
   // asymmetric boxing guard reads correctly instead of turning into an arms-up pose.
   return (
-    <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.68 : 1, 1]}>
+    <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.82 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
-      {headId && <ProfileHead headId={headId} faceY={faceY} getHeadBone={() => head} />}
+      {headId && <ProfileHead headId={headId} faceY={faceY} duck={duck} getHeadBone={() => head} />}
     </group>
   )
 }
