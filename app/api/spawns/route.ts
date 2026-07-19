@@ -28,6 +28,13 @@ export async function GET(req: NextRequest) {
     // regenerate any hall whose drop is stale (10-min cadence, advisory-locked)
     await Promise.all(gymIds.map(id => admin.rpc('ensure_gym_spawns', { p_gym_id: id, p_roster: ROSTER })))
 
+    // ⚠ TEST-ONLY (Michael): full roster within a mile of Riggs Rd, St. Peter.
+    // Remove this block + the ensure_test_spawns function to end the test.
+    const ST_PETER_GYM = '71f74104-8867-49f4-acb7-598aa3617e00'
+    if (gymIds.includes(ST_PETER_GYM)) {
+      await admin.rpc('ensure_test_spawns', { p_roster: ROSTER })
+    }
+
     const [{ data: rows }, { data: mine }] = await Promise.all([
       admin.from('enemy_spawns')
         .select('id, gym_id, enemy_id, lat, lng, expires_at, catch_count')

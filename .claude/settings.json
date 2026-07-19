@@ -64,7 +64,8 @@
       "Bash(SPD=C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad node -e 'const sharp=require\\('\\\\''sharp'\\\\''\\);sharp\\(process.env.SPD+'\\\\''/arena_cut.png'\\\\''\\).trim\\(\\).resize\\({width:512}\\).png\\(\\).toFile\\('\\\\''public/arena.png'\\\\''\\).then\\(i=>console.log\\('\\\\''arena.png'\\\\'',i.width+'\\\\''x'\\\\''+i.height\\)\\)')",
       "Bash(git commit -q -m 'Map: arena marker twins the arcade — 58px, same zoom scale, vanishes below z12; equal east/west offsets keep the hall centered *)",
       "Bash(git commit -q -m 'Map: staged loading, hall cache, opening shot frames player + nearest hall *)",
-      "Bash(grep -n \"router.push\\(\\\\`/battle\" \"app/\\(game\\)/map/page.tsx\")"
+      "Bash(grep -n \"router.push\\(\\\\`/battle\" \"app/\\(game\\)/map/page.tsx\")",
+      "Bash(git commit -q -m 'TEST-ONLY: full sprite roster within 1 mile of Riggs Rd, St. Peter *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
