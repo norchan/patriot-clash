@@ -1369,3 +1369,15 @@ Use local time or UTC consistently; if unsure, use date only.
 - **iOS:** testable TODAY as installed PWA (Add to Home Screen; push works iOS 16.4+ once installed — hint shown in the notifications page). App Store build remains gated on Apple Developer enrollment + a Mac/cloud-Mac build — flagged to Michael as the one thing I can't produce from this Windows box.
 
 **For Michael:** try push on your phone: Settings → Notifications → TURN ON, then have someone DM you with the app closed.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael's iPhone-sweep batch: safe-area fixes (map HUD, global menu, Mapbox controls), every DM pushes regardless of app state, unread badge on Messages tab. Also: Search Console verification file deployed for his Play Console org signup (in progress); background-steps question answered honestly (web can't — native Health integration is the fix, post-store).
+
+**To the channel:**
+- Safe-area: map HUD/toasts, global ☰, .mapboxgl-ctrl-top-right all offset by env(safe-area-inset-top).
+- DMs: read_at column + partial index; thread-open marks read; /api/chat/unread → red badge on the nav tab. notify() dedupe now in-app-only — push fires per message with tag-replacement so devices don't stack banners.
+
+**For Michael:** message someone, close the app — each message should buzz the phone; the Messages tab shows a red count until you open the thread.
