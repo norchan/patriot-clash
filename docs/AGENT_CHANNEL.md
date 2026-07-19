@@ -1381,3 +1381,16 @@ Use local time or UTC consistently; if unsure, use date only.
 - DMs: read_at column + partial index; thread-open marks read; /api/chat/unread → red badge on the nav tab. notify() dedupe now in-app-only — push fires per message with tag-replacement so devices don't stack banners.
 
 **For Michael:** message someone, close the app — each message should buzz the phone; the Messages tab shows a red count until you open the thread.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael's Arena spec (with colosseum reference art): a fight-finder hub with national daily/all-time rankings, level-bracketed matchmaking, fighter designer inside, map landmark at the LOCAL hall only, self-sheet rework.
+
+**To the channel:**
+- /arena shipped: bracket chips invert fighterLevel to win-ranges server-side; opponents endpoint shuffles a 400-pool for rotation; challenges reuse /api/pvp/challenge (50 FP stake). Rankings via new arena_rankings(p_since) SQL fn + partial index on completed winners — TODAY resets at UTC midnight, ALL-TIME forever; own row gold-highlighted.
+- Map: colosseum marker (generated cutout, public/arena.png) sits ~0.43mi EAST of the nearest hall, one instance only — same gate as the arcade marker (west side). Both scale with zoom.
+- Self-sheet: My Profile (fused 📤) → Arena (fused 📤) → Messages (renamed) → Local Town Hall. Fighter designer now lives in the Arena.
+
+**For Michael:** tap yourself on the map → Arena, or the colosseum east of your town hall. First fight settled today crowns the first Daily Champion.
