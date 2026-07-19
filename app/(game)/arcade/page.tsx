@@ -17,6 +17,10 @@ interface GameEntry {
 
 const GAMES: GameEntry[] = [
   {
+    id: 'spotit', name: 'Pic Hunt', art: '/arcade/spotit.jpg', accent: '#38bdf8',
+    tagline: 'Spot the differences before the clock runs out', href: '/arcade/spotit', badge: 'EARN FP',
+  },
+  {
     id: 'landslide', name: 'Landslide', art: '/arcade/landslide.jpg', accent: '#f472b6',
     tagline: 'Match 3 · cascades · win a landslide of FP', href: '/arcade/landslide', badge: 'EARN FP',
   },
@@ -27,10 +31,6 @@ const GAMES: GameEntry[] = [
   {
     id: 'chess', name: 'Checkmate Chamber', art: '/arcade/chess.jpg', accent: '#ffd700',
     tagline: 'Chess puzzles · mate in 1, 2 or 3 · classic board', href: '/arcade/chess', badge: 'EARN FP',
-  },
-  {
-    id: 'spotit', name: 'Pic Hunt', art: '/arcade/spotit.jpg', accent: '#38bdf8',
-    tagline: 'Spot the differences before the clock runs out', href: '/arcade/spotit', badge: 'EARN FP',
   },
   {
     id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15',

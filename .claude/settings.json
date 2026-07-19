@@ -70,7 +70,8 @@
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_garage.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_064124_c07dec42-c58a-41e7-b129-f241e23451c0.png)",
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_picnic.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_064125_c13bf5d5-bdde-4866-aa7f-807af0029c90.png)",
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_camp.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_064127_230dff6c-1314-47ec-ad5f-709c59ab4f73.png)",
-      "Bash(node scripts/gen_spotit_variants.mjs \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad\")"
+      "Bash(node scripts/gen_spotit_variants.mjs \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad\")",
+      "Bash(git commit -q -m 'Arcade: Pic Hunt first in the list *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
