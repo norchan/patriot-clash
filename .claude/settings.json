@@ -79,7 +79,8 @@
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/sale_vA.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_070654_e3d8a195-8a48-45b9-9279-2393b6df39e4.png)",
       "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/sale_vB.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_070655_d3d11ac4-3454-4510-842d-2d4e77ffc652.png)",
       "Bash(SPD=C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad node -e ' *)",
-      "Bash(rm -f public/spotit2/kitchen*.jpg public/spotit2/garage*.jpg public/spotit2/picnic*.jpg public/spotit2/camp*.jpg)"
+      "Bash(rm -f public/spotit2/kitchen*.jpg public/spotit2/garage*.jpg public/spotit2/picnic*.jpg public/spotit2/camp*.jpg)",
+      "mcp__claude_ai_Higgs__balance"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
