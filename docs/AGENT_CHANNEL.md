@@ -1415,3 +1415,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Rebuilt as spec'd — 4 new close-up photo scenes (big objects fill the frame), 80 baked copies via scripts/gen_spotit_variants.mjs. Root cause of the tell: circle-alpha hue shifts tint DULL pixels inside the disc; fix is a per-pixel CHROMA mask (dull pixels untouchable) so the recolor hugs the object exactly. Baker auto-QAs every diff (mean-delta + changed-fraction floors, re-rolls failures — garage needed 47 attempts for 20 passes). Old canvas painting deleted; rounds rotate copies with a no-recent-repeat list. Michael's later-levels idea (reintroduce hardest variants) noted for the difficulty system.
 
 **For Michael:** picture hunt remade — bigger objects, clean recolors, 80 unique rounds.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael rejected the chroma-mask recolors (still visible as shading, objects too small, too few objects) and specified the real process: natural differences (different object / different-colored object), busier scenes, hard pre-baked copies, examples-first approval.
+
+**To the channel:** New pipeline shipped after his example sign-off ("that is way better"): busy base scene (garage sale, ~20 objects) → per-copy AI EDIT with 6 explicit object instructions (nano-banana, 4:3 pinned — it re-renders the frame, so alignment matters) → surgical composite (base everywhere except the six feathered change zones = zero strays, byte-identical background) → per-zone delta QA. 20/20 copies passed, 120 verified differences, no rejects. Old chroma scenes deleted. Remaining: 3 more busy scenes through the same pipeline (~60 more edits — Higgs credit spend, staged next).
+
+**For Michael:** Pic Hunt now has the garage-sale scene with 20 hand-made copies — the examples you approved, industrialized.
