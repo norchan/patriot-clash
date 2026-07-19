@@ -40,3 +40,9 @@ body {
   background: radial-gradient(circle at 50% 42%, #101830 0%, #000 78%);
   animation: battleWipeOut 0.5s ease-out 0.05s forwards;
 }
+
+/* iPhone PWA: keep Mapbox's top-right controls (zoom, home) below the
+   translucent status bar; inset is 0 everywhere else */
+.mapboxgl-ctrl-top-right {
+  top: env(safe-area-inset-top, 0px);
+}

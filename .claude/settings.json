@@ -54,7 +54,8 @@
       "Bash(node -e \"const k=require\\('C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/vapid.json'\\);const fs=require\\('fs'\\);fs.appendFileSync\\('.env.local','\\\\n# Web Push \\(VAPID\\)\\\\nNEXT_PUBLIC_VAPID_PUBLIC_KEY='+k.publicKey+'\\\\nVAPID_PRIVATE_KEY='+k.privateKey+'\\\\nVAPID_SUBJECT=mailto:info@politicsgo.net\\\\n'\\);console.log\\('env appended; public key:',k.publicKey.slice\\(0,20\\)+'...'\\)\")",
       "Bash(npx vercel *)",
       "Bash(git commit -q -m 'Google Search Console site-verification file \\(Play Console org verification\\) *)",
-      "Bash(git commit -q -m 'Map HUD: respect the iPhone safe area \\(status bar / notch\\) *)"
+      "Bash(git commit -q -m 'Map HUD: respect the iPhone safe area \\(status bar / notch\\) *)",
+      "Bash(git commit -q -m 'iPhone safe area: global menu button + Mapbox zoom/home controls *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

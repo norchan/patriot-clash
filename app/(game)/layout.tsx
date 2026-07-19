@@ -44,7 +44,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
       {!immersive && (
-      <div className="fixed top-3 z-[80]" style={{ right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
+      <div className="fixed z-[80]" style={{ top: 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
           className="w-10 h-10 rounded-xl bg-gray-900/90 backdrop-blur border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white shadow-lg transition"
