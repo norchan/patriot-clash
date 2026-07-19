@@ -12,6 +12,11 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-client'
 import dynamic from 'next/dynamic'
 
 const PvpArena3D = dynamic(() => import('@/components/PvpArena3D'), { ssr: false })
+// hit-stop lives in the arena module; loaded lazily (client only)
+let triggerHitStop: (ms: number) => void = () => {}
+if (typeof window !== 'undefined') {
+  import('@/components/PvpArena3D').then(m => { triggerHitStop = m.triggerHitStop })
+}
 
 // Fighters HOLD their guard at boxing mid-range (ANCHOR apart) and trade from
 // there. A strike only LANDS when the gap is within that move's VISUAL reach —
@@ -188,6 +193,7 @@ function StreetFightPage() {
   const [zoom, setZoom] = useState(false)
   const [shake, setShake] = useState(false)
   const [banner, setBanner] = useState('')     // ROUND 1 / K.O. / TIME!
+  const [hpShake, setHpShake] = useState(0)    // heavy-hit HP bar shake driver
   const sparkId = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const replayStarted = useRef(false)
@@ -490,6 +496,8 @@ function StreetFightPage() {
   const [endCard, setEndCard] = useState(false)         // ±FP result card, then auto-map
   const [leaveConfirm, setLeaveConfirm] = useState(false) // "leave mid-fight?" modal
   const [awaitingOpp, setAwaitingOpp] = useState(false)
+  const [dbgTick, setDbgTick] = useState(0) // re-render the debug HUD
+  const showDbg = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
   const liveStarted = useRef(false)
   const channelRef = useRef<ReturnType<ReturnType<typeof createSupabaseBrowserClient>['channel']> | null>(null)
   const L = useRef({
@@ -499,6 +507,10 @@ function StreetFightPage() {
     dodgeUntil: 0, dodgeCd: 0,
     foeNextAt: 0, foeWindupAt: 0, foeMove: 'jab' as Move,
     synced: false, ghost: false, attackSeq: 0,
+    // H2H reliability: retry/dedupe + debug trail
+    pendingMove: null as null | { seq: number; payload: any; at: number; resent: boolean },
+    seenMoves: new Map<number, any>(),
+    dbg: { status: 'boot', presence: '', lastRecvAt: 0, sent: 0, recv: 0, note: '' },
     lastResult: { won: false },
     counts: { taps: 0, kicks: 0, jumpkicks: 0, blocks: 0, combos: 0, specials: 0 },
     myHp: 100, foeHp: 100, meter: 0, powerArmed: false,
@@ -548,6 +560,12 @@ function StreetFightPage() {
 
     const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean; boost?: number }) => {
       if (S.over) return
+      S.dbg.recv++; S.dbg.lastRecvAt = Date.now()
+      // duplicate (their retry): our result broadcast was lost — resend it
+      if (S.seenMoves.has(p.seq)) {
+        chRef.ch?.send({ type: 'broadcast', event: 'result', payload: S.seenMoves.get(p.seq) })
+        return
+      }
       const def = MOVES.find(m => m.move === p.move)!
       const heavy = def.mult > 1
       const now = Date.now()
@@ -578,6 +596,7 @@ function StreetFightPage() {
         setMyPose('hit'); reel(false); addBurst(false, heavy)
         addSpark(false, `-${dmg}`, '#f87171')
         setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.1); setPlayerX(S.playerX) // 3D flinch + knockback
+        contactJuice(heavy || dmg >= 10)
         if (p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook') sfx.kick()
         else sfx.punch(heavy)
         setShake(true); setTimeout(() => setShake(false), 170)
@@ -587,18 +606,24 @@ function StreetFightPage() {
       if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1) // no KO before 14s
       S.myHp = Math.max(0, S.myHp - dmg)
       setMyHp(S.myHp)
-      ch.send({ type: 'broadcast', event: 'result', payload: { seq: p.seq, result, dmg, hp: S.myHp } })
+      const resultPayload = { seq: p.seq, result, dmg, hp: S.myHp }
+      S.seenMoves.set(p.seq, resultPayload)
+      chRef.ch?.send({ type: 'broadcast', event: 'result', payload: resultPayload })
       if (S.myHp === 0) endFight(false, true)
     }
 
     const applyMyAttackResult = (p: { seq: number; result: 'hit' | 'blocked' | 'dodged'; dmg: number; hp: number }) => {
       if (S.over) return
+      S.dbg.recv++; S.dbg.lastRecvAt = Date.now()
+      if (S.pendingMove && S.pendingMove.seq === p.seq) S.pendingMove = null
       S.foeHp = Math.max(0, Math.min(100, p.hp))
       setFoeHp(S.foeHp)
       // ⚡ POWER is consumed by the first successful contact
       if (p.result === 'hit' && S.powerArmed) { S.powerArmed = false; setPowerArmed(false) }
       if (p.result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, p.dmg >= 10)
+        sfx.punch(p.dmg >= 10) // confirm SFX the moment the H2H result lands
+        contactJuice(p.dmg >= 10)
         addSpark(true, `-${p.dmg}`, '#facc15')
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.1); setOppX(S.oppX) // 3D flinch + knockback
         S.meter = Math.min(100, S.meter + p.dmg * 1.7)
@@ -617,14 +642,16 @@ function StreetFightPage() {
       if (S.foeHp === 0) endFight(true, true)
     }
 
-    ch
+    const wire = (c: typeof ch) => c
       .on('broadcast', { event: 'move' }, ({ payload }) => applyIncomingAttack(payload))
       .on('broadcast', { event: 'result' }, ({ payload }) => applyMyAttackResult(payload))
       // opponent's position (mirrored: their left-side X → our right-side X)
-      .on('broadcast', { event: 'pos' }, ({ payload }) => { S.oppX = -payload.x; setOppX(-payload.x) })
-      .on('broadcast', { event: 'blk' }, ({ payload }) => { setOppBlocking(!!payload.on) })
+      .on('broadcast', { event: 'pos' }, ({ payload }) => { S.dbg.lastRecvAt = Date.now(); S.oppX = -payload.x; setOppX(-payload.x) })
+      .on('broadcast', { event: 'blk' }, ({ payload }) => { S.dbg.lastRecvAt = Date.now(); setOppBlocking(!!payload.on) })
       .on('presence', { event: 'sync' }, () => {
-        const roles = Object.keys(ch.presenceState())
+        const roles = Object.keys(c.presenceState())
+        S.dbg.presence = roles.join(',')
+        setDbgTick(t => t + 1)
         const both = roles.includes('c') && roles.includes('d')
         if (both && !S.synced && !S.ghost) {
           S.synced = true
@@ -633,17 +660,95 @@ function StreetFightPage() {
           setBanner('FIGHT!')
           sfx.bell(true)
           setTimeout(() => setBanner(''), 800)
+        } else if (both && S.ghost) {
+          // opponent arrived AFTER the ghost stepped in. If the ghost fight is
+          // still fresh (no damage either way), upgrade to the REAL fight.
+          const fresh = S.myHp === 100 && S.foeHp === 100
+          if (fresh) {
+            S.ghost = false; S.synced = true
+            S.startAt = Date.now(); S.foeWindupAt = 0; S.foeNextAt = 0
+            setTelegraph(false)
+            S.dbg.note = 'ghost->real upgrade'
+            setBanner((theirUsername?.toUpperCase() ?? 'OPPONENT') + ' IS HERE!')
+            sfx.bell(true)
+            setTimeout(() => setBanner(''), 1000)
+          } else {
+            S.dbg.note = 'opp arrived too late - staying ghost'
+            console.warn('[pvp] opponent presence arrived after ghost fight progressed; staying ghost')
+          }
         }
       })
-      .subscribe(async status => {
-        if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() })
-      })
+
+    // reconnect-aware subscribe: recreate the channel if the socket drops.
+    // (Phone lock / network blips kill it silently — the #1 H2H failure.)
+    const chRef = { ch }
+    let retries = 0
+    let disposed = false
+    const makeChannel = () => supabase.channel(`fight-${challengeId}`, {
+      config: { presence: { key: myRole }, broadcast: { self: false } },
+    })
+    const subscribe = (c: typeof ch) => c.subscribe(async status => {
+      S.dbg.status = status
+      setDbgTick(t => t + 1)
+      if (status === 'SUBSCRIBED') {
+        retries = 0
+        await c.track({ at: Date.now() })
+        // refresh the opponent's view of us after a (re)join
+        c.send({ type: 'broadcast', event: 'pos', payload: { x: S.playerX } })
+      } else if (!disposed && (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED')) {
+        console.warn('[pvp] channel', status, '- reconnecting')
+        S.dbg.note = 'reconnect after ' + status
+        try { supabase.removeChannel(chRef.ch) } catch {}
+        const delay = Math.min(4000, 500 * 2 ** retries++)
+        setTimeout(() => {
+          if (disposed || L.current.over) return
+          const next = makeChannel()
+          chRef.ch = next
+          channelRef.current = next
+          subscribe(wire(next))
+        }, delay)
+      }
+    })
+    subscribe(wire(ch))
+
+    // waking the app (screen unlock, tab switch) forces a health check
+    const onVis = () => {
+      if (document.visibilityState !== 'visible' || disposed) return
+      if (S.dbg.status !== 'SUBSCRIBED') {
+        S.dbg.note = 'visible: forcing reconnect'
+        try { supabase.removeChannel(chRef.ch) } catch {}
+        const next = makeChannel()
+        chRef.ch = next
+        channelRef.current = next
+        subscribe(wire(next))
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+
+    // move-retry loop: a lost 'move' broadcast otherwise vanishes silently
+    const retryIv = setInterval(() => {
+      const pm = S.pendingMove
+      if (!pm || S.over) return
+      const age = Date.now() - pm.at
+      if (age > 1400 && !pm.resent) {
+        pm.resent = true
+        S.dbg.note = 'retrying move #' + pm.seq
+        chRef.ch?.send({ type: 'broadcast', event: 'move', payload: pm.payload })
+      } else if (age > 3500) {
+        S.pendingMove = null
+        S.dbg.note = 'move #' + pm.seq + ' lost (no result)'
+        console.warn('[pvp] no result for move', pm.seq)
+      }
+    }, 400)
 
     if (!S.synced) setAwaitingOpp(true)
 
     return () => {
+      disposed = true
+      clearInterval(retryIv)
+      document.removeEventListener('visibilitychange', onVis)
       channelRef.current = null
-      supabase.removeChannel(ch)
+      supabase.removeChannel(chRef.ch)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, realtime, challengeId])
@@ -797,10 +902,10 @@ function StreetFightPage() {
 
     if (realtime && !S.ghost) {
       const seq = ++S.attackSeq
-      channelRef.current?.send({
-        type: 'broadcast', event: 'move',
-        payload: { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined },
-      })
+      const payload = { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined }
+      S.pendingMove = { seq, payload, at: Date.now(), resent: false }
+      S.dbg.sent++
+      channelRef.current?.send({ type: 'broadcast', event: 'move', payload })
       return
     }
 
@@ -835,6 +940,7 @@ function StreetFightPage() {
       setFoeHp(S.foeHp)
       if (result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, heavy)
+        contactJuice(heavy || dmg >= 10)
         addSpark(true, `-${dmg}`, '#facc15')
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.1); setOppX(S.oppX) // 3D flinch + knockback
         if (kicky) sfx.kick(); else sfx.punch(heavy)
@@ -906,6 +1012,12 @@ function StreetFightPage() {
   }
   // keyboard fallback (desktop): space/enter = punch
   function playerStrike() { playerPunch() }
+
+  // heavy-contact juice: brief hit-stop + HP bar shake
+  function contactJuice(heavy: boolean) {
+    triggerHitStop(heavy ? 110 : 70)
+    if (heavy) setHpShake(k => k + 1)
+  }
 
   // Game tick: clock, bell, ghost fallback, and the AI foe (bots + no-shows)
   useEffect(() => {
@@ -1226,7 +1338,8 @@ function StreetFightPage() {
         }} />
 
         {/* ── HUD: HP bars + clock ── */}
-        <div className="absolute top-3 left-3 right-3 z-20 flex items-start gap-2">
+        <div key={hpShake} className="absolute top-3 left-3 right-3 z-20 flex items-start gap-2"
+          style={{ animation: hpShake ? 'hpJolt 0.28s ease-out' : undefined }}>
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-white text-xs font-black truncate">{myUsername ?? 'You'}</span>
@@ -1350,6 +1463,21 @@ function StreetFightPage() {
             </div>
           </div>
         )}
+
+        {/* H2H debug HUD: channel status, presence, sync/ghost, traffic */}
+        {phase === 'live' && realtime && (showDbg || awaitingOpp) && (() => {
+          void dbgTick // re-render driver
+          const D = L.current.dbg
+          const age = D.lastRecvAt ? Math.round((Date.now() - D.lastRecvAt) / 1000) + 's' : '—'
+          return (
+            <div className="absolute left-2 z-40 pointer-events-none font-mono text-[9px] leading-tight text-white/80 bg-black/60 rounded-md px-2 py-1"
+              style={{ top: 'calc(3.2rem + env(safe-area-inset-top))' }}>
+              <div>ch: {D.status} · who: [{D.presence || 'none'}]</div>
+              <div>{L.current.synced ? '✅ synced' : '⏳ not synced'}{L.current.ghost ? ' · 👻 GHOST' : ''} · ↑{D.sent} ↓{D.recv} · last rx {age}</div>
+              {D.note && <div className="text-yellow-300">{D.note}</div>}
+            </div>
+          )
+        })()}
 
         {/* foe telegraph — block NOW */}
         {telegraph && (
@@ -1556,6 +1684,7 @@ function StreetFightPage() {
       <style>{`
         @keyframes sfShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,3px)} 50%{transform:translate(6px,-3px)} 75%{transform:translate(-4px,2px)} }
         @keyframes sfSpark { 0%{transform:translateY(0) scale(0.7);opacity:1} 100%{transform:translateY(-46px) scale(1.15);opacity:0} }
+        @keyframes hpJolt { 0%,100% { transform: translate(0,0) } 25% { transform: translate(-5px,2px) } 50% { transform: translate(4px,-2px) } 75% { transform: translate(-2px,1px) } }
         @keyframes sfCombo { 0%{transform:translateX(-50%) scale(0.6);opacity:0} 20%{transform:translateX(-50%) scale(1.2);opacity:1} 80%{transform:translateX(-50%) scale(1);opacity:1} 100%{transform:translateX(-50%) scale(1);opacity:0} }
         @keyframes sfBanner { 0%{transform:scale(2.4);opacity:0} 100%{transform:scale(1);opacity:1} }
         @keyframes sfParticle { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0.3);opacity:0} }

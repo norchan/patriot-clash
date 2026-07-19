@@ -23,6 +23,44 @@ export const FIGHTERS: FighterMeta[] = [
 const HEAD_SCALE = 1.0 // natural proportions — match the reference guard stills
 // Bump when the GLBs are regenerated at the same path, to bust browser/CDN cache
 // (v2 = closed-fist rebuild).
+// ── fight juice: global hit-stop (freezes all mixers a beat on contact) ──────
+let hitStopUntil = 0
+export function triggerHitStop(ms: number) { hitStopUntil = Math.max(hitStopUntil, performance.now() + ms) }
+
+// shared comic WINCE decal (eyes squeezed + gritted mouth), drawn once —
+// works over any bobble head without per-head art
+let winceTex: THREE.CanvasTexture | null = null
+function getWinceTexture(): THREE.CanvasTexture {
+  if (winceTex) return winceTex
+  const cv = document.createElement('canvas')
+  cv.width = 256; cv.height = 256
+  const ctx = cv.getContext('2d')!
+  const eye = (cx: number, cy: number, flip: number) => {
+    ctx.lineCap = 'round'
+    // white outline pass then black stroke: reads on light AND dark faces
+    for (const [w, c] of [[16, 'rgba(255,255,255,0.95)'], [8, '#1a1a1a']] as [number, string][]) {
+      ctx.strokeStyle = c; ctx.lineWidth = w
+      ctx.beginPath()
+      ctx.moveTo(cx - 26 * flip, cy - 20)
+      ctx.lineTo(cx + 16 * flip, cy)
+      ctx.lineTo(cx - 26 * flip, cy + 20)
+      ctx.stroke()
+    }
+  }
+  eye(78, 108, 1)   // > (left eye squeezed)
+  eye(178, 108, -1) // < (right eye squeezed)
+  // gritted zigzag mouth
+  for (const [w, c] of [[14, 'rgba(255,255,255,0.95)'], [7, '#1a1a1a']] as [number, string][]) {
+    ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(88, 182)
+    for (let i = 0; i < 5; i++) ctx.lineTo(88 + (i + 1) * 16, 182 + (i % 2 === 0 ? -10 : 10))
+    ctx.stroke()
+  }
+  winceTex = new THREE.CanvasTexture(cv)
+  return winceTex
+}
+
 const MODEL_VER = 3 // v3: kicklo swapped to Simple_Kick (103)
 
 // Correction for the model's front axis (these Meshy models' front is local -X).
@@ -37,10 +75,13 @@ const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan
 // the plane is body-locked (rotY cancels the fighter's facing so the plane
 // stays screen-parallel) — the player's head looks RIGHT at the opponent, and
 // the mirrored foe's flips to look left. Not a camera billboard.
-function ProfileHead({ headId, faceY, duck = false, mirror = false, getHeadBone }: { headId: string; faceY: number; duck?: boolean; mirror?: boolean; getHeadBone: () => THREE.Object3D | null }) {
+function ProfileHead({ headId, faceY, duck = false, mirror = false, hitKey = 0, getHeadBone }: { headId: string; faceY: number; duck?: boolean; mirror?: boolean; hitKey?: number; getHeadBone: () => THREE.Object3D | null }) {
   const tex = useTexture(headSideImage(headId))
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
+  const winceRef = useRef<THREE.Mesh>(null!)
+  const winceAt = useRef(0)
+  useEffect(() => { if (hitKey) winceAt.current = performance.now() }, [hitKey])
   const v = useMemo(() => new THREE.Vector3(), [])
   const dy = 0.36 + (meta?.dy ?? 0) // small bump up (Michael) — jaw clears the shoulder line
   useFrame(() => {
@@ -50,6 +91,17 @@ function ProfileHead({ headId, faceY, duck = false, mirror = false, getHeadBone 
     v.y += dy // head center sits a bit above the neck joint
     ref.current.parent.worldToLocal(v)
     ref.current.position.copy(v)
+    // WINCE: ~260ms squash-and-bounce + eyes-squeezed decal on hit
+    const t = performance.now() - winceAt.current
+    const active = t >= 0 && t < 260
+    const k = active ? Math.sin((t / 260) * Math.PI) : 0 // 0→1→0
+    ref.current.scale.set(baseSX * (1 + 0.14 * k), baseSY * (1 - 0.22 * k), 1)
+    if (winceRef.current) {
+      winceRef.current.visible = active
+      winceRef.current.position.copy(v)
+      winceRef.current.position.z += 0.02
+      winceRef.current.scale.copy(ref.current.scale).multiplyScalar(0.72)
+    }
   })
   const img = tex.image as { width?: number; height?: number } | undefined
   const aspect = img?.width && img?.height ? img.width / img.height : 1
@@ -57,15 +109,19 @@ function ProfileHead({ headId, faceY, duck = false, mirror = false, getHeadBone 
   // the crouch squashes the parent group — un-squash the head so the bobble
   // keeps its proportions while the body ducks
   const yFix = duck ? 1 / 0.82 : 1
+  const baseSX = H * aspect, baseSY = H * yFix
+  const rotY = mirror ? faceY : -faceY
   return (
-    // the mirrored (opponent) group applies scale BETWEEN the group and mesh
-    // rotations, so cancelling the group spin needs +faceY there, not -faceY —
-    // otherwise the plane faces away from the camera and the face points the
-    // wrong way (surfaced when bots started wearing heads)
-    <mesh ref={ref} rotation={[0, mirror ? faceY : -faceY, 0]} scale={[H * aspect, H * yFix, 1]}>
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={tex} transparent alphaTest={0.3} depthWrite={false} side={THREE.DoubleSide} />
-    </mesh>
+    <>
+      <mesh ref={ref} rotation={[0, rotY, 0]} scale={[baseSX, baseSY, 1]}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial map={tex} transparent alphaTest={0.3} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh ref={winceRef} rotation={[0, rotY, 0]} visible={false}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial map={getWinceTexture()} transparent depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+    </>
   )
 }
 
@@ -208,6 +264,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   const bobbleQ = useRef(new THREE.Quaternion())
   const bobbleE = useRef(new THREE.Euler())
   useFrame((state, dt) => {
+    if (performance.now() < hitStopUntil) return // hit-stop: everyone freezes a beat
     mixer.update(dt)
     // PLANT the fighter: strip horizontal root motion so they stay on their
     // side and don't wander/pass through each other (2D-fighter feel)
@@ -236,7 +293,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   return (
     <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.82 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
-      {headId && <ProfileHead headId={headId} faceY={faceY} duck={duck} mirror={mirror} getHeadBone={() => head} />}
+      {headId && <ProfileHead headId={headId} faceY={faceY} duck={duck} mirror={mirror} hitKey={hitKey} getHeadBone={() => head} />}
     </group>
   )
 }
