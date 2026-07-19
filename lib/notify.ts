@@ -1,8 +1,10 @@
 // In-app notifications with per-type preferences. Types: 'dm', 'pvp',
 // 'social', 'system'. A pref of false in profiles.notification_prefs mutes
 // that type; anything else (including absent) means ON. Bots never get
-// notifications. Push delivery can hang off this same table later — the
-// native apps just need a delivery worker reading inserts.
+// notifications. Every notification also goes out via web push to devices
+// the player enabled (notification_prefs.push === false mutes push only).
+
+import { sendPush } from '@/lib/push'
 
 export type NotificationType = 'dm' | 'pvp' | 'social' | 'system'
 
@@ -44,6 +46,16 @@ export async function notify(
       body: args.body?.slice(0, 200) ?? null,
       link: args.link ?? null,
     })
+
+    // mirror to push unless the player muted push specifically
+    if ((p.notification_prefs ?? {}).push !== false) {
+      await sendPush(admin, args.profileId, {
+        title: args.title.slice(0, 120),
+        body: args.body?.slice(0, 200),
+        link: args.link ?? '/',
+        tag: args.dedupeUnreadLink ? args.link ?? undefined : undefined,
+      })
+    }
   } catch (err) {
     console.error('notify failed:', err)
   }

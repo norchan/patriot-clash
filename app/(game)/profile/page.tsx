@@ -566,21 +566,31 @@ export default function ProfilePage() {
           onChange={e => e.target.files?.[0] && addAlbumPhoto(e.target.files[0])} />
       </div>
 
-      {/* Today's steps */}
+      {/* Today's steps — tap opens the Step Tracker */}
       <div className="px-4 mt-3">
-        <div className="bg-gray-900 rounded-2xl p-4 flex items-center gap-3">
+        <button onClick={() => router.push('/steps')}
+          className="w-full bg-gray-900 rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-gray-800 active:scale-[0.99] transition">
           <div className="w-11 h-11 rounded-full bg-green-500/15 flex items-center justify-center">
             <Footprints size={20} className="text-green-400" />
           </div>
           <div className="flex-1">
-            <p className="text-gray-500 text-xs">Steps today · resets at midnight</p>
+            <p className="text-gray-500 text-xs">Steps today · tap for your Step Tracker</p>
             <p className="text-green-400 font-black text-2xl leading-tight">{(todaySteps ?? 0).toLocaleString()}</p>
           </div>
           <div className="text-right">
-            <p className="text-gray-600 text-[10px]">Counts while the app is open</p>
-            <p className="text-gray-400 text-xs">100 FP / 150 steps</p>
+            <p className="text-gray-600 text-[10px]">Streaks · milestones · history</p>
+            <p className="text-gray-400 text-xs">100 FP / 150 steps ›</p>
           </div>
-        </div>
+        </button>
+      </div>
+
+      {/* My Friends — private list, only you can see it */}
+      <div className="px-4 mt-3">
+        <button onClick={() => router.push('/friends')}
+          className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+          👥 My Friends
+        </button>
       </div>
 
       {/* Stats + battle record — collapsed into an expandable bar */}

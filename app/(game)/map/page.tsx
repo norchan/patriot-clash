@@ -1256,10 +1256,11 @@ export default function MapPage() {
               ⚡ {profile?.fp_balance?.toLocaleString() || 0}
             </button>
           </div>
-          {/* Steps — compact bubble sized to match the FP display height */}
-          <div className="bg-black/75 backdrop-blur rounded-xl px-2.5 py-2 flex items-center">
+          {/* Steps — tap opens the Step Tracker */}
+          <button onClick={() => router.push('/steps')}
+            className="bg-black/75 backdrop-blur rounded-xl px-2.5 py-2 flex items-center active:scale-95 transition">
             <span className="text-white text-xs whitespace-nowrap">👟 {steps.toLocaleString()}</span>
-          </div>
+          </button>
         </div>
 
         {/* Row 2: See Local Players, with the Show-on-map menu to the RIGHT */}

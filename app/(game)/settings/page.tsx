@@ -60,19 +60,6 @@ export default function SettingsPage() {
     setToggling(null)
   }
 
-  async function toggleNotifPref(key: 'dm' | 'pvp' | 'social', val: boolean) {
-    setToggling(`notif_${key}`)
-    try {
-      await fetch('/api/profile/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification_prefs: { [key]: !val } }),
-      })
-      await refetch()
-    } catch {}
-    setToggling(null)
-  }
-
   async function loadBlocked() {
     try {
       const res = await fetch('/api/players/block')
@@ -207,30 +194,16 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Notifications — full control center (per-type + push per device) */}
       <div className="mx-4 mt-4">
-        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">🔔 Notifications</h3>
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-          {([
-            { key: 'dm' as const,     label: 'Direct Messages',    sub: 'When someone messages you' },
-            { key: 'pvp' as const,    label: 'Battle Challenges',  sub: 'When someone challenges you to PvP' },
-            { key: 'social' as const, label: 'Comments & Replies', sub: 'When someone responds to your posts' },
-          ]).map(({ key, label, sub }) => {
-            const val = ((profile as any)?.notification_prefs ?? {})[key] !== false
-            return (
-              <button key={key}
-                onClick={() => toggleNotifPref(key, val)}
-                disabled={toggling === `notif_${key}`}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800 transition border-b border-gray-800 last:border-0 disabled:opacity-50">
-                <div className="text-left">
-                  <div className="text-white text-sm font-medium">{label}</div>
-                  <div className="text-gray-500 text-xs">{sub}</div>
-                </div>
-                <Toggle on={val} />
-              </button>
-            )
-          })}
-        </div>
+        <button onClick={() => router.push('/settings/notifications')}
+          className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-900 rounded-2xl border border-gray-800 hover:bg-gray-800 transition">
+          <div className="text-left">
+            <div className="text-white text-sm font-bold">🔔 Notifications</div>
+            <div className="text-gray-500 text-xs">Push notifications · what pings you</div>
+          </div>
+          <ChevronRight size={18} className="text-gray-600" />
+        </button>
       </div>
 
       {/* Blocked players */}

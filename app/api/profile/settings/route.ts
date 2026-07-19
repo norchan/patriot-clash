@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest) {
     // merged over the existing prefs; false mutes that type
     if ('notification_prefs' in body && typeof body.notification_prefs === 'object' && body.notification_prefs) {
       const clean: Record<string, boolean> = { ...((profile as any).notification_prefs ?? {}) }
-      for (const k of ['dm', 'pvp', 'social', 'system']) {
+      for (const k of ['dm', 'pvp', 'social', 'system', 'push']) {
         if (k in body.notification_prefs) clean[k] = !!body.notification_prefs[k]
       }
       updates.notification_prefs = clean

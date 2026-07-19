@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Share, Swords, MapPin, MessageSquare, BarChart3, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MapPin, MessageSquare, BarChart3, ChevronDown, UserPlus, UserCheck } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import AboutMeText from '@/components/AboutMeText'
 import { VoteButtons } from '@/components/HallFeed'
@@ -47,6 +47,31 @@ export default function PublicProfilePage() {
   const [shared, setShared] = useState('')
   const [statsOpen, setStatsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  // friend status with this player — PRIVATE: only the pair relationship,
+  // never lists or counts
+  const [friendStatus, setFriendStatus] = useState<'none' | 'friends' | 'pending_in' | 'pending_out' | null>(null)
+  const [friendBusy, setFriendBusy] = useState(false)
+
+  useEffect(() => {
+    const id = params.id as string
+    if (!id || viewer?.id === id) return
+    fetch(`/api/friends?with=${id}`).then(r => r.json())
+      .then(d => setFriendStatus(d.status ?? 'none')).catch(() => setFriendStatus('none'))
+  }, [params.id, viewer?.id])
+
+  async function addFriend() {
+    if (!profile || friendBusy) return
+    setFriendBusy(true)
+    try {
+      const res = await fetch('/api/friends/request', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_id: profile.id }),
+      })
+      const d = await res.json()
+      if (res.ok) setFriendStatus(d.status)
+    } catch {}
+    setFriendBusy(false)
+  }
 
   async function votePost(post: Post, v: number) {
     setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: p.score + v - p.my_vote, my_vote: v } : p))
@@ -228,6 +253,20 @@ export default function PublicProfilePage() {
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
                 >
                   <MessageSquare size={16} /> Direct Message
+                </button>
+                {/* Add Friend — cross-party welcome; only ever shows YOUR status with them */}
+                <button
+                  onClick={friendStatus === 'none' || friendStatus === 'pending_in' ? addFriend : undefined}
+                  disabled={friendBusy || friendStatus === null || friendStatus === 'friends' || friendStatus === 'pending_out'}
+                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70"
+                  style={{ background: friendStatus === 'friends'
+                    ? 'linear-gradient(135deg, #16a34a, #15803d)'
+                    : 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                >
+                  {friendStatus === 'friends' ? <><UserCheck size={16} /> Friends ✓</>
+                    : friendStatus === 'pending_out' ? <><UserCheck size={16} /> Request Sent</>
+                    : friendStatus === 'pending_in' ? <><UserPlus size={16} /> Accept Friend Request</>
+                    : <><UserPlus size={16} /> {friendBusy ? 'Sending…' : 'Add Friend'}</>}
                 </button>
                 <button
                   onClick={() => playerLoc && router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
