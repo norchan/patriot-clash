@@ -37,7 +37,7 @@ const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan
 // the plane is body-locked (rotY cancels the fighter's facing so the plane
 // stays screen-parallel) — the player's head looks RIGHT at the opponent, and
 // the mirrored foe's flips to look left. Not a camera billboard.
-function ProfileHead({ headId, faceY, duck = false, getHeadBone }: { headId: string; faceY: number; duck?: boolean; getHeadBone: () => THREE.Object3D | null }) {
+function ProfileHead({ headId, faceY, duck = false, mirror = false, getHeadBone }: { headId: string; faceY: number; duck?: boolean; mirror?: boolean; getHeadBone: () => THREE.Object3D | null }) {
   const tex = useTexture(headSideImage(headId))
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
@@ -58,7 +58,11 @@ function ProfileHead({ headId, faceY, duck = false, getHeadBone }: { headId: str
   // keeps its proportions while the body ducks
   const yFix = duck ? 1 / 0.82 : 1
   return (
-    <mesh ref={ref} rotation={[0, -faceY, 0]} scale={[H * aspect, H * yFix, 1]}>
+    // the mirrored (opponent) group applies scale BETWEEN the group and mesh
+    // rotations, so cancelling the group spin needs +faceY there, not -faceY —
+    // otherwise the plane faces away from the camera and the face points the
+    // wrong way (surfaced when bots started wearing heads)
+    <mesh ref={ref} rotation={[0, mirror ? faceY : -faceY, 0]} scale={[H * aspect, H * yFix, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={tex} transparent alphaTest={0.3} depthWrite={false} side={THREE.DoubleSide} />
     </mesh>
@@ -232,7 +236,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   return (
     <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.82 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
-      {headId && <ProfileHead headId={headId} faceY={faceY} duck={duck} getHeadBone={() => head} />}
+      {headId && <ProfileHead headId={headId} faceY={faceY} duck={duck} mirror={mirror} getHeadBone={() => head} />}
     </group>
   )
 }
