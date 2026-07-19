@@ -65,7 +65,12 @@
       "Bash(git commit -q -m 'Map: arena marker twins the arcade — 58px, same zoom scale, vanishes below z12; equal east/west offsets keep the hall centered *)",
       "Bash(git commit -q -m 'Map: staged loading, hall cache, opening shot frames player + nearest hall *)",
       "Bash(grep -n \"router.push\\(\\\\`/battle\" \"app/\\(game\\)/map/page.tsx\")",
-      "Bash(git commit -q -m 'TEST-ONLY: full sprite roster within 1 mile of Riggs Rd, St. Peter *)"
+      "Bash(git commit -q -m 'TEST-ONLY: full sprite roster within 1 mile of Riggs Rd, St. Peter *)",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_kitchen.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_064123_571d3a0d-24e1-4499-8c99-26116b5c87e4.png)",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_garage.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_064124_c07dec42-c58a-41e7-b129-f241e23451c0.png)",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_picnic.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_064125_c13bf5d5-bdde-4866-aa7f-807af0029c90.png)",
+      "Bash(curl -s -o C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/spot_camp.png https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_064127_230dff6c-1314-47ec-ad5f-709c59ab4f73.png)",
+      "Bash(node scripts/gen_spotit_variants.mjs \"C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad\")"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
