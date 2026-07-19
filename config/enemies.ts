@@ -223,6 +223,22 @@ export const republicanEnemies: Enemy[] = [
 
 export const democratEnemies: Enemy[] = [
   {
+    id: 'tampon_tim',
+    name: 'Tampon Tim',
+    description: 'The folksy governor — paces the stage and never stops pointing',
+    image: '/enemies/democrat/tampon_tim.png',
+    party: 'democrat',
+    tier: 'rare',
+    hp: 120,
+    power: 78,
+    fpReward: 40,
+    moves: [
+      { name: 'Folksy Charm', damage: 30, emoji: '😄' },
+      { name: 'Double Point', damage: 46, emoji: '👉' },
+      { name: 'Tampon Toss', damage: 60, emoji: '🧻' },
+    ]
+  },
+  {
     id: 'crazy_liberal',
     name: 'Policy Wonk',
     description: 'An intense activist with strong opinions',

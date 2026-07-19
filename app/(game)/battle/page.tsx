@@ -15,7 +15,7 @@ const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
 const ENEMY_3D: Record<string, string> = Object.fromEntries(
   ['comrade', 'oil_baron', 'cowboy', 'politician', 'hick', 'ice_agent', 'soldier_boy', 'preppy', 'influencer',
    'billionaire', 'crazy_liberal', 'crying_liberal', 'dem_politician', 'purple_hair', 'protestor', 'anchor',
-   'palestine', 'drag', 'senator'].map(id => [id, id]),
+   'palestine', 'drag', 'senator', 'tampon_tim'].map(id => [id, id]),
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -62,6 +62,7 @@ const TIER_AI = {
 
 // What each character throws back at you
 const FOE_THROWS: Record<string, { emoji: string; label: string }> = {
+  tampon_tim:      { emoji: '🧻', label: 'a Tampon' },
   oil_baron:       { emoji: '🛢️', label: 'Crude Oil' },
   cowboy:          { emoji: '🪢', label: 'Lasso' },
   hick:            { emoji: '🫙', label: 'Moonshine Jug' },
@@ -83,6 +84,9 @@ const FOE_THROWS: Record<string, { emoji: string; label: string }> = {
   dem_politician:  { emoji: '📋', label: 'Regulations' },
 }
 const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot' }
+// Tampon Tim is the only PACER: constant back-and-forth with a mirror flip at
+// each turn (the flip swaps his pointing arms — the whole joke)
+const PACERS = new Set(['tampon_tim'])
 
 interface Projectile {
   id: number
@@ -272,6 +276,13 @@ function BattleContent() {
   // One standard sidestep — SAME move for every sprite in the game
   function sidestep(dur = 600) {
     const cur = enemyXAt(Date.now())
+    if (enemy && PACERS.has(enemy.id)) {
+      // full-width pace: sweep to the far side, then back — never stand still
+      const goingRight = S.current.exTo >= S.current.exFrom
+      const target = goingRight && cur < 68 ? 72 : 28
+      moveEnemyTo(target, 1400)
+      return
+    }
     const dir = cur > 62 ? -1 : cur < 38 ? 1 : (Math.random() < 0.5 ? -1 : 1)
     moveEnemyTo(cur + dir * (10 + Math.random() * 5), dur)
   }
@@ -577,10 +588,12 @@ function BattleContent() {
         </div>
       </div>
 
-      {/* ── The sprite — 3D only, feet ON the stage ground line ─────────────── */}
+      {/* ── The sprite — 3D only, feet ON the stage ground line ───────────────
+          Pacers (Tampon Tim) mirror-flip at each turn: base art strides LEFT,
+          scaleX(-1) while sweeping right — the flip swaps his pointing arms */}
       <div style={{
         position: 'absolute', bottom: `${stage.ground}%`, left: `${enemyX}%`, zIndex: 5,
-        transform: 'translateX(-50%)',
+        transform: `translateX(-50%)${enemy && PACERS.has(enemy.id) && S.current.exTo > S.current.exFrom ? ' scaleX(-1)' : ''}`,
         transition: `left ${S.current.exDur}ms ease-in-out`,
         pointerEvents: 'none',
       }}>
