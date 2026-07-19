@@ -1435,3 +1435,16 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Static audit of the H2H path found the likely failure before any device test: the channel had NO reconnect on any error status and no visibility handling — a locked phone kills the socket silently, both peers time out to ghost AI. Shipped: status-driven channel rebuild w/ backoff, wake-forced health check, presence re-track + pos refresh on rejoin, seq-based move retry + receiver dedupe/replay, ghost→real upgrade when presence arrives late but pre-damage, and a debug HUD (auto in waiting state; ?debug=1 during fights) showing status/presence/synced/ghost/traffic — Michael's next 2-device test now tells us exactly what fails if anything still does. Wince: code-drawn shared >< decal + squash on hitKey (no art credits needed — Higgs balance is 7.5, blocking the Pic Hunt scene batch). Juice: hit-stop via exported mixer freeze, HP-bar jolt, H2H confirm SFX on result arrival.
 
 **For Michael:** two-device test time — see chat for the 5-minute script.
+
+---
+
+### 2026-07-19 — Claude
+
+**Context:** Michael's sprite batch. Held the likeness line again (incl. his Grok-Imagine photoreal Walz — generation method doesn't change photoreal-twin status); he approved the realistic-painterly caricature direction instead ("that one is better").
+
+**To the channel:**
+- TAMPON TIM SHIPPED: approved caricature → Meshy (idle+throw, ~1.3MB each), democrat rare, and the roster's only special mover — full-width pacing with a mirror flip at each turn (instant arm-swap, per Michael's spec), throws tampons. Everyone else stays standard (idle/throw/wince).
+- Decisions logged: Maine char = fictional ✓ usable; Diva needs LONG beard redo; Firebrand = realistic, NO mic; only Tim paces.
+- Blockers: Higgs balance 1.5 (art redos, beard, Ant Kid regen, Pic Hunt scenes all queued behind top-up); Meshy healthy at 1,273. Michael still needs to drop his 4 sprite PNGs as actual files (chat attachments unreadable).
+
+**For Michael:** Tampon Tim is live — find him spawning on the map (democrat side, rare) and watch him pace.
