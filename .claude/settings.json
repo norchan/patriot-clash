@@ -57,7 +57,8 @@
       "Bash(git commit -q -m 'Map HUD: respect the iPhone safe area \\(status bar / notch\\) *)",
       "Bash(git commit -q -m 'iPhone safe area: global menu button + Mapbox zoom/home controls *)",
       "Bash(git commit -q -m 'Messages inbox: highlight unopened conversations *)",
-      "Bash(git commit -q -m 'Map: read messages no longer pop the bubble; Share button on self-sheet *)"
+      "Bash(git commit -q -m 'Map: read messages no longer pop the bubble; Share button on self-sheet *)",
+      "Bash(git commit -q -m 'Self-sheet: fuse My Profile + share into one button \\(icon only\\) *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
