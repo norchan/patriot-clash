@@ -46,7 +46,10 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const onTetKris = pathname === '/arcade/tetkris'
   const onLandslide = pathname === '/arcade/landslide'
   const immersive = onBattleScreen || onSlotMachine || onTetKris || onLandslide
-  const showAds = ADS_ENABLED && !immersive
+  // AdSense policy: never show ads on surfaces that can contain private or
+  // user-intimate content — DMs and photo-album screens are ad-free zones
+  const adFreeSurface = pathname.startsWith('/messages') || pathname.startsWith('/player') || pathname.startsWith('/profile') || pathname.startsWith('/friends')
+  const showAds = ADS_ENABLED && !immersive && !adFreeSurface
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col max-w-md mx-auto relative">

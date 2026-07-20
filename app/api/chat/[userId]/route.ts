@@ -130,7 +130,7 @@ export async function POST(
       if (buffer.length > 4 * 1024 * 1024) {
         return NextResponse.json({ error: 'Image too large (max 4 MB)' }, { status: 400 })
       }
-      const verdict = await moderateImage(image, 'album')
+      const verdict = await moderateImage(image, 'dm')
       if (!verdict.allowed) {
         if (verdict.csamSuspected) {
           await recordCsamSuspect(admin, { profileId: profile.id, targetType: 'dm_image', details: verdict.details })

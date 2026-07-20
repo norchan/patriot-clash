@@ -15,7 +15,7 @@
 // are made and everything is allowed — zero credit spend.
 // Adult albums switch: MODERATION_ADULT_ALBUMS=true (off = albums SFW too).
 
-export type ModContext = 'avatar' | 'album' | 'post_image'
+export type ModContext = 'avatar' | 'album' | 'post_image' | 'dm'
 
 export interface ModVerdict {
   allowed: boolean
@@ -91,7 +91,9 @@ export async function moderateImage(dataUrl: string, context: ModContext): Promi
   if (c.sexual) {
     // Album photos may allow nudity — but never sexual acts. A cheap vision
     // model applies that distinction; everything else stays SFW.
-    if (context === 'album' && adultAlbums()) {
+    // DMs are a private space: house policy applies regardless of the album
+    // switch (albums themselves are SFW — ads can never sit next to nudity)
+    if (context === 'dm' || (context === 'album' && adultAlbums())) {
       return await classifyAdultImage(dataUrl, scores)
     }
     return {
