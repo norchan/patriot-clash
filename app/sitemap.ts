@@ -17,6 +17,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: 'https://politicsgo.app/explore/guide', lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: 'https://politicsgo.app/explore/characters', lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: 'https://politicsgo.app/explore/news', lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: 'https://politicsgo.app/explore/scoreboard', lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
+    { url: 'https://politicsgo.app/explore/faq', lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: 'https://politicsgo.app/explore/about', lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: 'https://politicsgo.app/welcome', lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
     { url: 'https://politicsgo.app/privacy', lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
   ]

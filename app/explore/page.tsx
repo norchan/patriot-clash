@@ -74,6 +74,9 @@ export default async function ExplorePage() {
           <Link href="/explore/guide" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">📖 How to Play</Link>
           <Link href="/explore/characters" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">🎭 Characters</Link>
           <Link href="/explore/news" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">📰 News & Updates</Link>
+          <Link href="/explore/scoreboard" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">🏆 National Scoreboard</Link>
+          <Link href="/explore/faq" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">❓ FAQ</Link>
+          <Link href="/explore/about" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">ℹ️ About</Link>
         </div>
         <p className="mt-4 text-gray-300 max-w-2xl leading-relaxed">
           PoliticsGo is a free, location-based game for the United States. Pick a party — Democrat
