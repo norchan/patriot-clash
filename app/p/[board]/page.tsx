@@ -87,7 +87,7 @@ export default async function BoardPage({ params, searchParams }: {
     <div className="min-h-screen bg-gray-950 text-gray-200">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <nav className="text-sm text-gray-500 mb-4 flex items-center justify-between">
-          <Link href="/explore" className="hover:text-white">← Explore</Link>
+          <Link href="/" className="hover:text-white">← Home</Link>
           <span className="text-gray-600 text-xs">posts live for 48 hours</span>
         </nav>
         <h1 className="text-3xl font-black text-white">📰 {b.label}</h1>
@@ -149,7 +149,7 @@ export default async function BoardPage({ params, searchParams }: {
 
         <div className="mt-8 rounded-2xl border border-purple-800 bg-purple-950/30 p-5 text-center">
           <p className="text-gray-300 text-sm">Want to post? Every town hall in the game has a live town square.</p>
-          <Link href="/" className="inline-block mt-3 px-6 py-2.5 rounded-xl font-bold text-white"
+          <Link href="/sign-up" className="inline-block mt-3 px-6 py-2.5 rounded-xl font-bold text-white"
             style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
             Join the argument
           </Link>

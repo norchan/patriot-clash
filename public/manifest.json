@@ -2,7 +2,7 @@
   "name": "PoliticsGo",
   "short_name": "PoliticsGo",
   "description": "The political augmented reality battle game",
-  "start_url": "/",
+  "start_url": "/map",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#1a1a2e",

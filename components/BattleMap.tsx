@@ -1,0 +1,230 @@
+'use client'
+import { useEffect, useRef, useState } from 'react'
+import mapboxgl from 'mapbox-gl'
+import { Delaunay } from 'd3-delaunay'
+import 'mapbox-gl/dist/mapbox-gl.css'
+
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
+
+// THE PUBLIC BATTLE MAP (shared by / and /battlemap).
+// - every town hall as a party-colored glow dot
+// - INGRESS-STYLE territory web: same-party halls linked by lines; triangles
+//   whose three corners share a party fill with translucent territory color
+//   (battlemap only — the in-game player map is untouched)
+// - default view: Cahokia, IL with St. Louis in frame (the ancient capital)
+// - "find your town hall" popup: share location OR search by name
+
+export interface HallDot { lat: number; lng: number; party: string | null; city: string; state: string }
+
+const CAHOKIA: [number, number] = [-90.06, 38.62] // Cahokia Mounds; STL across the river
+const MAX_EDGE_DEG = 2.3 // skip absurd cross-country hull edges
+
+const dist = (a: HallDot, lat: number, lng: number) =>
+  Math.hypot(a.lat - lat, (a.lng - lng) * Math.cos((lat * Math.PI) / 180))
+
+export default function BattleMap({ halls, height = '60vh' }: { halls: HallDot[]; height?: string }) {
+  const el = useRef<HTMLDivElement>(null)
+  const map = useRef<mapboxgl.Map | null>(null)
+  const [finder, setFinder] = useState(false)
+  const [query, setQuery] = useState('')
+  const [locating, setLocating] = useState(false)
+  const [locErr, setLocErr] = useState('')
+
+  useEffect(() => {
+    if (!el.current || map.current) return
+    const m = new mapboxgl.Map({
+      container: el.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: CAHOKIA,
+      zoom: 8.4,
+      minZoom: 2.8,
+      maxZoom: 12,
+    })
+    map.current = m
+    m.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+
+    m.on('load', () => {
+      // ── Ingress web: Delaunay over all halls ─────────────────────────────
+      const pts = halls.map(h => [h.lng, h.lat] as [number, number])
+      const del = Delaunay.from(pts)
+      const lineFeats: any[] = []
+      const fieldFeats: any[] = []
+      const seen = new Set<string>()
+      const { triangles } = del
+      for (let t = 0; t < triangles.length; t += 3) {
+        const [a, b, c] = [triangles[t], triangles[t + 1], triangles[t + 2]]
+        const [ha, hb, hc] = [halls[a], halls[b], halls[c]]
+        // links: same-party edges, deduped, sane length
+        for (const [i, j] of [[a, b], [b, c], [c, a]]) {
+          const key = i < j ? `${i}-${j}` : `${j}-${i}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          const hi = halls[i], hj = halls[j]
+          if (!hi.party || hi.party !== hj.party) continue
+          if (Math.hypot(hi.lat - hj.lat, hi.lng - hj.lng) > MAX_EDGE_DEG) continue
+          lineFeats.push({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: [[hi.lng, hi.lat], [hj.lng, hj.lat]] },
+            properties: { party: hi.party },
+          })
+        }
+        // fields: all three corners one party
+        if (ha.party && ha.party === hb.party && hb.party === hc.party) {
+          const maxSide = Math.max(
+            Math.hypot(ha.lat - hb.lat, ha.lng - hb.lng),
+            Math.hypot(hb.lat - hc.lat, hb.lng - hc.lng),
+            Math.hypot(hc.lat - ha.lat, hc.lng - ha.lng))
+          if (maxSide <= MAX_EDGE_DEG) {
+            fieldFeats.push({
+              type: 'Feature',
+              geometry: { type: 'Polygon', coordinates: [[[ha.lng, ha.lat], [hb.lng, hb.lat], [hc.lng, hc.lat], [ha.lng, ha.lat]]] },
+              properties: { party: ha.party },
+            })
+          }
+        }
+      }
+      m.addSource('fields', { type: 'geojson', data: { type: 'FeatureCollection', features: fieldFeats } })
+      m.addLayer({
+        id: 'fields', type: 'fill', source: 'fields',
+        paint: {
+          'fill-color': ['match', ['get', 'party'], 'democrat', '#3b82f6', '#ef4444'],
+          'fill-opacity': 0.10,
+        },
+      })
+      m.addSource('links', { type: 'geojson', data: { type: 'FeatureCollection', features: lineFeats } })
+      m.addLayer({
+        id: 'links', type: 'line', source: 'links',
+        paint: {
+          'line-color': ['match', ['get', 'party'], 'democrat', '#60a5fa', '#f87171'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.4, 8, 1.1, 11, 1.8],
+          'line-opacity': 0.45,
+        },
+      })
+
+      // ── hall dots ────────────────────────────────────────────────────────
+      m.addSource('halls', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: halls.map(h => ({
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [h.lng, h.lat] },
+            properties: { party: h.party ?? 'open', name: `${h.city}, ${h.state}` },
+          })),
+        },
+      })
+      m.addLayer({
+        id: 'halls-glow', type: 'circle', source: 'halls',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 4, 7, 9, 10, 14],
+          'circle-blur': 0.6, 'circle-opacity': 0.55,
+          'circle-color': ['match', ['get', 'party'], 'democrat', '#3b82f6', 'republican', '#ef4444', '#6b7280'],
+        },
+      })
+      m.addLayer({
+        id: 'halls-core', type: 'circle', source: 'halls',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.6, 7, 3.5, 10, 6],
+          'circle-color': ['match', ['get', 'party'], 'democrat', '#93c5fd', 'republican', '#fca5a5', '#9ca3af'],
+        },
+      })
+      const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 })
+      m.on('mousemove', 'halls-glow', e => {
+        const f = e.features?.[0]
+        if (!f) return
+        m.getCanvas().style.cursor = 'pointer'
+        popup.setLngLat((f.geometry as any).coordinates)
+          .setHTML(`<div style="font-weight:700;font-size:12px">${(f.properties as any).name}</div>`)
+          .addTo(m)
+      })
+      m.on('mouseleave', 'halls-glow', () => { m.getCanvas().style.cursor = ''; popup.remove() })
+    })
+    // container size can change as the responsive grid reflows — keep the
+    // canvas in sync so the map never paints at a stale/zero size
+    const ro = new ResizeObserver(() => m.resize())
+    ro.observe(el.current)
+    return () => { ro.disconnect(); m.remove(); map.current = null }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function flyToNearest(lat: number, lng: number) {
+    const nearest = [...halls].sort((a, b) => dist(a, lat, lng) - dist(b, lat, lng))[0]
+    if (!nearest || !map.current) return
+    setFinder(false)
+    map.current.flyTo({ center: [nearest.lng, nearest.lat], zoom: 10.5, duration: 2200 })
+  }
+
+  function shareLocation() {
+    setLocErr(''); setLocating(true)
+    navigator.geolocation?.getCurrentPosition(
+      pos => { setLocating(false); flyToNearest(pos.coords.latitude, pos.coords.longitude) },
+      () => { setLocating(false); setLocErr('Location was blocked — try the search instead.') },
+      { timeout: 8000 },
+    )
+  }
+
+  const results = query.trim().length >= 2
+    ? halls.filter(h => `${h.city}, ${h.state}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8)
+    : []
+
+  return (
+    <div className="relative w-full overflow-hidden rounded-2xl border border-gray-800" style={{ height }}>
+      <div ref={el} className="absolute inset-0" />
+
+      {/* find-your-hall button */}
+      <button onClick={() => setFinder(true)}
+        className="absolute top-3 left-3 z-10 px-3.5 py-2 rounded-full text-xs font-black text-white shadow-xl"
+        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
+        📍 Find your town hall
+      </button>
+
+      {/* finder popup */}
+      {finder && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center p-4"
+          style={{ background: 'rgba(3,7,18,0.72)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setFinder(false)}>
+          <div className="w-full max-w-sm rounded-3xl p-5 shadow-2xl"
+            style={{ background: 'linear-gradient(160deg, #17102b, #0b0716)', border: '1px solid rgba(139,92,246,0.45)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="text-3xl">🏛️</div>
+              <h3 className="text-white font-black text-lg mt-1">Find your town hall</h3>
+              <p className="text-gray-400 text-xs mt-1">Every hall is real. One of them is yours.</p>
+            </div>
+            <button onClick={shareLocation} disabled={locating}
+              className="w-full mt-4 py-3 rounded-xl font-black text-white text-sm transition active:scale-95 disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+              {locating ? 'Locating…' : '📍 Share my location'}
+            </button>
+            {locErr && <p className="text-red-400 text-xs text-center mt-2">{locErr}</p>}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px bg-white/10" /><span className="text-gray-500 text-[11px] font-bold">OR</span><div className="flex-1 h-px bg-white/10" />
+            </div>
+            <input
+              value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="Search a city… (e.g. St. Peter)"
+              className="w-full px-4 py-3 rounded-xl bg-black/40 border border-purple-900 text-white text-sm placeholder-gray-600 outline-none focus:border-purple-500"
+            />
+            <div className="mt-2 max-h-44 overflow-y-auto space-y-1">
+              {results.map(h => (
+                <button key={`${h.city}-${h.state}-${h.lat}`}
+                  onClick={() => flyToNearest(h.lat, h.lng)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm text-gray-200 hover:bg-white/5">
+                  <span className="w-2 h-2 rounded-full shrink-0"
+                    style={{ background: h.party === 'democrat' ? '#3b82f6' : h.party === 'republican' ? '#ef4444' : '#6b7280' }} />
+                  {h.city}, {h.state}
+                </button>
+              ))}
+              {query.trim().length >= 2 && results.length === 0 && (
+                <p className="text-gray-600 text-xs text-center py-2">No hall matches “{query.trim()}”</p>
+              )}
+            </div>
+            <button onClick={() => setFinder(false)} className="w-full mt-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

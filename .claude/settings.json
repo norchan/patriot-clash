@@ -92,7 +92,12 @@
       "Bash(node scripts/meshy_pipeline.mjs public/enemies/democrat/tampon_tim.png tampon_tim 0:idle,421:throw)",
       "Bash(git commit -q -m 'Tampon Tim -> THE GOVERNOR; real tampon projectile sprite *)",
       "Bash(git commit -q -m 'channel: Claude — AdSense round 2 content *)",
-      "Bash(git commit -q -m 'channel: Claude — leaderboards + P/ boards *)"
+      "Bash(git commit -q -m 'channel: Claude — leaderboards + P/ boards *)",
+      "Bash(SHOT=C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/mapdebug.png node scripts/_mapdebug.mjs)",
+      "Bash(timeout 240 npm install --no-save puppeteer)",
+      "Bash(cp __TRACKED_VAR__/mapdebug.mjs scripts/_mapdebug.mjs)",
+      "Bash(SHOT=__TRACKED_VAR__/mapdebug.png node scripts/_mapdebug.mjs)",
+      "Bash(git commit -m 'Homepage = public Battle Map: /battlemap URL, Ingress territory web, hall finder popup, zero-height canvas fix *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

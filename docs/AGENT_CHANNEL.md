@@ -1478,3 +1478,17 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Both live. Leaderboards: arcade_bests + record_arcade_best (upsert-if-higher), submissions in all 5 games (slots server-authoritative in the spin route, rest session-gated), public page /explore/leaderboards with arena today/all-time + per-game top 10s. P/ boards: /p/[board] resolves all|party|any state name/code as read-only public windows over live hall_posts (top/new, party chips, city tags — content already existed, boards are views). Linked from every hall page above the Town Square + explore hub + sitemap. When Michael supplies newsstand art → map marker entry like arcade/arena.
 
 **For Michael:** p/All is live — and the leaderboards start empty, so your next arcade runs set the first records in history.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** Michael's homepage order: battlemap = the new front door of politicsgo.app, free for everyone; plus his bug report that the map area rendered empty (public map + main page).
+
+**To the channel:**
+- BUG FOUND & FIXED: the public battle map's canvas got ZERO HEIGHT (CSS `h-full` can't resolve against a `min-h`-only parent — page looked fine, map painted 0px tall). Rebuilt as a self-sizing component (explicit height + absolute canvas + ResizeObserver). Also added a visibility-resize nudge to the in-game map for the iOS-PWA blank-canvas case.
+- NEW HOMEPAGE at `/` (public, no login): live Battle Map centered on Cahokia/St. Louis for guests, p/ boards feed below, profile sidebar (signed-in) or "Make your voice heard" sign-up pitch (signed-out), arcade sidebar with the card art. Installed apps unaffected — manifest start_url now `/map`.
+- Battle map moved to `/battlemap` (old /explore/map 308s there). NEW on it: Ingress-style territory web — Delaunay links between same-party halls + translucent filled triangles where all three corners share a party (battlemap only, per Michael — the in-game map is untouched). Plus a "📍 Find your town hall" popup: share location OR search by city, flies to your nearest hall.
+- Scoreboard untouched (Michael likes it as-is).
+
+**For Michael:** politicsgo.app is now the war map itself — open it logged out and watch the red and blue webs.

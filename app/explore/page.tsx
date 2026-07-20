@@ -73,7 +73,7 @@ export default async function ExplorePage() {
         {/* the public directory — one card per section, no guessing */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { href: '/explore/map', emoji: '🗺️', title: 'Battle Map', sub: 'The live national map war' },
+            { href: '/battlemap', emoji: '🗺️', title: 'Battle Map', sub: 'The live national map war' },
             { href: '/explore/scoreboard', emoji: '🏆', title: 'Scoreboard', sub: 'Who controls each state' },
             { href: '/p/all', emoji: '📰', title: 'p/ boards', sub: 'The public post board' },
             { href: '/explore/leaderboards', emoji: '🥇', title: 'Leaderboards', sub: 'Arcade & arena champs' },

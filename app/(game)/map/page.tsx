@@ -381,7 +381,13 @@ export default function MapPage() {
 
     map.current.on('zoom', applyZoomVisibility)
 
+    // iOS PWA: a canvas created or sized while the page was backgrounded can
+    // paint blank — nudge the map whenever we come back to the foreground
+    const onVis = () => { if (!document.hidden) map.current?.resize() }
+    document.addEventListener('visibilitychange', onVis)
+
     return () => {
+      document.removeEventListener('visibilitychange', onVis)
       map.current?.remove()
       map.current = null
       mapInitialized.current = false

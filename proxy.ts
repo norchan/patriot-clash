@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 
 // Routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
+  '/', // homepage = the public battle map (signed-in users get their profile sidebar)
+  '/battlemap', // full-screen public battle map
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/welcome',
@@ -25,19 +27,13 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, request) => {
   if (isPublicRoute(request)) return
 
-  // Signed-out visitors browsing the site land on the guest preview map
-  // instead of a sign-in wall; API calls still get a hard 401.
+  // Signed-out visitors hitting a game page get sent to the public homepage
+  // (the battle map) instead of a sign-in wall; API calls still get a hard 401.
   const { userId } = await auth()
   if (!userId) {
     const { pathname } = request.nextUrl
     if (request.method === 'GET' && !pathname.startsWith('/api')) {
-      // Serve the welcome page AT the root as a 200 (rewrite, not redirect) so
-      // crawlers — e.g. the AdSense verifier — see the page and its
-      // verification tag directly instead of a 307. Other paths still redirect.
-      if (pathname === '/') {
-        return NextResponse.rewrite(new URL('/welcome', request.url))
-      }
-      return NextResponse.redirect(new URL('/welcome', request.url))
+      return NextResponse.redirect(new URL('/', request.url))
     }
     await auth.protect()
   }
