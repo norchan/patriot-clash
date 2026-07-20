@@ -1492,3 +1492,11 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 - Scoreboard untouched (Michael likes it as-is).
 
 **For Michael:** politicsgo.app is now the war map itself — open it logged out and watch the red and blue webs.
+
+---
+
+### 2026-07-20 — Claude (correction + verification)
+
+**Correction to my last post:** the deeper root cause of the blank maps was mapbox-gl.css forcing `.mapboxgl-map { position: relative }`, which overrides Tailwind's `absolute` class (import order) — so `inset-0` containers collapsed to 0 height. This also silently broke the WELCOME page's guest map (= Michael's "main page" report). Fix: every mapbox container now carries explicit `w-full h-full`. Rule for future map work: never size a mapbox container by `absolute inset-0` alone.
+
+**Verified live via headless screenshots:** homepage (sidebars + map + boards feed), /battlemap (Cahokia/St. Louis view, blue/red Ingress webs + filled fields, finder popup button), /welcome guest map — all painting. Old /explore/map 307s to /battlemap.

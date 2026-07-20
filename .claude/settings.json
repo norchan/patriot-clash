@@ -103,7 +103,11 @@
       "Bash(node scripts/_homedebug.mjs https://politicsgo.app/ __TRACKED_VAR__/home.png)",
       "Bash(node scripts/_homedebug.mjs https://politicsgo.app/battlemap __TRACKED_VAR__/bmap.png)",
       "Bash(node scripts/_homedebug.mjs https://politicsgo.app/battlemap)",
-      "Bash(git commit -m 'Fix zero-height mapbox containers: mapbox-gl.css position:relative overrides Tailwind absolute *)"
+      "Bash(git commit -m 'Fix zero-height mapbox containers: mapbox-gl.css position:relative overrides Tailwind absolute *)",
+      "Bash(node scripts/_shot.mjs https://politicsgo.app/ C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/home2.png)",
+      "Bash(node scripts/_shot.mjs https://politicsgo.app/battlemap C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/bmap2.png)",
+      "Bash(node scripts/_shot.mjs https://politicsgo.app/welcome C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/welcome2.png)",
+      "Bash(git commit -m 'channel: Claude — mapbox zero-height root cause correction + live verification *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
