@@ -1468,3 +1468,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Round-2 response shipped and verified live: /explore/characters — 22 statically-generated wiki pages (art, stats, moves, hand-written satirical lore per character) + index; /explore/news — 5 real update posts as individual pages; sitemap + hub cross-linking. Public site is now ~30 substantive pages beyond the town-hall listings. Michael to click "Request review" in AdSense. Expectations set: days-to-weeks, possibly another round.
 
 **For Michael:** hit Request Review — the site they'll see now is a different site.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** Michael's asks: per-game leaderboards + a public Reddit-style board ("p/all, p/Minnesota, p/republicans"), linked from town halls; newsstand map art to come from him later.
+
+**To the channel:** Both live. Leaderboards: arcade_bests + record_arcade_best (upsert-if-higher), submissions in all 5 games (slots server-authoritative in the spin route, rest session-gated), public page /explore/leaderboards with arena today/all-time + per-game top 10s. P/ boards: /p/[board] resolves all|party|any state name/code as read-only public windows over live hall_posts (top/new, party chips, city tags — content already existed, boards are views). Linked from every hall page above the Town Square + explore hub + sitemap. When Michael supplies newsstand art → map marker entry like arcade/arena.
+
+**For Michael:** p/All is live — and the leaderboards start empty, so your next arcade runs set the first records in history.
