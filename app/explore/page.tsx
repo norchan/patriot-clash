@@ -70,15 +70,25 @@ export default async function ExplorePage() {
         <h1 className="text-3xl sm:text-4xl font-black leading-tight">
           Walk your city. Capture town halls. Win the argument.
         </h1>
-        <div className="mt-3 flex flex-wrap gap-2 text-sm font-bold">
-          <Link href="/explore/guide" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">📖 How to Play</Link>
-          <Link href="/explore/characters" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">🎭 Characters</Link>
-          <Link href="/explore/news" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">📰 News & Updates</Link>
-          <Link href="/explore/scoreboard" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">🏆 National Scoreboard</Link>
-          <Link href="/explore/faq" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">❓ FAQ</Link>
-          <Link href="/explore/about" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">ℹ️ About</Link>
-          <Link href="/explore/leaderboards" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">🥇 Leaderboards</Link>
-          <Link href="/p/all" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">📰 p/ boards</Link>
+        {/* the public directory — one card per section, no guessing */}
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { href: '/explore/map', emoji: '🗺️', title: 'Battle Map', sub: 'The live national map war' },
+            { href: '/explore/scoreboard', emoji: '🏆', title: 'Scoreboard', sub: 'Who controls each state' },
+            { href: '/p/all', emoji: '📰', title: 'p/ boards', sub: 'The public post board' },
+            { href: '/explore/leaderboards', emoji: '🥇', title: 'Leaderboards', sub: 'Arcade & arena champs' },
+            { href: '/explore/characters', emoji: '🎭', title: 'Characters', sub: 'The full satirical roster' },
+            { href: '/explore/guide', emoji: '📖', title: 'How to Play', sub: 'The complete guide' },
+            { href: '/explore/news', emoji: '🗞️', title: 'News', sub: 'Updates from the devs' },
+            { href: '/explore/faq', emoji: '❓', title: 'FAQ & About', sub: 'Answers + who we are' },
+          ].map(c => (
+            <Link key={c.href} href={c.href}
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-4 hover:border-purple-700 transition">
+              <div className="text-2xl">{c.emoji}</div>
+              <div className="font-bold text-white text-sm mt-1">{c.title}</div>
+              <div className="text-gray-500 text-xs mt-0.5">{c.sub}</div>
+            </Link>
+          ))}
         </div>
         <p className="mt-4 text-gray-300 max-w-2xl leading-relaxed">
           PoliticsGo is a free, location-based game for the United States. Pick a party — Democrat
