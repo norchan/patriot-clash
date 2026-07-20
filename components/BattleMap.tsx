@@ -169,7 +169,10 @@ export default function BattleMap({ halls, height = '60vh' }: { halls: HallDot[]
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border border-gray-800" style={{ height }}>
-      <div ref={el} className="absolute inset-0" />
+      {/* w-full h-full is load-bearing: mapbox-gl.css forces .mapboxgl-map to
+          position:relative (beating our `absolute`), so inset-0 alone
+          collapses to 0 height */}
+      <div ref={el} className="absolute inset-0 w-full h-full" />
 
       {/* find-your-hall button */}
       <button onClick={() => setFinder(true)}

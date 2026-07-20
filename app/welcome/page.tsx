@@ -163,7 +163,9 @@ export default function WelcomePage() {
 
   return (
     <div className="relative h-screen overflow-hidden max-w-md mx-auto bg-gray-950">
-      <div ref={mapContainer} className="absolute inset-0" />
+      {/* w-full h-full is load-bearing: mapbox-gl.css forces .mapboxgl-map to
+          position:relative (beating `absolute`), so inset-0 alone → 0 height */}
+      <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
 
       {/* top bar */}
       <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-4 flex items-center justify-between pointer-events-none">

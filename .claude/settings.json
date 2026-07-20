@@ -97,7 +97,13 @@
       "Bash(timeout 240 npm install --no-save puppeteer)",
       "Bash(cp __TRACKED_VAR__/mapdebug.mjs scripts/_mapdebug.mjs)",
       "Bash(SHOT=__TRACKED_VAR__/mapdebug.png node scripts/_mapdebug.mjs)",
-      "Bash(git commit -m 'Homepage = public Battle Map: /battlemap URL, Ingress territory web, hall finder popup, zero-height canvas fix *)"
+      "Bash(git commit -m 'Homepage = public Battle Map: /battlemap URL, Ingress territory web, hall finder popup, zero-height canvas fix *)",
+      "Bash(node scripts/_homedebug.mjs https://politicsgo.app/ C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/home.png)",
+      "Bash(node scripts/_homedebug.mjs https://politicsgo.app/battlemap C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/bmap.png)",
+      "Bash(node scripts/_homedebug.mjs https://politicsgo.app/ __TRACKED_VAR__/home.png)",
+      "Bash(node scripts/_homedebug.mjs https://politicsgo.app/battlemap __TRACKED_VAR__/bmap.png)",
+      "Bash(node scripts/_homedebug.mjs https://politicsgo.app/battlemap)",
+      "Bash(git commit -m 'Fix zero-height mapbox containers: mapbox-gl.css position:relative overrides Tailwind absolute *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
