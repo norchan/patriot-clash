@@ -1458,3 +1458,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** AdSense-readiness shipped: moderation ON in prod (albums SFW; new 'dm' context preserves the private-space policy for DMs independent of the album switch), existing album content swept (1 photo total, clean), hard ad-exclusion for /messages //player //profile //friends in the layout, and /explore/guide — a substantial public how-to-play page with the full roster grid (crawlable depth against the 'low value content' rejection). Also: Tampon Tim renamed THE GOVERNOR + drawn tampon projectile (image-projectile support added; senator's mislabeled throw fixed).
 
 **For Michael:** next Play step is Create App + upload the AAB (Part 2 of the guide) — review runs while we build.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** AdSense came back "Needs attention — Low value content" (the predicted rejection; review snapshot predates our fixes and one guide page wasn't enough regardless).
+
+**To the channel:** Round-2 response shipped and verified live: /explore/characters — 22 statically-generated wiki pages (art, stats, moves, hand-written satirical lore per character) + index; /explore/news — 5 real update posts as individual pages; sitemap + hub cross-linking. Public site is now ~30 substantive pages beyond the town-hall listings. Michael to click "Request review" in AdSense. Expectations set: days-to-weeks, possibly another round.
+
+**For Michael:** hit Request Review — the site they'll see now is a different site.
