@@ -70,11 +70,11 @@ export default async function ExplorePage() {
         <h1 className="text-3xl sm:text-4xl font-black leading-tight">
           Walk your city. Capture town halls. Win the argument.
         </h1>
-        <p className="mt-2">
-          <Link href="/explore/guide" className="text-purple-400 hover:text-purple-300 font-bold">
-            📖 New here? Read the complete How-to-Play guide →
-          </Link>
-        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm font-bold">
+          <Link href="/explore/guide" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">📖 How to Play</Link>
+          <Link href="/explore/characters" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">🎭 Characters</Link>
+          <Link href="/explore/news" className="px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-800 text-purple-300 hover:text-white">📰 News & Updates</Link>
+        </div>
         <p className="mt-4 text-gray-300 max-w-2xl leading-relaxed">
           PoliticsGo is a free, location-based game for the United States. Pick a party — Democrat
           or Republican — and explore the real world on a live map. Every real town hall is a

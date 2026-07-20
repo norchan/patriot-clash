@@ -1,3 +1,5 @@
+import { republicanEnemies, democratEnemies } from '@/config/enemies'
+import { POSTS } from '@/app/explore/news/posts'
 import type { MetadataRoute } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
@@ -13,6 +15,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: 'https://politicsgo.app/', lastModified: now, changeFrequency: 'daily', priority: 1 },
     { url: 'https://politicsgo.app/explore', lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
     { url: 'https://politicsgo.app/explore/guide', lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
+    { url: 'https://politicsgo.app/explore/characters', lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
+    { url: 'https://politicsgo.app/explore/news', lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: 'https://politicsgo.app/welcome', lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
     { url: 'https://politicsgo.app/privacy', lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
   ]
