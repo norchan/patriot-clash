@@ -429,14 +429,14 @@ export default function TownHallPage() {
         {/* the P/ boards: national/state/party windows over every town square */}
         <div className="flex justify-center gap-2 mb-3">
           <Link href="/p/all" className="px-3 py-1.5 rounded-full text-xs font-black text-white border border-purple-800"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>{'📰'} P/All</Link>
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>{'📰'} p/all</Link>
           {gym.state && (
             <Link href={`/p/${String(gym.state).toLowerCase()}`} className="px-3 py-1.5 rounded-full text-xs font-black text-purple-300 bg-purple-950/40 border border-purple-800 hover:text-white">
-              P/{gym.state}
+              p/{String(gym.state).toLowerCase()}
             </Link>
           )}
-          <Link href="/p/democrats" className="px-3 py-1.5 rounded-full text-xs font-black text-blue-300 bg-blue-950/40 border border-blue-800 hover:text-white">P/Dems</Link>
-          <Link href="/p/republicans" className="px-3 py-1.5 rounded-full text-xs font-black text-red-300 bg-red-950/40 border border-red-800 hover:text-white">P/Reps</Link>
+          <Link href="/p/democrats" className="px-3 py-1.5 rounded-full text-xs font-black text-blue-300 bg-blue-950/40 border border-blue-800 hover:text-white">p/dems</Link>
+          <Link href="/p/republicans" className="px-3 py-1.5 rounded-full text-xs font-black text-red-300 bg-red-950/40 border border-red-800 hover:text-white">p/reps</Link>
         </div>
         <HallFeed gymId={gym.id} />
       </div>

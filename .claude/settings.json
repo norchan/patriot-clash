@@ -91,7 +91,8 @@
       "Bash(cp \"C:/Users/Micha/Desktop/CHAR-TamponTim-Realistic.png\" public/enemies/democrat/tampon_tim.png)",
       "Bash(node scripts/meshy_pipeline.mjs public/enemies/democrat/tampon_tim.png tampon_tim 0:idle,421:throw)",
       "Bash(git commit -q -m 'Tampon Tim -> THE GOVERNOR; real tampon projectile sprite *)",
-      "Bash(git commit -q -m 'channel: Claude — AdSense round 2 content *)"
+      "Bash(git commit -q -m 'channel: Claude — AdSense round 2 content *)",
+      "Bash(git commit -q -m 'channel: Claude — leaderboards + P/ boards *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

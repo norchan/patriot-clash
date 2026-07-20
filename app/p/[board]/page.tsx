@@ -24,11 +24,11 @@ const NAME_TO_CODE = Object.fromEntries(
 
 function resolveBoard(raw: string): { kind: 'all' | 'party' | 'state'; key: string; label: string } | null {
   const b = decodeURIComponent(raw).toLowerCase().replace(/[^a-z]/g, '')
-  if (b === 'all') return { kind: 'all', key: 'all', label: 'p/All' }
-  if (b === 'democrats' || b === 'democrat' || b === 'dems') return { kind: 'party', key: 'democrat', label: 'p/Democrats' }
-  if (b === 'republicans' || b === 'republican' || b === 'reps') return { kind: 'party', key: 'republican', label: 'p/Republicans' }
+  if (b === 'all') return { kind: 'all', key: 'all', label: 'p/all' }
+  if (b === 'democrats' || b === 'democrat' || b === 'dems') return { kind: 'party', key: 'democrat', label: 'p/democrats' }
+  if (b === 'republicans' || b === 'republican' || b === 'reps') return { kind: 'party', key: 'republican', label: 'p/republicans' }
   const code = b.length === 2 ? b.toUpperCase() : NAME_TO_CODE[b]
-  if (code && STATE_NAMES[code]) return { kind: 'state', key: code, label: `p/${STATE_NAMES[code].replace(/ /g, '')}` }
+  if (code && STATE_NAMES[code]) return { kind: 'state', key: code, label: `p/${STATE_NAMES[code].replace(/[^A-Za-z]/g, '').toLowerCase()}` }
   return null
 }
 
@@ -79,7 +79,9 @@ export default async function BoardPage({ params, searchParams }: {
     ? q.not('gyms', 'is', null).order(newest ? 'created_at' : 'score', { ascending: false }).limit(60)
     : q.order(newest ? 'created_at' : 'score', { ascending: false }).limit(60))
 
-  const boards = ['All', 'Democrats', 'Republicans', 'Minnesota', 'Wisconsin', 'Texas', 'California', 'Florida', 'NewYork', 'Ohio']
+  // reddit-style tab strip: the big three first, then every state a-z
+  const boards = ['all', 'democrats', 'republicans',
+    ...Object.values(STATE_NAMES).map(n => n.replace(/[^A-Za-z]/g, '').toLowerCase()).sort()]
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200">
@@ -91,15 +93,19 @@ export default async function BoardPage({ params, searchParams }: {
         <h1 className="text-3xl font-black text-white">📰 {b.label}</h1>
         <p className="text-gray-500 text-sm mt-1">The public post board — live from PoliticsGo&apos;s town squares.</p>
 
-        {/* board switcher */}
-        <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1">
-          {boards.map(name => (
-            <Link key={name} href={`/p/${name.toLowerCase()}`}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-black border ${
-                b.label === `p/${name}` ? 'bg-purple-700 border-purple-500 text-white' : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white'}`}>
-              p/{name}
-            </Link>
-          ))}
+        {/* board tabs — swipe sideways, tap to jump boards (reddit-style) */}
+        <div className="mt-4 -mx-4 px-4 flex gap-1.5 overflow-x-auto pb-2"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+          {boards.map(name => {
+            const active = b.label === `p/${name}`
+            return (
+              <Link key={name} href={`/p/${name}`}
+                className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-black border transition ${
+                  active ? 'bg-purple-700 border-purple-400 text-white' : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'}`}>
+                p/{name}
+              </Link>
+            )
+          })}
         </div>
         {/* sort */}
         <div className="mt-3 flex gap-2 text-xs font-bold">
