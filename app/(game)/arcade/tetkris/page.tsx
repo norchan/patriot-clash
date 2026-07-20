@@ -218,7 +218,7 @@ export default function TetKrisPage() {
 
   function endGame() {
     g.current.running = false
-    setPhase('over')
+    setPhase('over'); fetch('/api/arcade/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'tetkris', score: g.current.score, session_id: sessionRef.current }) }).catch(() => {})
     sfx.gameOver()
     refetch()
   }

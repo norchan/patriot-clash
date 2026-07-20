@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
@@ -425,6 +426,18 @@ export default function TownHallPage() {
       {/* Town square — the hall's post thread */}
       <div className="mx-4 mt-5 pb-8">
         <h2 className="text-white font-black text-lg uppercase tracking-[0.2em] text-center mb-3">🏛️ Town Square</h2>
+        {/* the P/ boards: national/state/party windows over every town square */}
+        <div className="flex justify-center gap-2 mb-3">
+          <Link href="/p/all" className="px-3 py-1.5 rounded-full text-xs font-black text-white border border-purple-800"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>{'📰'} P/All</Link>
+          {gym.state && (
+            <Link href={`/p/${String(gym.state).toLowerCase()}`} className="px-3 py-1.5 rounded-full text-xs font-black text-purple-300 bg-purple-950/40 border border-purple-800 hover:text-white">
+              P/{gym.state}
+            </Link>
+          )}
+          <Link href="/p/democrats" className="px-3 py-1.5 rounded-full text-xs font-black text-blue-300 bg-blue-950/40 border border-blue-800 hover:text-white">P/Dems</Link>
+          <Link href="/p/republicans" className="px-3 py-1.5 rounded-full text-xs font-black text-red-300 bg-red-950/40 border border-red-800 hover:text-white">P/Reps</Link>
+        </div>
         <HallFeed gymId={gym.id} />
       </div>
 

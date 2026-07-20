@@ -378,6 +378,7 @@ export default function LandslidePage() {
 
   function winLevel() {
     setPhase('won'); sfx.levelUp()
+    fetch('/api/arcade/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'landslide', score: scoreRef.current, session_id: sessionRef.current }) }).catch(() => {})
     reward('level', { level })
     const nl = level + 1
     if (nl > (parseInt(localStorage.getItem('landslide_level') || '0', 10) || 0)) {
@@ -386,7 +387,10 @@ export default function LandslidePage() {
     refetch()
   }
 
-  function loseLevel(reason: 'moves' | 'time' = 'moves') { setLoseReason(reason); setPhase('lost'); sfx.gameOver() }
+  function loseLevel(reason: 'moves' | 'time' = 'moves') {
+    setLoseReason(reason); setPhase('lost'); sfx.gameOver()
+    fetch('/api/arcade/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'landslide', score: scoreRef.current, session_id: sessionRef.current }) }).catch(() => {})
+  }
 
   // Level clock — moves OR time, whichever runs out first. If time expires
   // mid-cascade, the cascade finishes (endOfMove sees timeUpRef) so a win at

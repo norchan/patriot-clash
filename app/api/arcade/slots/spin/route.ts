@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
       throw settleErr
     }
     const newBalance = settled as number
+    // public leaderboard: biggest single-spin win (server-authoritative)
+    if (totalPayout > 0) {
+      await admin.rpc('record_arcade_best', { p_profile_id: profile.id, p_game: 'slots', p_score: totalPayout })
+    }
 
     return NextResponse.json({
       bet,

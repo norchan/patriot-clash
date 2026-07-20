@@ -20,6 +20,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: 'https://politicsgo.app/explore/scoreboard', lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
     { url: 'https://politicsgo.app/explore/faq', lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: 'https://politicsgo.app/explore/about', lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: 'https://politicsgo.app/explore/leaderboards', lastModified: now, changeFrequency: 'hourly', priority: 0.8 },
+    { url: 'https://politicsgo.app/p/all', lastModified: now, changeFrequency: 'hourly', priority: 0.8 },
+    { url: 'https://politicsgo.app/p/democrats', lastModified: now, changeFrequency: 'hourly', priority: 0.7 },
+    { url: 'https://politicsgo.app/p/republicans', lastModified: now, changeFrequency: 'hourly', priority: 0.7 },
+    { url: 'https://politicsgo.app/p/minnesota', lastModified: now, changeFrequency: 'hourly', priority: 0.7 },
     { url: 'https://politicsgo.app/welcome', lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
     { url: 'https://politicsgo.app/privacy', lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
   ]

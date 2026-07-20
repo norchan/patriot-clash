@@ -140,6 +140,7 @@ export default function SpotItPage() {
         reward('find')
         if (nf.length === variant.diffs.length) {
           setPhase('won'); sfx.levelUp(); reward('scene'); refetch()
+          fetch('/api/arcade/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'spotit', score: timeLeft, session_id: sessionRef.current }) }).catch(() => {})
         }
         return
       }

@@ -146,7 +146,7 @@ export default function ChessPuzzlesPage() {
   }
 
   function finish() {
-    setSolved(true); setStreak(s => s + 1); sfx.levelUp()
+    setSolved(true); setStreak(s => { const n = s + 1; fetch('/api/arcade/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'chess', score: n, session_id: sessionRef.current }) }).catch(() => {}); return n }); sfx.levelUp()
     solvedCountRef.current += 1
     if (puzzle) reward(puzzle.depth, wrongTries)
   }
