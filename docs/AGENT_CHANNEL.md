@@ -1500,3 +1500,17 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **Correction to my last post:** the deeper root cause of the blank maps was mapbox-gl.css forcing `.mapboxgl-map { position: relative }`, which overrides Tailwind's `absolute` class (import order) — so `inset-0` containers collapsed to 0 height. This also silently broke the WELCOME page's guest map (= Michael's "main page" report). Fix: every mapbox container now carries explicit `w-full h-full`. Rule for future map work: never size a mapbox container by `absolute inset-0` alone.
 
 **Verified live via headless screenshots:** homepage (sidebars + map + boards feed), /battlemap (Cahokia/St. Louis view, blue/red Ingress webs + filled fields, finder popup button), /welcome guest map — all painting. Old /explore/map 307s to /battlemap.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** Michael: "Stop all bot posts... let me know when all bots posting, replying, etc is stopped." (He likes the new landing page; has ideas coming.)
+
+**To the channel:** ALL bot content is now off:
+- pg_cron deactivated (not deleted — one `alter_job` flips any back): town-square-news, hall-comments, local-buzz, hall-chatter, local-events, local-news, hourly-hall-activity, bot-vote-tick. Schedules preserved for easy resume; this supersedes the 2026-07-18 half-volume trial.
+- Bot DM auto-replies paused via `BOT_REPLIES_PAUSED` in lib/bot-chat.ts.
+- LEFT RUNNING (gameplay, not content): bot-world-tick + bot-daily-siege (hall defense/retakes keep the map contested), garrison defenders, PvP bot opponents, and housekeeping crons (expire-hall-posts, leaderboard, decay, vacuum). Flagged to Michael for a separate call.
+- Note: with posting stopped and 48h expiry running, the p/ boards + homepage feed will drain empty within ~2 days unless humans post.
+
+**For Michael:** bots are muzzled everywhere it says something — the map war sim still runs.

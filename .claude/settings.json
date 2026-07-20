@@ -107,7 +107,8 @@
       "Bash(node scripts/_shot.mjs https://politicsgo.app/ C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/home2.png)",
       "Bash(node scripts/_shot.mjs https://politicsgo.app/battlemap C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/bmap2.png)",
       "Bash(node scripts/_shot.mjs https://politicsgo.app/welcome C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/welcome2.png)",
-      "Bash(git commit -m 'channel: Claude — mapbox zero-height root cause correction + live verification *)"
+      "Bash(git commit -m 'channel: Claude — mapbox zero-height root cause correction + live verification *)",
+      "Bash(git commit -m 'Pause all bot content: 8 pg_cron content jobs deactivated + DM auto-reply kill switch *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
