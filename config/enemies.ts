@@ -224,7 +224,7 @@ export const republicanEnemies: Enemy[] = [
 export const democratEnemies: Enemy[] = [
   {
     id: 'tampon_tim',
-    name: 'Tampon Tim',
+    name: 'The Governor',
     description: 'The folksy governor — paces the stage and never stops pointing',
     image: '/enemies/democrat/tampon_tim.png',
     party: 'democrat',

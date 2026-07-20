@@ -61,8 +61,8 @@ const TIER_AI = {
 }
 
 // What each character throws back at you
-const FOE_THROWS: Record<string, { emoji: string; label: string }> = {
-  tampon_tim:      { emoji: '🧻', label: 'a Tampon' },
+const FOE_THROWS: Record<string, { emoji: string; label: string; img?: string }> = {
+  tampon_tim:      { emoji: '🤍', img: '/battle/tampon.png', label: 'a Tampon' },
   oil_baron:       { emoji: '🛢️', label: 'Crude Oil' },
   cowboy:          { emoji: '🪢', label: 'Lasso' },
   hick:            { emoji: '🫙', label: 'Moonshine Jug' },
@@ -80,7 +80,7 @@ const FOE_THROWS: Record<string, { emoji: string; label: string }> = {
   palestine:       { emoji: '🍉', label: 'Watermelon' },
   comrade:         { emoji: '🚩', label: 'Red Banner' },
   drag:            { emoji: '💄', label: 'Lipstick Bomb' },
-  senator:         { emoji: '💊', label: 'Tampon' },
+  senator:         { emoji: '💊', label: 'Pill Bottle' },
   dem_politician:  { emoji: '📋', label: 'Regulations' },
 }
 const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot' }
@@ -93,6 +93,7 @@ interface Projectile {
   side: 'mine' | 'foe'
   kind?: 'rock' | 'firecracker'
   emoji?: string
+  img?: string
   x0: number; y0: number
   x1: number; y1: number
   dur: number
@@ -132,7 +133,10 @@ function Missile({ p, onDeflect }: { p: Projectile; onDeflect?: (id: number) => 
     // eslint-disable-next-line @next/next/no-img-element
     ? <img src={p.kind === 'firecracker' ? '/battle/firecracker.png' : '/battle/rock.png'} alt=""
         style={{ width: p.kind === 'firecracker' ? 52 : 42, height: 'auto', display: 'block' }} draggable={false} />
-    : <span style={{ fontSize: 30 }}>{p.emoji}</span>
+    : p.img
+      // eslint-disable-next-line @next/next/no-img-element
+      ? <img src={p.img} alt="" style={{ width: 44, height: 'auto', display: 'block', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} draggable={false} />
+      : <span style={{ fontSize: 30 }}>{p.emoji}</span>
   return (
     <div
       onPointerDown={p.side === 'foe' && onDeflect && !p.deflected ? (e => { e.stopPropagation(); onDeflect(p.id) }) : undefined}
@@ -456,7 +460,7 @@ function BattleContent() {
           const toY = rect.height * 0.86
           const id = ++S.current.idc
           const dur = 1000
-          setProjectiles(p => [...p, { id, side: 'foe', emoji: theme.emoji, x0: fromX, y0: chestY, x1: toX, y1: toY, dur }])
+          setProjectiles(p => [...p, { id, side: 'foe', emoji: theme.emoji, img: theme.img, x0: fromX, y0: chestY, x1: toX, y1: toY, dur }])
           sfx.tap()
 
           setTimeout(() => {

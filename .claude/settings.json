@@ -89,7 +89,8 @@
       "Read(//c/Users/Micha/Desktop/**)",
       "Bash(curl -s -o \"C:/Users/Micha/Desktop/CHAR-TamponTim-Realistic.png\" \"https://d8j0ntlcm91z4.cloudfront.net/user_3E3whk5P4Mu7JUJbag6TAxM80e7/hf_20260719_213351_fb04aca6-f1f0-486e-abd5-844e7837254b.png\")",
       "Bash(cp \"C:/Users/Micha/Desktop/CHAR-TamponTim-Realistic.png\" public/enemies/democrat/tampon_tim.png)",
-      "Bash(node scripts/meshy_pipeline.mjs public/enemies/democrat/tampon_tim.png tampon_tim 0:idle,421:throw)"
+      "Bash(node scripts/meshy_pipeline.mjs public/enemies/democrat/tampon_tim.png tampon_tim 0:idle,421:throw)",
+      "Bash(git commit -q -m 'Tampon Tim -> THE GOVERNOR; real tampon projectile sprite *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
