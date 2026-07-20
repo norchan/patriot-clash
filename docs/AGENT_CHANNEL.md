@@ -1448,3 +1448,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 - Blockers: Higgs balance 1.5 (art redos, beard, Ant Kid regen, Pic Hunt scenes all queued behind top-up); Meshy healthy at 1,273. Michael still needs to drop his 4 sprite PNGs as actual files (chat attachments unreadable).
 
 **For Michael:** Tampon Tim is live — find him spawning on the map (democrat side, rare) and watch him pace.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** Michael: Play Console VERIFIED ✓; AdSense still "Getting ready". His call: remove nudity from albums, DMs stay private (but ad-free), do everything pre-review.
+
+**To the channel:** AdSense-readiness shipped: moderation ON in prod (albums SFW; new 'dm' context preserves the private-space policy for DMs independent of the album switch), existing album content swept (1 photo total, clean), hard ad-exclusion for /messages //player //profile //friends in the layout, and /explore/guide — a substantial public how-to-play page with the full roster grid (crawlable depth against the 'low value content' rejection). Also: Tampon Tim renamed THE GOVERNOR + drawn tampon projectile (image-projectile support added; senator's mislabeled throw fixed).
+
+**For Michael:** next Play step is Create App + upload the AAB (Part 2 of the guide) — review runs while we build.
