@@ -134,7 +134,9 @@
       "Bash(git commit -m 'Battle: hold fight until sprite model is visible, then 3-2-1-FIGHT countdown *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://politicsgo.app/)",
       "Bash(git commit -m 'Under-map dock: bare white lucide icons, bigger, no colored circles *)",
-      "Bash(git commit -m 'Boards: X-style post cards + public /p/post/[id] detail page with thread and reply box *)"
+      "Bash(git commit -m 'Boards: X-style post cards + public /p/post/[id] detail page with thread and reply box *)",
+      "Bash(curl -s https://politicsgo.app/api/public/boards/all)",
+      "Bash(git commit -m 'Game map HUD: party dot replaced with party-colored Home icon linking to battlemap home *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

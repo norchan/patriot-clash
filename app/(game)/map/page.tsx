@@ -6,6 +6,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { useSteps } from '@/hooks/useSteps'
 import { getEnemyById } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
+import { Home } from 'lucide-react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import AlbumViewer from '@/components/AlbumViewer'
@@ -1256,10 +1257,14 @@ export default function MapPage() {
         {/* Row 1: party + FP, with the steps bubble to the RIGHT (same height) */}
         <div className="flex items-stretch gap-2">
           <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: partyColor }} />
-            <span className="text-white text-xs font-semibold">
-              {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
-            </span>
+            {/* party home button → the battlemap home page */}
+            <button onClick={() => router.push('/')} aria-label="Battle Map home"
+              className="flex items-center gap-1.5 active:scale-95 transition">
+              <Home size={17} strokeWidth={2.6} className="flex-shrink-0" style={{ color: partyColor }} />
+              <span className="text-white text-xs font-semibold">
+                {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
+              </span>
+            </button>
             <div className="w-px h-3 bg-gray-600" />
             {/* Tap FP → shop */}
             <button onClick={() => router.push('/shop')}
