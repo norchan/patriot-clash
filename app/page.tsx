@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fetchHalls } from '@/lib/halls'
 import BattleMap from '@/components/BattleMap'
 import BoardsDeck from '@/components/BoardsDeck'
+import HomeMenu from '@/components/HomeMenu'
 
 // THE HOMEPAGE — the live national Battle Map, free for everyone.
 // Signed-out: sign-up pitch sidebar. Signed-in: your profile sidebar.
@@ -65,6 +66,7 @@ export default async function HomePage() {
       <header className="border-b border-gray-800/70 bg-gray-950/80 sticky top-0 z-30 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
+            <HomeMenu signedIn={!!profile} />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icons/icon-192.png" alt="" className="w-8 h-8 rounded-lg" />
             <span className="font-black text-white text-lg">PoliticsGo</span>

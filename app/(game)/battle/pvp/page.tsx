@@ -192,7 +192,14 @@ function StreetFightPage() {
   const [koFlash, setKoFlash] = useState(false)
   const [zoom, setZoom] = useState(false)
   const [shake, setShake] = useState(false)
-  const [banner, setBanner] = useState('')     // ROUND 1 / K.O. / TIME!
+  const [banner, setBanner] = useState('')     // 3/2/1/FIGHT! / K.O. / TIME!
+  // both fighters' models loaded — the live intro is HELD until this is true
+  // (Michael: fighters weren't visible when the fight began)
+  const [arenaReady, setArenaReady] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setArenaReady(true), 8000) // broken-model failsafe
+    return () => clearTimeout(t)
+  }, [])
   const [hpShake, setHpShake] = useState(0)    // heavy-hit HP bar shake driver
   const sparkId = useRef(0)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -339,19 +346,21 @@ function StreetFightPage() {
   // cleanup on dep changes: the phase flips intro→fighting mid-replay, and
   // cleaning up then would cancel every scheduled punch.
   useEffect(() => {
-    if (phase !== 'intro' || !validLog || !profile || replayStarted.current) return
+    if (phase !== 'intro' || !validLog || !profile || replayStarted.current || !arenaReady) return
     replayStarted.current = true
     const fight = log as FightLog
     const timers = timersRef.current
 
     const schedule = (ms: number, fn: () => void) => { timers.push(setTimeout(fn, ms)) }
 
-    // Intro cards
-    setBanner('ROUND 1')
-    schedule(900, () => { setBanner('FIGHT!'); sfx.bell(true) })
-    schedule(1500, () => { setBanner(''); setPhase('fighting') })
+    // Intro cards — fighters are loaded and visible before the count starts
+    setBanner('3'); sfx.tap()
+    schedule(800, () => { setBanner('2'); sfx.tap() })
+    schedule(1600, () => { setBanner('1'); sfx.tap() })
+    schedule(2400, () => { setBanner('FIGHT!'); sfx.bell(true) })
+    schedule(3000, () => { setBanner(''); setPhase('fighting') })
 
-    const t0 = 1500 // fight starts after intro
+    const t0 = 3000 // fight starts after the countdown
     let comboHits = 0
 
     for (const ev of fight.events) {
@@ -448,7 +457,7 @@ function StreetFightPage() {
     schedule(endAt + 1400, () => setZoom(false))
     schedule(endAt + 1900, () => { setBanner(''); setPhase('done') })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, validLog, profile?.id])
+  }, [phase, validLog, profile?.id, arenaReady])
 
   // Clear all replay timers only when leaving the page
   useEffect(() => {
@@ -525,13 +534,16 @@ function StreetFightPage() {
     setTimeout(() => setHint(''), 1400)
   }
 
-  // Intro banners for a live fight, then hand control to the player
+  // Live-fight intro: WAIT for both fighters' models, then 3…2…1…FIGHT!
+  // and only then hand control to the player (and wake the bot AI)
   useEffect(() => {
-    if (!isLive || phase !== 'intro' || liveStarted.current || !profile) return
+    if (!isLive || phase !== 'intro' || liveStarted.current || !profile || !arenaReady) return
     liveStarted.current = true
-    setBanner('ROUND 1')
-    const t1 = setTimeout(() => { setBanner('FIGHT!'); sfx.bell(true) }, 900)
-    const t2 = setTimeout(() => {
+    setBanner('3'); sfx.tap()
+    const t1 = setTimeout(() => { setBanner('2'); sfx.tap() }, 800)
+    const t2 = setTimeout(() => { setBanner('1'); sfx.tap() }, 1600)
+    const t3 = setTimeout(() => { setBanner('FIGHT!'); sfx.bell(true) }, 2400)
+    const t4 = setTimeout(() => {
       setBanner('')
       L.current.liveAt = Date.now()
       if (!realtime) {
@@ -540,10 +552,10 @@ function StreetFightPage() {
         L.current.foeNextAt = Date.now() + 1600
       }
       setPhase('live')
-    }, 1500)
-    timersRef.current.push(t1, t2)
+    }, 3000)
+    timersRef.current.push(t1, t2, t3, t4)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive, phase, profile?.id])
+  }, [isLive, phase, profile?.id, arenaReady])
 
   // ── Realtime channel: two humans exchange moves live ──────────────────────
   // Each client is authoritative for its OWN fighter: when the opponent's
@@ -1428,6 +1440,7 @@ function StreetFightPage() {
         <div className="absolute z-[5] pointer-events-none"
           style={layout === 'portrait' ? { top: 0, left: 0, right: 0, bottom: 200 } : { inset: 0 }}>
           <PvpArena3D
+            onReady={() => setArenaReady(true)}
             follow={layout === 'portrait'}
             playerPrefix={myPvpFighter}
             oppPrefix={oppPvpFighter}

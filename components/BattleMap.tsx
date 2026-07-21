@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2, User, Landmark } from 'lucide-react'
+import { Gamepad2, User, Landmark, MessagesSquare } from 'lucide-react'
 import mapboxgl from 'mapbox-gl'
 import { Delaunay } from 'd3-delaunay'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -305,6 +305,12 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
         className="text-white transition active:scale-90 hover:opacity-80 disabled:opacity-50"
         style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
         <Landmark size={38} strokeWidth={2.2} />
+      </button>
+      <button onClick={() => router.push(signedIn ? '/messages' : '/sign-up')}
+        title="Messages" aria-label="Messages"
+        className="text-white transition active:scale-90 hover:opacity-80"
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
+        <MessagesSquare size={38} strokeWidth={2.2} />
       </button>
     </div>
     </div>

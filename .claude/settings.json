@@ -137,7 +137,9 @@
       "Bash(git commit -m 'Boards: X-style post cards + public /p/post/[id] detail page with thread and reply box *)",
       "Bash(curl -s https://politicsgo.app/api/public/boards/all)",
       "Bash(git commit -m 'Game map HUD: party dot replaced with party-colored Home icon linking to battlemap home *)",
-      "Bash(git commit -m 'Boards batch: PLAY circle dock icon, expand button back on map, full action rows \\(vote/share/report/reply\\) on posts+replies, link preview images, /boards swipe page *)"
+      "Bash(git commit -m 'Boards batch: PLAY circle dock icon, expand button back on map, full action rows \\(vote/share/report/reply\\) on posts+replies, link preview images, /boards swipe page *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://politicsgo.app/boards)",
+      "Bash(git commit -m 'Home ☰ menu, Messages dock icon, PvP: hold fight for fighter models then 3-2-1-FIGHT *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
