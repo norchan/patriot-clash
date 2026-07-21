@@ -3,7 +3,6 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fetchHalls } from '@/lib/halls'
-import { fighterLevel } from '@/lib/fighter'
 import BattleMap from '@/components/BattleMap'
 import BoardsDeck from '@/components/BoardsDeck'
 
@@ -11,14 +10,6 @@ import BoardsDeck from '@/components/BoardsDeck'
 // Signed-out: sign-up pitch sidebar. Signed-in: your profile sidebar.
 // Below the map: the psub boards deck (reddit-app style). Other sidebar: arcade.
 // (Installed apps skip this — manifest start_url is /map.)
-
-const ARCADE = [
-  { id: 'spotit', name: 'Pic Hunt', art: '/arcade/spotit.jpg', accent: '#38bdf8' },
-  { id: 'landslide', name: 'Landslide', art: '/arcade/landslide.jpg', accent: '#f472b6' },
-  { id: 'tetkris', name: 'Tet-Kris', art: '/arcade/tetkris.jpg', accent: '#c084fc' },
-  { id: 'chess', name: 'Checkmate Chamber', art: '/arcade/chess.jpg', accent: '#ffd700' },
-  { id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15' },
-]
 
 export default async function HomePage() {
   const { userId } = await auth()
@@ -66,11 +57,6 @@ export default async function HomePage() {
     party: p.party, username: p.profiles?.username ?? 'Player',
     city: p.gyms?.city_name ?? null, state: p.gyms?.state ?? null,
   }))
-  const dem = halls.filter(h => h.party === 'democrat').length
-  const rep = halls.filter(h => h.party === 'republican').length
-
-  const partyColor = profile?.party === 'democrat' ? '#60a5fa' : '#f87171'
-
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200">
       {/* header */}
@@ -93,103 +79,14 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-5 grid gap-5 lg:grid-cols-[270px_minmax(0,1fr)_270px]">
-        {/* ── LEFT SIDEBAR: profile or sign-up pitch ─────────────────────── */}
-        <aside className="order-2 lg:order-1 space-y-4">
-          {profile ? (
-            <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
-              <div className="flex items-center gap-3">
-                {profile.avatar_url
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={profile.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover border-2" style={{ borderColor: partyColor }} />
-                  : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-black text-white" style={{ background: partyColor }}>
-                      {(profile.username ?? 'P')[0].toUpperCase()}
-                    </div>}
-                <div className="min-w-0">
-                  <p className="font-black text-white truncate">{profile.username}</p>
-                  <p className="text-xs font-bold" style={{ color: partyColor }}>
-                    {profile.party === 'democrat' ? '🔵 Democrat' : '🔴 Republican'} · Lv {fighterLevel(profile.total_battles_won ?? 0)}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-3 text-sm text-gray-400">⚡ <b className="text-yellow-400">{Number(profile.fp_balance ?? 0).toLocaleString()}</b> FP</p>
-              <div className="mt-4 grid gap-2">
-                <Link href="/map" className="py-2.5 rounded-xl text-center font-black text-white text-sm" style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>🗺️ Map</Link>
-                <Link href="/profile" className="py-2.5 rounded-xl text-center font-bold text-gray-200 text-sm bg-white/5 hover:bg-white/10">👤 Profile</Link>
-                <Link href="/messages" className="py-2.5 rounded-xl text-center font-bold text-gray-200 text-sm bg-white/5 hover:bg-white/10">💬 Messages</Link>
-                <Link href="/arena" className="py-2.5 rounded-xl text-center font-bold text-gray-200 text-sm bg-white/5 hover:bg-white/10">🏟️ Arena</Link>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl p-5 border"
-              style={{ background: 'linear-gradient(160deg, #1b1033, #0d0719)', borderColor: 'rgba(139,92,246,0.5)' }}>
-              <div className="text-3xl">🗣️</div>
-              <h2 className="mt-2 text-white font-black text-xl leading-tight">Make your voice heard</h2>
-              <p className="mt-2 text-sm text-gray-300">
-                Pick your party. Walk your real streets. Capture your real town hall — and hold it for your side.
-              </p>
-              <ul className="mt-3 space-y-1.5 text-[13px] text-gray-400">
-                <li>🏛️ 2,000+ real American town halls</li>
-                <li>🥊 Battle rival sprites &amp; real players</li>
-                <li>🚶 Walking earns Fighting Points</li>
-                <li>📰 Post in your town square</li>
-              </ul>
-              <Link href="/sign-up" className="block mt-4 py-3 rounded-xl text-center font-black text-white"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-                Join the fight — free
-              </Link>
-              <p className="mt-2 text-center text-xs text-gray-500">
-                Already enlisted? <Link href="/sign-in" className="text-purple-400 font-bold hover:text-purple-300">Sign in</Link>
-              </p>
-            </div>
-          )}
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4 text-sm">
-            <p className="font-black text-white mb-2">📊 The war today</p>
-            <p className="text-blue-400 font-black">🔵 Democrats {dem.toLocaleString()}</p>
-            <p className="text-red-400 font-black mt-1">🔴 Republicans {rep.toLocaleString()}</p>
-            <Link href="/explore/scoreboard" className="mt-2 inline-block text-xs text-purple-400 font-bold hover:text-purple-300">State-by-state numbers →</Link>
-          </div>
-        </aside>
+      {/* single column: collapsible map on top, boards below (no sidebars) */}
+      <main className="max-w-2xl mx-auto px-4 py-5 min-w-0">
+        <h1 className="text-xl sm:text-2xl font-black text-white mb-2">🗺️ Battle Map</h1>
+        <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null} collapsible />
 
-        {/* ── CENTER: the battle map + boards ────────────────────────────── */}
-        <main className="order-1 lg:order-2 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-white mb-2">🗺️ Battle Map</h1>
-          <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null} />
-
-          <h2 className="mt-6 mb-2 text-lg font-black text-white">📰 Boards</h2>
-          <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} />
-        </main>
-
-        {/* ── RIGHT SIDEBAR: the arcade ──────────────────────────────────── */}
-        <aside className="order-3 space-y-4">
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4">
-            <p className="font-black text-white mb-3">🕹️ The Arcade</p>
-            <div className="grid gap-3">
-              {ARCADE.map(g => (
-                <Link key={g.id} href={profile ? `/arcade/${g.id}` : '/play/arcade'}
-                  className="group relative rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition block">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={g.art} alt={g.name} className="w-full h-24 object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-                  <div className="absolute inset-0 flex items-end p-2.5"
-                    style={{ background: 'linear-gradient(180deg, transparent 30%, rgba(3,7,18,0.9))' }}>
-                    <span className="font-black text-sm" style={{ color: g.accent }}>{g.name}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            <Link href="/explore/leaderboards" className="mt-3 inline-block text-xs text-purple-400 font-bold hover:text-purple-300">🏆 Leaderboards →</Link>
-          </div>
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4 text-sm">
-            <p className="font-black text-white mb-2">🧭 Explore</p>
-            <div className="grid gap-1.5 text-[13px]">
-              <Link href="/explore/characters" className="text-gray-400 hover:text-white">🎭 The characters</Link>
-              <Link href="/explore/guide" className="text-gray-400 hover:text-white">📖 How to play</Link>
-              <Link href="/explore/news" className="text-gray-400 hover:text-white">🗞️ Dispatches</Link>
-              <Link href="/explore/faq" className="text-gray-400 hover:text-white">❓ FAQ</Link>
-            </div>
-          </div>
-        </aside>
-      </div>
+        <h2 className="mt-6 mb-2 text-lg font-black text-white">📰 Boards</h2>
+        <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} />
+      </main>
     </div>
   )
 }
