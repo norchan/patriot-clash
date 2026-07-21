@@ -119,7 +119,10 @@
       "Bash(git commit -m 'Psub subscriptions: +/✓ on /p rows, subscribed boards join homepage tabs + pin to Featured; leagues collapsible *)",
       "Bash(curl -s \"https://politicsgo.app/p\")",
       "Bash(git commit -m 'Battlemap Profile/Town Hall buttons + guest world: /play Cahokia map, guest sprite battles, free arcade, ad interstitials *)",
-      "Bash(git commit -m 'Homepage cleanup: icon-only expand button, drop header game bubble / full-screen / all-psubs links, Battle Map + Boards titles *)"
+      "Bash(git commit -m 'Homepage cleanup: icon-only expand button, drop header game bubble / full-screen / all-psubs links, Battle Map + Boards titles *)",
+      "Bash(curl -s https://politicsgo.app/)",
+      "Bash(git commit -m 'channel: homepage polish pass logged *)",
+      "Bash(git commit -m 'Battle Map as home: link in self-marker sheet + button on every town hall header *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

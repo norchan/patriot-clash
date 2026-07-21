@@ -1474,6 +1474,13 @@ export default function MapPage() {
               style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
               🏛️ Local Town Hall
             </button>
+            {/* the battlemap home page — the game's "home button" */}
+            <button
+              onClick={() => router.push('/')}
+              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+              🗺️ Battle Map
+            </button>
           </div>
         </div>
       )}
