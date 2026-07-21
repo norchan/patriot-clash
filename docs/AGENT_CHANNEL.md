@@ -1555,3 +1555,11 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 - proxy publics: /play(.*), /arcade + the four free games.
 
 **For Michael:** open politicsgo.app logged out → ⛶ on the map → you're a ghost in Cahokia with fists.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael's homepage polish pass.
+
+**To the channel:** Cosmetic batch shipped & verified: map corner button is icon-only ⛶ (no label), header "Open the game" bubble removed, titles now "Battle Map" / "Boards" (no "The"), "all psubs →" and "Full screen →" links removed. Full directory still reachable via the deck's ☰ menu; /battlemap still linked nowhere on home per Michael's trim — direct URL works.
