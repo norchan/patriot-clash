@@ -3,11 +3,31 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 // SPORTS-REPORTER BOTS — the one bot behavior that survived the 2026-07-20
 // bot-content shutdown (Michael's explicit order, 2026-07-21). Two designated
-// bots per state hunt fresh articles for every team psub in their state and
-// post them, every 6 hours: two articles per team board per run. States
-// without a team (and Canadian teams without a state) are skipped.
+// bots per state hunt fresh articles for every team psub in their state,
+// every 6 hours, in TWO PASSES five minutes apart (?phase=1 then ?phase=2):
+// the first reporter posts, then the second checks what's already on the
+// board — by link AND by headline similarity, since Google News carries the
+// same story from many outlets — and only posts a genuinely different story.
+// No doubles (Michael, 2026-07-21). Teams with no fresh second story are
+// skipped. States without a team (and Canadian teams) are skipped.
 
 export const maxDuration = 120
+
+// Same-story detection: token overlap between normalized headlines.
+// "Vikings release TE Josh Oliver" vs "Vikings expected to release
+// injury-riddled TE Josh Oliver - ESPN" → duplicate.
+function titleTokens(t: string): Set<string> {
+  return new Set(
+    t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+      .filter(w => w.length > 2))
+}
+function sameStory(a: string, b: string): boolean {
+  const ta = titleTokens(a), tb = titleTokens(b)
+  if (!ta.size || !tb.size) return false
+  let hit = 0
+  for (const w of ta) if (tb.has(w)) hit++
+  return hit / Math.min(ta.size, tb.size) >= 0.6
+}
 
 interface NewsItem { title: string; link: string; source: string }
 
@@ -70,6 +90,9 @@ export async function GET(req: NextRequest) {
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // phase 1 = the first reporter; phase 2 (five minutes later) = the second,
+  // who must not repeat any story already on the board
+  const phase = req.nextUrl.searchParams.get('phase') === '2' ? 2 : 1
   const admin = createSupabaseAdminClient()
 
   // every US team board, and each state's two designated reporter bots
@@ -101,42 +124,47 @@ export async function GET(req: NextRequest) {
     if (items.length) pools.set(t.id, items)
   })
 
-  // dedupe against links already on each board
-  const allLinks = [...new Set([...pools.values()].flat().map(i => i.link))]
-  const seen = new Set<string>()
-  for (let i = 0; i < allLinks.length; i += 150) {
+  // what's already on each board (links + headlines, last 3 days) — the
+  // second reporter must not repeat a story ANY outlet already covered here
+  const existing = new Map<string, { links: Set<string>; titles: string[] }>()
+  const teamIds = teams.map(t => t.id)
+  for (let i = 0; i < teamIds.length; i += 100) {
     const { data: rows } = await admin.from('hall_posts')
-      .select('board_id, link_url')
-      .in('link_url', allLinks.slice(i, i + 150))
-      .not('board_id', 'is', null)
-    rows?.forEach((r: any) => seen.add(`${r.board_id}|${r.link_url}`))
+      .select('board_id, link_url, link_title, content')
+      .in('board_id', teamIds.slice(i, i + 100))
+      .gte('created_at', new Date(Date.now() - 3 * 86400 * 1000).toISOString())
+    for (const r of rows ?? []) {
+      const e = existing.get(r.board_id) ?? { links: new Set<string>(), titles: [] }
+      if (r.link_url) e.links.add(r.link_url)
+      const t = r.link_title ?? r.content
+      if (t) e.titles.push(t)
+      existing.set(r.board_id, e)
+    }
   }
 
-  // two fresh articles per team — one from each reporter
+  // one article per team per phase — phase 1 posts as reporter #1, phase 2
+  // as reporter #2, and NEVER a story the board already has
   const rows: any[] = []
   for (const t of teams) {
     const bots = reporters[t.state as string] ?? []
-    if (!bots.length) continue
-    const picks: NewsItem[] = []
-    for (const item of pools.get(t.id) ?? []) {
-      if (picks.length >= Math.min(2, bots.length)) break
-      if (seen.has(`${t.id}|${item.link}`)) continue
-      if (picks.some(p => p.link === item.link)) continue
-      picks.push(item)
-    }
-    picks.forEach((item, i) => {
-      seen.add(`${t.id}|${item.link}`)
-      rows.push({
-        board_id: t.id,
-        profile_id: bots[i % bots.length],
-        party: null, // sports boards stay non-partisan
-        content: item.title,
-        link_url: item.link,
-        link_title: item.title,
-        link_domain: item.source,
-        score: Math.floor(Math.random() * 6),
-        created_at: new Date(Date.now() - Math.random() * 40 * 60 * 1000).toISOString(),
-      })
+    const bot = phase === 1 ? bots[0] : bots[1]
+    if (!bot) continue
+    const e = existing.get(t.id) ?? { links: new Set<string>(), titles: [] }
+    const pick = (pools.get(t.id) ?? []).find(item =>
+      !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title)))
+    if (!pick) continue // nothing genuinely new — skip, no doubles
+    e.links.add(pick.link)
+    e.titles.push(pick.title)
+    rows.push({
+      board_id: t.id,
+      profile_id: bot,
+      party: null, // sports boards stay non-partisan
+      content: pick.title,
+      link_url: pick.link,
+      link_title: pick.title,
+      link_domain: pick.source,
+      score: Math.floor(Math.random() * 6),
+      created_at: new Date().toISOString(),
     })
   }
 
@@ -149,6 +177,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    phase,
     inserted,
     teams: teams.length,
     teams_with_news: pools.size,

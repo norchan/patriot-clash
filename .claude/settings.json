@@ -123,7 +123,10 @@
       "Bash(curl -s https://politicsgo.app/)",
       "Bash(git commit -m 'channel: homepage polish pass logged *)",
       "Bash(git commit -m 'Battle Map as home: link in self-marker sheet + button on every town hall header *)",
-      "Bash(git commit -m 'Sports-reporter bots: /api/cron/team-news posts 2 fresh team articles per psub per run \\(state-designated bot pairs\\) *)"
+      "Bash(git commit -m 'Sports-reporter bots: /api/cron/team-news posts 2 fresh team articles per psub per run \\(state-designated bot pairs\\) *)",
+      "Bash(curl -s \"https://politicsgo.app/api/public/boards/minnesota-vikings\")",
+      "Bash(git commit -m 'channel: sports-reporter bots live *)",
+      "Bash(git commit -m 'team-news: two-phase reporters \\(5 min apart\\), second bot dedupes by headline similarity — no doubled stories *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
