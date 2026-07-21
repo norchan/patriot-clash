@@ -81,22 +81,15 @@ export default async function HomePage() {
             <img src="/icons/icon-192.png" alt="" className="w-8 h-8 rounded-lg" />
             <span className="font-black text-white text-lg">PoliticsGo</span>
           </div>
-          <nav className="flex items-center gap-2">
-            {profile ? (
-              <Link href="/map" className="px-4 py-2 rounded-xl font-black text-white text-sm"
+          {!profile && (
+            <nav className="flex items-center gap-2">
+              <Link href="/sign-in" className="px-3 py-2 text-sm font-bold text-gray-400 hover:text-white">Sign in</Link>
+              <Link href="/sign-up" className="px-4 py-2 rounded-xl font-black text-white text-sm"
                 style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-                🗺️ Open the game
+                Play free
               </Link>
-            ) : (
-              <>
-                <Link href="/sign-in" className="px-3 py-2 text-sm font-bold text-gray-400 hover:text-white">Sign in</Link>
-                <Link href="/sign-up" className="px-4 py-2 rounded-xl font-black text-white text-sm"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-                  Play free
-                </Link>
-              </>
-            )}
-          </nav>
+            </nav>
+          )}
         </div>
       </header>
 
@@ -160,16 +153,10 @@ export default async function HomePage() {
 
         {/* ── CENTER: the battle map + boards ────────────────────────────── */}
         <main className="order-1 lg:order-2 min-w-0">
-          <div className="flex items-baseline justify-between mb-2">
-            <h1 className="text-xl sm:text-2xl font-black text-white">🗺️ The Battle Map</h1>
-            <Link href="/battlemap" className="text-xs font-bold text-purple-400 hover:text-purple-300">Full screen →</Link>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-white mb-2">🗺️ Battle Map</h1>
           <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null} />
 
-          <div className="mt-6 flex items-baseline justify-between mb-2">
-            <h2 className="text-lg font-black text-white">📰 The boards</h2>
-            <Link href="/p" className="text-xs font-bold text-purple-400 hover:text-purple-300">all psubs →</Link>
-          </div>
+          <h2 className="mt-6 mb-2 text-lg font-black text-white">📰 Boards</h2>
           <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} />
         </main>
 

@@ -118,7 +118,8 @@
       "Bash(node scripts/_shot.mjs https://politicsgo.app/ C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/home4.png)",
       "Bash(git commit -m 'Psub subscriptions: +/✓ on /p rows, subscribed boards join homepage tabs + pin to Featured; leagues collapsible *)",
       "Bash(curl -s \"https://politicsgo.app/p\")",
-      "Bash(git commit -m 'Battlemap Profile/Town Hall buttons + guest world: /play Cahokia map, guest sprite battles, free arcade, ad interstitials *)"
+      "Bash(git commit -m 'Battlemap Profile/Town Hall buttons + guest world: /play Cahokia map, guest sprite battles, free arcade, ad interstitials *)",
+      "Bash(git commit -m 'Homepage cleanup: icon-only expand button, drop header game bubble / full-screen / all-psubs links, Battle Map + Boards titles *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

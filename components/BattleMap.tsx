@@ -214,9 +214,10 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       {/* expand into the game — bottom-right corner */}
       <button onClick={() => router.push(signedIn ? '/map' : '/play')}
         title={signedIn ? 'Open your game map' : 'Play as a guest'}
-        className="absolute bottom-8 right-3 z-10 flex items-center gap-1.5 pl-3 pr-3.5 py-2.5 rounded-full text-xs font-black text-white shadow-xl transition active:scale-95"
+        aria-label="Expand into the game"
+        className="absolute bottom-8 right-3 z-10 w-11 h-11 rounded-full text-lg font-black text-white shadow-xl transition active:scale-95 flex items-center justify-center"
         style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
-        <span className="text-sm leading-none">⛶</span> Enter the game
+        ⛶
       </button>
 
       {/* finder popup */}
