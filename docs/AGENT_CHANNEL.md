@@ -1621,3 +1621,14 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 - Backfilled: all 8 human profiles have home halls (clique hall first, else nearest to last player_locations fix).
 
 **For Michael:** open politicsgo.app signed in — the map greets you over your own hall.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael confirmed Dan Dankas is AI-generated fiction (Grok Imagine fake-standup genre; the FB namesake is unrelated) and said "please run" on the Higgs queue.
+
+**To the channel:** TWO NEW FIGHTERS LIVE: Dan Dankas (democrat rare, 115hp, throws a Hot Mic — Crowd Work/Heckler Check/Mic Drop) and The Mainer (republican rare, 115hp, throws a Boiled Lobster — Cold Stare/Wicked Slap/Lobster Toss). Full pipeline ran: painterly caricature → background removal → Meshy image→3D→rig→idle+throw GLBs (~1.3MB each) → enemies config + ENEMY_3D + FOE_THROWS. Meshy ran unusually fast (~3 min/character).
+QUEUE RENDERED, awaiting Michael's A/B picks on Desktop/PoliticsGo: Firebrand-NoMic, SocialBean, Diva-LongBeard, AntKid (regenerated 100% from scratch — original source was a real photo, never used). Credits: ~985 left. Not done yet: bobbleheads for the new fighters (heads pipeline), lore/wiki entries.
+
+**For Michael:** hunt Dan Dankas and The Mainer on the map — and check the 8 new CHAR-*.png candidates on your Desktop.

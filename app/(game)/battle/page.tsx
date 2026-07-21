@@ -15,7 +15,7 @@ const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
 const ENEMY_3D: Record<string, string> = Object.fromEntries(
   ['comrade', 'oil_baron', 'cowboy', 'politician', 'hick', 'ice_agent', 'soldier_boy', 'preppy', 'influencer',
    'billionaire', 'crazy_liberal', 'crying_liberal', 'dem_politician', 'purple_hair', 'protestor', 'anchor',
-   'palestine', 'drag', 'senator', 'tampon_tim'].map(id => [id, id]),
+   'palestine', 'drag', 'senator', 'tampon_tim', 'dan_dankas', 'maine'].map(id => [id, id]),
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -82,6 +82,8 @@ const FOE_THROWS: Record<string, { emoji: string; label: string; img?: string }>
   drag:            { emoji: '💄', label: 'Lipstick Bomb' },
   senator:         { emoji: '💊', label: 'Pill Bottle' },
   dem_politician:  { emoji: '📋', label: 'Regulations' },
+  dan_dankas:      { emoji: '🎤', label: 'Hot Mic' },
+  maine:           { emoji: '🦞', label: 'Boiled Lobster' },
 }
 const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot' }
 // Tampon Tim is the only PACER: constant back-and-forth with a mirror flip at
