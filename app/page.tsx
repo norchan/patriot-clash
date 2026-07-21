@@ -84,7 +84,7 @@ export default async function HomePage() {
         <h1 className="text-xl sm:text-2xl font-black text-white mb-2 text-center">Battle Map</h1>
         <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null} collapsible />
 
-        <h2 className="mt-6 mb-2 text-lg font-black text-white">📰 Boards</h2>
+        <h2 className="mt-6 mb-2 text-lg font-black text-white text-center">Boards</h2>
         <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} />
       </main>
     </div>

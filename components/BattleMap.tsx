@@ -220,23 +220,6 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
           collapses to 0 height */}
       <div ref={el} className="absolute inset-0 w-full h-full" />
 
-      {/* the arcade — bottom-left corner */}
-      <button onClick={() => router.push(signedIn ? '/arcade' : '/play/arcade')}
-        title="Open the arcade"
-        aria-label="Open the arcade"
-        className="absolute bottom-8 left-3 z-10 w-11 h-11 rounded-full text-lg shadow-xl transition active:scale-95 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: '1px solid rgba(253,230,138,0.55)' }}>
-        🕹️
-      </button>
-
-      {/* expand into the game — bottom-right corner */}
-      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
-        title={signedIn ? 'Open your game map' : 'Play as a guest'}
-        aria-label="Expand into the game"
-        className="absolute bottom-8 right-3 z-10 w-11 h-11 rounded-full text-lg font-black text-white shadow-xl transition active:scale-95 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
-        ⛶
-      </button>
 
       {/* finder popup */}
       {finder && (
@@ -287,16 +270,31 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       )}
     </div>
 
-    {/* under-map buttons: Profile | Town Hall */}
-    <div className="mt-3 grid grid-cols-2 gap-3">
+    {/* under-map dock: round icons only — arcade, game map, profile, town hall */}
+    <div className="mt-3 flex items-center justify-center gap-5">
+      <button onClick={() => router.push(signedIn ? '/arcade' : '/play/arcade')}
+        title="Arcade" aria-label="Arcade"
+        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: '1px solid rgba(253,230,138,0.55)' }}>
+        🕹️
+      </button>
+      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
+        title="Enter the game" aria-label="Enter the game"
+        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(167,243,208,0.55)' }}>
+        🗺️
+      </button>
       <button onClick={() => router.push(signedIn ? '/profile' : '/sign-up')}
-        className="py-3 rounded-2xl font-black text-white text-sm transition active:scale-95 border border-gray-700 bg-gray-900 hover:border-purple-600">
-        👤 Profile
+        title="Profile" aria-label="Profile"
+        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: '1px solid rgba(191,219,254,0.55)' }}>
+        👤
       </button>
       <button onClick={townHall} disabled={locating}
-        className="py-3 rounded-2xl font-black text-white text-sm transition active:scale-95 disabled:opacity-60"
-        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-        {locating ? 'Locating…' : '🏛️ Town Hall'}
+        title="Town Hall" aria-label="Town Hall"
+        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center disabled:opacity-60"
+        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
+        {locating ? '…' : '🏛️'}
       </button>
     </div>
     </div>
