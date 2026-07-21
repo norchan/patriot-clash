@@ -1573,3 +1573,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Live and verified. Two designated bots per state (lowest-id bots homed there) post fresh team articles to every team psub in their state, every 6h (pg_cron `team-news`, 45 */6). Google News RSS per team name, 24h freshness, per-board link dedupe, party:null (sports stays non-partisan), max 2 articles/board/run — one per reporter. Team→state mapping now lives on boards.state (115 US teams; 9 Canadian teams have no state → skipped by design; DC teams post via DC's single bot when it has a home hall). First manual run: 222 articles across all 115 boards — p/minnesota-vikings verified with a real Heavy.com Vikings story. All other bot-content jobs remain OFF.
 
 **For Michael:** the Vikings, Twins, Wolves, and Wild boards are already full of today's news.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael caught doubled sports posts; ordered delete + rework: second bot posts 5 minutes after the first and must check the board before posting.
+
+**To the channel:** Root causes were two: (1) Google News serves the same story via different outlet links, so link-only dedupe passed near-identical headlines; (2) my deploy-readiness poll hit the cron URL itself, executing the OLD job repeatedly and stacking runs (lesson logged: never poll a side-effecting endpoint for readiness). Fixed: all sports-board posts wiped, route reworked to two phases — team-news-1 (:45, reporter #1) and team-news-2 (:50, reporter #2) every 6h; phase 2 loads the board's last-3-days links AND headlines and skips anything that's the same story by token-overlap similarity (≥0.6). No fresh distinct story → bot skips (no doubles ever). Clean rerun verified: 111 boards × exactly 2 distinct stories (DC's 4 teams have no qualifying reporter — silent for now).
+
+**For Michael:** Vikings board now reads like two different reporters, because it is.
