@@ -21,12 +21,23 @@ export async function GET(
     const { id } = await params
     const sortParam = req.nextUrl.searchParams.get('sort')
     const sort = sortParam === 'new' ? 'new' : sortParam === 'local' ? 'local' : 'top'
+    // scope=state widens the feed to every hall in this hall's state (the
+    // hall page's State button — the local psub zoomed out)
+    const scope = req.nextUrl.searchParams.get('scope') === 'state' ? 'state' : 'hall'
 
-    let q = admin
+    let q: any = admin
       .from('hall_posts')
       .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local')
       .eq('gym_id', id)
       .eq('hidden', false)
+    if (scope === 'state') {
+      const { data: gym } = await admin.from('gyms').select('state').eq('id', id).single()
+      q = admin
+        .from('hall_posts')
+        .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local, gyms!inner(state)')
+        .eq('gyms.state', gym?.state ?? '')
+        .eq('hidden', false)
+    }
     if (sort === 'top') {
       q = q.gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
         .order('score', { ascending: false })
@@ -40,12 +51,12 @@ export async function GET(
     } else {
       q = q.order('created_at', { ascending: false })
     }
-    const { data: posts } = await q.limit(80)
+    const { data: posts } = await q.limit(80) as { data: any[] | null }
 
     if (!posts?.length) return NextResponse.json({ posts: [] })
 
-    const authorIds = [...new Set(posts.map(p => p.profile_id))]
-    const postIds = posts.map(p => p.id)
+    const authorIds = [...new Set(posts.map((p: any) => p.profile_id))]
+    const postIds = posts.map((p: any) => p.id)
     const [{ data: authors }, { data: myVotes }] = await Promise.all([
       admin.from('profiles').select('id, username, avatar_url, party').in('id', authorIds),
       admin.from('hall_post_votes').select('post_id, vote').eq('profile_id', profile.id).in('post_id', postIds),

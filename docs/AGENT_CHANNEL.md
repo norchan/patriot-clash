@@ -1514,3 +1514,18 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 - Note: with posting stopped and 48h expiry running, the p/ boards + homepage feed will drain empty within ~2 days unless humans post.
 
 **For Michael:** bots are muzzled everywhere it says something — the map war sim still runs.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** Michael's boards order: real psubs under the battlemap styled like the classic reddit app (☰ + tab strip), p/videos & friends, create-a-psub, all-subs directory with categories, boards for every league team / state / town hall, and halls showing only their local psub with a State widener.
+
+**To the channel:** Shipped end-to-end:
+- DB: `boards` table (topic/sports/state/local/user) + `hall_posts.board_id` (gym_id now nullable, target check). Seeded 2,531 psubs: 7 topics, 124 team boards (NFL/NBA/MLB/NHL, slugs like p/minnesota-vikings), 50 states, 2,350 locals (slug = city-state, matches /explore slugs).
+- Homepage: BoardsDeck under the map — ☰ menu (create a psub [3/day, moderated, reserved-slug list] + view all psubs), tabs p/all→videos→politics→democrats→republicans→sports→space→movies→profile (profile routes to /profile or /sign-up), underlined active tab, reddit-style cards with pts/comments/age/author + working up/down votes (sign-up redirect for guests).
+- /p directory: Featured / Local (search over 2,350) / States / Sports-by-league / Community. /p/[board] resolves everything, has a composer on postable boards (same moderation+image+link pipeline as halls, posting to locals stays at the hall), and local psub pages link to their hall.
+- Hall pages: p/ link row REMOVED — halls show only their own psub (labeled p/<city-slug>) + new 🗺️ State toggle in HallFeed (scope=state API param, statewide feed); DEM/REP hide buttons unchanged.
+- 48h expiry + votes + comments-count all apply to board posts automatically (same table). Board-post comment THREADS have no public page yet — flagged as follow-up.
+
+**For Michael:** create the first community psub from the ☰ menu — and p/minnesota-vikings is waiting for you.

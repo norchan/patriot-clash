@@ -5,18 +5,12 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fetchHalls } from '@/lib/halls'
 import { fighterLevel } from '@/lib/fighter'
 import BattleMap from '@/components/BattleMap'
+import BoardsDeck from '@/components/BoardsDeck'
 
 // THE HOMEPAGE — the live national Battle Map, free for everyone.
 // Signed-out: sign-up pitch sidebar. Signed-in: your profile sidebar.
-// Below the map: the p/ post boards. Other sidebar: the arcade.
+// Below the map: the psub boards deck (reddit-app style). Other sidebar: arcade.
 // (Installed apps skip this — manifest start_url is /map.)
-
-function timeAgo(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
-  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))}m`
-  if (s < 86400) return `${Math.floor(s / 3600)}h`
-  return `${Math.floor(s / 86400)}d`
-}
 
 const ARCADE = [
   { id: 'spotit', name: 'Pic Hunt', art: '/arcade/spotit.jpg', accent: '#38bdf8' },
@@ -49,11 +43,19 @@ export default async function HomePage() {
   const [halls, { data: posts }] = await Promise.all([
     fetchHalls(),
     admin.from('hall_posts')
-      .select('id, content, score, comment_count, created_at, party, profiles(username), gyms(city_name, state)')
+      .select('id, content, image_url, link_title, link_domain, score, comment_count, created_at, party, profiles(username), gyms(city_name, state)')
       .eq('hidden', false)
       .order('score', { ascending: false })
-      .limit(12),
+      .order('created_at', { ascending: false })
+      .limit(25),
   ])
+  const deckPosts = (posts ?? []).map((p: any) => ({
+    id: p.id, content: p.content, image_url: p.image_url,
+    link_title: p.link_title, link_domain: p.link_domain,
+    score: p.score, comment_count: p.comment_count, created_at: p.created_at,
+    party: p.party, username: p.profiles?.username ?? 'Player',
+    city: p.gyms?.city_name ?? null, state: p.gyms?.state ?? null,
+  }))
   const dem = halls.filter(h => h.party === 'democrat').length
   const rep = halls.filter(h => h.party === 'republican').length
 
@@ -154,37 +156,11 @@ export default async function HomePage() {
           </div>
           <BattleMap halls={halls} height="56vh" />
 
-          <div className="mt-6 flex items-baseline justify-between">
-            <h2 className="text-lg font-black text-white">📰 Live from the town squares</h2>
-            <Link href="/p/all" className="text-xs font-bold text-purple-400 hover:text-purple-300">p/all →</Link>
+          <div className="mt-6 flex items-baseline justify-between mb-2">
+            <h2 className="text-lg font-black text-white">📰 The boards</h2>
+            <Link href="/p" className="text-xs font-bold text-purple-400 hover:text-purple-300">all psubs →</Link>
           </div>
-          <div className="mt-3 space-y-3">
-            {(posts ?? []).length === 0 && (
-              <p className="text-gray-600 text-sm text-center py-8">Quiet out there right now — check back soon.</p>
-            )}
-            {(posts ?? []).map((p: any) => (
-              <article key={p.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  {p.party && (
-                    <span className="font-black" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
-                      {p.party === 'democrat' ? 'DEM' : 'REP'}
-                    </span>
-                  )}
-                  <span className="font-bold text-gray-400">{p.profiles?.username ?? 'Player'}</span>
-                  {p.gyms && <span>· {p.gyms.city_name}, {p.gyms.state}</span>}
-                  <span>· {timeAgo(p.created_at)}</span>
-                </div>
-                <p className="mt-2 text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
-                <div className="mt-2 flex items-center gap-4 text-xs text-gray-500 font-bold">
-                  <span>▲ {p.score}</span>
-                  <span>💬 {p.comment_count}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-          <Link href="/p/all" className="block mt-4 py-2.5 rounded-xl text-center text-sm font-bold text-gray-300 bg-white/5 hover:bg-white/10">
-            See every board →
-          </Link>
+          <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} />
         </main>
 
         {/* ── RIGHT SIDEBAR: the arcade ──────────────────────────────────── */}

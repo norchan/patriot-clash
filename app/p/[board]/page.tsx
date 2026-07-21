@@ -1,44 +1,22 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { resolvePBoard, fetchBoardPosts, FEATURED_TABS } from '@/lib/boards'
+import BoardComposer from '@/components/BoardComposer'
 
-// P/ BOARDS — the public post board. Reddit-style windows over the live town
-// square feeds: p/all (everything), p/democrats, p/republicans, p/<state>.
-// Readable by ANYONE, no login; posting happens inside the game's halls.
+// P/ BOARDS (psubs) — the public post boards. p/all + party windows, topic
+// boards (videos, space...), team boards, state boards, one local board per
+// town hall, and player-created psubs. Readable by ANYONE, no login.
 export const revalidate = 120
-
-const STATE_NAMES: Record<string, string> = {
-  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado',
-  CT: 'Connecticut', DE: 'Delaware', DC: 'Washington D.C.', FL: 'Florida', GA: 'Georgia',
-  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas',
-  KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts',
-  MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana',
-  NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico',
-  NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
-  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota',
-  TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington',
-  WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
-}
-const NAME_TO_CODE = Object.fromEntries(
-  Object.entries(STATE_NAMES).map(([code, name]) => [name.toLowerCase().replace(/[^a-z]/g, ''), code]))
-
-function resolveBoard(raw: string): { kind: 'all' | 'party' | 'state'; key: string; label: string } | null {
-  const b = decodeURIComponent(raw).toLowerCase().replace(/[^a-z]/g, '')
-  if (b === 'all') return { kind: 'all', key: 'all', label: 'p/all' }
-  if (b === 'democrats' || b === 'democrat' || b === 'dems') return { kind: 'party', key: 'democrat', label: 'p/democrats' }
-  if (b === 'republicans' || b === 'republican' || b === 'reps') return { kind: 'party', key: 'republican', label: 'p/republicans' }
-  const code = b.length === 2 ? b.toUpperCase() : NAME_TO_CODE[b]
-  if (code && STATE_NAMES[code]) return { kind: 'state', key: code, label: `p/${STATE_NAMES[code].replace(/[^A-Za-z]/g, '').toLowerCase()}` }
-  return null
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ board: string }> }): Promise<Metadata> {
   const { board } = await params
-  const b = resolveBoard(board)
+  const admin = createSupabaseAdminClient()
+  const b = await resolvePBoard(admin, board)
   if (!b) return {}
   return {
     title: `${b.label} — the PoliticsGo post board`,
-    description: `Live posts from PoliticsGo town squares — ${b.label}. What America's town halls are arguing about right now.`,
+    description: `Live posts on ${b.label} — the PoliticsGo boards. What America is arguing about right now.`,
     alternates: { canonical: `https://politicsgo.app/p/${board.toLowerCase()}` },
   }
 }
@@ -56,32 +34,31 @@ export default async function BoardPage({ params, searchParams }: {
 }) {
   const { board } = await params
   const { sort } = await searchParams
-  const b = resolveBoard(board)
+  const admin = createSupabaseAdminClient()
+  const b = await resolvePBoard(admin, board)
   if (!b) {
     return (
       <div className="min-h-screen bg-gray-950 text-gray-200 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-2xl font-black text-white">That board doesn&apos;t exist</p>
-          <Link href="/p/all" className="text-purple-400 hover:text-purple-300 mt-2 inline-block">→ p/All</Link>
+          <p className="text-2xl font-black text-white">That psub doesn&apos;t exist</p>
+          <p className="text-gray-500 text-sm mt-2">Want it to? Create it from the boards menu.</p>
+          <Link href="/p/all" className="text-purple-400 hover:text-purple-300 mt-3 inline-block font-bold">→ p/all</Link>
         </div>
       </div>
     )
   }
-  const admin = createSupabaseAdminClient()
+
   const newest = sort === 'new'
+  const posts = await fetchBoardPosts(admin, b, newest ? 'new' : 'top', 60)
+  const dbBoard = b.kind === 'board' ? b.board : null
+  const isLocal = dbBoard?.category === 'local'
+  const postable = !!dbBoard && !isLocal
 
-  let q = admin.from('hall_posts')
-    .select('id, gym_id, content, image_url, link_title, link_domain, score, comment_count, created_at, party, profiles(username), gyms(city_name, state)')
-    .eq('hidden', false)
-  if (b.kind === 'party') q = q.eq('party', b.key)
-  if (b.kind === 'state') q = q.eq('gyms.state', b.key)
-  const { data: posts } = await (b.kind === 'state'
-    ? q.not('gyms', 'is', null).order(newest ? 'created_at' : 'score', { ascending: false }).limit(60)
-    : q.order(newest ? 'created_at' : 'score', { ascending: false }).limit(60))
-
-  // reddit-style tab strip: the big three first, then every state a-z
-  const boards = ['all', 'democrats', 'republicans',
-    ...Object.values(STATE_NAMES).map(n => n.replace(/[^A-Za-z]/g, '').toLowerCase()).sort()]
+  const sub = dbBoard?.category === 'sports' && dbBoard.subcategory
+    ? dbBoard.subcategory.toUpperCase()
+    : dbBoard?.category === 'state' ? 'Statewide'
+    : dbBoard?.category === 'local' ? 'Town hall'
+    : dbBoard?.category === 'user' ? 'Community psub' : null
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200">
@@ -91,12 +68,18 @@ export default async function BoardPage({ params, searchParams }: {
           <span className="text-gray-600 text-xs">posts live for 48 hours</span>
         </nav>
         <h1 className="text-3xl font-black text-white">📰 {b.label}</h1>
-        <p className="text-gray-500 text-sm mt-1">The public post board — live from PoliticsGo&apos;s town squares.</p>
+        <p className="text-gray-500 text-sm mt-1">
+          {sub ? `${sub} · ` : ''}The public post board — live from PoliticsGo.
+        </p>
 
-        {/* board tabs — swipe sideways, tap to jump boards (reddit-style) */}
+        {/* featured tab strip + the full directory */}
         <div className="mt-4 -mx-4 px-4 flex gap-1.5 overflow-x-auto pb-2"
           style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-          {boards.map(name => {
+          <Link href="/p"
+            className="shrink-0 px-3.5 py-2 rounded-full text-xs font-black border bg-gray-900 border-gray-700 text-gray-300 hover:text-white">
+            ☰ all psubs
+          </Link>
+          {FEATURED_TABS.map(name => {
             const active = b.label === `p/${name}`
             return (
               <Link key={name} href={`/p/${name}`}
@@ -113,9 +96,20 @@ export default async function BoardPage({ params, searchParams }: {
           <Link href={`/p/${board}?sort=new`} className={newest ? 'text-white' : 'text-gray-500 hover:text-gray-300'}>🕐 New</Link>
         </div>
 
+        {postable && <BoardComposer slug={dbBoard!.slug} />}
+        {isLocal && dbBoard?.gym_id && (
+          <Link href={`/townhall/${dbBoard.gym_id}`}
+            className="mt-4 flex items-center justify-between rounded-2xl border border-purple-800 bg-purple-950/30 px-4 py-3 text-sm">
+            <span className="text-gray-300">🏛️ This is {dbBoard.name}&apos;s town square</span>
+            <span className="text-purple-400 font-black">Post at the hall →</span>
+          </Link>
+        )}
+
         <div className="mt-4 space-y-3">
           {(posts ?? []).length === 0 && (
-            <p className="text-gray-600 text-sm text-center py-10">Quiet board right now — check back soon.</p>
+            <p className="text-gray-600 text-sm text-center py-10">
+              Nothing on this board right now{postable ? ' — be the first to post.' : ' — check back soon.'}
+            </p>
           )}
           {(posts ?? []).map((p: any) => (
             <article key={p.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
@@ -148,10 +142,10 @@ export default async function BoardPage({ params, searchParams }: {
         </div>
 
         <div className="mt-8 rounded-2xl border border-purple-800 bg-purple-950/30 p-5 text-center">
-          <p className="text-gray-300 text-sm">Want to post? Every town hall in the game has a live town square.</p>
-          <Link href="/sign-up" className="inline-block mt-3 px-6 py-2.5 rounded-xl font-bold text-white"
+          <p className="text-gray-300 text-sm">Every town hall, every state, every team has a board.</p>
+          <Link href="/p" className="inline-block mt-3 px-6 py-2.5 rounded-xl font-bold text-white"
             style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-            Join the argument
+            Browse all psubs
           </Link>
         </div>
       </div>

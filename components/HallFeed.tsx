@@ -111,6 +111,8 @@ export default function HallFeed({ gymId }: { gymId: string }) {
   const [shared, setShared] = useState('')
   const [reported, setReported] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<'top' | 'local' | 'new'>('top')
+  // scope: this hall's psub (default) or the whole state's boards
+  const [scope, setScope] = useState<'hall' | 'state'>('hall')
   // party visibility toggles — both sides shown by default
   const [showDem, setShowDem] = useState(true)
   const [showRep, setShowRep] = useState(true)
@@ -119,12 +121,12 @@ export default function HallFeed({ gymId }: { gymId: string }) {
 
   useEffect(() => {
     setLoaded(false)
-    fetch(`/api/gyms/${gymId}/posts?sort=${sort}`)
+    fetch(`/api/gyms/${gymId}/posts?sort=${sort}${scope === 'state' ? '&scope=state' : ''}`)
       .then(r => r.json())
       .then(d => setPosts(d.posts ?? []))
       .catch(() => {})
       .finally(() => setLoaded(true))
-  }, [gymId, sort])
+  }, [gymId, sort, scope])
 
   async function pickImage(file: File) {
     if (file.size > 6 * 1024 * 1024) return
@@ -218,6 +220,14 @@ export default function HallFeed({ gymId }: { gymId: string }) {
 
       {/* Sort tabs: Top (24h, default) | Local (48h, ranked) | Latest */}
       <div className="flex gap-2 mt-2 mb-1 items-center flex-wrap">
+        {/* Scope: this hall's local psub vs the whole state's feed */}
+        <button onClick={() => setScope(s => s === 'hall' ? 'state' : 'hall')}
+          title={scope === 'hall' ? 'Show posts from every hall in this state' : 'Back to this hall only'}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-black transition border ${
+            scope === 'state' ? 'bg-purple-700 border-purple-400 text-white' : 'bg-gray-900 text-gray-400 border-gray-800 hover:text-gray-200'
+          }`}>
+          {scope === 'state' ? '🗺️ State ✓' : '🗺️ State'}
+        </button>
         {([
           { key: 'top' as const, label: '🔥 Top' },
           { key: 'local' as const, label: '📍 Local' },
