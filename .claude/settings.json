@@ -142,7 +142,8 @@
       "Bash(git commit -m 'Home ☰ menu, Messages dock icon, PvP: hold fight for fighter models then 3-2-1-FIGHT *)",
       "Bash(git commit -m 'Bot-only 48h expiry, Battle Map in game nav+menu, fluid drag-swipe on /boards, state-news reporter bots *)",
       "Bash(git commit -m 'News bots: paraphrase-tolerant dedupe \\(strip subject tokens, 0.5 overlap\\) in team+state news *)",
-      "Bash(git commit -m 'channel: bot-only expiry + state-news reporters logged *)"
+      "Bash(git commit -m 'channel: bot-only expiry + state-news reporters logged *)",
+      "Bash(git commit -m 'Assigned town hall: clique adoption, closest-hall auto-assign, settings picker, battlemap opens over home hall *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

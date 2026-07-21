@@ -122,6 +122,19 @@ export default function MapPage() {
     const iv = setInterval(() => setSpawnTick(t => t + 1), 2 * 60_000)
     return () => clearInterval(iv)
   }, [])
+
+  // Every player carries an ASSIGNED TOWN HALL — first location fix assigns
+  // the nearest one (cliques/settings can change it later)
+  const homeAssigned = useRef(false)
+  useEffect(() => {
+    if (homeAssigned.current || !profile || (profile as any).home_gym_id || !location) return
+    homeAssigned.current = true
+    fetch('/api/profile/home-gym', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: location.lat, lng: location.lng }),
+    }).catch(() => {})
+  }, [profile, location])
   const [nearbyPlayers, setNearbyPlayers] = useState<NearbyPlayer[]>([])
   // "Show on map" dropdown: me = broadcast + own marker, dems/reps = which
   // nearby players get markers. Persisted so the choice survives reloads.

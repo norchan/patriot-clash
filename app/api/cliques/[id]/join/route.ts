@@ -15,7 +15,7 @@ export async function POST(
 
     const { data: clique } = await admin
       .from('cliques')
-      .select('id, name, party, creator_id, join_policy')
+      .select('id, name, party, creator_id, join_policy, gym_id')
       .eq('id', id)
       .single()
 
@@ -36,7 +36,8 @@ export async function POST(
     const { error } = await admin
       .from('profiles')
       .update(openJoin
-        ? { clique_id: clique.id, clique_pending_id: null }
+        // joining a clique adopts its town hall as your assigned home hall
+        ? { clique_id: clique.id, clique_pending_id: null, home_gym_id: (clique as any).gym_id ?? undefined }
         : { clique_pending_id: clique.id })
       .eq('id', profile.id)
 

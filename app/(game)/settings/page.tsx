@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
+import HomeHallPicker from '@/components/HomeHallPicker'
 
 interface BlockedPlayer { id: string; username: string; blocked_at: string }
 
@@ -192,6 +193,11 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Assigned town hall — everyone has one; cliques override it */}
+      <div className="mx-4 mt-4">
+        <HomeHallPicker />
       </div>
 
       {/* Notifications — full control center (per-type + push per device) */}

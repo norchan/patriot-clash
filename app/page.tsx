@@ -20,7 +20,7 @@ export default async function HomePage() {
   if (userId) {
     const { data } = await admin
       .from('profiles')
-      .select('id, username, party, fp_balance, avatar_url, total_battles_won, home_gym_id')
+      .select('id, username, party, fp_balance, avatar_url, total_battles_won, home_gym_id, gyms!profiles_home_gym_id_fkey(latitude, longitude)')
       .eq('clerk_user_id', userId)
       .single()
     if (!data) {
@@ -86,7 +86,8 @@ export default async function HomePage() {
       {/* single column: collapsible map on top, boards below (no sidebars) */}
       <main className="max-w-2xl mx-auto px-4 py-5 min-w-0">
         <h1 className="text-xl sm:text-2xl font-black text-white mb-2 text-center">Battle Map</h1>
-        <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null} collapsible />
+        <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null}
+          homeCenter={profile?.gyms ? { lat: profile.gyms.latitude, lng: profile.gyms.longitude } : null} collapsible />
 
         <h2 className="mt-6 mb-2 text-lg font-black text-center">
           <Link href="/boards" className="text-white hover:text-purple-300 transition">Boards</Link>

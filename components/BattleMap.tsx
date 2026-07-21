@@ -24,11 +24,12 @@ const MAX_EDGE_DEG = 2.3 // skip absurd cross-country hull edges
 const dist = (a: HallDot, lat: number, lng: number) =>
   Math.hypot(a.lat - lat, (a.lng - lng) * Math.cos((lat * Math.PI) / 180))
 
-export default function BattleMap({ halls, height = '60vh', signedIn = false, homeGymId = null, collapsible = false }: {
+export default function BattleMap({ halls, height = '60vh', signedIn = false, homeGymId = null, homeCenter = null, collapsible = false }: {
   halls: HallDot[]
   height?: string
   signedIn?: boolean
   homeGymId?: string | null
+  homeCenter?: { lat: number; lng: number } | null // signed-in: open over the assigned hall
   collapsible?: boolean // open on load; a chevron lets people tuck the map away
 }) {
   const router = useRouter()
@@ -42,11 +43,13 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
 
   useEffect(() => {
     if (!el.current || map.current) return
+    // signed-in players open hovering over their assigned town hall;
+    // everyone else lands on Cahokia with St. Louis in frame
     const m = new mapboxgl.Map({
       container: el.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: CAHOKIA,
-      zoom: 8.4,
+      center: homeCenter ? [homeCenter.lng, homeCenter.lat] : CAHOKIA,
+      zoom: homeCenter ? 10.2 : 8.4,
       minZoom: 2.8,
       maxZoom: 12,
     })

@@ -18,10 +18,15 @@ export const metadata: Metadata = {
 export default async function BattleMapPage() {
   const { userId } = await auth()
   let homeGymId: string | null = null
+  let homeCenter: { lat: number; lng: number } | null = null
   if (userId) {
     const admin = createSupabaseAdminClient()
-    const { data } = await admin.from('profiles').select('home_gym_id').eq('clerk_user_id', userId).maybeSingle()
+    const { data } = await admin.from('profiles')
+      .select('home_gym_id, gyms!profiles_home_gym_id_fkey(latitude, longitude)')
+      .eq('clerk_user_id', userId).maybeSingle()
     homeGymId = data?.home_gym_id ?? null
+    const g: any = (data as any)?.gyms
+    if (g) homeCenter = { lat: g.latitude, lng: g.longitude }
   }
   const halls = await fetchHalls()
   const dem = halls.filter(h => h.party === 'democrat').length
@@ -40,7 +45,7 @@ export default async function BattleMapPage() {
           <span className="text-red-400">🔴 Republicans {rep.toLocaleString()}</span>
           <span className="text-gray-500 font-bold text-xs">{halls.length.toLocaleString()} town halls · live</span>
         </div>
-        <BattleMap halls={halls} height="70vh" signedIn={!!userId} homeGymId={homeGymId} />
+        <BattleMap halls={halls} height="70vh" signedIn={!!userId} homeGymId={homeGymId} homeCenter={homeCenter} />
         <p className="text-center text-gray-600 text-xs mt-3">
           Every dot is a real town hall — lines and fields show party territory.{' '}
           <Link href="/sign-up" className="text-purple-400 hover:text-purple-300 font-bold">Sign up free</Link> to fight for yours.

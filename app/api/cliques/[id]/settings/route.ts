@@ -33,10 +33,12 @@ export async function PATCH(
         return NextResponse.json({ error: 'join_policy must be open or request' }, { status: 400 })
       }
       updates.join_policy = join_policy
-      // Switching to open admits everyone already waiting
+      // Switching to open admits everyone already waiting (and assigns them
+      // the clique's town hall as their home hall)
       if (join_policy === 'open') {
+        const { data: cq } = await admin.from('cliques').select('gym_id').eq('id', id).single()
         await admin.from('profiles')
-          .update({ clique_id: id, clique_pending_id: null })
+          .update({ clique_id: id, clique_pending_id: null, home_gym_id: cq?.gym_id ?? undefined })
           .eq('clique_pending_id', id)
       }
     }
