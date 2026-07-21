@@ -34,7 +34,7 @@ export async function GET(
       const { data: gym } = await admin.from('gyms').select('state').eq('id', id).single()
       q = admin
         .from('hall_posts')
-        .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local, gyms!inner(state)')
+        .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local, gyms!hall_posts_gym_id_fkey!inner(state)')
         .eq('gyms.state', gym?.state ?? '')
         .eq('hidden', false)
     }

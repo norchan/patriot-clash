@@ -110,7 +110,11 @@
       "Bash(git commit -m 'channel: Claude — mapbox zero-height root cause correction + live verification *)",
       "Bash(git commit -m 'Pause all bot content: 8 pg_cron content jobs deactivated + DM auto-reply kill switch *)",
       "PowerShell(\\(Get-Content \"C:\\\\Users\\\\Micha\\\\Desktop\\\\PoliticsGo-bots-by-state.csv\"\\) -replace 'TOTAL,2730,1349,1381','TOTAL,2730,1362,1368' | Set-Content -Encoding utf8 \"C:\\\\Users\\\\Micha\\\\Desktop\\\\PoliticsGo-bots-by-state.csv\"; Select-String -Path \"C:\\\\Users\\\\Micha\\\\Desktop\\\\PoliticsGo-bots-by-state.csv\" -Pattern TOTAL)",
-      "Bash(git commit -m 'Real psubs: boards table + 2,531 seeded subs, reddit-style homepage deck, /p directory, create-a-psub, hall State toggle *)"
+      "Bash(git commit -m 'Real psubs: boards table + 2,531 seeded subs, reddit-style homepage deck, /p directory, create-a-psub, hall State toggle *)",
+      "Bash(node scripts/_shot.mjs https://politicsgo.app/ C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/home3.png)",
+      "Bash(curl -s \"https://politicsgo.app/api/public/boards/all\")",
+      "Bash(curl -s \"https://politicsgo.app/api/public/boards/minnesota\")",
+      "Bash(git commit -m 'Fix PGRST201: FK-hint hall_posts embeds \\(boards table added second join paths\\) *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

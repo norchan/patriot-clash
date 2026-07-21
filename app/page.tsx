@@ -43,7 +43,7 @@ export default async function HomePage() {
   const [halls, { data: posts }] = await Promise.all([
     fetchHalls(),
     admin.from('hall_posts')
-      .select('id, content, image_url, link_title, link_domain, score, comment_count, created_at, party, profiles(username), gyms(city_name, state)')
+      .select('id, content, image_url, link_title, link_domain, score, comment_count, created_at, party, profiles!hall_posts_profile_id_fkey(username), gyms!hall_posts_gym_id_fkey(city_name, state)')
       .eq('hidden', false)
       .order('score', { ascending: false })
       .order('created_at', { ascending: false })
