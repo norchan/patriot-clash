@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import mapboxgl from 'mapbox-gl'
 import { Delaunay } from 'd3-delaunay'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -14,7 +15,7 @@ mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
 // - default view: Cahokia, IL with St. Louis in frame (the ancient capital)
 // - "find your town hall" popup: share location OR search by name
 
-export interface HallDot { lat: number; lng: number; party: string | null; city: string; state: string }
+export interface HallDot { id?: string; lat: number; lng: number; party: string | null; city: string; state: string }
 
 const CAHOKIA: [number, number] = [-90.06, 38.62] // Cahokia Mounds; STL across the river
 const MAX_EDGE_DEG = 2.3 // skip absurd cross-country hull edges
@@ -22,7 +23,13 @@ const MAX_EDGE_DEG = 2.3 // skip absurd cross-country hull edges
 const dist = (a: HallDot, lat: number, lng: number) =>
   Math.hypot(a.lat - lat, (a.lng - lng) * Math.cos((lat * Math.PI) / 180))
 
-export default function BattleMap({ halls, height = '60vh' }: { halls: HallDot[]; height?: string }) {
+export default function BattleMap({ halls, height = '60vh', signedIn = false, homeGymId = null }: {
+  halls: HallDot[]
+  height?: string
+  signedIn?: boolean
+  homeGymId?: string | null
+}) {
+  const router = useRouter()
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [finder, setFinder] = useState(false)
@@ -147,20 +154,49 @@ export default function BattleMap({ halls, height = '60vh' }: { halls: HallDot[]
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function flyToNearest(lat: number, lng: number) {
-    const nearest = [...halls].sort((a, b) => dist(a, lat, lng) - dist(b, lat, lng))[0]
-    if (!nearest || !map.current) return
+  // Signed-in: go to the hall's page. Guests: fly the map to it.
+  function goToHall(h: HallDot) {
     setFinder(false)
-    map.current.flyTo({ center: [nearest.lng, nearest.lat], zoom: 10.5, duration: 2200 })
+    if (signedIn && h.id) { router.push(`/townhall/${h.id}`); return }
+    map.current?.flyTo({ center: [h.lng, h.lat], zoom: 10.5, duration: 2200 })
+  }
+
+  function nearestHall(lat: number, lng: number): HallDot | undefined {
+    return [...halls].sort((a, b) => dist(a, lat, lng) - dist(b, lat, lng))[0]
   }
 
   function shareLocation() {
     setLocErr(''); setLocating(true)
     navigator.geolocation?.getCurrentPosition(
-      pos => { setLocating(false); flyToNearest(pos.coords.latitude, pos.coords.longitude) },
+      pos => {
+        setLocating(false)
+        const h = nearestHall(pos.coords.latitude, pos.coords.longitude)
+        if (h) goToHall(h)
+      },
       () => { setLocating(false); setLocErr('Location was blocked — try the search instead.') },
       { timeout: 8000 },
     )
+  }
+
+  // The Town Hall button: signed-in players jump to their hall; guests get
+  // the share-location-or-search popup
+  function townHall() {
+    if (signedIn) {
+      if (homeGymId) { router.push(`/townhall/${homeGymId}`); return }
+      setLocErr(''); setLocating(true)
+      navigator.geolocation?.getCurrentPosition(
+        pos => {
+          setLocating(false)
+          const h = nearestHall(pos.coords.latitude, pos.coords.longitude)
+          if (h?.id) router.push(`/townhall/${h.id}`)
+          else setFinder(true)
+        },
+        () => { setLocating(false); setFinder(true) },
+        { timeout: 8000 },
+      )
+      return
+    }
+    setFinder(true)
   }
 
   const results = query.trim().length >= 2
@@ -168,17 +204,19 @@ export default function BattleMap({ halls, height = '60vh' }: { halls: HallDot[]
     : []
 
   return (
+    <div>
     <div className="relative w-full overflow-hidden rounded-2xl border border-gray-800" style={{ height }}>
       {/* w-full h-full is load-bearing: mapbox-gl.css forces .mapboxgl-map to
           position:relative (beating our `absolute`), so inset-0 alone
           collapses to 0 height */}
       <div ref={el} className="absolute inset-0 w-full h-full" />
 
-      {/* find-your-hall button */}
-      <button onClick={() => setFinder(true)}
-        className="absolute top-3 left-3 z-10 px-3.5 py-2 rounded-full text-xs font-black text-white shadow-xl"
+      {/* expand into the game — bottom-right corner */}
+      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
+        title={signedIn ? 'Open your game map' : 'Play as a guest'}
+        className="absolute bottom-8 right-3 z-10 flex items-center gap-1.5 pl-3 pr-3.5 py-2.5 rounded-full text-xs font-black text-white shadow-xl transition active:scale-95"
         style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
-        📍 Find your town hall
+        <span className="text-sm leading-none">⛶</span> Enter the game
       </button>
 
       {/* finder popup */}
@@ -211,7 +249,7 @@ export default function BattleMap({ halls, height = '60vh' }: { halls: HallDot[]
             <div className="mt-2 max-h-44 overflow-y-auto space-y-1">
               {results.map(h => (
                 <button key={`${h.city}-${h.state}-${h.lat}`}
-                  onClick={() => flyToNearest(h.lat, h.lng)}
+                  onClick={() => goToHall(h)}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm text-gray-200 hover:bg-white/5">
                   <span className="w-2 h-2 rounded-full shrink-0"
                     style={{ background: h.party === 'democrat' ? '#3b82f6' : h.party === 'republican' ? '#ef4444' : '#6b7280' }} />
@@ -228,6 +266,20 @@ export default function BattleMap({ halls, height = '60vh' }: { halls: HallDot[]
           </div>
         </div>
       )}
+    </div>
+
+    {/* under-map buttons: Profile | Town Hall */}
+    <div className="mt-3 grid grid-cols-2 gap-3">
+      <button onClick={() => router.push(signedIn ? '/profile' : '/sign-up')}
+        className="py-3 rounded-2xl font-black text-white text-sm transition active:scale-95 border border-gray-700 bg-gray-900 hover:border-purple-600">
+        👤 Profile
+      </button>
+      <button onClick={townHall} disabled={locating}
+        className="py-3 rounded-2xl font-black text-white text-sm transition active:scale-95 disabled:opacity-60"
+        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+        {locating ? 'Locating…' : '🏛️ Town Hall'}
+      </button>
+    </div>
     </div>
   )
 }

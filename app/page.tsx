@@ -28,7 +28,7 @@ export default async function HomePage() {
   if (userId) {
     const { data } = await admin
       .from('profiles')
-      .select('id, username, party, fp_balance, avatar_url, total_battles_won')
+      .select('id, username, party, fp_balance, avatar_url, total_battles_won, home_gym_id')
       .eq('clerk_user_id', userId)
       .single()
     if (!data) {
@@ -164,7 +164,7 @@ export default async function HomePage() {
             <h1 className="text-xl sm:text-2xl font-black text-white">🗺️ The Battle Map</h1>
             <Link href="/battlemap" className="text-xs font-bold text-purple-400 hover:text-purple-300">Full screen →</Link>
           </div>
-          <BattleMap halls={halls} height="56vh" />
+          <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null} />
 
           <div className="mt-6 flex items-baseline justify-between mb-2">
             <h2 className="text-lg font-black text-white">📰 The boards</h2>
@@ -179,7 +179,7 @@ export default async function HomePage() {
             <p className="font-black text-white mb-3">🕹️ The Arcade</p>
             <div className="grid gap-3">
               {ARCADE.map(g => (
-                <Link key={g.id} href={profile ? `/arcade/${g.id}` : '/sign-up'}
+                <Link key={g.id} href={profile ? `/arcade/${g.id}` : '/play/arcade'}
                   className="group relative rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition block">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={g.art} alt={g.name} className="w-full h-24 object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />

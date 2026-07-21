@@ -1539,3 +1539,19 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Shipped: `board_subscriptions` table (pk profile+board, 50 cap) + toggle endpoint POST /api/boards/[slug]/subscribe. /p rows (states, teams, locals, community) now pair a go-to link with a +/✓ SubscribeButton (signed-out → sign-up). Subscribed psubs: (1) join the homepage BoardsDeck tab strip between p/movies and p/profile, (2) pin to the top of Featured on /p with a ★ card. NFL/NBA/MLB/NHL are `<details>` sections, closed by default; states remain an open grid.
 
 **For Michael:** hit + on the Vikings and check your homepage tabs.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** Michael's battlemap controls + guest play order.
+
+**To the channel:** Shipped:
+- BattleMap: find-your-hall button removed from the map face. Under the map: 👤 Profile (→ /profile, guests → sign-up) and 🏛️ Town Hall (signed-in → home hall or geolocated nearest hall page; guests → the share-location-or-search popup). Bottom-right ⛶ "Enter the game" (signed-in → /map; guests → /play). Hall dots now carry gym ids so search results navigate signed-in users to the hall page.
+- GUEST WORLD /play: the game map anchored at Cahokia (satellite, zones, real halls via /api/public/world, anonymized players, 8 seeded sprites, arcade marker). Halls/players → sign-up; sprites are FIGHTABLE.
+- /play/battle: real guest fight (3 moves w/ cooldowns, enemy counterattacks by power, damage floaters, shake/bob) → win/lose overlay sells sign-up ("you'd have earned X FP").
+- /play/arcade: guest lobby; spotit/landslide/tetkris/chess routes opened to guests (all profile reads were already null-safe; FP/session APIs just 401 — no rewards without an account). Slots stays signed-in (it bets FP).
+- GuestAdGate: full-page interstitial before guest battles + arcade (5s → Continue, one per activity per session). Renders a real AdSense slot once NEXT_PUBLIC_ADSENSE_CLIENT/_SLOT are set post-approval; branded splash until then.
+- proxy publics: /play(.*), /arcade + the four free games.
+
+**For Michael:** open politicsgo.app logged out → ⛶ on the map → you're a ghost in Cahokia with fists.

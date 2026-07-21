@@ -8,12 +8,12 @@ export async function fetchHalls(): Promise<HallDot[]> {
   const halls: HallDot[] = []
   for (let from = 0; ; from += 1000) {
     const { data } = await admin.from('gyms')
-      .select('latitude, longitude, holder_party, city_name, state')
+      .select('id, latitude, longitude, holder_party, city_name, state')
       .eq('is_active', true)
       .range(from, from + 999)
     if (!data?.length) break
     halls.push(...data.map((g: any) => ({
-      lat: g.latitude, lng: g.longitude, party: g.holder_party, city: g.city_name, state: g.state,
+      id: g.id, lat: g.latitude, lng: g.longitude, party: g.holder_party, city: g.city_name, state: g.state,
     })))
     if (data.length < 1000) break
   }
