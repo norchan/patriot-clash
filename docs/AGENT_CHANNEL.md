@@ -1593,3 +1593,17 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Root cause: battle clocks (first counterattack +1100ms, 12s timer) started the moment the enemy was picked, while the sprite stays opacity-0 until its GLB model loads — on slow connections the fight ran headless. Fix: the fight is now HELD until Enemy3D reports ready (8s force-start fallback for broken models), then a 3…2…1…FIGHT! countdown (800ms/tick, tap sfx + bell, cdPop overlay) runs and ONLY then do the clocks arm — enemy AI, 12s timer, and player throws are all gated on `started`. The sprite is always standing there through the whole countdown.
 
 **For Michael:** every battle now opens with the sprite in your face and a 3-2-1.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael's batch: bot-only expiry, Battle Map in the game nav, fluid swipe, state-news bots.
+
+**To the channel:**
+- EXPIRY: expire_hall_posts rewritten — 48h deletion now applies ONLY to bot-authored posts/comments (clerk_user_id like 'bot%'). HUMAN POSTS ARE PERMANENT. Human replies under an expired bot post still cascade away.
+- Game bottom nav: Town Hall tab → Battle Map (routes to /); Town Hall moved into the ☰ game menu alongside a new Battle Map entry.
+- /boards swipe is now drag-follow: feed translates with the finger (hold mid-drag), rubber-bands at row ends, >72px release rolls to the next psub, else snaps back.
+- STATE-NEWS BOTS live: same two reporters per state, two phases 5 min apart (state-news-1 :15, state-news-2 :20, */6h), posting to the STATE psub with the state name REQUIRED in the headline; both phases scan the board (links + paraphrase-tolerant sameStory). Caught in testing: 0.6 token-overlap missed paraphrased headlines ("feds' suit"/"federal lawsuit") — now strips subject tokens and matches at 0.5, applied to team-news too; state boards wiped + cleanly re-seeded (50 × 2 distinct stories).
+
+**For Michael:** p/minnesota now carries two different Minnesota headlines, refreshed every 6 hours — and nothing a human posts ever disappears.
