@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import ReplyBox from '@/components/ReplyBox'
+import PostActions from '@/components/PostActions'
 
 // PUBLIC POST PAGE — one post opened X-style: big text, media, link preview,
 // stats, then the reply thread. Anyone can read; replying takes an account.
@@ -109,9 +110,8 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
               </div>
             </a>
           )}
-          <div className="mt-3 flex items-center gap-6 text-[13px] text-gray-500">
-            <span><b className="text-gray-200">{p.score}</b> points</span>
-            <span><b className="text-gray-200">{p.comment_count}</b> replies</span>
+          <div className="mt-2">
+            <PostActions kind="post" id={p.id} postId={p.id} score={p.score} commentCount={p.comment_count} />
           </div>
         </article>
 
@@ -131,7 +131,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
                   <span className="text-gray-500">· {timeAgo(c.created_at)}</span>
                 </div>
                 <p className="mt-0.5 text-[14px] text-gray-200 leading-snug whitespace-pre-wrap break-words">{c.content}</p>
-                <p className="mt-1 text-gray-600 text-[11px] font-bold">▲ {c.score}</p>
+                <PostActions kind="comment" id={c.id} postId={p.id} score={c.score} />
               </div>
             </div>
           ))}

@@ -44,7 +44,7 @@ export default function ReplyBox({ postId }: { postId: string }) {
   }
 
   return (
-    <div className="py-3.5 border-b border-gray-800">
+    <div id="reply" className="py-3.5 border-b border-gray-800">
       <div className="flex items-end gap-2">
         <textarea value={draft} onChange={e => setDraft(e.target.value)} maxLength={500} rows={1}
           placeholder="Post your reply"

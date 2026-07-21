@@ -26,6 +26,8 @@ export async function GET(
           image_url: p.image_url,
           link_title: p.link_title,
           link_domain: p.link_domain,
+          link_url: p.link_url,
+          link_image: p.link_image,
           score: p.score,
           comment_count: p.comment_count,
           created_at: p.created_at,

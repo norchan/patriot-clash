@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2, Map as MapIcon, User, Landmark } from 'lucide-react'
+import { Gamepad2, User, Landmark } from 'lucide-react'
 import mapboxgl from 'mapbox-gl'
 import { Delaunay } from 'd3-delaunay'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -221,6 +221,15 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
           collapses to 0 height */}
       <div ref={el} className="absolute inset-0 w-full h-full" />
 
+      {/* expand into the game — just above mapbox's ⓘ button */}
+      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
+        title={signedIn ? 'Open your game map' : 'Play as a guest'}
+        aria-label="Expand into the game"
+        className="absolute bottom-12 right-2 z-10 w-11 h-11 rounded-full text-lg font-black text-white shadow-xl transition active:scale-95 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
+        ⛶
+      </button>
+
 
       {/* finder popup */}
       {finder && (
@@ -271,19 +280,19 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       )}
     </div>
 
-    {/* under-map dock: bare white icons — arcade, game map, profile, town hall */}
+    {/* under-map dock: bare white icons — play, arcade, profile, town hall */}
     <div className="mt-4 flex items-center justify-center gap-10">
+      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
+        title="Play" aria-label="Play"
+        className="w-[42px] h-[42px] rounded-full border-[2.5px] border-white text-white text-[11px] font-black tracking-wide transition active:scale-90 hover:opacity-80 flex items-center justify-center"
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
+        PLAY
+      </button>
       <button onClick={() => router.push(signedIn ? '/arcade' : '/play/arcade')}
         title="Arcade" aria-label="Arcade"
         className="text-white transition active:scale-90 hover:opacity-80"
         style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
         <Gamepad2 size={38} strokeWidth={2.2} />
-      </button>
-      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
-        title="Enter the game" aria-label="Enter the game"
-        className="text-white transition active:scale-90 hover:opacity-80"
-        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-        <MapIcon size={38} strokeWidth={2.2} />
       </button>
       <button onClick={() => router.push(signedIn ? '/profile' : '/sign-up')}
         title="Profile" aria-label="Profile"

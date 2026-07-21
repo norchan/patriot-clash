@@ -60,7 +60,7 @@ export async function resolvePBoard(admin: any, raw: string): Promise<ResolvedBo
 
 // FK hints are required: the boards table added second join paths from
 // hall_posts to both profiles and gyms, so bare embeds are ambiguous (PGRST201)
-const POST_COLS = 'id, gym_id, board_id, profile_id, content, image_url, link_url, link_title, link_domain, score, comment_count, created_at, party, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(city_name, state)'
+const POST_COLS = 'id, gym_id, board_id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, party, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(city_name, state)'
 
 // Feed for any resolved board. sort: 'top' (score) | 'new'
 export async function fetchBoardPosts(admin: any, rb: ResolvedBoard, sort: 'top' | 'new', limit = 60) {
