@@ -135,6 +135,16 @@ export default function MapPage() {
       body: JSON.stringify({ lat: location.lat, lng: location.lng }),
     }).catch(() => {})
   }, [profile, location])
+
+  // home hall name for the self-sheet header (tap → the hall page)
+  const [homeHall, setHomeHall] = useState<{ id: string; city_name: string; state: string } | null>(null)
+  useEffect(() => {
+    if (!profile) return
+    fetch('/api/profile/home-gym')
+      .then(r => r.json())
+      .then(d => setHomeHall(d.gym ?? null))
+      .catch(() => {})
+  }, [profile?.id, (profile as any)?.home_gym_id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [nearbyPlayers, setNearbyPlayers] = useState<NearbyPlayer[]>([])
   // "Show on map" dropdown: me = broadcast + own marker, dems/reps = which
   // nearby players get markers. Persisted so the choice survives reloads.
@@ -1419,7 +1429,15 @@ export default function MapPage() {
               </div>
             )}
             <div className="min-w-0">
-              <div className="text-white font-bold text-lg truncate">{profile?.username}</div>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-white font-bold text-lg truncate">{profile?.username}</span>
+                {homeHall && (
+                  <button onClick={() => router.push(`/townhall/${homeHall.id}`)}
+                    className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black text-purple-300 bg-purple-950/60 border border-purple-800 hover:text-white transition">
+                    🏛️ {homeHall.city_name}, {homeHall.state}
+                  </button>
+                )}
+              </div>
               <div className="text-gray-400 text-xs">That's you! 📍</div>
               <div className={`text-[11px] mt-0.5 ${(profile as any)?.location_fuzz ? 'text-yellow-500/90' : 'text-green-500/90'}`}>
                 {(profile as any)?.location_fuzz ? '≈ Others see this approximate spot' : '📍 Others see your exact location'}
@@ -1476,22 +1494,6 @@ export default function MapPage() {
                 📤
               </button>
             </div>
-            <button
-              onClick={() => router.push('/messages')}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-              💬 Messages
-            </button>
-            <button
-              onClick={() => {
-                const nearest = [...gyms].sort((a, b) => parseFloat(a.distance_miles) - parseFloat(b.distance_miles))[0]
-                if (nearest) router.push(`/townhall/${nearest.id}`)
-                else showPvpToast('🏛️ No town halls in range yet')
-              }}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 border border-purple-800"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-              🏛️ Local Town Hall
-            </button>
             {/* the battlemap home page — the game's "home button" */}
             <button
               onClick={() => router.push('/')}

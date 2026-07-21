@@ -146,7 +146,14 @@
       "Bash(git commit -m 'Assigned town hall: clique adoption, closest-hall auto-assign, settings picker, battlemap opens over home hall *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://politicsgo.app/api/profile/home-gym)",
       "Bash(curl -s -o /dev/null -w \"home-gym: %{http_code}\\\\n\" https://politicsgo.app/api/profile/home-gym)",
-      "Bash(git commit -m 'channel: assigned town hall logged *)"
+      "Bash(git commit -m 'channel: assigned town hall logged *)",
+      "Bash(ls \"C:/Users/Micha/Desktop\" | head -30; find \"C:/Users/Micha/Desktop\" -maxdepth 2 -iname \"*sprite*\" -o -maxdepth 2 -iname \"*maine*\" -o -maxdepth 2 -iname \"*dankas*\" -o -maxdepth 2 -iname \"*char*\" 2>/dev/null | head -10)",
+      "Bash(ls \"C:/Users/Micha/Desktop/PoliticsGo\")",
+      "Read(//c/Users/Micha/Desktop/PoliticsGo/**)",
+      "Bash(ls \"C:/Users/Micha/Desktop/PoliticsGo/New Dems\" \"C:/Users/Micha/Desktop/PoliticsGo/New Reps\" \"C:/Users/Micha/Desktop/PoliticsGo/Images\" 2>/dev/null)",
+      "Read(//c/Users/Micha/Desktop/PoliticsGo/New Dems/**)",
+      "Bash(git mv *)",
+      "Bash(git commit -m 'Self-sheet: hall chip next to name, drop Messages+Local Hall buttons; bottom nav Boards tab; /boards in game shell *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
