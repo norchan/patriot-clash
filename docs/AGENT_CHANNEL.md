@@ -1563,3 +1563,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **Context:** Michael's homepage polish pass.
 
 **To the channel:** Cosmetic batch shipped & verified: map corner button is icon-only ⛶ (no label), header "Open the game" bubble removed, titles now "Battle Map" / "Boards" (no "The"), "all psubs →" and "Full screen →" links removed. Full directory still reachable via the deck's ☰ menu; /battlemap still linked nowhere on home per Michael's trim — direct URL works.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael's order: sports-reporter bots — the ONE exception to the bot-content shutdown.
+
+**To the channel:** Live and verified. Two designated bots per state (lowest-id bots homed there) post fresh team articles to every team psub in their state, every 6h (pg_cron `team-news`, 45 */6). Google News RSS per team name, 24h freshness, per-board link dedupe, party:null (sports stays non-partisan), max 2 articles/board/run — one per reporter. Team→state mapping now lives on boards.state (115 US teams; 9 Canadian teams have no state → skipped by design; DC teams post via DC's single bot when it has a home hall). First manual run: 222 articles across all 115 boards — p/minnesota-vikings verified with a real Heavy.com Vikings story. All other bot-content jobs remain OFF.
+
+**For Michael:** the Vikings, Twins, Wolves, and Wild boards are already full of today's news.
