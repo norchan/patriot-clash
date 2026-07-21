@@ -190,6 +190,14 @@ function BattleContent() {
   const [spriteAnim, setSpriteAnim] = useState<'idle' | 'hit' | 'charge' | 'faint' | 'flee'>('idle')
   const [spriteKey, setSpriteKey] = useState(0)
   const [enemy3dReady, setEnemy3dReady] = useState(false)
+  // The fight is HELD until the sprite is actually visible (model loaded),
+  // then a 3-2-1 countdown runs — no more invisible enemies opening fire
+  // while their GLB is still downloading (Michael, 2026-07-21)
+  const [started, setStarted] = useState(false)
+  const startedRef = useRef(false)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const cdRan = useRef(false)
+  const [forceReady, setForceReady] = useState(false)
 
   // Projectiles + effects
   const [projectiles, setProjectiles] = useState<Projectile[]>([])
@@ -225,6 +233,7 @@ function BattleContent() {
       @keyframes boomPop { 0%{transform:scale(0.3);opacity:1} 100%{transform:scale(2.4);opacity:0} }
       @keyframes fcPulse { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 100%{transform:scale(1)} }
       @keyframes timerBlink { 0%,100%{opacity:1} 50%{opacity:0.45} }
+      @keyframes cdPop { 0%{transform:scale(2.1);opacity:0} 30%{transform:scale(1);opacity:1} 100%{transform:scale(0.94);opacity:1} }
     `
     document.head.appendChild(s)
   }, [])
@@ -258,6 +267,40 @@ function BattleContent() {
         : `A wild ${e.name} appeared! 12 seconds — GO!`)
     }
   }, [enemyId, profile])
+
+  // If the model somehow never reports ready (broken GLB, dead cache), start
+  // anyway after 8s rather than hanging on a black stage
+  useEffect(() => {
+    if (!enemy) return
+    const t = setTimeout(() => setForceReady(true), 8000)
+    return () => clearTimeout(t)
+  }, [enemy])
+
+  // Sprite visible → 3… 2… 1… FIGHT! — only then do the clocks start
+  useEffect(() => {
+    if (!enemy || !(enemy3dReady || forceReady) || cdRan.current) return
+    cdRan.current = true
+    let n = 3
+    setCountdown(3)
+    sfx.tap()
+    const iv = setInterval(() => {
+      n -= 1
+      if (n > 0) { setCountdown(n); sfx.tap(); return }
+      clearInterval(iv)
+      setCountdown(0) // the FIGHT! flash
+      sfx.bell(false)
+      setTimeout(() => setCountdown(null), 500)
+      const now = Date.now()
+      S.current.nextFoeThrowAt = now + 1100
+      S.current.nextStepAt = now + 1600
+      S.current.endAt = now + BATTLE_MS
+      startTime.current = now
+      setTimeLeft(BATTLE_MS)
+      startedRef.current = true
+      setStarted(true)
+    }, 800)
+    return () => clearInterval(iv)
+  }, [enemy, enemy3dReady, forceReady])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function playAnim(name: typeof spriteAnim) { setSpriteAnim(name); setSpriteKey(k => k + 1) }
@@ -308,7 +351,7 @@ function BattleContent() {
   // ── Player throws: TAP = rock (auto-aim) · SWIPE UP = firecracker ─────────
   function launchThrow(x0: number, y0: number, x1: number, y1: number, kind: 'rock' | 'firecracker') {
     const st = S.current
-    if (st.over || phase !== 'fighting' || !enemy || !arenaRef.current) return
+    if (st.over || phase !== 'fighting' || !enemy || !arenaRef.current || !startedRef.current) return
     const now = Date.now()
     if (kind === 'rock') { if (now < st.rockCd) return; st.rockCd = now + ROCK_CD }
     else {
@@ -419,7 +462,7 @@ function BattleContent() {
 
   // ── The 12-second clock ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!enemy || phase !== 'fighting') return
+    if (!enemy || phase !== 'fighting' || !started) return
     const iv = setInterval(() => {
       const st = S.current
       if (st.over) return
@@ -428,11 +471,11 @@ function BattleContent() {
       if (left <= 0) fleeTimeout()
     }, 100)
     return () => clearInterval(iv)
-  }, [enemy, phase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enemy, phase, started]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Enemy AI: paced sidesteps + themed counterattacks ─────────────────────
   useEffect(() => {
-    if (!enemy || phase !== 'fighting') return
+    if (!enemy || phase !== 'fighting' || !started) return
     const ai = TIER_AI[enemy.tier as keyof typeof TIER_AI] ?? TIER_AI.common
     const theme = FOE_THROWS[enemy.id] ?? DEFAULT_FOE_THROW
 
@@ -483,7 +526,7 @@ function BattleContent() {
       }
     }, 200)
     return () => clearInterval(iv)
-  }, [enemy, phase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enemy, phase, started]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function deflect(id: number) {
     setProjectiles(p => p.map(x => x.id === id ? { ...x, deflected: true } : x))
@@ -628,6 +671,19 @@ function BattleContent() {
       {!enemy3dReady && (
         <div style={{ position: 'absolute', bottom: `${stage.ground + 6}%`, left: '50%', transform: 'translateX(-50%)', zIndex: 5, color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 700, textShadow: '0 2px 6px #000' }}>
           {enemy.name} approaches…
+        </div>
+      )}
+
+      {/* 3-2-1 countdown — the sprite is visible and waiting behind it */}
+      {countdown !== null && phase === 'fighting' && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div key={countdown} style={{
+            fontSize: countdown === 0 ? 58 : 112, fontWeight: 900, color: '#fff', fontStyle: 'italic',
+            textShadow: '0 0 34px rgba(139,92,246,0.95), 0 4px 14px #000',
+            animation: 'cdPop 0.55s ease-out',
+          }}>
+            {countdown === 0 ? 'FIGHT!' : countdown}
+          </div>
         </div>
       )}
 

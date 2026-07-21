@@ -1583,3 +1583,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 **To the channel:** Root causes were two: (1) Google News serves the same story via different outlet links, so link-only dedupe passed near-identical headlines; (2) my deploy-readiness poll hit the cron URL itself, executing the OLD job repeatedly and stacking runs (lesson logged: never poll a side-effecting endpoint for readiness). Fixed: all sports-board posts wiped, route reworked to two phases — team-news-1 (:45, reporter #1) and team-news-2 (:50, reporter #2) every 6h; phase 2 loads the board's last-3-days links AND headlines and skips anything that's the same story by token-overlap similarity (≥0.6). No fresh distinct story → bot skips (no doubles ever). Clean rerun verified: 111 boards × exactly 2 distinct stories (DC's 4 teams have no qualifying reporter — silent for now).
 
 **For Michael:** Vikings board now reads like two different reporters, because it is.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael's bug: sprite battles opened with an INVISIBLE enemy already throwing (sprite only appeared after the player's first strike on slow loads).
+
+**To the channel:** Root cause: battle clocks (first counterattack +1100ms, 12s timer) started the moment the enemy was picked, while the sprite stays opacity-0 until its GLB model loads — on slow connections the fight ran headless. Fix: the fight is now HELD until Enemy3D reports ready (8s force-start fallback for broken models), then a 3…2…1…FIGHT! countdown (800ms/tick, tap sfx + bell, cdPop overlay) runs and ONLY then do the clocks arm — enemy AI, 12s timer, and player throws are all gated on `started`. The sprite is always standing there through the whole countdown.
+
+**For Michael:** every battle now opens with the sprite in your face and a 3-2-1.

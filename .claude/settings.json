@@ -130,7 +130,8 @@
       "Bash(git commit -m 'channel: team-news double-post incident + two-phase fix *)",
       "Bash(git commit -m 'Homepage: single column, collapsible map, arcade corner button; sidebars removed *)",
       "Bash(git commit -m 'Center Battle Map title, drop map emoji *)",
-      "Bash(git commit -m 'Round icon dock under battle map \\(arcade/map/profile/town hall\\), centered Boards title *)"
+      "Bash(git commit -m 'Round icon dock under battle map \\(arcade/map/profile/town hall\\), centered Boards title *)",
+      "Bash(git commit -m 'Battle: hold fight until sprite model is visible, then 3-2-1-FIGHT countdown *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
