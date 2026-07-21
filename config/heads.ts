@@ -40,13 +40,20 @@ export const HEADS: HeadMeta[] = [
   { id: 'palestine', label: 'Activist', party: 'democrat' },
   { id: 'drag', label: 'The Queen', party: 'democrat' },
   { id: 'senator', label: 'The Senator', party: 'democrat' },
+  { id: 'tampon_tim', label: 'The Governor', party: 'democrat' },
+  { id: 'dan_dankas', label: 'Dan Dankas', party: 'democrat' },
+  { id: 'social_bean', label: 'Social Bean', party: 'democrat' },
+  { id: 'firebrand', label: 'Firebrand', party: 'democrat' },
+  // Republican-flavored (new wave)
+  { id: 'maine', label: 'The Mainer', party: 'republican' },
 ]
 
-// v10 = The Queen grew a beard (Michael). v8/9: adaptive jaw clip, normalized
-// heights, senator nose fix, Don chin restore
-export const headImage = (id: string) => `/heads/${id}.png?v=10`
+// v11 = new-wave heads (Governor, Dan Dankas, Mainer, Firebrand, Social Bean)
+// + The Queen re-rendered with her LONG beard from the rebuilt model.
+// v8/9: adaptive jaw clip, normalized heights, senator nose fix, Don chin
+export const headImage = (id: string) => `/heads/${id}.png?v=11`
 // side-profile render of the same head — used IN FIGHTS so the face looks at
 // the opponent (the frontal art stays in the designer grid)
-export const headSideImage = (id: string) => `/heads/${id}_side.png?v=10`
+export const headSideImage = (id: string) => `/heads/${id}_side.png?v=11`
 export const isValidHead = (id: unknown): id is string =>
   typeof id === 'string' && HEADS.some(h => h.id === id)

@@ -6,7 +6,8 @@
 import http from 'http'; import fs from 'fs'; import path from 'path'; import { fileURLToPath } from 'url'; import puppeteer from 'puppeteer'; import sharp from 'sharp'
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const IDS = ['politician','cowboy','hick','ice_agent','soldier_boy','preppy','influencer','oil_baron','billionaire',
-  'comrade','crazy_liberal','crying_liberal','dem_politician','purple_hair','protestor','anchor','palestine','drag','senator']
+  'comrade','crazy_liberal','crying_liberal','dem_politician','purple_hair','protestor','anchor','palestine','drag','senator',
+  'tampon_tim','dan_dankas','maine','firebrand','social_bean']
 const MIME = { '.glb': 'model/gltf-binary', '.js': 'text/javascript', '.html': 'text/html' }
 const server = http.createServer((req, res) => { const p = decodeURIComponent(req.url.split('?')[0]); const f = path.join(ROOT, p); if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end() } res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res) })
 await new Promise(r => server.listen(8099, r)); const B = 'http://localhost:8099'

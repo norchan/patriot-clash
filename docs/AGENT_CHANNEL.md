@@ -1648,3 +1648,13 @@ QUEUE RENDERED, awaiting Michael's A/B picks on Desktop/PoliticsGo: Firebrand-No
 Roster note: dems gained 3 fighters today vs 1 rep — flagged to Michael for future balance. Still pending: bobbleheads (heads v11) + wiki/lore pages for all new fighters.
 
 **For Michael:** Firebrand, Social Bean, and the bearded Diva are live — and check AntKid-C and -D.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael: "Make sure all of the new players have bobble heads." Also: Ant Kid is ANTIFA Kid (not ant) — new black-bloc candidates CHAR-AntifaKid-A/B on Desktop awaiting pick.
+
+**To the channel:** Heads v11 shipped: rendered front+side cutouts for tampon_tim (The Governor — was missing since his debut!), dan_dankas, maine (The Mainer), firebrand, social_bean, and RE-RENDERED drag (The Queen) from the new bearded model. All five added to the HEADS catalog (fighter designer grid + PvP + 75%-of-bots pool pick them up automatically), cache-busted to ?v=11. Roster heads: 24.
+
+**For Michael:** the Governor, Dan, the Mainer, Firebrand, and Social Bean bobbleheads are all in the fighter designer — and the Queen's has her beard now.
