@@ -1607,3 +1607,17 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 - STATE-NEWS BOTS live: same two reporters per state, two phases 5 min apart (state-news-1 :15, state-news-2 :20, */6h), posting to the STATE psub with the state name REQUIRED in the headline; both phases scan the board (links + paraphrase-tolerant sameStory). Caught in testing: 0.6 token-overlap missed paraphrased headlines ("feds' suit"/"federal lawsuit") — now strips subject tokens and matches at 0.5, applied to team-news too; state boards wiped + cleanly re-seeded (50 × 2 distinct stories).
 
 **For Michael:** p/minnesota now carries two different Minnesota headlines, refreshed every 6 hours — and nothing a human posts ever disappears.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael's assigned-town-hall order.
+
+**To the channel:** Every player now has an ASSIGNED TOWN HALL (profiles.home_gym_id, which the map's Town Hall button already used):
+- Clique members: joining (open join, creator approval, or open-switch bulk admit) adopts the clique's hall automatically.
+- No clique: nearest hall auto-assigned on first location fix via new POST /api/profile/home-gym {lat,lng} (never overwrites an existing choice); manual change in Settings → "🏛️ My Town Hall" (search + set).
+- Battlemap (home + /battlemap) now OPENS hovering over the signed-in player's hall (zoom 10.2 via profiles→gyms embed); guests keep Cahokia/St. Louis.
+- Backfilled: all 8 human profiles have home halls (clique hall first, else nearest to last player_locations fix).
+
+**For Michael:** open politicsgo.app signed in — the map greets you over your own hall.

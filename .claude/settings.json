@@ -143,7 +143,10 @@
       "Bash(git commit -m 'Bot-only 48h expiry, Battle Map in game nav+menu, fluid drag-swipe on /boards, state-news reporter bots *)",
       "Bash(git commit -m 'News bots: paraphrase-tolerant dedupe \\(strip subject tokens, 0.5 overlap\\) in team+state news *)",
       "Bash(git commit -m 'channel: bot-only expiry + state-news reporters logged *)",
-      "Bash(git commit -m 'Assigned town hall: clique adoption, closest-hall auto-assign, settings picker, battlemap opens over home hall *)"
+      "Bash(git commit -m 'Assigned town hall: clique adoption, closest-hall auto-assign, settings picker, battlemap opens over home hall *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://politicsgo.app/api/profile/home-gym)",
+      "Bash(curl -s -o /dev/null -w \"home-gym: %{http_code}\\\\n\" https://politicsgo.app/api/profile/home-gym)",
+      "Bash(git commit -m 'channel: assigned town hall logged *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
