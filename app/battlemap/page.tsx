@@ -34,7 +34,7 @@ export default async function BattleMapPage() {
           <Link href="/" className="hover:text-white">← Home</Link>
           <Link href="/explore/scoreboard" className="hover:text-white">📊 State-by-state numbers →</Link>
         </nav>
-        <h1 className="text-2xl sm:text-3xl font-black text-white">🗺️ Battle Map</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-white text-center">Battle Map</h1>
         <div className="mt-2 mb-4 flex items-center gap-4 text-sm font-black">
           <span className="text-blue-400">🔵 Democrats {dem.toLocaleString()}</span>
           <span className="text-red-400">🔴 Republicans {rep.toLocaleString()}</span>

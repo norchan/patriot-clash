@@ -128,7 +128,8 @@
       "Bash(git commit -m 'channel: sports-reporter bots live *)",
       "Bash(git commit -m 'team-news: two-phase reporters \\(5 min apart\\), second bot dedupes by headline similarity — no doubled stories *)",
       "Bash(git commit -m 'channel: team-news double-post incident + two-phase fix *)",
-      "Bash(git commit -m 'Homepage: single column, collapsible map, arcade corner button; sidebars removed *)"
+      "Bash(git commit -m 'Homepage: single column, collapsible map, arcade corner button; sidebars removed *)",
+      "Bash(git commit -m 'Center Battle Map title, drop map emoji *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

@@ -81,7 +81,7 @@ export default async function HomePage() {
 
       {/* single column: collapsible map on top, boards below (no sidebars) */}
       <main className="max-w-2xl mx-auto px-4 py-5 min-w-0">
-        <h1 className="text-xl sm:text-2xl font-black text-white mb-2">🗺️ Battle Map</h1>
+        <h1 className="text-xl sm:text-2xl font-black text-white mb-2 text-center">Battle Map</h1>
         <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null} collapsible />
 
         <h2 className="mt-6 mb-2 text-lg font-black text-white">📰 Boards</h2>
