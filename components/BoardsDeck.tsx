@@ -62,22 +62,54 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
       .finally(() => setLoading(false))
   }
 
-  // /boards: horizontal swipe on the feed jumps to the next/prev psub
-  // (p/profile is excluded — swiping should never navigate away)
-  const touch = useRef<{ x: number; y: number } | null>(null)
+  // /boards: DRAG-follow swipe — the feed sticks to the finger (hold it
+  // half-way if you like), releases past the threshold roll to the next/prev
+  // psub, short drags snap back. (p/profile is excluded from swiping.)
+  const [dragX, setDragX] = useState(0)
+  const [snapping, setSnapping] = useState(false)
+  const touch = useRef<{ x: number; y: number; horizontal: boolean | null } | null>(null)
   const swipeTabs = tabs.filter(t => t !== 'profile')
   function onTouchStart(e: React.TouchEvent) {
-    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    if (!swipeNav) return
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null }
+    setSnapping(false)
   }
-  function onTouchEnd(e: React.TouchEvent) {
+  function onTouchMove(e: React.TouchEvent) {
     if (!swipeNav || !touch.current) return
-    const dx = e.changedTouches[0].clientX - touch.current.x
-    const dy = e.changedTouches[0].clientY - touch.current.y
-    touch.current = null
-    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.6) return
+    const dx = e.touches[0].clientX - touch.current.x
+    const dy = e.touches[0].clientY - touch.current.y
+    if (touch.current.horizontal === null && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
+      touch.current.horizontal = Math.abs(dx) > Math.abs(dy)
+    }
+    if (!touch.current.horizontal) return
     const i = swipeTabs.indexOf(tab)
-    const next = dx < 0 ? swipeTabs[i + 1] : swipeTabs[i - 1]
-    if (next) openTab(next)
+    // rubber-band resistance at the ends of the tab row
+    const atEdge = (dx > 0 && i <= 0) || (dx < 0 && i >= swipeTabs.length - 1)
+    setDragX(atEdge ? dx * 0.25 : dx)
+  }
+  function onTouchEnd() {
+    if (!swipeNav || !touch.current) return
+    const wasHorizontal = touch.current.horizontal
+    touch.current = null
+    if (!wasHorizontal) { setDragX(0); return }
+    const dx = dragX
+    setSnapping(true)
+    if (Math.abs(dx) > 72) {
+      const i = swipeTabs.indexOf(tab)
+      const next = dx < 0 ? swipeTabs[i + 1] : swipeTabs[i - 1]
+      if (next) {
+        // roll the old feed out, swap boards, roll the new one in
+        setDragX(dx < 0 ? -window.innerWidth * 0.6 : window.innerWidth * 0.6)
+        setTimeout(() => {
+          openTab(next)
+          setSnapping(false)
+          setDragX(dx < 0 ? window.innerWidth * 0.35 : -window.innerWidth * 0.35)
+          requestAnimationFrame(() => requestAnimationFrame(() => { setSnapping(true); setDragX(0) }))
+        }, 160)
+        return
+      }
+    }
+    setDragX(0)
   }
 
   async function createPsub() {
@@ -136,9 +168,15 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
         )}
       </div>
 
-      {/* feed */}
+      {/* feed — translates with the finger when swipeNav is on */}
       <div className={`divide-y divide-black/40 overflow-y-auto ${tall ? 'max-h-none' : 'max-h-[70vh]'}`}
-        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+        style={swipeNav ? {
+          transform: `translateX(${dragX}px)`,
+          opacity: 1 - Math.min(0.55, Math.abs(dragX) / 500),
+          transition: snapping ? 'transform 220ms ease-out, opacity 220ms ease-out' : 'none',
+          touchAction: 'pan-y',
+        } : undefined}>
         {loading && <p className="text-gray-500 text-sm text-center py-10">Loading p/{tab}…</p>}
         {!loading && posts.length === 0 && (
           <div className="text-center py-12 px-6">

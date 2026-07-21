@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
-import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut, Radar } from 'lucide-react'
+import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut, Radar, Landmark } from 'lucide-react'
 import AdBanner, { ADS_ENABLED, AD_BAR_HEIGHT } from '@/components/AdBanner'
 
 const navItems = [
@@ -10,10 +10,12 @@ const navItems = [
   { href: '/profile',        label: 'Profile',   icon: User },
   { href: '/cliques',        label: 'Cliques',   icon: Users },
   { href: '/messages',       label: 'Messages',  icon: MessageSquare },
-  { href: '/townhall/nearest', label: 'Town Hall', icon: Building2 },
+  { href: '/',               label: 'Battle Map', icon: Landmark },
 ]
 
 const menuItems = [
+  { href: '/',              label: 'Battle Map',     icon: Landmark },
+  { href: '/townhall/nearest', label: 'Town Hall',   icon: Building2 },
   { href: '/notifications', label: 'Notifications',  icon: Bell },
   { href: '/shop',          label: 'Shop',           icon: ShoppingBag },
   { href: '/active',        label: 'Active Players', icon: Radar },
