@@ -31,6 +31,7 @@ export async function GET(
           created_at: p.created_at,
           party: p.party,
           username: p.profiles?.username ?? 'Player',
+          avatar_url: p.profiles?.avatar_url ?? null,
           city: p.gyms?.city_name ?? null,
           state: p.gyms?.state ?? null,
         })),

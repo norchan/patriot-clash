@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Menu, ArrowBigUp, ArrowBigDown, Star, MessageCircle, Clock, User, Plus, LayoutGrid, X } from 'lucide-react'
+import { Menu, ArrowBigUp, ArrowBigDown, MessageCircle, Plus, LayoutGrid, X } from 'lucide-react'
 
 // THE BOARDS DECK — the reddit-app-style psub reader under the battle map.
 // ☰ menu + swipeable tab strip (p/all first), active tab underlined; cards
@@ -14,8 +14,12 @@ interface DeckPost {
   id: string; content: string | null; image_url: string | null
   link_title: string | null; link_domain: string | null
   score: number; comment_count: number; created_at: string
-  party: string | null; username: string; city: string | null; state: string | null
+  party: string | null; username: string; avatar_url?: string | null
+  city: string | null; state: string | null
 }
+
+const partyColor = (p: string | null) =>
+  p === 'democrat' ? '#2563eb' : p === 'republican' ? '#dc2626' : '#6b7280'
 
 function timeAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -139,50 +143,61 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [] }: {
         {!loading && posts.map(p => {
           const myVote = votes[p.id] ?? 0
           return (
-            <article key={p.id} className="bg-[#1a1f26]">
-              {/* header line: board origin */}
-              <div className="px-4 pt-3 flex items-center gap-2 text-xs text-gray-500">
-                {p.party && (
-                  <span className="font-black" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
-                    {p.party === 'democrat' ? 'DEM' : 'REP'}
-                  </span>
-                )}
-                {p.city && <span className="font-bold text-gray-400">{p.city}, {p.state}</span>}
-              </div>
-              {p.content && (
-                <p className="px-4 pt-1.5 text-[15px] text-gray-100 font-semibold leading-snug whitespace-pre-wrap break-words">
-                  {p.content}
-                </p>
-              )}
-              {p.link_title && (
-                <p className="px-4 pt-1 text-xs text-gray-500">🔗 {p.link_title} <span className="text-gray-600">({p.link_domain})</span></p>
-              )}
-              {p.image_url && (
+            /* X-style card: avatar rail + content, whole card opens the post */
+            <article key={p.id}
+              onClick={() => router.push(`/p/post/${p.id}`)}
+              className="px-4 py-3 flex gap-3 cursor-pointer hover:bg-white/[0.03] transition">
+              {p.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.image_url} alt="" loading="lazy"
-                  className="mt-2.5 w-full max-h-[420px] object-cover" />
+                <img src={p.avatar_url} alt="" loading="lazy"
+                  className="w-10 h-10 rounded-full object-cover shrink-0 border-2"
+                  style={{ borderColor: partyColor(p.party) }} />
+              ) : (
+                <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-black text-white"
+                  style={{ background: partyColor(p.party) }}>
+                  {p.username[0]?.toUpperCase() ?? 'P'}
+                </div>
               )}
-              {/* meta row: pts · comments · age · author */}
-              <div className="px-4 pt-2.5 flex items-center gap-3 text-[12px] text-gray-500">
-                <span><b className="text-gray-300">{p.score + myVote}</b> pts</span>
-                <span className="flex items-center gap-1"><MessageCircle size={13} /> {p.comment_count}</span>
-                <span className="ml-auto flex items-center gap-1"><Clock size={13} /> {timeAgo(p.created_at)}</span>
-                <span className="flex items-center gap-1 font-bold text-gray-400"><User size={13} /> {p.username}</span>
-              </div>
-              {/* action row: up / down / star */}
-              <div className="mt-2 flex border-t border-black/40">
-                <button onClick={() => vote(p, 1)} aria-label="Upvote"
-                  className={`flex-1 py-2.5 flex justify-center ${myVote === 1 ? 'text-orange-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                  <ArrowBigUp size={20} fill={myVote === 1 ? 'currentColor' : 'none'} />
-                </button>
-                <button onClick={() => vote(p, -1)} aria-label="Downvote"
-                  className={`flex-1 py-2.5 flex justify-center ${myVote === -1 ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                  <ArrowBigDown size={20} fill={myVote === -1 ? 'currentColor' : 'none'} />
-                </button>
-                <Link href={`/p/${tab === 'profile' ? 'all' : tab}`} aria-label="Open board"
-                  className="flex-1 py-2.5 flex justify-center text-gray-500 hover:text-yellow-400">
-                  <Star size={19} />
-                </Link>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-[13px] min-w-0">
+                  <span className="font-bold text-white truncate">{p.username}</span>
+                  {p.city && <span className="text-gray-500 truncate">· {p.city}, {p.state}</span>}
+                  <span className="text-gray-500 shrink-0">· {timeAgo(p.created_at)}</span>
+                </div>
+                {p.content && (
+                  <p className="mt-0.5 text-[15px] text-gray-100 leading-snug whitespace-pre-wrap break-words">
+                    {p.content}
+                  </p>
+                )}
+                {p.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.image_url} alt="" loading="lazy"
+                    className="mt-2 w-full max-h-[380px] object-cover rounded-2xl border border-gray-800" />
+                )}
+                {p.link_title && !p.image_url && (
+                  <div className="mt-2 rounded-xl border border-gray-800 px-3 py-2.5 text-[13px]">
+                    <p className="text-gray-200 leading-snug">{p.link_title}</p>
+                    <p className="text-gray-600 text-[11px] mt-0.5">🔗 {p.link_domain}</p>
+                  </div>
+                )}
+                {/* action row: reply · votes */}
+                <div className="mt-1.5 flex items-center gap-8 text-gray-500 text-[12px]" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => router.push(`/p/post/${p.id}`)}
+                    className="flex items-center gap-1.5 hover:text-blue-400 transition">
+                    <MessageCircle size={16} /> {p.comment_count > 0 && p.comment_count}
+                  </button>
+                  <span className="flex items-center">
+                    <button onClick={() => vote(p, 1)} aria-label="Upvote"
+                      className={`p-1 ${myVote === 1 ? 'text-orange-400' : 'hover:text-orange-300'}`}>
+                      <ArrowBigUp size={18} fill={myVote === 1 ? 'currentColor' : 'none'} />
+                    </button>
+                    <span className="font-bold tabular-nums min-w-[1.2rem] text-center text-gray-400">{p.score + myVote}</span>
+                    <button onClick={() => vote(p, -1)} aria-label="Downvote"
+                      className={`p-1 ${myVote === -1 ? 'text-blue-400' : 'hover:text-blue-300'}`}>
+                      <ArrowBigDown size={18} fill={myVote === -1 ? 'currentColor' : 'none'} />
+                    </button>
+                  </span>
+                </div>
               </div>
             </article>
           )

@@ -133,7 +133,8 @@
       "Bash(git commit -m 'Round icon dock under battle map \\(arcade/map/profile/town hall\\), centered Boards title *)",
       "Bash(git commit -m 'Battle: hold fight until sprite model is visible, then 3-2-1-FIGHT countdown *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://politicsgo.app/)",
-      "Bash(git commit -m 'Under-map dock: bare white lucide icons, bigger, no colored circles *)"
+      "Bash(git commit -m 'Under-map dock: bare white lucide icons, bigger, no colored circles *)",
+      "Bash(git commit -m 'Boards: X-style post cards + public /p/post/[id] detail page with thread and reply box *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
