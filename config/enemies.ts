@@ -239,6 +239,38 @@ export const republicanEnemies: Enemy[] = [
 
 export const democratEnemies: Enemy[] = [
   {
+    id: 'firebrand',
+    name: 'Firebrand',
+    description: 'The movement in heels — every sentence is a rally',
+    image: '/enemies/democrat/firebrand.png',
+    party: 'democrat',
+    tier: 'rare',
+    hp: 118,
+    power: 76,
+    fpReward: 39,
+    moves: [
+      { name: 'Grassroots Jab', damage: 30, emoji: '🌱' },
+      { name: 'Clapback', damage: 46, emoji: '👏' },
+      { name: 'Green New Haymaker', damage: 60, emoji: '💚' },
+    ]
+  },
+  {
+    id: 'social_bean',
+    name: 'Social Bean',
+    description: 'Powered entirely by cold brew and group chats',
+    image: '/enemies/democrat/social_bean.png',
+    party: 'democrat',
+    tier: 'common',
+    hp: 95,
+    power: 62,
+    fpReward: 26,
+    moves: [
+      { name: 'Hot Take', damage: 26, emoji: '🔥' },
+      { name: 'Cold Brew Splash', damage: 40, emoji: '🧋' },
+      { name: 'Ratio’d', damage: 52, emoji: '📉' },
+    ]
+  },
+  {
     id: 'dan_dankas',
     name: 'Dan Dankas',
     description: 'Open-mic warrior — crowd work so brutal it counts as assault',
@@ -421,7 +453,7 @@ export const democratEnemies: Enemy[] = [
   {
     id: 'drag',
     name: 'The Diva',
-    description: 'Sashaying into the culture war',
+    description: 'Sashaying into the culture war — the beard is the statement',
     image: '/enemies/democrat/drag.png',
     party: 'democrat',
     tier: 'rare',

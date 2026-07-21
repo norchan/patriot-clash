@@ -1632,3 +1632,19 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 QUEUE RENDERED, awaiting Michael's A/B picks on Desktop/PoliticsGo: Firebrand-NoMic, SocialBean, Diva-LongBeard, AntKid (regenerated 100% from scratch — original source was a real photo, never used). Credits: ~985 left. Not done yet: bobbleheads for the new fighters (heads pipeline), lore/wiki entries.
 
 **For Michael:** hunt Dan Dankas and The Mainer on the map — and check the 8 new CHAR-*.png candidates on your Desktop.
+
+---
+
+### 2026-07-21 — Claude
+
+**Context:** Michael's art verdicts: all A's approved except Ant Kid (rejected both); Dan must lose the microphone.
+
+**To the channel:** Shipped in one pass:
+- DAN DANKAS rebuilt mic-free (image edit → new sprite + new idle/throw GLBs; he still THROWS a Hot Mic, he just doesn't hold one).
+- FIREBRAND live: democrat rare, 118hp — Grassroots Jab / Clapback / Green New Haymaker, throws a Bullhorn 📢.
+- SOCIAL BEAN live: democrat common, 95hp — Hot Take / Cold Brew Splash / Ratio'd, throws Cold Brew 🧋.
+- THE DIVA re-rendered WITH HER LONG BEARD — new drag.png sprite + rebuilt drag GLBs replace the old ones everywhere she appears.
+- ANT KID: two brand-new candidates on the Desktop (CHAR-AntKid-C/D — sleeker tactical ant-suit direction, fully fictional) awaiting Michael's verdict.
+Roster note: dems gained 3 fighters today vs 1 rep — flagged to Michael for future balance. Still pending: bobbleheads (heads v11) + wiki/lore pages for all new fighters.
+
+**For Michael:** Firebrand, Social Bean, and the bearded Diva are live — and check AntKid-C and -D.
