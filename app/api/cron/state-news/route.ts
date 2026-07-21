@@ -9,17 +9,20 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 export const maxDuration = 120
 
-function titleTokens(t: string): Set<string> {
+function titleTokens(t: string, ignore?: Set<string>): Set<string> {
   return new Set(
     t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
-      .filter(w => w.length > 2))
+      .filter(w => w.length > 2 && !ignore?.has(w)))
 }
-function sameStory(a: string, b: string): boolean {
-  const ta = titleTokens(a), tb = titleTokens(b)
+// Paraphrased headlines ("feds' suit" vs "federal lawsuit") are the same
+// story — the subject words (state/team name) are stripped first since they
+// are shared by EVERY headline on the board, then 50% token overlap flags it.
+function sameStory(a: string, b: string, ignore?: Set<string>): boolean {
+  const ta = titleTokens(a, ignore), tb = titleTokens(b, ignore)
   if (!ta.size || !tb.size) return false
   let hit = 0
   for (const w of ta) if (tb.has(w)) hit++
-  return hit / Math.min(ta.size, tb.size) >= 0.6
+  return hit / Math.min(ta.size, tb.size) >= 0.5
 }
 
 interface NewsItem { title: string; link: string; source: string }
@@ -137,8 +140,9 @@ export async function GET(req: NextRequest) {
     const bot = phase === 1 ? bots[0] : bots[1]
     if (!bot) continue
     const e = existing.get(b.id) ?? { links: new Set<string>(), titles: [] }
+    const subject = titleTokens(b.name)
     const pick = (pools.get(b.id) ?? []).find(item =>
-      !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title)))
+      !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title, subject)))
     if (!pick) continue // nothing genuinely new with the state's name — skip
     e.links.add(pick.link)
     e.titles.push(pick.title)

@@ -140,7 +140,8 @@
       "Bash(git commit -m 'Boards batch: PLAY circle dock icon, expand button back on map, full action rows \\(vote/share/report/reply\\) on posts+replies, link preview images, /boards swipe page *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://politicsgo.app/boards)",
       "Bash(git commit -m 'Home ☰ menu, Messages dock icon, PvP: hold fight for fighter models then 3-2-1-FIGHT *)",
-      "Bash(git commit -m 'Bot-only 48h expiry, Battle Map in game nav+menu, fluid drag-swipe on /boards, state-news reporter bots *)"
+      "Bash(git commit -m 'Bot-only 48h expiry, Battle Map in game nav+menu, fluid drag-swipe on /boards, state-news reporter bots *)",
+      "Bash(git commit -m 'News bots: paraphrase-tolerant dedupe \\(strip subject tokens, 0.5 overlap\\) in team+state news *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

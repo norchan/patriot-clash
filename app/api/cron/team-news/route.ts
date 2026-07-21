@@ -15,18 +15,20 @@ export const maxDuration = 120
 
 // Same-story detection: token overlap between normalized headlines.
 // "Vikings release TE Josh Oliver" vs "Vikings expected to release
-// injury-riddled TE Josh Oliver - ESPN" → duplicate.
-function titleTokens(t: string): Set<string> {
+// injury-riddled TE Josh Oliver - ESPN" → duplicate. The subject words
+// (team name) are stripped first — they're shared by every headline — and
+// paraphrase-tolerant 50% overlap flags the match.
+function titleTokens(t: string, ignore?: Set<string>): Set<string> {
   return new Set(
     t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
-      .filter(w => w.length > 2))
+      .filter(w => w.length > 2 && !ignore?.has(w)))
 }
-function sameStory(a: string, b: string): boolean {
-  const ta = titleTokens(a), tb = titleTokens(b)
+function sameStory(a: string, b: string, ignore?: Set<string>): boolean {
+  const ta = titleTokens(a, ignore), tb = titleTokens(b, ignore)
   if (!ta.size || !tb.size) return false
   let hit = 0
   for (const w of ta) if (tb.has(w)) hit++
-  return hit / Math.min(ta.size, tb.size) >= 0.6
+  return hit / Math.min(ta.size, tb.size) >= 0.5
 }
 
 interface NewsItem { title: string; link: string; source: string }
@@ -150,8 +152,9 @@ export async function GET(req: NextRequest) {
     const bot = phase === 1 ? bots[0] : bots[1]
     if (!bot) continue
     const e = existing.get(t.id) ?? { links: new Set<string>(), titles: [] }
+    const subject = titleTokens(t.name)
     const pick = (pools.get(t.id) ?? []).find(item =>
-      !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title)))
+      !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title, subject)))
     if (!pick) continue // nothing genuinely new — skip, no doubles
     e.links.add(pick.link)
     e.titles.push(pick.title)
