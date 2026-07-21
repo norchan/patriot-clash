@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import SubscribeButton from '@/components/SubscribeButton'
 
-// THE PSUB DIRECTORY — every board, by category: featured, politics, sports
-// (by league), states, community (player-made), and a searchable index of
-// all ~2,350 town-hall boards.
+// THE PSUB DIRECTORY — featured (+ your subscriptions pinned on top), local
+// search, states (open), sports leagues (collapsible, closed by default),
+// community. Subscribing adds a psub to the homepage boards deck tabs.
 
 export const metadata: Metadata = {
   title: 'All psubs — the PoliticsGo boards',
@@ -26,12 +28,44 @@ const FEATURED = [
 ]
 const LEAGUES = [['nfl', '🏈 NFL'], ['nba', '🏀 NBA'], ['mlb', '⚾ MLB'], ['nhl', '🏒 NHL']] as const
 
+function BoardRow({ slug, label, subscribed, signedIn }: {
+  slug: string; label: string; subscribed: boolean; signedIn: boolean
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border border-gray-800 bg-gray-900 pl-3 pr-1.5 py-1.5 hover:border-purple-700 transition">
+      <Link href={`/p/${slug}`} className="flex-1 min-w-0 truncate text-[13px] text-gray-300 hover:text-white">
+        {label}
+      </Link>
+      <SubscribeButton slug={slug} initial={subscribed} signedIn={signedIn} />
+    </div>
+  )
+}
+
 export default async function BoardsDirectory({ searchParams }: {
   searchParams: Promise<{ q?: string }>
 }) {
   const { q } = await searchParams
   const query = (q ?? '').trim()
   const admin = createSupabaseAdminClient()
+
+  // who's asking — for subscription state on every row
+  const { userId } = await auth()
+  let profileId: string | null = null
+  const subbed = new Set<string>()
+  let mySubs: { slug: string; name: string }[] = []
+  if (userId) {
+    const { data: prof } = await admin.from('profiles').select('id').eq('clerk_user_id', userId).single()
+    profileId = prof?.id ?? null
+    if (profileId) {
+      const { data: subs } = await admin.from('board_subscriptions')
+        .select('boards(slug, name)')
+        .eq('profile_id', profileId)
+        .order('created_at')
+      mySubs = (subs ?? []).map((s: any) => s.boards).filter(Boolean)
+      for (const s of mySubs) subbed.add(s.slug)
+    }
+  }
+  const signedIn = !!profileId
 
   const [{ data: sports }, { data: states }, { data: community }, localsRes, { count: localCount }] = await Promise.all([
     admin.from('boards').select('slug, name, subcategory').eq('category', 'sports').order('name'),
@@ -43,6 +77,8 @@ export default async function BoardsDirectory({ searchParams }: {
     admin.from('boards').select('id', { count: 'exact', head: true }).eq('category', 'local'),
   ])
   const locals = localsRes.data ?? []
+  const featuredSlugs = new Set(FEATURED.map(f => f.slug))
+  const pinned = mySubs.filter(s => !featuredSlugs.has(s.slug))
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200">
@@ -54,12 +90,23 @@ export default async function BoardsDirectory({ searchParams }: {
         <h1 className="text-3xl font-black text-white">☰ All psubs</h1>
         <p className="text-gray-500 text-sm mt-1">
           {(2 + FEATURED.length + (sports?.length ?? 0) + (states?.length ?? 0) + (localCount ?? 0)).toLocaleString()} boards —
-          every team, every state, every town hall.
+          every team, every state, every town hall. <b className="text-gray-400">+</b> subscribes: the psub joins your homepage tabs.
         </p>
 
-        {/* Featured */}
+        {/* Featured — subscriptions pin to the top */}
         <h2 className="mt-7 text-lg font-black text-white">⭐ Featured</h2>
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {pinned.map(s => (
+            <div key={s.slug} className="relative rounded-xl border border-purple-700 bg-purple-950/30 px-3.5 py-3">
+              <Link href={`/p/${s.slug}`} className="block">
+                <p className="font-black text-white text-sm truncate">p/{s.slug}</p>
+                <p className="text-purple-400 text-[11px] mt-0.5">★ subscribed</p>
+              </Link>
+              <div className="absolute top-2 right-2">
+                <SubscribeButton slug={s.slug} initial signedIn={signedIn} />
+              </div>
+            </div>
+          ))}
           {FEATURED.map(f => (
             <Link key={f.slug} href={`/p/${f.slug}`}
               className="rounded-xl border border-gray-800 bg-gray-900 px-3.5 py-3 hover:border-purple-700 transition">
@@ -81,54 +128,45 @@ export default async function BoardsDirectory({ searchParams }: {
           </button>
         </form>
         {query.length >= 2 && (
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
             {locals.map((l: any) => (
-              <Link key={l.slug} href={`/p/${l.slug}`}
-                className="rounded-xl border border-gray-800 bg-gray-900 px-3.5 py-2.5 text-sm text-gray-300 hover:text-white hover:border-purple-700">
-                p/{l.slug}
-              </Link>
+              <BoardRow key={l.slug} slug={l.slug} label={`p/${l.slug}`} subscribed={subbed.has(l.slug)} signedIn={signedIn} />
             ))}
             {locals.length === 0 && <p className="text-gray-600 text-sm col-span-full">No town matches “{query}”.</p>}
           </div>
         )}
 
-        {/* States */}
+        {/* States — always open */}
         <h2 className="mt-8 text-lg font-black text-white">🗺️ States</h2>
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
           {(states ?? []).map((s: any) => (
-            <Link key={s.slug} href={`/p/${s.slug}`}
-              className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-[13px] text-gray-300 hover:text-white hover:border-purple-700">
-              p/{s.slug}
-            </Link>
+            <BoardRow key={s.slug} slug={s.slug} label={`p/${s.slug}`} subscribed={subbed.has(s.slug)} signedIn={signedIn} />
           ))}
         </div>
 
-        {/* Sports by league */}
+        {/* Sports — each league collapsible, closed by default */}
         <h2 className="mt-8 text-lg font-black text-white">🏆 Sports</h2>
         {LEAGUES.map(([lg, label]) => (
-          <div key={lg} className="mt-4">
-            <h3 className="font-black text-gray-300 text-sm">{label}</h3>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+          <details key={lg} className="mt-3 rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden group">
+            <summary className="cursor-pointer select-none px-4 py-3 font-black text-gray-200 text-sm flex items-center justify-between hover:bg-white/5">
+              {label}
+              <span className="text-gray-500 text-xs font-bold group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {(sports ?? []).filter((t: any) => t.subcategory === lg).map((t: any) => (
-                <Link key={t.slug} href={`/p/${t.slug}`}
-                  className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-[13px] text-gray-300 hover:text-white hover:border-purple-700">
-                  {t.name}
-                </Link>
+                <BoardRow key={t.slug} slug={t.slug} label={t.name} subscribed={subbed.has(t.slug)} signedIn={signedIn} />
               ))}
             </div>
-          </div>
+          </details>
         ))}
 
         {/* Community */}
         <h2 className="mt-8 text-lg font-black text-white">👥 Community</h2>
         <p className="text-gray-500 text-xs mt-1">Player-created psubs — make yours from the boards menu on the homepage.</p>
         {(community ?? []).length > 0 && (
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(community ?? []).map((c: any) => (
-              <Link key={c.slug} href={`/p/${c.slug}`}
-                className="rounded-xl border border-gray-800 bg-gray-900 px-3.5 py-2.5 text-sm text-gray-300 hover:text-white hover:border-purple-700">
-                p/{c.slug}
-              </Link>
+              <BoardRow key={c.slug} slug={c.slug} label={`p/${c.slug}`} subscribed={subbed.has(c.slug)} signedIn={signedIn} />
             ))}
           </div>
         )}

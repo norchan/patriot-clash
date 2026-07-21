@@ -40,6 +40,16 @@ export default async function HomePage() {
     profile = data
   }
 
+  // subscribed psubs join the boards-deck tab strip
+  let subTabs: string[] = []
+  if (profile) {
+    const { data: subs } = await admin.from('board_subscriptions')
+      .select('boards(slug)')
+      .eq('profile_id', profile.id)
+      .order('created_at')
+    subTabs = (subs ?? []).map((s: any) => s.boards?.slug).filter(Boolean)
+  }
+
   const [halls, { data: posts }] = await Promise.all([
     fetchHalls(),
     admin.from('hall_posts')
@@ -160,7 +170,7 @@ export default async function HomePage() {
             <h2 className="text-lg font-black text-white">📰 The boards</h2>
             <Link href="/p" className="text-xs font-bold text-purple-400 hover:text-purple-300">all psubs →</Link>
           </div>
-          <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} />
+          <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} />
         </main>
 
         {/* ── RIGHT SIDEBAR: the arcade ──────────────────────────────────── */}

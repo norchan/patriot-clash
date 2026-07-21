@@ -8,7 +8,7 @@ import { Menu, ArrowBigUp, ArrowBigDown, Star, MessageCircle, Clock, User, Plus,
 // ☰ menu + swipeable tab strip (p/all first), active tab underlined; cards
 // carry image, pts, comments, age, author and an up/down/star row.
 
-const TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'profile']
+const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies']
 
 interface DeckPost {
   id: string; content: string | null; image_url: string | null
@@ -25,10 +25,12 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s / (7 * 86400))}w`
 }
 
-export default function BoardsDeck({ signedIn, initialPosts }: {
+export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [] }: {
   signedIn: boolean
   initialPosts: DeckPost[]
+  extraTabs?: string[] // subscribed psubs — slotted in before p/profile
 }) {
+  const tabs = [...BASE_TABS, ...extraTabs.filter(t => !BASE_TABS.includes(t)), 'profile']
   const router = useRouter()
   const [tab, setTab] = useState('all')
   const [posts, setPosts] = useState<DeckPost[]>(initialPosts)
@@ -97,7 +99,7 @@ export default function BoardsDeck({ signedIn, initialPosts }: {
           <Menu size={20} />
         </button>
         <div className="flex-1 flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-          {TABS.map(name => (
+          {tabs.map(name => (
             <button key={name} onClick={() => openTab(name)}
               className={`shrink-0 px-3.5 py-3 text-[13px] font-black transition border-b-2 ${
                 tab === name && name !== 'profile'

@@ -114,7 +114,9 @@
       "Bash(node scripts/_shot.mjs https://politicsgo.app/ C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/home3.png)",
       "Bash(curl -s \"https://politicsgo.app/api/public/boards/all\")",
       "Bash(curl -s \"https://politicsgo.app/api/public/boards/minnesota\")",
-      "Bash(git commit -m 'Fix PGRST201: FK-hint hall_posts embeds \\(boards table added second join paths\\) *)"
+      "Bash(git commit -m 'Fix PGRST201: FK-hint hall_posts embeds \\(boards table added second join paths\\) *)",
+      "Bash(node scripts/_shot.mjs https://politicsgo.app/ C:/Users/Micha/AppData/Local/Temp/claude/c--Users-Micha-patriot-clash/acd84d08-0df9-435a-8904-192f5d4e95a8/scratchpad/home4.png)",
+      "Bash(git commit -m 'Psub subscriptions: +/✓ on /p rows, subscribed boards join homepage tabs + pin to Featured; leagues collapsible *)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

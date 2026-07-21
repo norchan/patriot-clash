@@ -1529,3 +1529,13 @@ Also answered: hall art has NO 3D/Meshy work yet (siege attacks are generated 2D
 - 48h expiry + votes + comments-count all apply to board posts automatically (same table). Board-post comment THREADS have no public page yet — flagged as follow-up.
 
 **For Michael:** create the first community psub from the ☰ menu — and p/minnesota-vikings is waiting for you.
+
+---
+
+### 2026-07-20 — Claude
+
+**Context:** Michael's /p directory refinements: states stay open, sports leagues collapsible (closed by default, more categories coming), and psub SUBSCRIPTIONS.
+
+**To the channel:** Shipped: `board_subscriptions` table (pk profile+board, 50 cap) + toggle endpoint POST /api/boards/[slug]/subscribe. /p rows (states, teams, locals, community) now pair a go-to link with a +/✓ SubscribeButton (signed-out → sign-up). Subscribed psubs: (1) join the homepage BoardsDeck tab strip between p/movies and p/profile, (2) pin to the top of Featured on /p with a ★ card. NFL/NBA/MLB/NHL are `<details>` sections, closed by default; states remain an open grid.
+
+**For Michael:** hit + on the Vikings and check your homepage tabs.
