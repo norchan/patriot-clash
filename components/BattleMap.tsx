@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Gamepad2, Map as MapIcon, User, Landmark } from 'lucide-react'
 import mapboxgl from 'mapbox-gl'
 import { Delaunay } from 'd3-delaunay'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -270,31 +271,31 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       )}
     </div>
 
-    {/* under-map dock: round icons only — arcade, game map, profile, town hall */}
-    <div className="mt-3 flex items-center justify-center gap-5">
+    {/* under-map dock: bare white icons — arcade, game map, profile, town hall */}
+    <div className="mt-4 flex items-center justify-center gap-10">
       <button onClick={() => router.push(signedIn ? '/arcade' : '/play/arcade')}
         title="Arcade" aria-label="Arcade"
-        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: '1px solid rgba(253,230,138,0.55)' }}>
-        🕹️
+        className="text-white transition active:scale-90 hover:opacity-80"
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
+        <Gamepad2 size={38} strokeWidth={2.2} />
       </button>
       <button onClick={() => router.push(signedIn ? '/map' : '/play')}
         title="Enter the game" aria-label="Enter the game"
-        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(167,243,208,0.55)' }}>
-        🗺️
+        className="text-white transition active:scale-90 hover:opacity-80"
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
+        <MapIcon size={38} strokeWidth={2.2} />
       </button>
       <button onClick={() => router.push(signedIn ? '/profile' : '/sign-up')}
         title="Profile" aria-label="Profile"
-        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: '1px solid rgba(191,219,254,0.55)' }}>
-        👤
+        className="text-white transition active:scale-90 hover:opacity-80"
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
+        <User size={38} strokeWidth={2.2} />
       </button>
       <button onClick={townHall} disabled={locating}
         title="Town Hall" aria-label="Town Hall"
-        className="w-12 h-12 rounded-full text-xl shadow-xl transition active:scale-90 flex items-center justify-center disabled:opacity-60"
-        style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
-        {locating ? '…' : '🏛️'}
+        className="text-white transition active:scale-90 hover:opacity-80 disabled:opacity-50"
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
+        <Landmark size={38} strokeWidth={2.2} />
       </button>
     </div>
     </div>
