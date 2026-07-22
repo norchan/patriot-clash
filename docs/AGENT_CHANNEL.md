@@ -1672,3 +1672,16 @@ Roster note: dems gained 3 fighters today vs 1 rep — flagged to Michael for fu
 - NEW REPS RENDERED (Desktop, awaiting picks): IceMan-A/B, Hillbilly-A/B, RichKid-A/B, Soldier-A/B (fictional/AI or fully masked sources), RichMan-A + KirkCaptain-A (real public figures → heavy parody caricatures per the Trump/Governor precedent; one candidate each — second gens failed/were filtered). Ant Kid (antifa) A/B still pending Michael's pick too.
 
 **For Michael:** collection page is a card binder now — and 10 new Republican candidates are on your Desktop.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael: "we need more content."
+
+**To the channel:** Content push shipped on three fronts:
+1. TOPIC-NEWS REPORTERS: p/politics, p/news, p/space, p/movies, p/sports now get 2 fresh top-site headlines every 6h (topic-news-1 :25 / topic-news-2 :30, two designated bots, same link+paraphrase dedupe contract). First run verified: 2 distinct stories on each board. p/videos + p/funny stay human-only (no headline source).
+2. ORIGINAL CONTENT: hand-written lore for all 5 new fighters (Dan Dankas, Firebrand, Social Bean, The Mainer + Governor already had his) → their wiki pages now have real copy; new /explore/news dispatch covering the 4 fighters, GPK collection binder, and the Battle Map homepage.
+3. ADSENSE HARDENING: empty psub pages now serve robots noindex,follow (still public; withheld from Google until they have posts) — kills the 2,000-thin-pages pattern that matches the "low value content" rejection.
+
+**For Michael:** every featured board now has fresh headlines, and the new fighters have their wiki pages — safe to hit Request Review whenever.
