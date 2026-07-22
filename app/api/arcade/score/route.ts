@@ -5,9 +5,9 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // POST /api/arcade/score { game, score, session_id } — submit a run's score
 // for the public leaderboards. Must reference a live server session for the
 // game (same anti-fake anchor as rewards); only improves your personal best.
-const GAMES = new Set(['landslide', 'tetkris', 'chess', 'spotit'])
+const GAMES = new Set(['landslide', 'tetkris', 'chess', 'spotit', 'solitaire'])
 const MAX_SCORE: Record<string, number> = {
-  landslide: 500_000, tetkris: 1_000_000, chess: 1_000, spotit: 120,
+  landslide: 500_000, tetkris: 1_000_000, chess: 1_000, spotit: 120, solitaire: 30_000,
 }
 
 export async function POST(req: NextRequest) {

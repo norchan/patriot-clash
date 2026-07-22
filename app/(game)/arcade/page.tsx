@@ -33,6 +33,10 @@ const GAMES: GameEntry[] = [
     tagline: 'Chess puzzles · mate in 1, 2 or 3 · classic board', href: '/arcade/chess', badge: 'EARN FP',
   },
   {
+    id: 'solitaire', name: 'Solitaire', art: '/arcade/solitaire.jpg', accent: '#4ade80',
+    tagline: 'The classic · tap-to-move · 🔥 streak scoring', href: '/arcade/solitaire', badge: 'EARN FP',
+  },
+  {
     id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15',
     tagline: '3 machines · bet FP · match 3 to win big', href: '/arcade/slots', badge: 'BET FP',
   },

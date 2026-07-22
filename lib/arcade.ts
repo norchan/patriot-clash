@@ -11,7 +11,7 @@ export const ARCADE_DAILY_CAP = 5000        // FP/day across all free arcade gam
 export const SESSION_RATE_PER_MIN = 900     // max FP a session can emit per minute of play
 export const SESSION_MAX_AGE_MS = 4 * 60 * 60 * 1000
 
-export const FREE_GAMES = ['landslide', 'tetkris', 'chess', 'spotit'] as const
+export const FREE_GAMES = ['landslide', 'tetkris', 'chess', 'spotit', 'solitaire'] as const
 export type FreeGame = (typeof FREE_GAMES)[number]
 
 /**

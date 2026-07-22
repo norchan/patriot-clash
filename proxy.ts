@@ -8,7 +8,7 @@ const isPublicRoute = createRouteMatcher([
   '/boards', // the boards deck full-page (menu + psub tabs + feed)
   '/play(.*)', // guest game world (Cahokia) + guest sprite battles + guest arcade lobby
   '/arcade', // arcade lobby is browsable by guests
-  '/arcade/spotit', '/arcade/landslide', '/arcade/tetkris', '/arcade/chess', // free-to-play games (FP APIs still 401); slots bets FP → stays signed-in only
+  '/arcade/spotit', '/arcade/landslide', '/arcade/tetkris', '/arcade/chess', '/arcade/solitaire', // free-to-play games (FP APIs still 401); slots bets FP → stays signed-in only
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/welcome',
