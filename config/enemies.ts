@@ -204,8 +204,8 @@ export const republicanEnemies: Enemy[] = [
   },
   {
     id: 'influencer',
-    name: 'Campus Crusader',
-    description: 'Armed with a microphone and a pocket Constitution',
+    name: 'Kirk El Captain',
+    description: 'Campus-debate champion — the jaw arrives before the facts do',
     image: '/enemies/republican/influencer.png',
     party: 'republican',
     tier: 'common',
@@ -304,22 +304,18 @@ export const democratEnemies: Enemy[] = [
   },
   {
     id: 'crazy_liberal',
-    name: 'Policy Wonk',
-    description: 'An intense activist with strong opinions',
+    name: 'HR',
+    description: 'The department of fun prevention — every fight is a compliance review',
     image: '/enemies/democrat/crazy_liberal.png',
-    animations: {
-      idle: '/animations/crazy_liberal_idle.mp4',
-      attack: '/animations/crazy_liberal_attack.mp4',
-    },
     party: 'democrat',
     tier: 'common',
     hp: 75,
     power: 58,
     fpReward: 22,
     moves: [
-      { name: 'Regulation Rush', damage: 22, emoji: '📜' },
-      { name: 'Cancel Strike', damage: 38, emoji: '🚫' },
-      { name: 'Woke Wave', damage: 52, emoji: '✊' },
+      { name: 'Write-Up', damage: 22, emoji: '📝' },
+      { name: 'Mandatory Training', damage: 38, emoji: '📋' },
+      { name: 'Termination', damage: 52, emoji: '💼' },
     ]
   },
   {
@@ -384,22 +380,18 @@ export const democratEnemies: Enemy[] = [
   },
   {
     id: 'protestor',
-    name: 'Riot Gear',
-    description: 'A fully equipped protest enforcer',
+    name: 'Antifa Kid',
+    description: 'Hood up, bandana on, opinions non-negotiable',
     image: '/enemies/democrat/protestor.png',
-    animations: {
-      idle: '/animations/protestor_idle.mp4',
-      attack: '/animations/protestor_attack.mp4',
-    },
     party: 'democrat',
     tier: 'rare',
     hp: 130,
     power: 85,
     fpReward: 42,
     moves: [
-      { name: 'Megaphone Blast', damage: 32, emoji: '📢' },
-      { name: 'Shield Bash', damage: 50, emoji: '🛡' },
-      { name: 'Full Mobilize', damage: 70, emoji: '🗡' },
+      { name: 'Spray Tag', damage: 32, emoji: '🎨' },
+      { name: 'Soup Toss', damage: 50, emoji: '🥫' },
+      { name: 'Dumpster Slam', damage: 70, emoji: '🗑️' },
     ]
   },
   {

@@ -1696,3 +1696,19 @@ Roster note: dems gained 3 fighters today vs 1 rep — flagged to Michael for fu
 NEXT (needs Michael): a YouTube Data API key (free, Google Cloud console) unlocks LOCAL VIDEO REPORTERS — same two-bot/6h/no-doubles contract, searching "<city/state> news" + team highlights and posting Shorts to the matching psubs. TikTok has no public search API — TikToks arrive only via player posts.
 
 **For Michael:** paste any YouTube link in a psub post and watch it play in-site.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael approved 5 candidates (HR-A, IceMan-A, KirkCaptain-A, AntifaKid-A, PurpleFurry-A), rejected the Elon parody as too close to the real face, and flagged the current Senator as borderline-Bernie.
+
+**To the channel:** FIVE ROSTER REPLACEMENTS SHIPPED (existing ids keep captures/history; art+models+heads swapped):
+- crazy_liberal: Policy Wonk → HR (Write-Up / Mandatory Training / Termination, throws a Pink Slip 📄)
+- protestor: Riot Gear → Antifa Kid (Spray Tag / Soup Toss / Dumpster Slam, throws a Can of Soup 🥫 — "it was for his family")
+- influencer: Campus Crusader → Kirk El Captain (heavy jaw parody, keeps Debate Me kit + Hot Mic)
+- ice_agent + purple_hair: art-only refreshes (IceMan and PurpleFurry candidates were cropped — extended to full body before Meshy).
+All 5 got new idle+throw GLBs, new lore, updated head labels, heads re-rendered → v12.
+LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech-mogul face) + CHAR-Senator-NEW-A/B (walrus-mustache redesign, keeps mittens). Old RichMan-A deleted per Michael's rejection; current senator stays until he picks.
+
+**For Michael:** HR is waiting to give you a write-up on the map right now.

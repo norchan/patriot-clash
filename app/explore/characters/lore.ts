@@ -20,12 +20,12 @@ export const LORE: Record<string, string> = {
   preppy:
     'Country Club Chad has never paid a green fee in his life — his father handles that. Plays scratch golf, tips poorly, and genuinely believes the estate tax is a human-rights violation. Fights dirty but apologizes in a way that makes it worse.',
   influencer:
-    'The Campus Crusader tours college towns "destroying" nineteen-year-olds with facts, logic, and a camera crew of six. His hot-mic throw does bonus damage to anyone mid-sentence. Engagement is up; self-awareness could not be reached for comment.',
+    'Kirk El Captain tours college towns "destroying" nineteen-year-olds with facts, logic, and a camera crew of six. The jaw enters the frame a full second before he does. His hot-mic throw does bonus damage to anyone mid-sentence; engagement is up, self-awareness could not be reached for comment.',
   billionaire:
     'Rocket Man builds rockets, buys websites, and tweets through it all at 3 a.m. Legendary tier because the lawyers insisted. His toy-rocket throw occasionally reaches orbit, which he counts as a successful launch for investor purposes.',
   // Democrat roster
   crazy_liberal:
-    'The True Believer has a cause, a tote bag for the cause, and a second tote bag criticizing the first tote bag’s supply chain. Her oat-milk-latte throw is fair trade, locally sourced, and surprisingly painful.',
+    'HR has read your file, and she is disappointed. Arms permanently crossed, eyebrow permanently raised, calendar permanently blocked for a "quick chat." Her pink-slip throw is technically a termination letter, effective immediately, and it does exactly as much damage as it sounds.',
   crying_liberal:
     'The Snowflake has been personally devastated by every news cycle since 2016 and is not doing great about yours either. His tear flood is a legitimate area-of-effect attack. Bring a towel and an apology.',
   dem_politician:
@@ -33,7 +33,7 @@ export const LORE: Record<string, string> = {
   purple_hair:
     'Purple Fury found out what you said online and she is already outside. Megaphone permanently attached to hand; volume knob lost years ago. Her virtue signal move does no damage but you will feel judged, which is worse.',
   protestor:
-    'The Protestor has attended every march since the invention of poster board and can chant in four-four time. Her sign hits harder than the slogan on it. Do not challenge her to a sit-in; she will win.',
+    'Antifa Kid weighs 130 pounds with the hoodie on and has never lost an argument he ran away from. Goggles on the forehead, bandana up, flyer for the next thing already in the pocket. The soup he throws was, he insists, for his family.',
   anchor:
     'The Anchor delivers breaking news, breaking takes, and occasionally just breaks. Perfect teeth, perfect hair, questionable sourcing. His thrown television does double damage if it lands screen-first, playing his own segment.',
   palestine:
