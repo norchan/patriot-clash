@@ -46,6 +46,14 @@ export const LORE: Record<string, string> = {
     'The Senator has been angry about the same six things since 1974, and honestly, four of them check out. Wears the mittens year-round. His pill-bottle throw comes with a floor speech about who priced it.',
   tampon_tim:
     'The Governor paces like a dad at a track meet and points at everything — you, the crowd, a bird, the concept of Tuesday. The only character in the game who never stands still. His tampon toss is exactly as advertised, and he is weirdly proud of it.',
+  dan_dankas:
+    'Dan Dankas has bombed in forty-one states and calls every one of them "a great room." His crowd work is technically a form of interrogation. When the set goes badly — and it goes badly — the hot mic starts flying, and his aim is much better than his tight five.',
+  firebrand:
+    'Firebrand turned a bartending shift into a movement and has not lowered her voice since. Every fight is a rally, every rally runs long, and the bullhorn is not a prop — it is the closing argument. Approval rating among people she has knocked out: surprisingly high.',
+  social_bean:
+    'Social Bean has organized four mutual-aid spreadsheets, six group chats, and zero in-person events. Runs entirely on cold brew and righteous indignation. His "Ratio\'d" finisher does double damage to anyone who was just trying to share an opinion online.',
+  maine:
+    'The Mainer has watched four hundred storms roll in off the Atlantic and been impressed by none of them, including you. She does not raise her voice, her heart rate, or her expectations. The lobster she throws is fully boiled — she is unbothered, not wasteful.',
 }
 
 export const CAPTURE_NOTES: Record<string, string> = {

@@ -11,6 +11,18 @@ export interface NewsPost {
 
 export const POSTS: NewsPost[] = [
   {
+    slug: 'four-new-fighters-and-a-new-front-door',
+    date: '2026-07-21',
+    title: 'Four new fighters, trading-card collections, and the Battle Map takes over the homepage',
+    excerpt: 'Dan Dankas, The Mainer, Firebrand, and Social Bean join the roster — and politicsgo.app is now the live war map.',
+    body: [
+      'The roster just took its biggest single-day jump ever. Four new characters are live: Dan Dankas, a rare-tier Democrat stand-up comedian whose crowd work counts as a ranged attack (he throws a hot mic); Firebrand, a rare Democrat who fights like every round is a rally and closes with a bullhorn; Social Bean, a common Democrat powered entirely by cold brew and group chats; and The Mainer, a rare Republican whose cold stare does damage before the boiled lobster ever leaves her hand.',
+      'Every new fighter comes with a full 3D battle model, a bobblehead for the fighter designer, and a spot in the shared world spawns — plus The Queen finally got her long beard, in the fights and on her bobblehead.',
+      'The Collection screen was rebuilt as a trading-card binder: every character is now a card with a number, a name banner, and a count. Duplicates finally stack the way they always should have — catch five of the same character and your card says ×5. Extras can be sold back for FP, but your first catch of each character is a keeper: it can never be sold.',
+      'And the biggest change of all: politicsgo.app now opens straight onto the live national Battle Map — every real town hall, colored by the party that holds it, with territory lines linking friendly halls into webs. Below it sit the boards: p/all, your state, your teams. Signed-in players land on their own town hall. Visitors land on Cahokia, the ancient capital, with St. Louis across the river.',
+    ],
+  },
+  {
     slug: 'the-governor-joins-the-roster',
     date: '2026-07-20',
     title: 'New character: The Governor joins the Democrat roster',

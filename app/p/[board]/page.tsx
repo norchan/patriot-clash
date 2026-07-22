@@ -14,10 +14,23 @@ export async function generateMetadata({ params }: { params: Promise<{ board: st
   const admin = createSupabaseAdminClient()
   const b = await resolvePBoard(admin, board)
   if (!b) return {}
+  // Empty boards stay OUT of the search index — 2,000+ thin near-blank pages
+  // read as "low value content" to crawlers (the AdSense rejection reason).
+  // The page itself stays public; it just isn't offered to Google until it
+  // has something on it.
+  let noindex = false
+  if (b.kind === 'board') {
+    const q = admin.from('hall_posts').select('id', { count: 'exact', head: true }).eq('hidden', false)
+    const { count } = b.board.category === 'local' && b.board.gym_id
+      ? await q.eq('gym_id', b.board.gym_id)
+      : await q.eq('board_id', b.board.id)
+    noindex = (count ?? 0) === 0
+  }
   return {
     title: `${b.label} — the PoliticsGo post board`,
     description: `Live posts on ${b.label} — the PoliticsGo boards. What America is arguing about right now.`,
     alternates: { canonical: `https://politicsgo.app/p/${board.toLowerCase()}` },
+    ...(noindex ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
