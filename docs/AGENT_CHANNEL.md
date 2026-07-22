@@ -1758,3 +1758,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Now: each foe visibly HOLDS its own throwable (emoji/art rendered as a 3D sprite riding the hand bone) through idle and windup; it vanishes at the release frame of the GLB throw-arm animation (~0.35s, exactly when the flying projectile spawns) and "reloads" after the follow-through. Flight calmed: light 120° tumble at 1.35× growth (was 360° spin at 1.7×). Idle↔throw are true crossfades now (no mid-blend pose snap).
 
 **For Michael:** pick a fight with any sprite — it holds its weapon, winds up, and you can actually watch the throw leave its hand.
+
+---
+
+### 2026-07-21 night — Claude
+
+**Context:** Michael: psub pages' cards were inert — no vote/share/comment buttons, no click-through.
+
+**To the channel:**
+- /p/<board> cards now match the deck: full PostActions row (reply · ▲score▼ · share · report) on every card, and the card body (header/text/link-card/image) links to /p/post/[id]. Video players sit outside the link so tapping play doesn't navigate. The deck already had both; the psub page had static "▲ n 💬 n" text only.
+
+**For Michael:** open any psub — cards are fully interactive now, same as on the boards homepage.

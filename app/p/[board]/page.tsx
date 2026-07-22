@@ -6,6 +6,7 @@ import BoardComposer from '@/components/BoardComposer'
 import PsubNav from '@/components/PsubNav'
 import BoardBanner from '@/components/BoardBanner'
 import { videoEmbed } from '@/lib/video-embed'
+import PostActions from '@/components/PostActions'
 
 // P/ BOARDS (psubs) — the public post boards. p/all + party windows, topic
 // boards (videos, space...), team boards, state boards, one local board per
@@ -139,17 +140,37 @@ export default async function BoardPage({ params, searchParams }: {
           )}
           {(posts ?? []).map((p: any) => (
             <article key={p.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                {p.party && (
-                  <span className="font-black" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
-                    {p.party === 'democrat' ? 'DEM' : 'REP'}
-                  </span>
+              {/* card body opens the post page; the video player stays live
+                  outside the link so tapping play doesn't navigate */}
+              <Link href={`/p/post/${p.id}`} className="block">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  {p.party && (
+                    <span className="font-black" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
+                      {p.party === 'democrat' ? 'DEM' : 'REP'}
+                    </span>
+                  )}
+                  <span className="font-bold text-gray-400">{p.profiles?.username ?? 'Player'}</span>
+                  {p.gyms && <span>· {p.gyms.city_name}, {p.gyms.state}</span>}
+                  <span>· {timeAgo(p.created_at)}</span>
+                </div>
+                <p className="mt-2 text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
+                {p.link_title && !videoEmbed(p.link_url) && (
+                  <div className="mt-2 rounded-2xl border border-gray-800 overflow-hidden">
+                    {p.link_image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.link_image} alt="" loading="lazy" className="w-full max-h-52 object-cover" />
+                    )}
+                    <div className="px-3 py-2.5 text-xs">
+                      <p className="text-gray-600 text-[11px]">🔗 {p.link_domain}</p>
+                      <p className="text-gray-300 mt-0.5 leading-snug">{p.link_title}</p>
+                    </div>
+                  </div>
                 )}
-                <span className="font-bold text-gray-400">{p.profiles?.username ?? 'Player'}</span>
-                {p.gyms && <span>· {p.gyms.city_name}, {p.gyms.state}</span>}
-                <span>· {timeAgo(p.created_at)}</span>
-              </div>
-              <p className="mt-2 text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
+                {p.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.image_url} alt="" className="mt-2 rounded-xl max-h-80 object-cover" loading="lazy" />
+                )}
+              </Link>
               {/* p/videos: the video PLAYS right in the feed, reels-sized */}
               {(() => {
                 const v = videoEmbed(p.link_url)
@@ -163,26 +184,7 @@ export default async function BoardPage({ params, searchParams }: {
                   </div>
                 )
               })()}
-              {p.link_title && !videoEmbed(p.link_url) && (
-                <div className="mt-2 rounded-2xl border border-gray-800 overflow-hidden">
-                  {p.link_image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.link_image} alt="" loading="lazy" className="w-full max-h-52 object-cover" />
-                  )}
-                  <div className="px-3 py-2.5 text-xs">
-                    <p className="text-gray-600 text-[11px]">🔗 {p.link_domain}</p>
-                    <p className="text-gray-300 mt-0.5 leading-snug">{p.link_title}</p>
-                  </div>
-                </div>
-              )}
-              {p.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.image_url} alt="" className="mt-2 rounded-xl max-h-80 object-cover" loading="lazy" />
-              )}
-              <div className="mt-2 flex items-center gap-4 text-xs text-gray-500 font-bold">
-                <span>▲ {p.score}</span>
-                <span>💬 {p.comment_count}</span>
-              </div>
+              <PostActions kind="post" id={p.id} postId={p.id} score={p.score ?? 0} commentCount={p.comment_count ?? 0} />
             </article>
           ))}
         </div>
