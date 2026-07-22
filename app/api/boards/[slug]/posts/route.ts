@@ -3,6 +3,7 @@ import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fetchLinkPreview, firstUrl } from '@/lib/link-preview'
 import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation'
+import { videoEmbed, videoAvailable } from '@/lib/video-embed'
 
 // POST /api/boards/[slug]/posts { content, image?, link_url? } — post to a
 // psub. Same moderation/image/link pipeline as town-hall posts. Local psubs
@@ -67,6 +68,11 @@ export async function POST(
 
     let preview = null
     const url = (link_url ?? '').trim() || (text ? firstUrl(text) : null)
+    // videos must actually be embeddable — copyright-blocked/deleted videos
+    // would render as a dead "Video unavailable" frame (Michael's rule)
+    if (url && videoEmbed(url) && !(await videoAvailable(url))) {
+      return NextResponse.json({ error: 'That video can\'t be embedded (blocked or removed by its owner) — try a different one' }, { status: 400 })
+    }
     if (url && !imageUrl) preview = await fetchLinkPreview(url)
 
     if (!text && !imageUrl) {

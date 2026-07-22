@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { openaiChat } from '@/lib/openai'
+import { videoEmbed, videoAvailable } from '@/lib/video-embed'
 
 // BOARD ENGAGEMENT BOTS (Michael, 2026-07-22): the boards should feel alive —
 // replies on SOME (not all) posts, and real up/down vote movement. Every run:
@@ -22,6 +23,22 @@ export async function GET(req: NextRequest) {
   }
   const admin = createSupabaseAdminClient()
 
+  // ── video sweep: delete posts whose video got blocked/removed after posting
+  // (NFL-style copyright takedowns render a dead "Video unavailable" frame) ──
+  let videosRemoved = 0
+  const { data: videoPosts } = await admin.from('hall_posts')
+    .select('id, link_url')
+    .not('board_id', 'is', null)
+    .or('link_url.ilike.%youtube.com%,link_url.ilike.%youtu.be%,link_url.ilike.%tiktok.com%')
+    .gte('created_at', new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
+    .limit(200)
+  for (const p of videoPosts ?? []) {
+    if (!videoEmbed(p.link_url)) continue
+    if (await videoAvailable(p.link_url)) continue
+    const { error } = await admin.from('hall_posts').delete().eq('id', p.id)
+    if (!error) videosRemoved++
+  }
+
   const [{ data: posts }, { data: bots }] = await Promise.all([
     admin.from('hall_posts')
       .select('id, board_id, content, link_title, comment_count, score')
@@ -30,7 +47,7 @@ export async function GET(req: NextRequest) {
       .gte('created_at', new Date(Date.now() - 6 * 3600 * 1000).toISOString()),
     admin.from('profiles').select('id, username').like('clerk_user_id', 'bot%').limit(400),
   ])
-  if (!posts?.length || !bots?.length) return NextResponse.json({ ok: true, replied: 0, voted: 0 })
+  if (!posts?.length || !bots?.length) return NextResponse.json({ ok: true, replied: 0, voted: 0, videosRemoved })
 
   // ── replies on ~35% of fresh posts that have no comments yet ─────────────
   const candidates = posts.filter(p => (p.comment_count ?? 0) === 0 && Math.random() < 0.35).slice(0, 60)
@@ -85,5 +102,5 @@ export async function GET(req: NextRequest) {
       .eq('id', c.id)
   }
 
-  return NextResponse.json({ ok: true, replied, voted, posts: posts.length })
+  return NextResponse.json({ ok: true, replied, voted, posts: posts.length, videosRemoved })
 }

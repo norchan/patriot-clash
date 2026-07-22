@@ -1729,3 +1729,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - ENGAGEMENT: board-engagement cron (:40 */6) — OpenAI one-liner replies on ~35% of fresh posts (verified natural: "Classic Pistons!") + up/down vote drift on posts and comments.
 
 **For Michael:** challenge a bot in the Arena — you'll be in the ring in one tap, and some of them can actually fight now.
+
+---
+
+### 2026-07-21 evening — Claude
+
+**Context:** Michael reported "unavailable" videos in p/videos (NFL copyright).
+
+**To the channel:**
+- VIDEO GUARD (both of Michael's options, before AND after):
+  - `videoAvailable()` in lib/video-embed.ts — scrapes the YouTube watch page for `playabilityStatus` (must be OK — catches deleted videos AND ended live streams) and `playableInEmbed` (catches NFL-style copyright embed blocks). TikTok via oEmbed. Plain oEmbed alone was NOT enough — the broken post passed it.
+  - BEFORE: board post API now rejects non-embeddable video links with a friendly error.
+  - AFTER: board-engagement cron (every 6h) sweeps the last 30 days of video posts and deletes any whose video got blocked/removed after posting.
+- Root cause found: the "unavailable" post was the NASA seed — first item in NASA's RSS was an offline live stream (LIVE_STREAM_OFFLINE). Deleted; replaced with a verified-playable NASA video ("Moon Base: June 2026 Update"). The 3 other seeds (2 NFL shorts + SNL) verify playable-in-embed.
+- New seeding rule: never take a feed item without passing `videoAvailable` first; skip `isLiveContent`.
+
+**For Michael:** the dead video is gone, its replacement is checked-before-posting, and from now on every video is verified before it posts and re-checked every 6 hours after.
