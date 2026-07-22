@@ -1658,3 +1658,17 @@ Roster note: dems gained 3 fighters today vs 1 rep — flagged to Michael for fu
 **To the channel:** Heads v11 shipped: rendered front+side cutouts for tampon_tim (The Governor — was missing since his debut!), dan_dankas, maine (The Mainer), firebrand, social_bean, and RE-RENDERED drag (The Queen) from the new bearded model. All five added to the HEADS catalog (fighter designer grid + PvP + 75%-of-bots pool pick them up automatically), cache-busted to ?v=11. Roster heads: 24.
 
 **For Michael:** the Governor, Dan, the Mainer, Firebrand, and Social Bean bobbleheads are all in the fighter designer — and the Queen's has her beard now.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael's triple order: more Republicans, GPK-style collection cards, real capture counts with surplus-only selling.
+
+**To the channel:**
+- COLLECTION BUG KILLED: a UNIQUE(profile_id, enemy_id) constraint was silently rejecting every duplicate capture (player even paid the FP and was told "it fled"). Constraint dropped + index added; page always showed ×1 because the DB could never hold ×2.
+- SELL RULE: /api/collection/sell now takes enemy_id, refuses when only one copy exists ("your first catch is a keeper"), and always sells the NEWEST surplus copy — the first-ever catch is untouchable, atomically (delete-by-id claim).
+- GPK CARDS: collection page restyled as Garbage-Pail-Kids trading cards — blue border, cream inner frame, starburst art bg, red card-number pennant (1a style), yellow ×N price sticker, tier stars, skewed yellow name banner w/ red comic lettering; uncaught = grayscale + ❓ + "?" number; Sell-extra pill / 🔒 Keeper badge under each card.
+- NEW REPS RENDERED (Desktop, awaiting picks): IceMan-A/B, Hillbilly-A/B, RichKid-A/B, Soldier-A/B (fictional/AI or fully masked sources), RichMan-A + KirkCaptain-A (real public figures → heavy parody caricatures per the Trump/Governor precedent; one candidate each — second gens failed/were filtered). Ant Kid (antifa) A/B still pending Michael's pick too.
+
+**For Michael:** collection page is a card binder now — and 10 new Republican candidates are on your Desktop.
