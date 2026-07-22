@@ -47,6 +47,8 @@ function parseGoogleNews(xml: string): NewsItem[] {
     if (pub && !isNaN(Date.parse(pub)) && Date.parse(pub) < dayAgo) continue
     title = decodeEntities(title)
     if (/obituary/i.test(title)) continue
+    // listing junk (score pages, how-to-watch, lottery numbers) isn't state NEWS
+    if (/live score|box ?score|game story, scores|scores\/highlights|tv channel|streaming options for|how to watch|betting|odds|parlay|lotto|lottery numbers|powerball|mega millions/i.test(title)) continue
     const src = source ? decodeEntities(source) : 'news'
     if (title.toLowerCase().endsWith(` - ${src.toLowerCase()}`)) title = title.slice(0, -(src.length + 3))
     out.push({ title: title.slice(0, 300), link: decodeEntities(link), source: src })

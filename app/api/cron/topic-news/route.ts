@@ -9,14 +9,33 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 export const maxDuration = 120
 
-// board slug → Google News query
-const TOPICS: Record<string, string> = {
-  politics: 'US politics when:1d',
-  news: 'top US news when:1d',
-  space: 'space NASA launch when:1d',
-  movies: 'movie box office film when:1d',
-  sports: 'sports when:1d',
+// board slug → feed + a RELEVANCE gate: the headline must match `must`
+// (Michael's rule: content has to actually belong to its sub). Curated
+// Google News SECTION feeds are used wherever one exists — they're
+// editorially topical, unlike keyword search which matches stray words.
+const SEARCH = (q: string) =>
+  `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`
+const SECTION = (s: string) =>
+  `https://news.google.com/rss/headlines/section/topic/${s}?hl=en-US&gl=US&ceid=US:en`
+const TOPICS: Record<string, { feed: string; must?: RegExp }> = {
+  politics: {
+    feed: SEARCH('congress OR senate OR election OR "white house" OR governor when:1d'),
+    must: /congress|senate|house|president|white house|election|campaign|governor|court|law|bill|vote|polic|democrat|republican|gop|mayor|legislat/i,
+  },
+  news: { feed: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en' }, // curated top stories
+  space: {
+    feed: SECTION('SCIENCE'),
+    must: /space|nasa|rocket|launch|astronaut|orbit|moon|mars|spacex|satellite|telescope|asteroid|comet|galaxy|planet|cosmic/i,
+  },
+  movies: {
+    feed: SECTION('ENTERTAINMENT'),
+    must: /movie|film|box office|trailer|cinema|sequel|director|premiere|hollywood|streaming/i,
+  },
+  sports: { feed: SECTION('SPORTS') }, // curated sports desk
 }
+
+// listing/junk headlines that add nothing to a board
+const JUNK = /live score|box ?score|game story, scores|scores\/highlights|tv channel|streaming options for|how to submit|schedule:\s*$|betting|odds|parlay|tickets/i
 
 function titleTokens(t: string, ignore?: Set<string>): Set<string> {
   return new Set(
@@ -60,17 +79,16 @@ function parseGoogleNews(xml: string): NewsItem[] {
   return out
 }
 
-async function gnews(query: string): Promise<NewsItem[]> {
+async function gnews(feedUrl: string): Promise<NewsItem[]> {
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 6000)
-    const res = await fetch(
-      `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`,
+    const res = await fetch(feedUrl,
       { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PoliticsGoBot/1.0; +https://politicsgo.app)' }, cache: 'no-store', signal: ctrl.signal }
     )
     clearTimeout(timer)
     if (!res.ok) return []
-    return parseGoogleNews(await res.text()).slice(0, 12)
+    return parseGoogleNews(await res.text()).slice(0, 16)
   } catch {
     return []
   }
@@ -98,7 +116,10 @@ export async function GET(req: NextRequest) {
 
   const pools = new Map<string, NewsItem[]>()
   for (const b of boards) {
-    const items = await gnews(TOPICS[b.slug])
+    const t = TOPICS[b.slug]
+    const items = (await gnews(t.feed))
+      // the sub-relevance gate + junk-listing filter
+      .filter(i => !JUNK.test(i.title) && (!t.must || t.must.test(i.title)))
     if (items.length) pools.set(b.id, items)
   }
 
