@@ -89,7 +89,13 @@ export async function GET(req: NextRequest) {
   let inserted = 0
   const errors: string[] = []
   // stage counters — when inserted is 0 these say WHERE the pipe went dry
-  const diag = { feedsOk: 0, entries: 0, shorts: 0, embeddable: 0 }
+  const diag = { feedsOk: 0, entries: 0, shorts: 0, embeddable: 0, probe: '' }
+  // what does the watch page say from THIS IP? (known-good short)
+  try {
+    const pr = await fetch('https://www.youtube.com/watch?v=5Ru6pmu6QTU', { headers: UA })
+    const ph = await pr.text()
+    diag.probe = /"playabilityStatus":\{"status":"([A-Z_]+)"/.exec(ph)?.[1] ?? `no-status(len ${ph.length})`
+  } catch (e: any) { diag.probe = `fetch-fail ${e?.message}` }
   for (const [channel, cid] of shuffle(CHANNELS)) {
     if (inserted >= MAX_POSTS) break
     const rss = await fetchFeed(cid)

@@ -43,7 +43,12 @@ export async function videoAvailable(url: string | null | undefined): Promise<bo
         const html = await r.text()
         const status = /"playabilityStatus":\{"status":"([A-Z_]+)"/.exec(html)?.[1]
         const inEmbed = /"playableInEmbed":(true|false)/.exec(html)?.[1]
-        if (status) return status === 'OK' && inEmbed !== 'false'
+        // LOGIN_REQUIRED = YouTube's bot wall (datacenter IPs get "sign in to
+        // confirm you're not a bot") — that's a verdict on OUR REQUEST, not
+        // the video; fall through to oEmbed instead of failing every video
+        if (status && status !== 'LOGIN_REQUIRED' && status !== 'CONTENT_CHECK_REQUIRED') {
+          return status === 'OK' && inEmbed !== 'false'
+        }
       }
       // scrape gave nothing — oEmbed still catches hard-deleted + embed-disabled
       const oe = await fetchWithTimeout(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${v.id}`)}`, 6000)
