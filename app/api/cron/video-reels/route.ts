@@ -42,9 +42,13 @@ async function fetchFeed(channelId: string): Promise<string | null> {
 }
 
 async function isShort(id: string): Promise<boolean> {
+  // Shorts get a vertical "oar" thumbnail on YouTube's image CDN; regular
+  // videos 404 there. CDN answers identically for datacenter IPs — the
+  // /shorts/ redirect probe worked locally but never on Vercel (blast run
+  // 2026-07-21: 0 inserts, consent-walled).
   try {
-    const r = await fetch(`https://www.youtube.com/shorts/${id}`, { redirect: 'manual', headers: UA })
-    return r.status === 200 // regular videos redirect to /watch
+    const r = await fetch(`https://i.ytimg.com/vi/${id}/oardefault.jpg`, { method: 'HEAD' })
+    return r.status === 200
   } catch {
     return false
   }
