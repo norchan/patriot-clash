@@ -123,17 +123,24 @@ export async function GET(req: NextRequest) {
   // what's already on each state board (links + headlines, last 3 days)
   const existing = new Map<string, { links: Set<string>; titles: string[] }>()
   const boardIds = stateBoards.map(b => b.id)
+  const since = new Date(Date.now() - 3 * 86400 * 1000).toISOString()
   for (let i = 0; i < boardIds.length; i += 100) {
-    const { data: rows } = await admin.from('hall_posts')
-      .select('board_id, link_url, link_title, content')
-      .in('board_id', boardIds.slice(i, i + 100))
-      .gte('created_at', new Date(Date.now() - 3 * 86400 * 1000).toISOString())
-    for (const r of rows ?? []) {
-      const e = existing.get(r.board_id) ?? { links: new Set<string>(), titles: [] }
-      if (r.link_url) e.links.add(r.link_url)
-      const t = r.link_title ?? r.content
-      if (t) e.titles.push(t)
-      existing.set(r.board_id, e)
+    // paginate past PostgREST's silent 1,000-row read cap — truncation here
+    // makes earlier posts invisible and causes doubles
+    for (let off = 0; ; off += 1000) {
+      const { data: rows } = await admin.from('hall_posts')
+        .select('board_id, link_url, link_title, content')
+        .in('board_id', boardIds.slice(i, i + 100))
+        .gte('created_at', since)
+        .range(off, off + 999)
+      for (const r of rows ?? []) {
+        const e = existing.get(r.board_id) ?? { links: new Set<string>(), titles: [] }
+        if (r.link_url) e.links.add(r.link_url)
+        const t = r.link_title ?? r.content
+        if (t) e.titles.push(t)
+        existing.set(r.board_id, e)
+      }
+      if (!rows || rows.length < 1000) break
     }
   }
 

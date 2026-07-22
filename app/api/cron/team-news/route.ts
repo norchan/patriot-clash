@@ -54,7 +54,7 @@ function parseGoogleNews(xml: string): NewsItem[] {
     if (pub && !isNaN(Date.parse(pub)) && Date.parse(pub) < dayAgo) continue
     title = decodeEntities(title)
     // listing junk (score pages, how-to-watch, betting) isn't team NEWS
-    if (/live score|box ?score|game story, scores|scores\/highlights|tv channel|streaming options for|how to watch|betting|odds|parlay|tickets/i.test(title)) continue
+    if (/live score|box ?score|game story, scores|scores\/highlights|tv channel|streaming options for|stream the game|how to watch|betting|odds|parlay|tickets/i.test(title)) continue
     const src = source ? decodeEntities(source) : 'news'
     if (title.toLowerCase().endsWith(` - ${src.toLowerCase()}`)) title = title.slice(0, -(src.length + 3))
     out.push({ title: title.slice(0, 300), link: decodeEntities(link), source: src })
@@ -133,17 +133,25 @@ export async function GET(req: NextRequest) {
   // second reporter must not repeat a story ANY outlet already covered here
   const existing = new Map<string, { links: Set<string>; titles: string[] }>()
   const teamIds = teams.map(t => t.id)
+  const since = new Date(Date.now() - 3 * 86400 * 1000).toISOString()
   for (let i = 0; i < teamIds.length; i += 100) {
-    const { data: rows } = await admin.from('hall_posts')
-      .select('board_id, link_url, link_title, content')
-      .in('board_id', teamIds.slice(i, i + 100))
-      .gte('created_at', new Date(Date.now() - 3 * 86400 * 1000).toISOString())
-    for (const r of rows ?? []) {
-      const e = existing.get(r.board_id) ?? { links: new Set<string>(), titles: [] }
-      if (r.link_url) e.links.add(r.link_url)
-      const t = r.link_title ?? r.content
-      if (t) e.titles.push(t)
-      existing.set(r.board_id, e)
+    // paginate: PostgREST silently caps each read at 1,000 rows — a truncated
+    // read means invisible posts, and invisible posts mean DOUBLES (the
+    // 2026-07-21 blast-run duplicates)
+    for (let off = 0; ; off += 1000) {
+      const { data: rows } = await admin.from('hall_posts')
+        .select('board_id, link_url, link_title, content')
+        .in('board_id', teamIds.slice(i, i + 100))
+        .gte('created_at', since)
+        .range(off, off + 999)
+      for (const r of rows ?? []) {
+        const e = existing.get(r.board_id) ?? { links: new Set<string>(), titles: [] }
+        if (r.link_url) e.links.add(r.link_url)
+        const t = r.link_title ?? r.content
+        if (t) e.titles.push(t)
+        existing.set(r.board_id, e)
+      }
+      if (!rows || rows.length < 1000) break
     }
   }
 
