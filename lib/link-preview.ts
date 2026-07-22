@@ -35,7 +35,9 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview | nu
     const res = await fetch(url.toString(), {
       signal: ctrl.signal,
       redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PoliticsGoBot/1.0; link preview)' },
+      // plain browser UA: Google News (and others) serve bot-labeled UAs a
+      // stripped page with no og:image
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36' },
     })
     clearTimeout(timer)
     if (!res.ok || !(res.headers.get('content-type') ?? '').includes('text/html')) return base

@@ -36,7 +36,7 @@ const FC_CD = 650
 // Sprites were dying too easily (Micha) — battle HP is scaled up from the
 // config values. Server victory validation checks damage >= config hp, so a
 // kill at scaled HP always validates.
-const HP_SCALE = 1.9 // Michael: sprites were still dying too fast
+const HP_SCALE = 2.1 // Michael (3rd bump): sprites must be genuinely hard
 
 // Rotating battle stages. `ground` = feet line, % from the bottom of the
 // screen — tuned per backdrop so the sprite stands on the visible ground.
@@ -55,9 +55,9 @@ const TIER_COLORS = { common: '#9ca3af', rare: '#a78bfa', legendary: '#facc15' }
 // Aggression buffed (Michael: sprites died before landing one strike) —
 // enemies open earlier and throw ~40% more often
 const TIER_AI = {
-  common:    { dodge: 0.26, attackMs: 2300 },
-  rare:      { dodge: 0.42, attackMs: 1900 },
-  legendary: { dodge: 0.58, attackMs: 1500 },
+  common:    { dodge: 0.30, attackMs: 2050 },
+  rare:      { dodge: 0.46, attackMs: 1700 },
+  legendary: { dodge: 0.62, attackMs: 1350 },
 }
 
 // What each character throws back at you
@@ -263,7 +263,7 @@ function BattleContent() {
       S.current.endAt = now + BATTLE_MS
       startTime.current = now
       const lvl = fighterLevel(profile.total_battles_won ?? 0)
-      const fc = lvl + 2 // level 1 → 3, level 2 → 4, and so on
+      const fc = 3 // hard cap for EVERY level (Michael) — firecrackers are precious
       S.current.fcLeft = fc
       setFcLeft(fc)
       setDialogLine(e.tier === 'legendary' && lvl < 15
@@ -371,7 +371,9 @@ function BattleContent() {
       const dirY = (y1 - y0) || -1
       endX = x0 + (x1 - x0) * ((chestY - y0) / dirY)
     } else {
-      endX = rect.width * (enemyXAt(now) / 100)
+      // Rocks fly STRAIGHT UP from the tap (Michael): tap under the sprite
+      // or eat a MISS — no more auto-aim
+      endX = x0
     }
 
     const weapon = THROWS[kind]

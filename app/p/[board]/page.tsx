@@ -3,6 +3,9 @@ import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolvePBoard, fetchBoardPosts, FEATURED_TABS } from '@/lib/boards'
 import BoardComposer from '@/components/BoardComposer'
+import PsubNav from '@/components/PsubNav'
+import BoardBanner from '@/components/BoardBanner'
+import { videoEmbed } from '@/lib/video-embed'
 
 // P/ BOARDS (psubs) — the public post boards. p/all + party windows, topic
 // boards (videos, space...), team boards, state boards, one local board per
@@ -74,14 +77,24 @@ export default async function BoardPage({ params, searchParams }: {
     : dbBoard?.category === 'user' ? 'Community psub' : null
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-200">
+    <div className="min-h-screen bg-gray-950 text-gray-200 pb-24">
+      <PsubNav />
       <div className="max-w-2xl mx-auto px-4 py-8">
         <nav className="text-sm text-gray-500 mb-4 flex items-center justify-between">
           <Link href="/" className="hover:text-white">← Home</Link>
           <span className="text-gray-600 text-xs">posts live for 48 hours</span>
         </nav>
-        <h1 className="text-3xl font-black text-white">📰 {b.label}</h1>
-        <p className="text-gray-500 text-sm mt-1">
+        {/* the psub's BANNER — flag for states/locals, club colors for teams,
+            gloves logo for p/all (Michael: banners instead of 📰 + name) */}
+        <BoardBanner
+          label={b.label}
+          slug={dbBoard?.slug ?? b.label.slice(2)}
+          category={b.kind === 'board' ? dbBoard!.category : b.kind === 'party' ? b.key + 's' : 'all'}
+          subcategory={dbBoard?.subcategory}
+          state={dbBoard?.state}
+          name={dbBoard?.name}
+        />
+        <p className="text-gray-500 text-sm mt-2">
           {sub ? `${sub} · ` : ''}The public post board — live from PoliticsGo.
         </p>
 
@@ -137,9 +150,29 @@ export default async function BoardPage({ params, searchParams }: {
                 <span>· {timeAgo(p.created_at)}</span>
               </div>
               <p className="mt-2 text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
-              {p.link_title && (
-                <div className="mt-2 text-xs text-gray-500 border border-gray-800 rounded-lg px-3 py-2">
-                  🔗 {p.link_title} <span className="text-gray-600">({p.link_domain})</span>
+              {/* p/videos: the video PLAYS right in the feed, reels-sized */}
+              {(() => {
+                const v = videoEmbed(p.link_url)
+                if (!v) return null
+                return (
+                  <div className={`mt-2 rounded-2xl overflow-hidden border border-gray-800 bg-black ${v.vertical ? 'max-w-[300px] mx-auto' : ''}`}
+                    style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9' }}>
+                    <iframe src={v.src} className="w-full h-full" loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen title="Video" />
+                  </div>
+                )
+              })()}
+              {p.link_title && !videoEmbed(p.link_url) && (
+                <div className="mt-2 rounded-2xl border border-gray-800 overflow-hidden">
+                  {p.link_image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.link_image} alt="" loading="lazy" className="w-full max-h-52 object-cover" />
+                  )}
+                  <div className="px-3 py-2.5 text-xs">
+                    <p className="text-gray-600 text-[11px]">🔗 {p.link_domain}</p>
+                    <p className="text-gray-300 mt-0.5 leading-snug">{p.link_title}</p>
+                  </div>
                 </div>
               )}
               {p.image_url && (

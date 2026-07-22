@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import ReplyBox from '@/components/ReplyBox'
 import PostActions from '@/components/PostActions'
+import PsubNav from '@/components/PsubNav'
 import { videoEmbed } from '@/lib/video-embed'
 
 // PUBLIC POST PAGE — one post opened X-style: big text, media, link preview,
@@ -75,7 +76,8 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
     : p.boards ? `/p/${p.boards.slug}` : '/p/all'
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-200">
+    <div className="min-h-screen bg-gray-950 text-gray-200 pb-24">
+      <PsubNav />
       <div className="max-w-xl mx-auto px-4 py-6">
         <nav className="text-sm text-gray-500 mb-4 flex items-center justify-between">
           <Link href="/" className="hover:text-white">← Battle Map</Link>

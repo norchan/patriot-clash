@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import SubscribeButton from '@/components/SubscribeButton'
+import PsubNav from '@/components/PsubNav'
 
 // THE PSUB DIRECTORY — featured (+ your subscriptions pinned on top), local
 // search, states (open), sports leagues (collapsible, closed by default),
@@ -81,7 +82,8 @@ export default async function BoardsDirectory({ searchParams }: {
   const pinned = mySubs.filter(s => !featuredSlugs.has(s.slug))
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-200">
+    <div className="min-h-screen bg-gray-950 text-gray-200 pb-24">
+      <PsubNav />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <nav className="text-sm text-gray-500 mb-4 flex items-center justify-between">
           <Link href="/" className="hover:text-white">← Home</Link>

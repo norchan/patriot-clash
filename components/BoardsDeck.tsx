@@ -54,6 +54,10 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
   function openTab(name: string) {
     if (name === 'profile') { router.push(signedIn ? '/profile' : '/sign-up'); return }
     setTab(name); setMenuOpen(false)
+    // the tab strip TRACKS the page — swiping keeps the active tab centered
+    // so you can see what sits to its left and right
+    requestAnimationFrame(() =>
+      document.getElementById(`ptab-${name}`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }))
     if (cache.current[name]) { setPosts(cache.current[name]); return }
     setLoading(true)
     fetch(`/api/public/boards/${name}`)
@@ -144,7 +148,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
         </button>
         <div className="flex-1 flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {tabs.map(name => (
-            <button key={name} onClick={() => openTab(name)}
+            <button key={name} id={`ptab-${name}`} onClick={() => openTab(name)}
               className={`shrink-0 px-3.5 py-3 text-[13px] font-black transition border-b-2 ${
                 tab === name && name !== 'profile'
                   ? 'text-white border-purple-400'
@@ -219,11 +223,23 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                 <img src={p.image_url} alt="" loading="lazy"
                   className="mt-2 w-full max-h-[380px] object-cover rounded-2xl border border-gray-800" />
               )}
-              {/* video links: thumbnail + play badge in the feed; the post
-                  page carries the actual playing embed */}
+              {/* video links: on p/videos the player runs RIGHT IN THE FEED,
+                  reels-style and big; on other boards it's a thumbnail +
+                  play badge and the post page carries the player */}
               {(() => {
                 const v = videoEmbed(p.link_url)
                 if (!v) return null
+                if (tab === 'videos') {
+                  return (
+                    <div className={`mt-2 rounded-2xl overflow-hidden border border-gray-800 bg-black mx-auto ${v.vertical ? 'w-full max-w-[340px]' : 'w-full'}`}
+                      style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9' }}
+                      onClick={e => e.stopPropagation()}>
+                      <iframe src={v.src} className="w-full h-full" loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen title="Video" />
+                    </div>
+                  )
+                }
                 return (
                   <div className={`mt-2 relative rounded-2xl overflow-hidden border border-gray-800 bg-black ${v.vertical ? 'max-w-[240px]' : ''}`}
                     style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9', maxHeight: 340 }}>

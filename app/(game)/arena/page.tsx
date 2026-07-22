@@ -50,6 +50,11 @@ export default function ArenaPage() {
       })
       const d = await res.json()
       if (res.ok) {
+        // Bots auto-accept — straight into the ring, no waiting
+        if (d.status === 'accepted') {
+          router.push(`/battle/pvp/${d.id}`)
+          return
+        }
         setSent(s => new Set(s).add(o.id))
         setToast(`⚔️ Challenge sent to ${o.username}!`)
       } else {
@@ -66,7 +71,9 @@ export default function ArenaPage() {
     <div className="min-h-screen text-white pb-28 select-none"
       style={{ background: 'radial-gradient(circle at 50% -20%, #7c2d12 0%, #431407 40%, #1a0a04 75%, #0c0502 100%)', fontFamily: 'ui-monospace, monospace' }}>
       {/* hero */}
-      <div className="px-4 pt-4 flex items-center gap-3">
+      {/* pr-14 clears the game menu ☰ pinned top-right — the LV badge was
+          hiding behind it (Michael) */}
+      <div className="px-4 pt-4 pr-14 flex items-center gap-3">
         <button onClick={() => router.back()} className="text-white/70 hover:text-white"><ArrowLeft size={18} /></button>
         <h1 className="font-black tracking-[0.14em] text-xl" style={{ color: '#fbbf24', textShadow: '0 0 16px #d97706, 0 2px 0 #000' }}>THE ARENA</h1>
         {data && <span className="ml-auto text-xs font-black text-white/70">LV <span className="text-yellow-300 text-base">{data.me.level}</span></span>}

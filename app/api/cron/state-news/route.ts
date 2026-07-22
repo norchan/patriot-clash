@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { ogImage } from '@/lib/og-image'
 
 // STATE-NEWS REPORTER BOTS (Michael, 2026-07-21) — the same two designated
 // bots per state post top-site articles to their STATE's psub, every 6 hours,
@@ -160,6 +161,12 @@ export async function GET(req: NextRequest) {
       created_at: new Date().toISOString(),
     })
   }
+
+  // pull each article's preview image so posts show a photo card
+  await mapLimit(rows, 8, async (r: any) => {
+    const img = await ogImage(r.link_url)
+    if (img) r.link_image = img
+  })
 
   let inserted = 0
   for (let i = 0; i < rows.length; i += 500) {
