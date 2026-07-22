@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import ReplyBox from '@/components/ReplyBox'
 import PostActions from '@/components/PostActions'
+import { videoEmbed } from '@/lib/video-embed'
 
 // PUBLIC POST PAGE — one post opened X-style: big text, media, link preview,
 // stats, then the reply thread. Anyone can read; replying takes an account.
@@ -97,7 +98,19 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
             // eslint-disable-next-line @next/next/no-img-element
             <img src={p.image_url} alt="" className="mt-3 w-full rounded-2xl border border-gray-800 max-h-[520px] object-contain bg-black/40" />
           )}
-          {p.link_url && (
+          {/* video links play RIGHT HERE via the platform's official player */}
+          {(() => {
+            const v = videoEmbed(p.link_url)
+            if (!v) return null
+            return (
+              <div className={`mt-3 rounded-2xl overflow-hidden border border-gray-800 bg-black ${v.vertical ? 'max-w-[320px] mx-auto' : ''}`}
+                style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9' }}>
+                <iframe src={v.src} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen title="Video" />
+              </div>
+            )
+          })()}
+          {p.link_url && !videoEmbed(p.link_url) && (
             <a href={p.link_url} target="_blank" rel="noopener noreferrer"
               className="block mt-3 rounded-2xl border border-gray-800 overflow-hidden hover:border-gray-600 transition">
               {p.link_image && (

@@ -2,8 +2,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Menu, Plus, LayoutGrid, X } from 'lucide-react'
+import { Menu, Plus, LayoutGrid, X, Play } from 'lucide-react'
 import PostActions from '@/components/PostActions'
+import { videoEmbed } from '@/lib/video-embed'
 
 // THE BOARDS DECK — the reddit-app-style psub reader under the battle map.
 // ☰ menu + swipeable tab strip (p/all first), active tab underlined; cards
@@ -218,8 +219,30 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                 <img src={p.image_url} alt="" loading="lazy"
                   className="mt-2 w-full max-h-[380px] object-cover rounded-2xl border border-gray-800" />
               )}
+              {/* video links: thumbnail + play badge in the feed; the post
+                  page carries the actual playing embed */}
+              {(() => {
+                const v = videoEmbed(p.link_url)
+                if (!v) return null
+                return (
+                  <div className={`mt-2 relative rounded-2xl overflow-hidden border border-gray-800 bg-black ${v.vertical ? 'max-w-[240px]' : ''}`}
+                    style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9', maxHeight: 340 }}>
+                    {v.thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={v.thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">TikTok</div>
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="w-12 h-12 rounded-full bg-black/70 border border-white/40 flex items-center justify-center">
+                        <Play size={22} className="text-white ml-0.5" fill="currentColor" />
+                      </span>
+                    </div>
+                  </div>
+                )
+              })()}
               {/* twitter-style link preview card */}
-              {p.link_title && !p.image_url && (
+              {p.link_title && !p.image_url && !videoEmbed(p.link_url) && (
                 <div className="mt-2 rounded-2xl border border-gray-800 overflow-hidden">
                   {p.link_image && (
                     // eslint-disable-next-line @next/next/no-img-element
