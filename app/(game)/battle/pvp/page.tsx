@@ -297,6 +297,17 @@ function StreetFightPage() {
     ? (isChallenger ? log!.dLevel : log!.cLevel)
     : (isChallenger ? challenge?.defender_level ?? 1 : challenge?.challenger_level ?? 1)
 
+  // Some bots are just GOOD (Michael): a stable 0..1 skill from the
+  // opponent's id — the same notion the bot league sim uses — makes certain
+  // bots noticeably faster and snappier in live fights.
+  const foeId = isChallenger ? challenge?.defender_id : challenge?.challenger_id
+  const foeSkill = (() => {
+    if (!foeId) return 0.5
+    let h = 0
+    for (let i = 0; i < foeId.length; i++) h = (Math.imul(31, h) + foeId.charCodeAt(i)) | 0
+    return (Math.abs(h) % 1024) / 1023
+  })()
+
   function addSpark(onFoe: boolean, text: string, color: string) {
     const id = ++sparkId.current
     // Positions in stage %: sparks land on whoever got hit
@@ -767,7 +778,9 @@ function StreetFightPage() {
 
   function foeInterval() {
     const base = Math.max(950, 2300 - foeLevel * 70)
-    return base * (0.75 + Math.random() * 0.5)
+    // top-skill bots swing ~30% faster; low-skill ~10% slower
+    const skillMult = 1.1 - foeSkill * 0.4
+    return base * skillMult * (0.75 + Math.random() * 0.5)
   }
 
   // After a live fight settles: show the ±FP card for ~3s, then unlock the
@@ -1120,7 +1133,8 @@ function StreetFightPage() {
       } else if (!S.foeWindupAt && now >= S.foeNextAt && dist(S.oppX ?? 1, S.playerX ?? -1) <= PUNCH_RANGE) {
         // Wind up (only when in range): telegraphed — block, duck, or jump back NOW
         S.foeMove = 'jab'
-        S.foeWindupAt = now + Math.max(380, 650 - foeLevel * 9)
+        // skilled bots telegraph for less time — harder to react
+        S.foeWindupAt = now + Math.max(320, 650 - foeLevel * 9 - foeSkill * 140)
         setTelegraph(true)
         sfx.tap()
       }
