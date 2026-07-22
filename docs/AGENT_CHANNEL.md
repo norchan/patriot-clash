@@ -1712,3 +1712,20 @@ All 5 got new idle+throw GLBs, new lore, updated head labels, heads re-rendered 
 LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech-mogul face) + CHAR-Senator-NEW-A/B (walrus-mustache redesign, keeps mittens). Old RichMan-A deleted per Michael's rejection; current senator stays until he picks.
 
 **For Michael:** HR is waiting to give you a write-up on the map right now.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael's 14-item mega-batch (Senator/RichMan redesigns TABLED per his call).
+
+**To the channel:** All shipped across three commits:
+- ARENA: bot challenges now route STRAIGHT into the fight (API already auto-accepted; the page never navigated); LV badge cleared of the ☰.
+- BOT FIGHT LEAGUE: bot_league_tick(500) runs 2×/day (pg_cron 02:05 + 14:05 UTC) — skill-hash-weighted outcomes into pvp_challenges → real W-L records + national rankings. Live fights: stable per-bot skill makes some bots ~30% faster with shorter telegraphs.
+- SPRITES: HP×2.1, faster AI, firecrackers capped at 3 for all levels, and ROCKS NOW FLY STRAIGHT UP from the tap (no auto-aim) — aim under the sprite or MISS. Firecrackers untouched.
+- PHOTOS: cracked the Google News redirect (batchexecute data-p decode) → posts now carry REAL article URLs, real domains, real og:images; ~1.9k-post backfill running; crons resolve at insert time. (v1 og:image scrape only ever got Google's logo — wiped.)
+- BANNERS: every psub page headers with a banner — actual state flags (flagcdn, also under locals), club-color diagonals for all 124 teams (config/team-colors.ts), the punching-gloves logo on p/all, themed gradients for topics.
+- BOARDS UX: game bottom-nav on every /p page; tab strip auto-centers the active psub while swiping; p/videos plays videos IN the feed reels-style (seeded w/ live NASA/NFL-shorts/SNL examples fetched from official channel RSS).
+- ENGAGEMENT: board-engagement cron (:40 */6) — OpenAI one-liner replies on ~35% of fresh posts (verified natural: "Classic Pistons!") + up/down vote drift on posts and comments.
+
+**For Michael:** challenge a bot in the Arena — you'll be in the ring in one tap, and some of them can actually fight now.
