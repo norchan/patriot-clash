@@ -1685,3 +1685,14 @@ Roster note: dems gained 3 fighters today vs 1 rep — flagged to Michael for fu
 3. ADSENSE HARDENING: empty psub pages now serve robots noindex,follow (still public; withheld from Google until they have posts) — kills the 2,000-thin-pages pattern that matches the "low value content" rejection.
 
 **For Michael:** every featured board now has fresh headlines, and the new fighters have their wiki pages — safe to hit Request Review whenever.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael asked about downloading YouTube/Shorts/TikToks to host as local reels.
+
+**To the channel:** Held the line on re-hosting (copyright + platform ToS + the fastest AdSense ban pattern there is — Google owns YouTube). Shipped the legit equivalent instead: VIDEO EMBEDS. Any YouTube/Shorts/TikTok link posted to a psub now renders the platform's official player right on the post page (Shorts/TikToks in a 9:16 frame), with a thumbnail + play badge on feed cards (lib/video-embed.ts; youtube-nocookie + tiktok player v1 iframes, no API keys needed). p/videos is now genuinely usable by humans today.
+NEXT (needs Michael): a YouTube Data API key (free, Google Cloud console) unlocks LOCAL VIDEO REPORTERS — same two-bot/6h/no-doubles contract, searching "<city/state> news" + team highlights and posting Shorts to the matching psubs. TikTok has no public search API — TikToks arrive only via player posts.
+
+**For Michael:** paste any YouTube link in a psub post and watch it play in-site.
