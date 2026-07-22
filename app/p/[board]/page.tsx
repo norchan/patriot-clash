@@ -140,19 +140,23 @@ export default async function BoardPage({ params, searchParams }: {
           )}
           {(posts ?? []).map((p: any) => (
             <article key={p.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              {/* header sits OUTSIDE the post link so the username can link
+                  to the player's profile (nested links are invalid) */}
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                {p.party && (
+                  <span className="font-black" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
+                    {p.party === 'democrat' ? 'DEM' : 'REP'}
+                  </span>
+                )}
+                <Link href={`/player/${p.profile_id}`} className="font-bold text-gray-400 hover:text-white hover:underline">
+                  {p.profiles?.username ?? 'Player'}
+                </Link>
+                {p.gyms && <span>· {p.gyms.city_name}, {p.gyms.state}</span>}
+                <span>· {timeAgo(p.created_at)}</span>
+              </div>
               {/* card body opens the post page; the video player stays live
                   outside the link so tapping play doesn't navigate */}
               <Link href={`/p/post/${p.id}`} className="block">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  {p.party && (
-                    <span className="font-black" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
-                      {p.party === 'democrat' ? 'DEM' : 'REP'}
-                    </span>
-                  )}
-                  <span className="font-bold text-gray-400">{p.profiles?.username ?? 'Player'}</span>
-                  {p.gyms && <span>· {p.gyms.city_name}, {p.gyms.state}</span>}
-                  <span>· {timeAgo(p.created_at)}</span>
-                </div>
                 <p className="mt-2 text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
                 {p.link_title && !videoEmbed(p.link_url) && (
                   <div className="mt-2 rounded-2xl border border-gray-800 overflow-hidden">

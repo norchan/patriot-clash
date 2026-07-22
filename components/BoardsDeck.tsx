@@ -18,6 +18,7 @@ interface DeckPost {
   link_url?: string | null; link_image?: string | null
   score: number; comment_count: number; created_at: string
   party: string | null; username: string; avatar_url?: string | null
+  profile_id?: string | null
   city: string | null; state: string | null
 }
 
@@ -198,20 +199,27 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
           <article key={p.id}
             onClick={() => router.push(`/p/post/${p.id}`)}
             className="px-4 py-3 flex gap-3 cursor-pointer hover:bg-white/[0.03] transition">
-            {p.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.avatar_url} alt="" loading="lazy"
-                className="w-10 h-10 rounded-full object-cover shrink-0 border-2"
-                style={{ borderColor: partyColor(p.party) }} />
-            ) : (
-              <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-black text-white"
-                style={{ background: partyColor(p.party) }}>
-                {p.username[0]?.toUpperCase() ?? 'P'}
-              </div>
-            )}
+            {/* avatar + name open the player's profile, not the post */}
+            <div onClick={e => { if (p.profile_id) { e.stopPropagation(); router.push(`/player/${p.profile_id}`) } }}
+              className="shrink-0">
+              {p.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.avatar_url} alt="" loading="lazy"
+                  className="w-10 h-10 rounded-full object-cover shrink-0 border-2"
+                  style={{ borderColor: partyColor(p.party) }} />
+              ) : (
+                <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-black text-white"
+                  style={{ background: partyColor(p.party) }}>
+                  {p.username[0]?.toUpperCase() ?? 'P'}
+                </div>
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-[13px] min-w-0">
-                <span className="font-bold text-white truncate">{p.username}</span>
+                <span className="font-bold text-white truncate hover:underline"
+                  onClick={e => { if (p.profile_id) { e.stopPropagation(); router.push(`/player/${p.profile_id}`) } }}>
+                  {p.username}
+                </span>
                 {p.city && <span className="text-gray-500 truncate">· {p.city}, {p.state}</span>}
                 <span className="text-gray-500 shrink-0">· {timeAgo(p.created_at)}</span>
               </div>

@@ -32,6 +32,7 @@ export async function GET(
           comment_count: p.comment_count,
           created_at: p.created_at,
           party: p.party,
+          profile_id: p.profile_id,
           username: p.profiles?.username ?? 'Player',
           avatar_url: p.profiles?.avatar_url ?? null,
           city: p.gyms?.city_name ?? null,

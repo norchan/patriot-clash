@@ -47,7 +47,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
   const admin = createSupabaseAdminClient()
 
   const { data: post } = await admin.from('hall_posts')
-    .select('id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, party, hidden, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(id, city_name, state), boards(slug, name)')
+    .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, party, hidden, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(id, city_name, state), boards(slug, name)')
     .eq('id', postId)
     .maybeSingle()
 
@@ -65,7 +65,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
   const p: any = post
 
   const { data: comments } = await admin.from('hall_comments')
-    .select('id, parent_id, content, score, created_at, profiles!hall_comments_profile_id_fkey(username, avatar_url, party)')
+    .select('id, parent_id, profile_id, content, score, created_at, profiles!hall_comments_profile_id_fkey(username, avatar_url, party)')
     .eq('post_id', postId)
     .order('created_at', { ascending: true })
     .limit(200)
@@ -87,11 +87,13 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
         {/* the post, X-style */}
         <article className="border-b border-gray-800 pb-4">
           <div className="flex items-center gap-3">
-            <Avatar url={p.profiles?.avatar_url ?? null} name={p.profiles?.username ?? 'P'} party={p.party} />
-            <div className="min-w-0">
-              <p className="font-bold text-white truncate">{p.profiles?.username ?? 'Player'}</p>
-              <p className="text-gray-500 text-xs">{origin ? `${origin} · ` : ''}{timeAgo(p.created_at)} ago</p>
-            </div>
+            <Link href={`/player/${p.profile_id}`} className="flex items-center gap-3 min-w-0 group">
+              <Avatar url={p.profiles?.avatar_url ?? null} name={p.profiles?.username ?? 'P'} party={p.party} />
+              <div className="min-w-0">
+                <p className="font-bold text-white truncate group-hover:underline">{p.profiles?.username ?? 'Player'}</p>
+                <p className="text-gray-500 text-xs">{origin ? `${origin} · ` : ''}{timeAgo(p.created_at)} ago</p>
+              </div>
+            </Link>
           </div>
           {p.content && (
             <p className="mt-3 text-[19px] text-gray-100 leading-snug whitespace-pre-wrap break-words">{p.content}</p>
@@ -139,10 +141,14 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
           )}
           {(comments ?? []).map((c: any) => (
             <div key={c.id} className={`py-3.5 flex gap-3 ${c.parent_id ? 'pl-10' : ''}`}>
-              <Avatar url={c.profiles?.avatar_url ?? null} name={c.profiles?.username ?? 'P'} party={c.profiles?.party ?? null} size={34} />
+              <Link href={`/player/${c.profile_id}`} className="shrink-0">
+                <Avatar url={c.profiles?.avatar_url ?? null} name={c.profiles?.username ?? 'P'} party={c.profiles?.party ?? null} size={34} />
+              </Link>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-[13px]">
-                  <span className="font-bold text-white truncate">{c.profiles?.username ?? 'Player'}</span>
+                  <Link href={`/player/${c.profile_id}`} className="font-bold text-white truncate hover:underline">
+                    {c.profiles?.username ?? 'Player'}
+                  </Link>
                   <span className="text-gray-500">· {timeAgo(c.created_at)}</span>
                 </div>
                 <p className="mt-0.5 text-[14px] text-gray-200 leading-snug whitespace-pre-wrap break-words">{c.content}</p>
