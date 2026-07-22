@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { republicanEnemies, democratEnemies, getEnemyById } from '@/config/enemies'
 import { LORE, CAPTURE_NOTES } from '../lore'
+import GpkCard from '@/components/GpkCard'
+
+const ALL_ENEMIES = [...republicanEnemies, ...democratEnemies]
 
 // One public wiki page per character — unique art, stats, moves, and written
 // lore. 20+ crawlable content pages for search + the AdSense review.
@@ -38,9 +41,10 @@ export default async function CharacterPage({ params }: { params: Promise<{ id: 
           <Link href="/explore/characters" className="hover:text-white">← All characters</Link>
         </nav>
         <div className="sm:flex gap-8 items-start">
-          <div className="shrink-0 bg-gray-900 border border-gray-800 rounded-3xl p-6 text-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={e.image} alt={`${e.name} — PoliticsGo ${e.tier} ${e.party} character`} className="h-56 mx-auto object-contain" />
+          {/* the character's trading card — same card as the Collection binder */}
+          <div className="shrink-0 w-52 mx-auto sm:mx-0">
+            <GpkCard name={e.name} image={e.image} tier={e.tier}
+              cardNo={ALL_ENEMIES.findIndex(x => x.id === e.id) + 1} />
           </div>
           <div className="mt-6 sm:mt-0">
             <div className="flex items-center gap-2">
