@@ -53,6 +53,8 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
 
   function openTab(name: string) {
     if (name === 'profile') { router.push(signedIn ? '/profile' : '/sign-up'); return }
+    // tapping the tab that's ALREADY active opens that psub's full page
+    if (name === tab) { router.push(`/p/${name}`); return }
     setTab(name); setMenuOpen(false)
     // the tab strip TRACKS the page — swiping keeps the active tab centered
     // so you can see what sits to its left and right

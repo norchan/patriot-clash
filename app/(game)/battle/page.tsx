@@ -148,8 +148,10 @@ function Missile({ p, onDeflect }: { p: Projectile; onDeflect?: (id: number) => 
         position: 'absolute', left: p.x0, top: p.y0, zIndex: 30,
         transform: p.deflected
           ? `translate(${dx * 0.4 + (Math.random() > 0.5 ? 220 : -220)}px, ${dy * 0.4 - 120}px) rotate(720deg) scale(0.6)`
+          // foe items fly CALM: a light tumble + modest growth as they approach
+          // (the old 360° spin at 1.7× read as a flashing blur — Michael)
           : fly
-            ? `translate(${dx}px, ${dy}px) rotate(${p.side === 'mine' ? 480 : 360}deg) scale(${p.side === 'foe' ? 1.7 : 0.85})`
+            ? `translate(${dx}px, ${dy}px) rotate(${p.side === 'mine' ? 480 : 120}deg) scale(${p.side === 'foe' ? 1.35 : 0.85})`
             : 'translate(0px, 0px) rotate(0deg) scale(1)',
         transition: p.deflected
           ? 'transform 450ms ease-out'
@@ -671,6 +673,7 @@ function BattleContent() {
           opacity: enemy3dReady ? 1 : 0, transition: 'opacity 250ms ease',
         }}>
           <Enemy3D prefix={ENEMY_3D[enemy.id]} attackKey={spriteAnim === 'charge' ? spriteKey : 0}
+            item={{ emoji: theme.emoji, img: theme.img }}
             onReady={() => setEnemy3dReady(true)} />
         </div>
       </div>

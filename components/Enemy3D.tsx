@@ -7,33 +7,47 @@ import * as THREE from 'three'
 // Rigged + animated enemy (Meshy). Loads two GLBs that share one skeleton:
 //   <prefix>_idle.glb / <prefix>_throw.glb
 // Oversized head with a gentle bobble (bobblehead), idle at rest, plays the
-// throw (+ a flying hammer) when the battle bumps `attackKey`. `onReady` fires
-// once the model is in-scene so the caller can hide the 2D fallback.
+// throw when the battle bumps `attackKey`. The character's OWN throwable
+// (emoji or item art) sits in its throwing hand through idle and the windup,
+// vanishes at the release frame (the DOM projectile takes over), then
+// "reloads" after the follow-through. `onReady` fires once the model is
+// in-scene so the caller can hide the 2D fallback.
 
-function Hammer() {
-  return (
-    <group rotation={[0, 0, Math.PI / 5]}>
-      <mesh position={[0, -0.42, 0]}>
-        <cylinderGeometry args={[0.06, 0.07, 0.95, 10]} />
-        <meshStandardMaterial color="#7c4a21" roughness={0.7} />
-      </mesh>
-      <mesh position={[0, 0.22, 0]}>
-        <boxGeometry args={[0.62, 0.32, 0.32]} />
-        <meshStandardMaterial color="#b0b4bb" metalness={0.85} roughness={0.28} />
-      </mesh>
-    </group>
-  )
+export interface FoeItem { emoji?: string; img?: string }
+
+// emoji / item art → sprite texture (canvas-drawn for emoji)
+function useItemTexture(item?: FoeItem) {
+  return useMemo(() => {
+    if (!item) return null
+    if (item.img) {
+      const tex = new THREE.TextureLoader().load(item.img)
+      tex.colorSpace = THREE.SRGBColorSpace
+      return tex
+    }
+    if (!item.emoji) return null
+    const c = document.createElement('canvas')
+    c.width = c.height = 256
+    const ctx = c.getContext('2d')!
+    ctx.font = '200px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(item.emoji, 128, 140)
+    const tex = new THREE.CanvasTexture(c)
+    tex.colorSpace = THREE.SRGBColorSpace
+    return tex
+  }, [item?.emoji, item?.img]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 const HEAD_SCALE = 1.4 // oversized bobble head — funny, not overdone
 
-function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: number; attackKey: number; onReady?: () => void }) {
+function Model({ prefix, faceY, attackKey, item, onReady }: { prefix: string; faceY: number; attackKey: number; item?: FoeItem; onReady?: () => void }) {
   const idleGltf = useGLTF(`/models/${prefix}_idle.glb`)
   const throwGltf = useGLTF(`/models/${prefix}_throw.glb`)
   const scene = idleGltf.scene
   const root = useRef<THREE.Group>(null!)
   const fit = useRef<THREE.Group>(null!)
-  const hammer = useRef<THREE.Group>(null!)
+  const held = useRef<THREE.Sprite>(null!)
+  const itemTex = useItemTexture(item)
   const throwPending = useRef(false)
   const launchAt = useRef(-1)
   const prevKey = useRef(0)
@@ -49,6 +63,7 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
   const toeTargetY = useRef<number | null>(null)
   const vA = useMemo(() => new THREE.Vector3(), [])
   const vB = useMemo(() => new THREE.Vector3(), [])
+  const vC = useMemo(() => new THREE.Vector3(), [])
 
   // Manual mixer so the head bobble in useFrame runs AFTER the animation update
   const { mixer, idleAction, throwAction } = useMemo(() => {
@@ -123,13 +138,13 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
   useEffect(() => {
     if (attackKey <= 0 || attackKey === prevKey.current || !throwAction) return
     prevKey.current = attackKey
-    throwAction.reset().fadeIn(0.1).play()
-    idleAction?.fadeOut(0.1)
+    // proper crossfades (not fade-out+fade-in) — no mid-blend pose snap
+    throwAction.reset().play()
+    if (idleAction) throwAction.crossFadeFrom(idleAction, 0.18, false)
     throwPending.current = true
     const onFinished = (e: any) => {
       if (e.action !== throwAction) return
-      idleAction?.reset().fadeIn(0.25).play()
-      throwAction.fadeOut(0.25)
+      if (idleAction) { idleAction.reset().play(); idleAction.crossFadeFrom(throwAction, 0.3, false) }
     }
     mixer.addEventListener('finished', onFinished)
     return () => mixer.removeEventListener('finished', onFinished)
@@ -152,25 +167,20 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     // closed fists (squash the open-paddle hands, like the PvP fighters)
     if (handL) handL.scale.set(1.2, 0.45, 1.2)
     if (handR) handR.scale.set(1.2, 0.45, 1.2)
-    // Flying hammer, launched mid-throw
+    // The held throwable rides the throwing hand — through idle sway AND the
+    // windup — then vanishes at the release frame (~0.35s into the throw clip,
+    // when the DOM projectile spawns) and "reloads" after the follow-through.
     if (throwPending.current) { launchAt.current = t; throwPending.current = false }
-    const h = hammer.current
-    if (h) {
-      const e = t - launchAt.current
-      if (launchAt.current > 0 && e > 0.35 && e < 0.95) {
-        const p = (e - 0.35) / 0.6
-        h.visible = true
-        // arcs toward the player but stops well short of the camera —
-        // no more full-screen hammer flash
-        h.position.set(
-          THREE.MathUtils.lerp(0.55, 0.1, p),
-          THREE.MathUtils.lerp(1.7, 0.55, p),
-          THREE.MathUtils.lerp(0.3, 3.1, p),
-        )
-        h.rotation.z += dt * 13
-        h.rotation.x += dt * 8
-        h.scale.setScalar(THREE.MathUtils.lerp(0.5, 1.05, p))
-      } else h.visible = false
+    if (held.current) {
+      const e = launchAt.current > 0 ? t - launchAt.current : Infinity
+      const released = e > 0.35 && e < 1.15
+      const hand = handR ?? handL
+      if (hand && itemTex && !released) {
+        hand.getWorldPosition(vC)
+        held.current.parent?.worldToLocal(vC)
+        held.current.position.set(vC.x, vC.y + 0.06, vC.z + 0.05)
+        held.current.visible = true
+      } else held.current.visible = false
     }
   })
 
@@ -179,7 +189,11 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
     // nearer perspective planes instead of clipping at the canvas bottom
     <group position={[0, -0.95, 0]}>
       <group ref={root}><group ref={fit}><primitive object={scene} /></group></group>
-      <group ref={hammer} visible={false}><Hammer /></group>
+      {itemTex && (
+        <sprite ref={held} visible={false} scale={[0.5, 0.5, 0.5]}>
+          <spriteMaterial map={itemTex} transparent depthWrite={false} />
+        </sprite>
+      )}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <circleGeometry args={[1.05, 32]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.46} />
@@ -188,7 +202,7 @@ function Model({ prefix, faceY, attackKey, onReady }: { prefix: string; faceY: n
   )
 }
 
-export default function Enemy3D({ prefix, faceY = 0, attackKey = 0, onReady }: { prefix: string; faceY?: number; attackKey?: number; onReady?: () => void }) {
+export default function Enemy3D({ prefix, faceY = 0, attackKey = 0, item, onReady }: { prefix: string; faceY?: number; attackKey?: number; item?: FoeItem; onReady?: () => void }) {
   return (
     <Canvas frameloop="always" style={{ width: '100%', height: '100%' }}
       camera={{ position: [0, 0.4, 4.4], fov: 42 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }}>
@@ -198,7 +212,7 @@ export default function Enemy3D({ prefix, faceY = 0, attackKey = 0, onReady }: {
       <directionalLight position={[-4, 2, -3]} intensity={0.8} color="#6a8bff" />
       <pointLight position={[0, 1, 3]} intensity={0.5} color="#ffb877" />
       <Suspense fallback={null}>
-        <Model prefix={prefix} faceY={faceY} attackKey={attackKey} onReady={onReady} />
+        <Model prefix={prefix} faceY={faceY} attackKey={attackKey} item={item} onReady={onReady} />
       </Suspense>
     </Canvas>
   )

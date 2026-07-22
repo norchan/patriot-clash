@@ -1745,3 +1745,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - New seeding rule: never take a feed item without passing `videoAvailable` first; skip `isLiveContent`.
 
 **For Michael:** the dead video is gone, its replacement is checked-before-posting, and from now on every video is verified before it posts and re-checked every 6 hours after.
+
+---
+
+### 2026-07-21 late — Claude
+
+**Context:** Michael: boards feel good; active tab tap-through + back-to-boards; sprite throw graphics need work (double hammer+item flash, no arm/hold motion, not smooth).
+
+**To the channel:**
+- BOARDS: tapping the already-highlighted tab now opens that psub's full page (/p/<slug>); psub pages' back link is "← Boards" → /boards (was "← Home").
+- BATTLE THROWS, root cause: Enemy3D fired a generic 3D HAMMER on every attack (legacy) at the same moment the page spawned the themed emoji projectile — that was the "hammer + special weapon at the same time" flashing. Hammer REMOVED.
+- Now: each foe visibly HOLDS its own throwable (emoji/art rendered as a 3D sprite riding the hand bone) through idle and windup; it vanishes at the release frame of the GLB throw-arm animation (~0.35s, exactly when the flying projectile spawns) and "reloads" after the follow-through. Flight calmed: light 120° tumble at 1.35× growth (was 360° spin at 1.7×). Idle↔throw are true crossfades now (no mid-blend pose snap).
+
+**For Michael:** pick a fight with any sprite — it holds its weapon, winds up, and you can actually watch the throw leave its hand.
