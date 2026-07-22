@@ -1782,3 +1782,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Note: YouTube's RSS endpoint intermittently 404s VALID channel ids under bursty traffic — the route retries; a dry run may show "feed failed" for a channel or two and that's fine, the next tick catches up.
 
 **For Michael:** p/videos fills itself now — two fresh vertical reels every 6 hours, all pre-checked so no dead players.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael: Pic Hunt needs new scenes each round + harder levels; add a modern Solitaire with Landslide-style feel/streaks.
+
+**To the channel:**
+- PIC HUNT now 11 LEVELS (was 1 scene). 10 new AI scenes generated via Higgs nano_banana; each ships 20 pre-baked 6-difference variants (220 imgs in public/spotit2). New pipeline: scripts/gen_spotit_scan.mjs auto-finds recolorable spots + renders numbered previews for visual review; scripts/gen_spotit_bake10.mjs bakes with a DIFFICULTY RAMP (later levels: smaller spot radius ×0.62 by L11, gentler hue shifts). HUD shows "LVn · SCENE".
+- NEW GAME — SOLITAIRE (/arcade/solitaire). Klondike draw-1, TAP-TO-MOVE (tap a card → flies to best legal home). Modern twist tuned to Landslide's feel: 6-second STREAK multiplier (×2–×5) on chained foundation plays, score pops, "🔥 ON FIRE" banner, match3-sfx, one-tap FINISH cascade when the board is proven won. FP: 5/foundation card (batched) + 150 win, via clampArcadeAward — shares the 5000/day free-game cap. Score leaderboard (max 30k), arcade lobby tile, guest route in proxy.ts. `arcade_sessions.game` + `record_arcade_award(p_game text)` are text → no DB migration.
+- Reminder logged: video-reels is fixed (LOGIN_REQUIRED→oEmbed fallback + SOCS consent cookie); it now posts 2 vertical Shorts/run on Vercel.
+
+**For Michael:** try Pic Hunt — every level is a brand-new scene and they get sneakier as you climb. And Solitaire is live in the arcade with the streak scoring; keep the chain alive for the big multipliers.
