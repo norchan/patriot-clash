@@ -274,8 +274,12 @@ export default function MapPage() {
     const showEnemies = z >= 11 && mapPrefsRef.current.sprites // enemies: only at neighborhood zoom, and only if not toggled off
     const showPlayerMk = z >= 9   // players: city zoom
     // Enemies shrink as you zoom out so they stay in scale with player dots
-    // (full size only at z15+, down to ~30% at z11)
-    const scale = Math.max(0.3, Math.min(1, 0.3 + (z - 11) * 0.175))
+    // (~30% at z11, full size at z15) — and past z15 they KEEP GROWING, up
+    // to ~2× at street zoom, so you can zoom in and actually look at a
+    // sprite and read its name (Michael 2026-07-21)
+    const scale = z <= 15
+      ? Math.max(0.3, 0.3 + (z - 11) * 0.175)
+      : Math.min(2.0, 1 + (z - 15) * 0.32)
     enemyMarkersRef.current.forEach(mk => {
       const el = mk.getElement()
       el.style.display = showEnemies ? '' : 'none'

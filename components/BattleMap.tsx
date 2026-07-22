@@ -49,7 +49,7 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       container: el.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: homeCenter ? [homeCenter.lng, homeCenter.lat] : CAHOKIA,
-      zoom: homeCenter ? 10.2 : 8.4,
+      zoom: homeCenter ? 9.3 : 7.6, // opens a notch further out (Michael)
       minZoom: 2.8,
       maxZoom: 12,
     })
@@ -119,10 +119,10 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
         type: 'geojson',
         data: {
           type: 'FeatureCollection',
-          features: halls.map(h => ({
+          features: halls.map((h, idx) => ({
             type: 'Feature' as const,
             geometry: { type: 'Point' as const, coordinates: [h.lng, h.lat] },
-            properties: { party: h.party ?? 'open', name: `${h.city}, ${h.state}` },
+            properties: { party: h.party ?? 'open', name: `${h.city}, ${h.state}`, idx },
           })),
         },
       })
@@ -141,16 +141,45 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
           'circle-color': ['match', ['get', 'party'], 'democrat', '#93c5fd', 'republican', '#fca5a5', '#9ca3af'],
         },
       })
-      const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 })
+      // dark popup theme — mapbox's default popup is white, and the page's
+      // white text made it unreadable (white-on-white, Michael 2026-07-21)
+      if (!document.getElementById('pg-hallpop-styles')) {
+        const s = document.createElement('style')
+        s.id = 'pg-hallpop-styles'
+        s.textContent = `
+          .pg-hallpop .mapboxgl-popup-content { background:#111827; color:#f9fafb; border:1px solid rgba(255,255,255,0.18); border-radius:12px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,0.6); }
+          .pg-hallpop .mapboxgl-popup-tip { border-top-color:#111827 !important; border-bottom-color:#111827 !important; }
+          .pg-hallpop .mapboxgl-popup-close-button { color:#9ca3af; font-size:16px; padding:2px 6px; }
+        `
+        document.head.appendChild(s)
+      }
+      const hoverPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'pg-hallpop' })
       m.on('mousemove', 'halls-glow', e => {
         const f = e.features?.[0]
         if (!f) return
         m.getCanvas().style.cursor = 'pointer'
-        popup.setLngLat((f.geometry as any).coordinates)
+        hoverPopup.setLngLat((f.geometry as any).coordinates)
           .setHTML(`<div style="font-weight:700;font-size:12px">${(f.properties as any).name}</div>`)
           .addTo(m)
       })
-      m.on('mouseleave', 'halls-glow', () => { m.getCanvas().style.cursor = ''; popup.remove() })
+      m.on('mouseleave', 'halls-glow', () => { m.getCanvas().style.cursor = ''; hoverPopup.remove() })
+
+      // tap a dot → popup with the hall's name; tap the name → the town hall
+      // (signed-in) or fly in close (guests)
+      const clickPopup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: 12, className: 'pg-hallpop' })
+      m.on('click', 'halls-glow', e => {
+        const f = e.features?.[0]
+        if (!f) return
+        hoverPopup.remove()
+        const h = halls[(f.properties as any).idx]
+        const node = document.createElement('div')
+        node.style.cursor = 'pointer'
+        node.innerHTML = `
+          <div style="font-weight:800;font-size:13px;">🏛️ ${(f.properties as any).name}</div>
+          <div style="font-size:10px;color:#a78bfa;margin-top:3px;font-weight:700;">${signedIn ? 'Open this town hall →' : 'Zoom in →'}</div>`
+        node.onclick = () => { clickPopup.remove(); if (h) goToHall(h) }
+        clickPopup.setLngLat((f.geometry as any).coordinates).setDOMContent(node).addTo(m)
+      })
     })
     // container size can change as the responsive grid reflows — keep the
     // canvas in sync so the map never paints at a stale/zero size

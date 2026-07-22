@@ -27,7 +27,14 @@ const CHANNELS: [string, string][] = [
   ['Bleacher Report', 'UC9-OpMMVoNP5o10_Iyq7Ndw'],
 ]
 
-const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36' }
+// SOCS is Google's consent cookie — without it, youtube.com requests from
+// datacenter IPs (Vercel) get consent-walled pages: feeds parse to zero
+// entries with no error (the 2026-07-21 blast ran 10 rounds, inserted 0)
+const UA = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cookie': 'SOCS=CAI; CONSENT=YES+cb',
+}
 
 // the RSS endpoint intermittently 404s valid channels under load — retry once
 async function fetchFeed(channelId: string): Promise<string | null> {
@@ -81,19 +88,25 @@ export async function GET(req: NextRequest) {
 
   let inserted = 0
   const errors: string[] = []
+  // stage counters — when inserted is 0 these say WHERE the pipe went dry
+  const diag = { feedsOk: 0, entries: 0, shorts: 0, embeddable: 0 }
   for (const [channel, cid] of shuffle(CHANNELS)) {
     if (inserted >= MAX_POSTS) break
     const rss = await fetchFeed(cid)
     if (!rss) { errors.push(`${channel}: feed failed`); continue }
+    diag.feedsOk++
     const entries = [...rss.matchAll(/<entry>[\s\S]*?<yt:videoId>([\w-]+)<\/yt:videoId>[\s\S]*?<title>([^<]+)<\/title>/g)]
       .map(m => ({ id: m[1], title: m[2] }))
+    diag.entries += entries.length
 
     for (const e of entries) {
       if (inserted >= MAX_POSTS) break
       if (posted.has(e.id)) continue
       if (!(await isShort(e.id))) continue
+      diag.shorts++
       const url = `https://www.youtube.com/shorts/${e.id}`
       if (!(await videoAvailable(url))) continue
+      diag.embeddable++
 
       const caption = await openaiChat([
         { role: 'system', content: 'You write ONE short casual reaction (max 12 words) to share a video on a forum. Sound like a regular person hyped about a clip. No hashtags, no quotes around the reply, never mention being an AI.' },
@@ -118,5 +131,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, inserted, errors })
+  return NextResponse.json({ ok: true, inserted, errors, diag })
 }

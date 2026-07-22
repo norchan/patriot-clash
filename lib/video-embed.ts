@@ -36,6 +36,8 @@ export async function videoAvailable(url: string | null | undefined): Promise<bo
       const r = await fetchWithTimeout(`https://www.youtube.com/watch?v=${v.id}`, 8000, {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9',
+        // consent bypass — datacenter IPs get consent-walled otherwise
+        'Cookie': 'SOCS=CAI; CONSENT=YES+cb',
       })
       if (r.ok) {
         const html = await r.text()
