@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { ogImage } from '@/lib/og-image'
+import { resolveArticle } from '@/lib/og-image'
 
 // SPORTS-REPORTER BOTS — the one bot behavior that survived the 2026-07-20
 // bot-content shutdown (Michael's explicit order, 2026-07-21). Two designated
@@ -176,8 +176,10 @@ export async function GET(req: NextRequest) {
 
   // pull each article's preview image so posts show a photo card
   await mapLimit(rows, 8, async (r: any) => {
-    const img = await ogImage(r.link_url)
-    if (img) r.link_image = img
+    const a = await resolveArticle(r.link_url)
+    r.link_url = a.url
+    if (a.domain) r.link_domain = a.domain
+    if (a.image) r.link_image = a.image
   })
 
   let inserted = 0

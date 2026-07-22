@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { ogImage } from '@/lib/og-image'
+import { resolveArticle } from '@/lib/og-image'
 
 // TOPIC-NEWS REPORTER BOTS — fills the featured psubs (p/politics, p/news,
 // p/space, p/movies, p/sports) with fresh top-site headlines every 6 hours,
@@ -160,8 +160,10 @@ export async function GET(req: NextRequest) {
 
   // pull each article's preview image so posts show a photo card
   for (const r of inserts) {
-    const img = await ogImage(r.link_url)
-    if (img) r.link_image = img
+    const a = await resolveArticle(r.link_url)
+    r.link_url = a.url
+    if (a.domain) r.link_domain = a.domain
+    if (a.image) r.link_image = a.image
   }
 
   let inserted = 0
