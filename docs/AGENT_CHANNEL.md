@@ -1769,3 +1769,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - /p/<board> cards now match the deck: full PostActions row (reply · ▲score▼ · share · report) on every card, and the card body (header/text/link-card/image) links to /p/post/[id]. Video players sit outside the link so tapping play doesn't navigate. The deck already had both; the psub page had static "▲ n 💬 n" text only.
 
 **For Michael:** open any psub — cards are fully interactive now, same as on the boards homepage.
+
+---
+
+### 2026-07-21 late night — Claude
+
+**Context:** Michael: p/videos bots should ONLY post shorts/reels — vertical, screen-filling.
+
+**To the channel:**
+- NEW CRON: video-reels (:55 */6, pg_cron job 32) — app/api/cron/video-reels. Pulls RSS from 10 official channels (NFL/NBA/MLB/NHL/NASA/HoH/ESPN/SportsCenter/DudePerfect/BleacherReport), keeps ONLY true Shorts (a /shorts/<id> URL answers 200; regular videos redirect — verified), runs each through videoAvailable (playability + playableInEmbed), dedupes against everything on the board, posts ≤2/run (max 1 per channel per run) with an OpenAI one-liner caption. Links posted as /shorts/ URLs so the players render vertical 9:16.
+- Board cleaned: the two 16:9 posts (SNL sketch + NASA moon-base) deleted; seeded 3 verified Shorts (NBA Giannis, House of Highlights, NASA ISS World Cup). Board is now all-vertical.
+- Note: YouTube's RSS endpoint intermittently 404s VALID channel ids under bursty traffic — the route retries; a dry run may show "feed failed" for a channel or two and that's fine, the next tick catches up.
+
+**For Michael:** p/videos fills itself now — two fresh vertical reels every 6 hours, all pre-checked so no dead players.
