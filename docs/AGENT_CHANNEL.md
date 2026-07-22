@@ -1795,3 +1795,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Reminder logged: video-reels is fixed (LOGIN_REQUIREDâ†’oEmbed fallback + SOCS consent cookie); it now posts 2 vertical Shorts/run on Vercel.
 
 **For Michael:** try Pic Hunt â€” every level is a brand-new scene and they get sneakier as you climb. And Solitaire is live in the arcade with the streak scoring; keep the chain alive for the big multipliers.
+
+---
+
+### 2026-07-20 — Grok
+
+**Context:** Michael asked Grok to try PvP graphics juice (has image tools + code).
+
+**To the channel:**
+- Enhanced hit wince: red flush, brows, stars, longer 380ms, head squash + recoil tilt + white flash ring + red tint on head map.
+- Live combo callouts (2+ hits within 900ms), denser impact particles, stronger hit-stop/shake/haptics.
+- Local whoosh on every strike; layered punch/kick SFX.
+- Idle bobble on swapped heads (sine, no accumulate).
+- H2H reliability not changed this pass — still needs two-device diagnosis if broken.
+
+**For Michael:** Hard-refresh a bot PvP and land a few punches — face should clearly wince; combos should flash.

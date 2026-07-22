@@ -27,37 +27,53 @@ const HEAD_SCALE = 1.0 // natural proportions — match the reference guard stil
 let hitStopUntil = 0
 export function triggerHitStop(ms: number) { hitStopUntil = Math.max(hitStopUntil, performance.now() + ms) }
 
-// shared comic WINCE decal (eyes squeezed + gritted mouth), drawn once —
-// works over any bobble head without per-head art
+// Shared comic WINCE decal — bold enough to read over any bobble head at phone size.
+// Drawn once as a canvas texture (no per-head art required).
 let winceTex: THREE.CanvasTexture | null = null
 function getWinceTexture(): THREE.CanvasTexture {
   if (winceTex) return winceTex
   const cv = document.createElement('canvas')
   cv.width = 256; cv.height = 256
   const ctx = cv.getContext('2d')!
-  const eye = (cx: number, cy: number, flip: number) => {
-    ctx.lineCap = 'round'
-    // white outline pass then black stroke: reads on light AND dark faces
-    for (const [w, c] of [[16, 'rgba(255,255,255,0.95)'], [8, '#1a1a1a']] as [number, string][]) {
-      ctx.strokeStyle = c; ctx.lineWidth = w
-      ctx.beginPath()
-      ctx.moveTo(cx - 26 * flip, cy - 20)
-      ctx.lineTo(cx + 16 * flip, cy)
-      ctx.lineTo(cx - 26 * flip, cy + 20)
-      ctx.stroke()
+  // soft red flush so the face "takes the hit"
+  const g = ctx.createRadialGradient(128, 128, 20, 128, 140, 130)
+  g.addColorStop(0, 'rgba(255,60,40,0.55)')
+  g.addColorStop(0.55, 'rgba(255,40,30,0.2)')
+  g.addColorStop(1, 'rgba(255,40,30,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 256, 256)
+  const stroke2 = (draw: () => void) => {
+    // white outline then black — reads on light and dark faces
+    for (const [w, c] of [[18, 'rgba(255,255,255,0.95)'], [9, '#0f0f0f']] as [number, string][]) {
+      ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+      ctx.beginPath(); draw(); ctx.stroke()
     }
   }
-  eye(78, 108, 1)   // > (left eye squeezed)
-  eye(178, 108, -1) // < (right eye squeezed)
+  // squeezed eyes: >  <
+  stroke2(() => { ctx.moveTo(52, 88); ctx.lineTo(100, 108); ctx.lineTo(52, 128) })
+  stroke2(() => { ctx.moveTo(204, 88); ctx.lineTo(156, 108); ctx.lineTo(204, 128) })
+  // angry brows
+  stroke2(() => { ctx.moveTo(48, 72); ctx.lineTo(108, 82) })
+  stroke2(() => { ctx.moveTo(208, 72); ctx.lineTo(148, 82) })
   // gritted zigzag mouth
-  for (const [w, c] of [[14, 'rgba(255,255,255,0.95)'], [7, '#1a1a1a']] as [number, string][]) {
-    ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineJoin = 'round'
+  stroke2(() => {
+    ctx.moveTo(78, 178)
+    for (let i = 0; i < 6; i++) ctx.lineTo(78 + (i + 1) * 16, 178 + (i % 2 === 0 ? -12 : 12))
+  })
+  // impact stars
+  ctx.fillStyle = '#fde047'
+  for (const [sx, sy] of [[36, 48], [220, 52], [40, 190], [216, 188]] as [number, number][]) {
     ctx.beginPath()
-    ctx.moveTo(88, 182)
-    for (let i = 0; i < 5; i++) ctx.lineTo(88 + (i + 1) * 16, 182 + (i % 2 === 0 ? -10 : 10))
-    ctx.stroke()
+    for (let i = 0; i < 5; i++) {
+      const a = (i * 4 * Math.PI) / 5 - Math.PI / 2
+      const r = i % 2 === 0 ? 10 : 4
+      const x = sx + Math.cos(a) * r, y = sy + Math.sin(a) * r
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+    }
+    ctx.closePath(); ctx.fill()
   }
   winceTex = new THREE.CanvasTexture(cv)
+  winceTex.needsUpdate = true
   return winceTex
 }
 
@@ -75,11 +91,15 @@ const faceToward = (px: number, pz: number, tx: number, tz: number) => Math.atan
 // the plane is body-locked (rotY cancels the fighter's facing so the plane
 // stays screen-parallel) — the player's head looks RIGHT at the opponent, and
 // the mirrored foe's flips to look left. Not a camera billboard.
+const WINCE_MS = 380 // longer read on phone
+
 function ProfileHead({ headId, faceY, duck = false, mirror = false, hitKey = 0, getHeadBone }: { headId: string; faceY: number; duck?: boolean; mirror?: boolean; hitKey?: number; getHeadBone: () => THREE.Object3D | null }) {
   const tex = useTexture(headSideImage(headId))
   const meta = headMeta(headId)
   const ref = useRef<THREE.Mesh>(null!)
   const winceRef = useRef<THREE.Mesh>(null!)
+  const flashRef = useRef<THREE.Mesh>(null!)
+  const matRef = useRef<THREE.MeshBasicMaterial>(null!)
   const winceAt = useRef(0)
   useEffect(() => { if (hitKey) winceAt.current = performance.now() }, [hitKey])
   const v = useMemo(() => new THREE.Vector3(), [])
@@ -89,18 +109,41 @@ function ProfileHead({ headId, faceY, duck = false, mirror = false, hitKey = 0, 
     if (!bone || !ref.current?.parent) return
     bone.getWorldPosition(v)
     v.y += dy // head center sits a bit above the neck joint
+    // idle bobble energy on swapped heads (clamped sine — no accumulation)
+    const clock = performance.now() / 1000
+    v.y += Math.sin(clock * 2.9) * 0.012
     ref.current.parent.worldToLocal(v)
     ref.current.position.copy(v)
-    // WINCE: ~260ms squash-and-bounce + eyes-squeezed decal on hit
+    // WINCE: squash-and-bounce + face decal + white flash + slight recoil tilt
     const t = performance.now() - winceAt.current
-    const active = t >= 0 && t < 260
-    const k = active ? Math.sin((t / 260) * Math.PI) : 0 // 0→1→0
-    ref.current.scale.set(baseSX * (1 + 0.14 * k), baseSY * (1 - 0.22 * k), 1)
+    const active = t >= 0 && t < WINCE_MS
+    const k = active ? Math.sin((t / WINCE_MS) * Math.PI) : 0 // 0→1→0
+    const idleTilt = Math.sin(clock * 2.4) * 0.04
+    const tilt = active ? (mirror ? 1 : -1) * 0.2 * k : idleTilt
+    ref.current.scale.set(baseSX * (1 + 0.22 * k), baseSY * (1 - 0.32 * k), 1)
+    ref.current.rotation.z = tilt
+    // red-ish flash on the head texture itself
+    if (matRef.current) {
+      const flash = active ? 0.35 + 0.65 * Math.sin((t / WINCE_MS) * Math.PI) : 0
+      matRef.current.color.setRGB(1, 1 - flash * 0.55, 1 - flash * 0.55)
+    }
     if (winceRef.current) {
       winceRef.current.visible = active
       winceRef.current.position.copy(v)
-      winceRef.current.position.z += 0.02
-      winceRef.current.scale.copy(ref.current.scale).multiplyScalar(0.72)
+      winceRef.current.position.z += 0.025
+      winceRef.current.rotation.z = tilt
+      winceRef.current.scale.set(baseSX * (1 + 0.22 * k) * 0.88, baseSY * (1 - 0.32 * k) * 0.88, 1)
+    }
+    if (flashRef.current) {
+      // brief white impact ring behind the head
+      const f = active && t < 90 ? 1 - t / 90 : 0
+      flashRef.current.visible = f > 0
+      flashRef.current.position.copy(v)
+      flashRef.current.position.z -= 0.01
+      const fs = 1.15 + (1 - f) * 0.55
+      flashRef.current.scale.set(baseSX * fs, baseSY * fs, 1)
+      const fm = flashRef.current.material as THREE.MeshBasicMaterial
+      fm.opacity = 0.55 * f
     }
   })
   const img = tex.image as { width?: number; height?: number } | undefined
@@ -113,9 +156,13 @@ function ProfileHead({ headId, faceY, duck = false, mirror = false, hitKey = 0, 
   const rotY = mirror ? faceY : -faceY
   return (
     <>
+      <mesh ref={flashRef} rotation={[0, rotY, 0]} visible={false}>
+        <circleGeometry args={[0.55, 24]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
       <mesh ref={ref} rotation={[0, rotY, 0]} scale={[baseSX, baseSY, 1]}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial map={tex} transparent alphaTest={0.3} depthWrite={false} side={THREE.DoubleSide} />
+        <meshBasicMaterial ref={matRef} map={tex} transparent alphaTest={0.3} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
       <mesh ref={winceRef} rotation={[0, rotY, 0]} visible={false}>
         <planeGeometry args={[1, 1]} />

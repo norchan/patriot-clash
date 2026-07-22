@@ -310,35 +310,48 @@ function StreetFightPage() {
 
   function addSpark(onFoe: boolean, text: string, color: string) {
     const id = ++sparkId.current
-    // Positions in stage %: sparks land on whoever got hit
-    const x = onFoe ? 62 + Math.random() * 10 : 26 + Math.random() * 10
-    const y = 34 + Math.random() * 18
+    // Impact zone near mid-fighter height (portrait + landscape)
+    const x = onFoe ? 58 + Math.random() * 12 : 28 + Math.random() * 12
+    const y = 38 + Math.random() * 14
     setSparks(s => [...s, { id, x, y, text, color }])
-    setTimeout(() => setSparks(s => s.filter(sp => sp.id !== id)), 800)
+    setTimeout(() => setSparks(s => s.filter(sp => sp.id !== id)), 900)
   }
 
-  // Radiating impact burst (PixiJS-style particles, DOM edition)
+  // Radiating impact burst — denser + brighter on heavy hits
   function addBurst(onFoe: boolean, heavy: boolean) {
-    const cxp = onFoe ? 64 : 32   // impact point in stage %
-    const cyp = 48
-    const n = heavy ? 10 : 6
+    const cxp = onFoe ? 62 : 34
+    const cyp = 44
+    const n = heavy ? 16 : 9
     const burst: typeof particles = []
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2
-      const dist = (heavy ? 34 : 22) + Math.random() * (heavy ? 46 : 26)
+      const dist = (heavy ? 42 : 26) + Math.random() * (heavy ? 52 : 30)
       burst.push({
         id: ++sparkId.current,
-        x: cxp + (Math.random() - 0.5) * 4,
+        x: cxp + (Math.random() - 0.5) * 5,
         y: cyp + (Math.random() - 0.5) * 6,
         dx: Math.cos(a) * dist,
-        dy: Math.sin(a) * dist - 10,
+        dy: Math.sin(a) * dist - 12,
         color: heavy && i % 3 === 0 ? '#f87171' : i % 2 === 0 ? '#fde047' : '#ffffff',
-        size: heavy ? 5 + Math.random() * 4 : 3 + Math.random() * 3,
+        size: heavy ? 6 + Math.random() * 5 : 3.5 + Math.random() * 3.5,
       })
     }
     setParticles(p => [...p, ...burst])
     const ids = new Set(burst.map(b => b.id))
-    setTimeout(() => setParticles(p => p.filter(x => !ids.has(x.id))), 600)
+    setTimeout(() => setParticles(p => p.filter(x => !ids.has(x.id))), 700)
+  }
+
+  // Live combo chain (hits within 900ms of each other)
+  const comboRef = useRef({ n: 0, at: 0 })
+  function noteComboHit() {
+    const now = Date.now()
+    const c = comboRef.current
+    c.n = now - c.at < 900 ? c.n + 1 : 1
+    c.at = now
+    if (c.n >= 2) {
+      setComboText(c.n >= 5 ? `${c.n} HIT!!!` : c.n >= 3 ? `${c.n} HIT COMBO!` : `${c.n} HIT!`)
+      setTimeout(() => setComboText(t => (t.includes(String(c.n)) ? '' : t)), 700)
+    }
   }
 
   function reel(onFoe: boolean) {
@@ -919,6 +932,7 @@ function StreetFightPage() {
     const heavy = (MOVES.find(m => m.move === move)?.mult ?? 0.6) > 1.0
     const kicky = move === 'kick' || move === 'hook' || move === 'jumpkick'
     buzz(8) // immediate tactile press feedback; the visual pose changes this frame
+    sfx.whoosh() // local swing SFX (H2H confirm thud lands on result)
     setMyPose(MOVE_POSE['jab']); setMyAttacking(true)
     if (kicky) myKick(move === 'kick') // 3D: real kick clip, aimed high (head) or low (legs)
     else myJab(right)   // 3D: right = power straight clip, left = jab clip
@@ -1038,10 +1052,14 @@ function StreetFightPage() {
   // keyboard fallback (desktop): space/enter = punch
   function playerStrike() { playerPunch() }
 
-  // heavy-contact juice: brief hit-stop + HP bar shake
+  // heavy-contact juice: hit-stop + HP shake + screen punch + combo
   function contactJuice(heavy: boolean) {
-    triggerHitStop(heavy ? 110 : 70)
+    triggerHitStop(heavy ? 140 : 85)
+    setShake(true)
+    setTimeout(() => setShake(false), heavy ? 200 : 130)
     if (heavy) setHpShake(k => k + 1)
+    noteComboHit()
+    buzz(heavy ? [28, 20, 40] : 18)
   }
 
   // Game tick: clock, bell, ghost fallback, and the AI foe (bots + no-shows)

@@ -308,15 +308,17 @@ export default function SolitairePage() {
 
   // ── render ────────────────────────────────────────────────────────────────
   const cardFace = (c: Card, small = false) => (
-    <div className={`w-full h-full rounded-[7px] flex flex-col justify-between select-none ${small ? 'p-[3px]' : 'p-1'}`}
+    <div className={`w-full h-full rounded-[7px] flex flex-col justify-between select-none ${small ? 'px-[3px] pt-[2px] pb-[3px]' : 'p-1'}`}
       style={{
         background: 'linear-gradient(160deg,#f8fafc,#e2e8f0)',
         border: '1px solid #94a3b8',
         color: RED.has(c.suit) ? '#dc2626' : '#0f172a',
         boxShadow: '0 2px 5px rgba(0,0,0,0.45)',
       }}>
-      <div className="leading-none font-black" style={{ fontSize: small ? 11 : 13 }}>{RANK_TXT[c.rank]}<span style={{ fontSize: small ? 9 : 11 }}>{c.suit}</span></div>
-      <div className="text-center leading-none" style={{ fontSize: small ? 14 : 20, opacity: 0.9 }}>{c.suit}</div>
+      <div className="leading-none font-black flex items-baseline gap-[1px]" style={{ fontSize: small ? 19 : 22 }}>
+        {RANK_TXT[c.rank]}<span style={{ fontSize: small ? 15 : 18 }}>{c.suit}</span>
+      </div>
+      <div className="text-center leading-none" style={{ fontSize: small ? 24 : 30, opacity: 0.92 }}>{c.suit}</div>
     </div>
   )
   const cardBack = (
@@ -338,7 +340,7 @@ export default function SolitairePage() {
         <span className="ml-auto text-yellow-300 text-sm font-black">💰 {(balance ?? 0).toLocaleString()}</span>
       </div>
 
-      <div className="max-w-md mx-auto px-4 flex items-center justify-between text-[13px] font-black">
+      <div className="max-w-lg mx-auto px-4 flex items-center justify-between text-[13px] font-black">
         <span style={{ color: '#67e8f9' }}>SCORE {score.toLocaleString()}</span>
         <span className={streak >= 4 ? 'text-amber-300' : 'text-white/80'}
           style={{ animation: streak >= 4 ? 'meterPulse 0.8s ease-in-out infinite' : undefined }}>
@@ -347,7 +349,7 @@ export default function SolitairePage() {
         <span className="text-white/70">⏱ {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</span>
       </div>
       {/* streak countdown bar */}
-      <div className="max-w-md mx-auto px-4 mt-1">
+      <div className="max-w-lg mx-auto px-4 mt-1">
         <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
           <div className="h-full rounded-full" style={{
             width: `${streakPct * 100}%`,
@@ -357,7 +359,7 @@ export default function SolitairePage() {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-3 mt-2 relative">
+      <div className="max-w-lg mx-auto px-3 mt-2 relative">
         {/* top row: stock · waste · (gap) · foundations */}
         {g && (
           <div className="flex gap-[3px] mb-2">
@@ -393,12 +395,14 @@ export default function SolitairePage() {
 
         {/* tableau */}
         {g && (
-          <div className="flex gap-[3px] items-start" style={{ minHeight: 380 }}>
+          <div className="flex gap-[3px] items-start" style={{ minHeight: 460 }}>
             {g.tab.map((pile, pi) => (
               <div key={pi} style={{ width: CW }} className="relative">
                 {!pile.length && <div className="aspect-[5/7] rounded-[7px]" style={{ border: '2px dashed rgba(255,255,255,0.12)' }} />}
                 {pile.map((c, ci) => {
-                  const top = pile.slice(0, ci).reduce((y, cc) => y + (cc.faceUp ? 24 : 9), 0)
+                  // more reveal per card now that the ranks are bigger, so a
+                  // stacked card's number is never clipped by the one on top
+                  const top = pile.slice(0, ci).reduce((y, cc) => y + (cc.faceUp ? 30 : 11), 0)
                   return (
                     <div key={c.id} onPointerDown={() => tapTab(pi, ci)}
                       className="absolute left-0 right-0 aspect-[5/7] cursor-pointer"
@@ -455,7 +459,7 @@ export default function SolitairePage() {
 
       {/* bottom controls */}
       {phase === 'playing' && (
-        <div className="max-w-md mx-auto px-4 mt-3 flex items-center gap-2">
+        <div className="max-w-lg mx-auto px-4 mt-3 flex items-center gap-2">
           <button onClick={undo} disabled={!undoRef.current.length || finishing}
             className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
             style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>

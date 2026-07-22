@@ -133,17 +133,20 @@ export function buzz(pattern: number | number[]) {
 
 // ── Fight SFX ────────────────────────────────────────────────────────────────
 export const sfx = {
-  /** Fist meets face. heavy = uppercut/finisher */
+  /** Fist meets face. heavy = uppercut/finisher — layered thud + crack */
   punch(heavy = false) {
-    burst({ dur: 0.09, gain: heavy ? 0.5 : 0.35, filter: { type: 'lowpass', freq: 1400, endFreq: 300 } })
-    tone({ freq: heavy ? 150 : 190, endFreq: 55, dur: 0.16, type: 'sine', gain: heavy ? 0.55 : 0.4 })
-    buzz(heavy ? 40 : 20)
+    burst({ dur: 0.1, gain: heavy ? 0.55 : 0.38, filter: { type: 'lowpass', freq: 1500, endFreq: 280 } })
+    burst({ dur: 0.045, gain: heavy ? 0.28 : 0.18, filter: { type: 'highpass', freq: 1800, endFreq: 4200 } })
+    tone({ freq: heavy ? 145 : 195, endFreq: 48, dur: 0.18, type: 'sine', gain: heavy ? 0.6 : 0.42 })
+    if (heavy) tone({ freq: 90, endFreq: 40, dur: 0.22, type: 'triangle', gain: 0.25, delay: 0.02 })
+    buzz(heavy ? 45 : 22)
   },
   /** Boot meets ribs — deeper than a punch */
   kick() {
-    burst({ dur: 0.12, gain: 0.45, filter: { type: 'lowpass', freq: 900, endFreq: 200 } })
-    tone({ freq: 120, endFreq: 45, dur: 0.2, type: 'sine', gain: 0.55 })
-    buzz(30)
+    burst({ dur: 0.14, gain: 0.5, filter: { type: 'lowpass', freq: 950, endFreq: 180 } })
+    burst({ dur: 0.05, gain: 0.2, filter: { type: 'bandpass', freq: 600, q: 1.2 } })
+    tone({ freq: 115, endFreq: 40, dur: 0.22, type: 'sine', gain: 0.58 })
+    buzz(32)
   },
   /** Attack absorbed on the guard */
   block() {
