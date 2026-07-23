@@ -3,6 +3,7 @@ import { headMeta, HEADS } from '@/config/heads'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fighterLevel, sanitizeFighter } from '@/lib/fighter'
+import { notify } from '@/lib/notify'
 
 // Deterministic 3D fighter for players who haven't picked one (incl. bots).
 // fighter5 is rainbow — Democrat-only.
@@ -65,6 +66,31 @@ export async function GET(
       && Date.now() - new Date(challenge.accepted_at).getTime() > 10 * 60_000) {
       await admin.from('pvp_challenges').update({ status: 'cancelled' }).eq('id', id).eq('status', 'accepted')
       return NextResponse.json({ ...challenge, status: 'cancelled' })
+    }
+
+    // Defender just stepped into the ring for the first time → tell the
+    // challenger (push included via notify): "they're ready — tap to fight".
+    // The atomic is-null guard means exactly one ping per challenge, and only
+    // for human challengers who might be off the app (Michael 2026-07-23).
+    if (challenge.status === 'accepted'
+      && profile.id === challenge.defender_id
+      && !challenge.defender_ready_at) {
+      const { data: claimed } = await admin
+        .from('pvp_challenges')
+        .update({ defender_ready_at: new Date().toISOString() })
+        .eq('id', id)
+        .is('defender_ready_at', null)
+        .select('id')
+        .maybeSingle()
+      if (claimed) {
+        notify(admin, {
+          profileId: challenge.challenger_id,
+          type: 'pvp',
+          title: `🥊 ${challenge.defender_username} answered your challenge!`,
+          body: 'They\'re in the ring waiting — tap to fight!',
+          link: `/battle/pvp?id=${id}`,
+        }).catch(() => {})
+      }
     }
 
     // Usernames/parties are denormalized onto the row at insert time — no
