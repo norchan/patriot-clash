@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown, Flag, MapPin, Trash2 } from 'lucide-react'
+import { Image as ImageIcon, X, MessageCircle, Share, ArrowBigUp, ArrowBigDown, Flag, Trash2 } from 'lucide-react'
 
 // Town hall discussion feed — looks like X, votes like Reddit.
 // Tapping a post opens /townhall/[gymId]/post/[postId] with the reply thread.
@@ -110,23 +110,20 @@ export default function HallFeed({ gymId }: { gymId: string }) {
   const [posting, setPosting] = useState(false)
   const [shared, setShared] = useState('')
   const [reported, setReported] = useState<Set<string>>(new Set())
-  const [sort, setSort] = useState<'top' | 'local' | 'new'>('top')
-  // scope: this hall's psub (default) or the whole state's boards
-  const [scope, setScope] = useState<'hall' | 'state'>('hall')
+  const [sort, setSort] = useState<'top' | 'new'>('top')
   // party visibility toggles — both sides shown by default
   const [showDem, setShowDem] = useState(true)
   const [showRep, setShowRep] = useState(true)
-  const [markLocal, setMarkLocal] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setLoaded(false)
-    fetch(`/api/gyms/${gymId}/posts?sort=${sort}${scope === 'state' ? '&scope=state' : ''}`)
+    fetch(`/api/gyms/${gymId}/posts?sort=${sort}`)
       .then(r => r.json())
       .then(d => setPosts(d.posts ?? []))
       .catch(() => {})
       .finally(() => setLoaded(true))
-  }, [gymId, sort, scope])
+  }, [gymId, sort])
 
   async function pickImage(file: File) {
     if (file.size > 6 * 1024 * 1024) return
@@ -147,10 +144,10 @@ export default function HallFeed({ gymId }: { gymId: string }) {
       const res = await fetch(`/api/gyms/${gymId}/posts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: draft.trim(), image: draftImage, local: markLocal }),
+        body: JSON.stringify({ content: draft.trim(), image: draftImage, local: true }),
       })
       const d = await res.json()
-      if (res.ok) { setPosts(p => [d.post, ...p]); setDraft(''); setDraftImage(null); setMarkLocal(false) }
+      if (res.ok) { setPosts(p => [d.post, ...p]); setDraft(''); setDraftImage(null) }
     } catch {}
     setPosting(false)
   }
@@ -202,14 +199,6 @@ export default function HallFeed({ gymId }: { gymId: string }) {
             className="flex items-center gap-1 text-gray-400 text-xs font-bold px-2 py-1.5 rounded-lg bg-gray-800">
             <ImageIcon size={14} /> Photo
           </button>
-          {/* Mark as local — surfaces the post in this hall's Local tab */}
-          <button onClick={() => setMarkLocal(v => !v)}
-            title="Mark this post as local — shows in the Local tab"
-            className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-lg transition ${
-              markLocal ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'
-            }`}>
-            <MapPin size={14} /> Local
-          </button>
           <span className="text-gray-700 text-[10px] flex-1 hidden sm:block">Links get a preview automatically</span>
           <button onClick={submit} disabled={posting || (!draft.trim() && !draftImage)}
             className="text-xs font-bold px-4 py-1.5 rounded-lg text-white bg-blue-600 disabled:opacity-40">
@@ -218,19 +207,10 @@ export default function HallFeed({ gymId }: { gymId: string }) {
         </div>
       </div>
 
-      {/* Sort tabs: Top (24h, default) | Local (48h, ranked) | Latest */}
+      {/* Sort tabs: Top | Latest — this hall's local psub feed */}
       <div className="flex gap-2 mt-2 mb-1 items-center flex-wrap">
-        {/* Scope: this hall's local psub vs the whole state's feed */}
-        <button onClick={() => setScope(s => s === 'hall' ? 'state' : 'hall')}
-          title={scope === 'hall' ? 'Show posts from every hall in this state' : 'Back to this hall only'}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-black transition border ${
-            scope === 'state' ? 'bg-purple-700 border-purple-400 text-white' : 'bg-gray-900 text-gray-400 border-gray-800 hover:text-gray-200'
-          }`}>
-          {scope === 'state' ? '🗺️ State ✓' : '🗺️ State'}
-        </button>
         {([
           { key: 'top' as const, label: '🔥 Top' },
-          { key: 'local' as const, label: '📍 Local' },
           { key: 'new' as const, label: '🕐 Latest' },
         ]).map(t => (
           <button key={t.key}
@@ -265,9 +245,7 @@ export default function HallFeed({ gymId }: { gymId: string }) {
         <p className="text-gray-600 text-xs text-center py-8">Loading the conversation...</p>
       ) : posts.length === 0 ? (
         <p className="text-gray-600 text-xs text-center py-8">
-          {sort === 'local'
-            ? 'No local posts in the last 48 hours — tap 📍 Local when you post to start.'
-            : 'Nothing posted here yet — start the conversation.'}
+          Nothing posted here yet — start the conversation.
         </p>
       ) : (
         <div className="divide-y divide-gray-800/80">
@@ -293,11 +271,6 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                       </span>
                     )}
                     <span className="text-gray-600">· {timeAgo(p.created_at)}</span>
-                    {p.local && (
-                      <span className="flex items-center gap-0.5 text-emerald-400 text-[10px] font-bold flex-shrink-0">
-                        <MapPin size={10} /> Local
-                      </span>
-                    )}
                   </div>
                   {p.content && (
                     <p className="text-gray-200 text-sm whitespace-pre-wrap break-words mt-0.5">{p.content}</p>

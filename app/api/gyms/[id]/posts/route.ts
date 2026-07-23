@@ -19,38 +19,19 @@ export async function GET(
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
-    const sortParam = req.nextUrl.searchParams.get('sort')
-    const sort = sortParam === 'new' ? 'new' : sortParam === 'local' ? 'local' : 'top'
-    // scope=state widens the feed to every hall in this hall's state (the
-    // hall page's State button — the local psub zoomed out)
-    const scope = req.nextUrl.searchParams.get('scope') === 'state' ? 'state' : 'hall'
+    // The town-hall feed IS the local psub now (Michael): all of this hall's
+    // posts, no time window and no state/local sub-feeds — same query as
+    // fetchBoardPosts for a local board. 'top' = highest score, 'new' = newest.
+    const sort = req.nextUrl.searchParams.get('sort') === 'new' ? 'new' : 'top'
 
     let q: any = admin
       .from('hall_posts')
       .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local')
       .eq('gym_id', id)
       .eq('hidden', false)
-    if (scope === 'state') {
-      const { data: gym } = await admin.from('gyms').select('state').eq('id', id).single()
-      q = admin
-        .from('hall_posts')
-        .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local, gyms!hall_posts_gym_id_fkey!inner(state)')
-        .eq('gyms.state', gym?.state ?? '')
-        .eq('hidden', false)
-    }
-    if (sort === 'top') {
-      q = q.gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
-        .order('score', { ascending: false })
-        .order('created_at', { ascending: false })
-    } else if (sort === 'local') {
-      // posts flagged local, highest-ranked in the last 48 hours first
-      q = q.eq('local', true)
-        .gte('created_at', new Date(Date.now() - 48 * 3600 * 1000).toISOString())
-        .order('score', { ascending: false })
-        .order('created_at', { ascending: false })
-    } else {
-      q = q.order('created_at', { ascending: false })
-    }
+    q = sort === 'new'
+      ? q.order('created_at', { ascending: false })
+      : q.order('score', { ascending: false }).order('created_at', { ascending: false })
     const { data: posts } = await q.limit(80) as { data: any[] | null }
 
     if (!posts?.length) return NextResponse.json({ posts: [] })
