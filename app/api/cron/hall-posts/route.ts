@@ -18,16 +18,30 @@ const TIME_BUDGET_MS = 275_000
 
 const SYSTEM = `You write short, believable community-board posts from residents of a specific US town.
 Return EXACTLY 3 posts as a JSON array of 3 strings — nothing else.
-HARD RULE: every post is about THIS town specifically. Use these angles across the 3:
- - something happening in town (a local event, road work, the farmers market, a festival, a high-school game, a new shop)
- - a shout-out or gripe about a LOCAL FIGURE BY ROLE ONLY (the mayor, the coach, the barista, a city council member) — NEVER invent a real person's name
- - something the town is known for (a landmark, park, river, team, diner, main street)
-Casual and human, varied tone, under 180 characters each. No hashtags, no @mentions. Do NOT state specific news as fact or name real living people.`
+HARD RULES:
+ - every post is about THIS town specifically, and must be BELIEVABLE for the stated time of year (no out-of-season references)
+ - use varied angles: something happening around town, a shout-out or gripe about a LOCAL FIGURE BY ROLE ONLY (the mayor, the coach, the barista, a council member — NEVER a real person's name), or something the town is known for (a landmark, park, river, main street, diner)
+ - do NOT claim a specific recent day (no "last Friday", "yesterday's game"); keep it timeless or season-general
+ - casual and human, varied tone, under 180 characters each. No hashtags, no @mentions. Never state specific news as fact or name real living people.`
 
-async function generate(city: string, state: string): Promise<string[] | null> {
+function seasonHint(): string {
+  const d = new Date()
+  const month = d.toLocaleString('en-US', { month: 'long' })
+  const m = d.getMonth()
+  const season = m <= 1 || m === 11 ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall'
+  const ok: Record<string, string> = {
+    winter: 'snow, holidays, hockey/basketball, ice, cozy cafes, bundling up',
+    spring: 'rain, blooming, baseball opening, cleanups, mud, allergies',
+    summer: 'heat, farmers markets, baseball, county fairs, pools/lakes, cookouts, road work',
+    fall: 'cooler weather, football, harvest, leaves, back-to-school, Halloween',
+  }
+  return `It is currently ${month} (${season}). Everything must fit ${season}: OK to mention ${ok[season]}. Do NOT mention out-of-season things (e.g. no football or fall festivals in summer, no snow in July, no pools in winter).`
+}
+
+async function generate(city: string, state: string, hint: string): Promise<string[] | null> {
   const txt = await openaiChat([
     { role: 'system', content: SYSTEM },
-    { role: 'user', content: `Town: ${city}, ${state}` },
+    { role: 'user', content: `Town: ${city}, ${state}. ${hint}` },
   ], 240, 1.0)
   if (!txt) return null
   try {
@@ -78,13 +92,14 @@ export async function GET(req: NextRequest) {
     return three
   }
 
+  const hint = seasonHint()
   let inserted = 0, halls = 0, skipped = 0
   let idx = 0
   async function worker() {
     while (idx < mine.length) {
       if (Date.now() - started > TIME_BUDGET_MS) return
       const g = mine[idx++]
-      const posts = await generate(g.city_name, g.state)
+      const posts = await generate(g.city_name, g.state, hint)
       if (!posts) { skipped++; continue }
       const bots = pick3(g.state)
       if (bots.length < POSTS_PER_HALL) { skipped++; continue }

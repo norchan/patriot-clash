@@ -5,10 +5,9 @@
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-// Michael's kill switch (2026-07-20): ALL bot content is paused — the pg_cron
-// content jobs are deactivated in Supabase and this flag stops DM replies.
-// Flip to false to bring bot DMs back.
-const BOT_REPLIES_PAUSED = true
+// Michael's kill switch (2026-07-20): stops bot DM replies. Turned back ON
+// 2026-07-22 (Michael: bots should reply to direct messages again).
+const BOT_REPLIES_PAUSED = false
 
 export async function generateBotReply(admin: any, botId: string, humanId: string, convId: string) {
   try {
