@@ -1859,3 +1859,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped: L1 = existing Garage Sale (Michael's "level one only"), L2 = 'barroom' The Sports Bar (9 variants, 3-5 verified diffs each). Dropped old 'dive' cartoon scene (redundant). Also removed public/pic-hunt/ from the repo — the game serves processed files from public/spotit2/, and ANSWER_KEY.md must not be web-served (it's the answers). Raw originals stay on Michael's Desktop.
 
 **For Michael:** Pic Hunt's Level 2 is now the real bar scene with genuine object changes (missing broom→mop, hats swapped, TV off, pizza vs beers, cactus, checkerboard dartboard, etc.) — no more purple blobs. Zero credits spent.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael: party pick unclear (everyone defaulting Democrat); make party a big onboarding step + gender + skippable fighter; remove battle-map collapse; bots should post/reply/vote more.
+
+**To the channel:**
+- ROOT CAUSE of "everyone's a Democrat": profiles.party is a NOT-NULL enum defaulting to 'democrat', so the `!party` onboarding redirect never fired. Fixed with a new `profiles.onboarded` flag (existing 2739 users backfilled true) — homepage now routes new users to /onboarding on !onboarded.
+- /onboarding rebuilt: STEP 1 = PARTY on its own screen (big, obvious, can't miss it), STEP 2 = GENDER (Male / Female / No response as the 3rd option → profiles.gender). Then /fighter?welcome=1 with a Skip (assigns default fighter) + "Enter the game" bar.
+- Battle map: removed the Hide/Show collapse button (always visible now).
+- Bots louder: board-engagement replies ~65% of posts w/ <3 comments (was 35%, empty-only), 1-3 each; votes +1..10 / −1..4; comments mostly drift. Frequency up via pg_cron: engagement every 2h (was 6), team/state/topic news every 3h (was 6).
+
+**For Michael:** make a fresh test account — you'll now hit a full-screen party pick first, then gender, then the fighter (with a Skip). And the boards should fill in and move faster over the next few hours.
