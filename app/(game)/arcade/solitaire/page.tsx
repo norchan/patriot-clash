@@ -7,7 +7,8 @@ import * as sfx from '@/lib/match3-sfx'
 
 // SOLITAIRE — the classic, arcade-ified (Michael's spec: "modern version of a
 // classic... more like landslide in the feel and play, streaks etc").
-// Klondike draw-1, TAP-TO-MOVE (tap a card, it flies to the best spot), with:
+// Klondike draw-1, DRAG-AND-DROP (Michael: pick a card up and move it to the
+// correct spot yourself — no auto-placing), with:
 //  - STREAK multiplier: foundation plays within 6s of each other chain
 //    ×2 ×3 ×4 ×5 — the whole scoring game is keeping the chain alive
 //  - landslide-style juice: neon meters, score pops, ON FIRE banner, sfx
@@ -20,6 +21,20 @@ const SUITS: Suit[] = ['♠', '♥', '♦', '♣']
 const RED = new Set<Suit>(['♥', '♦'])
 const RANK_TXT = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 const STREAK_MS = 6000
+const FAN_UP = 30   // vertical reveal of a face-up card stacked in a tableau pile
+const FAN_DOWN = 11 // ...of a face-down card
+
+interface DropTarget { kind: 'found' | 'tab'; idx: number; valid: boolean }
+interface DragState {
+  from: 'waste' | 'tab'
+  pi?: number; ci?: number   // tableau source pile / card index
+  cards: Card[]              // the run being carried (1+ cards)
+  w: number; h: number       // measured card size
+  offX: number; offY: number // pointer offset within the grabbed card
+  sx: number; sy: number     // where the gesture started (tap vs drag)
+  x: number; y: number       // current pointer position
+  hover: DropTarget | null
+}
 
 interface GameState {
   stock: Card[]; waste: Card[]
@@ -59,7 +74,6 @@ export default function SolitairePage() {
   const [fpToast, setFpToast] = useState('')
   const [fpGame, setFpGame] = useState(0)
   const [pop, setPop] = useState<{ txt: string; key: number; color: string } | null>(null)
-  const [shakeId, setShakeId] = useState<number | null>(null)
   const [finishing, setFinishing] = useState(false)
 
   const undoRef = useRef<GameState[]>([])
@@ -68,6 +82,16 @@ export default function SolitairePage() {
   const pendingCardsRef = useRef(0)
   const cappedRef = useRef(false)
   const sessionRef = useRef<string | null>(null)
+
+  // drag-and-drop plumbing
+  const gRef = useRef<GameState | null>(null)
+  const secsRef = useRef(0)
+  const colRefs = useRef<(HTMLDivElement | null)[]>([])   // 7 tableau drop zones
+  const foundRefs = useRef<(HTMLDivElement | null)[]>([]) // 4 foundation drop zones
+  const dragRef = useRef<DragState | null>(null)
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const hitTestRef = useRef<(x: number, y: number, d: DragState) => DropTarget | null>(() => null)
+  const commitRef = useRef<(d: DragState, t: DropTarget) => void>(() => {})
 
   useEffect(() => { if (profile && balance === null) setBalance(profile.fp_balance) }, [profile, balance])
   useEffect(() => {
@@ -93,6 +117,40 @@ export default function SolitairePage() {
     }, 120)
     return () => clearInterval(t)
   }, [phase])
+
+  useEffect(() => { gRef.current = g }, [g])
+  useEffect(() => { secsRef.current = secs }, [secs])
+
+  // ONE global drag gesture: once a card is picked up, pointer moves/releases
+  // anywhere on screen drive it (touch + mouse). Reads the live board via refs
+  // so the mount-time listeners always see the current state.
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      e.preventDefault()
+      d.x = e.clientX; d.y = e.clientY
+      d.hover = hitTestRef.current(e.clientX, e.clientY, d)
+      setDrag({ ...d })
+    }
+    const up = (e: PointerEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      dragRef.current = null
+      const t = hitTestRef.current(e.clientX, e.clientY, d)
+      setDrag(null)
+      if (t && t.valid) commitRef.current(d, t)
+      else if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 8) sfx.invalid() // real drag that missed → snap-back buzz
+    }
+    window.addEventListener('pointermove', move, { passive: false })
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [])
 
   async function reward(event: 'cards' | 'win', count?: number) {
     try {
@@ -149,19 +207,16 @@ export default function SolitairePage() {
     flushCards()
   }
 
-  // ── move engine: tap a card, it goes to the best legal home ───────────────
+  // ── move rules ────────────────────────────────────────────────────────────
   function canFound(c: Card, f: Card[][]) {
     const fi = SUITS.indexOf(c.suit)
     return f[fi].length === c.rank - 1 ? fi : -1
   }
-  function tabTarget(c: Card, t: Card[][], excludePile: number) {
-    for (let p = 0; p < 7; p++) {
-      if (p === excludePile) continue
-      const top = t[p][t[p].length - 1]
-      if (!top && c.rank === 13) return p
-      if (top && top.faceUp && top.rank === c.rank + 1 && RED.has(top.suit) !== RED.has(c.suit)) return p
-    }
-    return -1
+  // may this card sit on this tableau pile? (empty pile takes only a King)
+  function canPlaceTab(c: Card, pile: Card[]) {
+    const top = pile[pile.length - 1]
+    if (!top) return c.rank === 13
+    return top.faceUp && top.rank === c.rank + 1 && RED.has(top.suit) !== RED.has(c.suit)
   }
 
   function pushUndo(s: GameState) {
@@ -184,7 +239,7 @@ export default function SolitairePage() {
     setPhase('won'); sfx.levelUp()
     flushCards(true)
     reward('win')
-    fetch('/api/arcade/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'solitaire', score: Math.max(0, 10000 - secs * 10 + score), session_id: sessionRef.current }) }).catch(() => {})
+    fetch('/api/arcade/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'solitaire', score: Math.max(0, 10000 - secsRef.current * 10 + score), session_id: sessionRef.current }) }).catch(() => {})
     refetch()
   }
 
@@ -206,61 +261,28 @@ export default function SolitairePage() {
     setG(next)
   }
 
-  function tapWaste() {
-    if (!g || phase !== 'playing' || finishing || !g.waste.length) return
-    const c = g.waste[g.waste.length - 1]
-    const fi = canFound(c, g.found)
-    const next = deepCopy(g)
-    if (fi >= 0) {
-      pushUndo(g)
-      next.found[fi].push(next.waste.pop()!)
-      bumpStreak()
-      afterMove(next)
-      return
-    }
-    const tp = tabTarget(c, g.tab, -1)
-    if (tp >= 0) {
-      pushUndo(g)
-      next.tab[tp].push(next.waste.pop()!)
-      setScore(s => s + 5)
-      sfx.swap()
-      afterMove(next)
-      return
-    }
-    setShakeId(c.id); sfx.invalid(); setTimeout(() => setShakeId(null), 350)
-  }
-
-  function tapTab(pi: number, ci: number) {
+  // pick up the top waste card, or a face-up card + everything stacked on it
+  function startDrag(from: 'waste' | 'tab', e: React.PointerEvent, pi?: number, ci?: number) {
     if (!g || phase !== 'playing' || finishing) return
-    const pile = g.tab[pi]
-    const c = pile[ci]
-    if (!c.faceUp) { if (ci === pile.length - 1) return; return }
-    const run = pile.slice(ci)
-    // single top card → try foundation first
-    if (run.length === 1) {
-      const fi = canFound(c, g.found)
-      if (fi >= 0) {
-        pushUndo(g)
-        const next = deepCopy(g)
-        next.found[fi].push(next.tab[pi].pop()!)
-        bumpStreak()
-        afterMove(next)
-        return
-      }
+    let cards: Card[]
+    if (from === 'waste') {
+      if (!g.waste.length) return
+      cards = [g.waste[g.waste.length - 1]]
+    } else {
+      const pile = g.tab[pi!]
+      const c = pile[ci!]
+      if (!c.faceUp) return // can't grab a face-down card
+      cards = pile.slice(ci!)
     }
-    // run (or single) → another tableau pile
-    const tp = tabTarget(c, g.tab, pi)
-    if (tp >= 0) {
-      pushUndo(g)
-      const next = deepCopy(g)
-      const moved = next.tab[pi].splice(ci)
-      next.tab[tp].push(...moved)
-      setScore(s => s + 5)
-      sfx.swap()
-      afterMove(next)
-      return
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const st: DragState = {
+      from, pi, ci, cards,
+      w: rect.width, h: rect.height,
+      offX: e.clientX - rect.left, offY: e.clientY - rect.top,
+      sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, hover: null,
     }
-    setShakeId(c.id); sfx.invalid(); setTimeout(() => setShakeId(null), 350)
+    dragRef.current = st
+    setDrag(st)
   }
 
   function undo() {
@@ -304,6 +326,47 @@ export default function SolitairePage() {
         return cur
       })
     }, 130)
+  }
+
+  // which drop zone is the pointer over, and is the move legal? (refreshed
+  // every render so the mount-effect gesture reads the current board)
+  hitTestRef.current = (x, y, d) => {
+    const gg = gRef.current
+    if (!gg) return null
+    const grabbed = d.cards[0]
+    for (let i = 0; i < 4; i++) {
+      const r = foundRefs.current[i]?.getBoundingClientRect()
+      if (r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        return { kind: 'found', idx: i, valid: d.cards.length === 1 && canFound(grabbed, gg.found) === i }
+      }
+    }
+    for (let p = 0; p < 7; p++) {
+      const r = colRefs.current[p]?.getBoundingClientRect()
+      if (r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        const sameSource = d.from === 'tab' && d.pi === p
+        return { kind: 'tab', idx: p, valid: !sameSource && canPlaceTab(grabbed, gg.tab[p]) }
+      }
+    }
+    return null
+  }
+  commitRef.current = (d, t) => {
+    const gg = gRef.current
+    if (!gg) return
+    pushUndo(gg)
+    const next = deepCopy(gg)
+    if (t.kind === 'found') {
+      if (d.from === 'waste') next.waste.pop()
+      else next.tab[d.pi!].splice(d.ci!)
+      next.found[t.idx].push(d.cards[0])
+      bumpStreak()
+      afterMove(next)
+    } else {
+      if (d.from === 'waste') { const c = next.waste.pop()!; next.tab[t.idx].push(c) }
+      else { const moved = next.tab[d.pi!].splice(d.ci!); next.tab[t.idx].push(...moved) }
+      setScore(s => s + 5)
+      sfx.swap()
+      afterMove(next)
+    }
   }
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -370,49 +433,65 @@ export default function SolitairePage() {
               )}
               {g.stock.length > 0 && <span className="absolute -bottom-4 inset-x-0 text-center text-[9px] text-white/45 font-bold">{g.stock.length}</span>}
             </div>
-            <div style={{ width: CW }} className="aspect-[5/7] relative cursor-pointer" onPointerDown={tapWaste}>
-              {g.waste.length ? (
-                <div className="w-full h-full" style={{ animation: shakeId === g.waste[g.waste.length - 1].id ? 'cardShake 0.35s ease' : undefined }}>
-                  {cardFace(g.waste[g.waste.length - 1])}
-                </div>
+            <div style={{ width: CW, touchAction: 'none' }} className="aspect-[5/7] relative cursor-grab"
+              onPointerDown={(e) => startDrag('waste', e)}>
+              {g.waste.length && drag?.from !== 'waste' ? (
+                <div className="w-full h-full">{cardFace(g.waste[g.waste.length - 1])}</div>
               ) : (
                 <div className="w-full h-full rounded-[7px]" style={{ border: '2px dashed rgba(255,255,255,0.12)' }} />
               )}
             </div>
             <div style={{ width: CW }} />
-            {g.found.map((f, i) => (
-              <div key={i} style={{ width: CW }} className="aspect-[5/7]">
-                {f.length ? cardFace(f[f.length - 1]) : (
-                  <div className="w-full h-full rounded-[7px] flex items-center justify-center text-lg"
-                    style={{ border: '2px dashed rgba(255,255,255,0.18)', color: RED.has(SUITS[i]) ? 'rgba(248,113,113,0.5)' : 'rgba(255,255,255,0.3)' }}>
-                    {SUITS[i]}
-                  </div>
-                )}
-              </div>
-            ))}
+            {g.found.map((f, i) => {
+              const hov = drag?.hover?.kind === 'found' && drag.hover.idx === i
+              return (
+                <div key={i} ref={el => { foundRefs.current[i] = el }} style={{ width: CW }} className="aspect-[5/7] relative">
+                  {f.length ? cardFace(f[f.length - 1]) : (
+                    <div className="w-full h-full rounded-[7px] flex items-center justify-center text-lg"
+                      style={{ border: '2px dashed rgba(255,255,255,0.18)', color: RED.has(SUITS[i]) ? 'rgba(248,113,113,0.5)' : 'rgba(255,255,255,0.3)' }}>
+                      {SUITS[i]}
+                    </div>
+                  )}
+                  {hov && (
+                    <div className="absolute inset-0 rounded-[8px] pointer-events-none"
+                      style={{ boxShadow: `0 0 0 3px ${drag!.hover!.valid ? '#4ade80' : '#ef4444'}`, zIndex: 5 }} />
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
         {/* tableau */}
         {g && (
           <div className="flex gap-[3px] items-start" style={{ minHeight: 460 }}>
-            {g.tab.map((pile, pi) => (
-              <div key={pi} style={{ width: CW }} className="relative">
-                {!pile.length && <div className="aspect-[5/7] rounded-[7px]" style={{ border: '2px dashed rgba(255,255,255,0.12)' }} />}
-                {pile.map((c, ci) => {
-                  // more reveal per card now that the ranks are bigger, so a
-                  // stacked card's number is never clipped by the one on top
-                  const top = pile.slice(0, ci).reduce((y, cc) => y + (cc.faceUp ? 30 : 11), 0)
-                  return (
-                    <div key={c.id} onPointerDown={() => tapTab(pi, ci)}
-                      className="absolute left-0 right-0 aspect-[5/7] cursor-pointer"
-                      style={{ top, zIndex: ci + 1, animation: shakeId === c.id ? 'cardShake 0.35s ease' : undefined }}>
-                      {c.faceUp ? cardFace(c, true) : cardBack}
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+            {g.tab.map((pile, pi) => {
+              const hov = drag?.hover?.kind === 'tab' && drag.hover.idx === pi
+              // cards being carried are hidden from their source pile
+              const hideFrom = drag?.from === 'tab' && drag.pi === pi ? drag.ci! : Infinity
+              return (
+                <div key={pi} ref={el => { colRefs.current[pi] = el }} style={{ width: CW, minHeight: 440 }} className="relative">
+                  {!pile.length && <div className="aspect-[5/7] rounded-[7px]" style={{ border: '2px dashed rgba(255,255,255,0.12)' }} />}
+                  {pile.map((c, ci) => {
+                    if (ci >= hideFrom) return null
+                    // more reveal per card now that the ranks are bigger, so a
+                    // stacked card's number is never clipped by the one on top
+                    const top = pile.slice(0, ci).reduce((y, cc) => y + (cc.faceUp ? FAN_UP : FAN_DOWN), 0)
+                    return (
+                      <div key={c.id} onPointerDown={(e) => startDrag('tab', e, pi, ci)}
+                        className={`absolute left-0 right-0 aspect-[5/7] ${c.faceUp ? 'cursor-grab' : ''}`}
+                        style={{ top, zIndex: ci + 1, touchAction: 'none' }}>
+                        {c.faceUp ? cardFace(c, true) : cardBack}
+                      </div>
+                    )
+                  })}
+                  {hov && (
+                    <div className="absolute inset-x-0 top-0 rounded-[8px] pointer-events-none"
+                      style={{ height: 452, boxShadow: `inset 0 0 0 3px ${drag!.hover!.valid ? '#4ade80' : '#ef4444'}`, zIndex: 40 }} />
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -441,7 +520,7 @@ export default function SolitairePage() {
             <div className="text-center w-full">
               {phase === 'start' && <>
                 <h2 className="text-3xl font-black" style={{ color: '#4ade80', textShadow: '0 0 16px #16a34a' }}>SOLITAIRE</h2>
-                <p className="text-white/70 text-sm mt-2">The classic — arcade rules. TAP any card and it flies to the right spot. Chain foundation plays within 6 seconds to build a 🔥 streak: ×2 ×3 ×4 ×5 scoring.</p>
+                <p className="text-white/70 text-sm mt-2">The classic — arcade rules. Press and drag a card (or a run) to where it goes, and drop it. Chain foundation plays within 6 seconds to build a 🔥 streak: ×2 ×3 ×4 ×5 scoring.</p>
                 <p className="text-white/50 text-xs mt-1.5">5 FP per card home · 150 FP for the win</p>
                 <button onClick={start} className="w-full mt-5 py-3.5 rounded-xl font-black text-lg"
                   style={{ background: 'radial-gradient(circle at 50% 30%,#4ade80,#15803d)' }}>▶ DEAL</button>
@@ -480,9 +559,21 @@ export default function SolitairePage() {
         </div>
       )}
 
+      {/* the carried card(s) — follows the pointer, tilted like a real lift */}
+      {drag && (
+        <div className="fixed z-50 pointer-events-none"
+          style={{ left: drag.x - drag.offX, top: drag.y - drag.offY, width: drag.w, transform: 'rotate(3deg)' }}>
+          {drag.cards.map((c, i) => (
+            <div key={c.id} className="absolute left-0 aspect-[5/7]"
+              style={{ top: i * FAN_UP, width: '100%', filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.55))' }}>
+              {cardFace(c, true)}
+            </div>
+          ))}
+        </div>
+      )}
+
       <style>{`
         @keyframes popFloat { 0% { opacity: 1; transform: translate(-50%, 0) scale(0.7) } 30% { transform: translate(-50%, -8px) scale(1.15) } 100% { opacity: 0; transform: translate(-50%, -42px) scale(1) } }
-        @keyframes cardShake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-5px) } 50% { transform: translateX(5px) } 75% { transform: translateX(-3px) } }
         @keyframes meterPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.08) } }
       `}</style>
     </div>
