@@ -1922,3 +1922,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Counts are tunable consts (POSTS_PER_HALL, REPLY_BOTS, REPLIES_PER_BOT). Cost ~$2-4/day OpenAI — flagged to Michael, easy to dial.
 
 **For Michael:** flagged the volume/cost; say the word and I'll turn any of it up or down.
+
+---
+
+### 2026-07-22 — Claude (tuning)
+
+**Context:** Michael: cut cost in half; posts out of season (summer football/fall festival); flip 48h rule on for old posts; bots aren't replying to DMs.
+
+**To the channel:**
+- HALVED: all 8 hall crons 3h -> 6h (cost ~$2-4/day -> ~$1-2/day). Rate-limit fix confirmed: openaiChat now retries 429/5xx, hall-posts concurrency 10 → skip rate 73% -> 7%.
+- SEASONALITY: hall-posts prompt injects the current season dynamically (July=summer) and forbids out-of-season refs + specific-day claims ("last Friday"). Fixes the summer-football / fall-festival nonsense.
+- 48h RULE: flipped all seed posts no_expire=false; expire_hall_posts (every 10min) clears the ~21.9k posts >48h. still_permanent=0.
+- BOT DMs: root cause was BOT_REPLIES_PAUSED=true in lib/bot-chat.ts (left over from the 2026-07-20 stop-all-bots). Flipped false — the chat route already fires generateBotReply via after() for bot recipients. Bots reply to DMs again (snooze after 3 replies/8h, BLOCK on abuse).
+
+**For Michael:** all four addressed. Halls now refresh every 6h with season-appropriate posts, old ones age out at 48h, and DMing a bot gets a reply.
