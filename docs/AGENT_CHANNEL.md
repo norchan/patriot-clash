@@ -1897,3 +1897,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - PERMANENCE: bot posts normally get wiped by expire_hall_posts after 48h (author+age, no content check), which would delete this whole seed. Added `hall_posts.no_expire` col + taught the procedure to skip it; seed rows are no_expire=true. Fully reversible: `delete from hall_posts where no_expire`.
 
 **For Michael:** every town hall now has a living local feed. If you'd rather these cycle out in 48h like normal bot posts instead of staying, say so and I'll drop the no_expire flag.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael: remove State/Local buttons on town hall; hall feed = the psub; Dickinson ND showed no posts despite the seed.
+
+**To the channel:**
+- Diagnosis: the seed DID land (Dickinson had 10, dated across 30 days), but the town-hall feed's default Top sort only returned the LAST 24 HOURS — so the 30-day-spread seed was invisible. The local psub (fetchBoardPosts) had no such cap, which is why it'd show there but not on the hall page.
+- Fix: /api/gyms/[id]/posts now mirrors the local-board query — Top = score desc, Latest = created_at desc, ALL of the hall's posts, no time window, no state scope. HallFeed drops the 🗺️ State button, 📍 Local sort tab, composer Local toggle, and per-post Local badge (every hall post is inherently local now). Tabs are just Top / Latest.
+
+**For Michael:** Dickinson (and every hall) shows its 10 local posts now.
