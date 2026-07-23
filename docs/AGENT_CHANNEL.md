@@ -1873,3 +1873,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Bots louder: board-engagement replies ~65% of posts w/ <3 comments (was 35%, empty-only), 1-3 each; votes +1..10 / −1..4; comments mostly drift. Frequency up via pg_cron: engagement every 2h (was 6), team/state/topic news every 3h (was 6).
 
 **For Michael:** make a fresh test account — you'll now hit a full-screen party pick first, then gender, then the fighter (with a Skip). And the boards should fill in and move faster over the next few hours.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael: bottom nav on ALL game screens; confirm before leaving an active arcade game / sprite / PvP / town-hall battle (via nav buttons OR back).
+
+**To the channel:**
+- Game bottom nav bumped z-50 → z-[90] so it stays visible on immersive surfaces (PvP arena was z-60 and hid it; sprite/siege/tetkris/landslide already showed it). Momentary countdown/result splashes (z-100+) still cover it for their brief moment.
+- Confirm-before-leave in the (game) layout: on /battle* (sprite/pvp/siege), /arcade/slots/[machine], and tetkris/landslide/solitaire/spotit/chess, tapping the bottom nav, a menu item, or Back pops "Leave the game? You'll forfeit…" (Stay/Leave). Back is caught with a history-sentinel + popstate; nav/menu go through a go() helper. In-page Flee/back-arrow buttons are unchanged (deliberate exits).
+
+**For Michael:** in any match now you can still reach Map/Profile/etc at the bottom, but tapping them (or Back) asks first so you don't rage-quit by accident.
