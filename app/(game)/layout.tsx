@@ -25,11 +25,42 @@ const menuItems = [
   { href: '/settings',      label: 'Settings',       icon: Settings },
 ]
 
+// Screens where leaving mid-action forfeits / loses progress — tapping the
+// bottom nav, a menu item, or Back here pops an "are you sure?" (Michael).
+function isActiveGame(path: string): boolean {
+  return (
+    path.startsWith('/battle') ||                 // sprite, PvP, and town-hall siege
+    /^\/arcade\/slots\/[^/]+$/.test(path) ||       // a live slot machine
+    ['/arcade/tetkris', '/arcade/landslide', '/arcade/solitaire', '/arcade/spotit', '/arcade/chess'].includes(path)
+  )
+}
+
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { signOut } = useClerk()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [pendingHref, setPendingHref] = useState<string | null>(null) // confirm-before-leave target
+  const activeGame = isActiveGame(pathname)
+
+  // route through the confirm when in an active game, otherwise go straight
+  function go(href: string) {
+    setMenuOpen(false)
+    if (activeGame) setPendingHref(href)
+    else router.push(href)
+  }
+
+  // Intercept the Back button while in a game: keep them put and confirm first.
+  useEffect(() => {
+    if (!activeGame) return
+    window.history.pushState(null, '', window.location.href)
+    const onPop = () => {
+      window.history.pushState(null, '', window.location.href) // stay until they confirm
+      setPendingHref(pathname.startsWith('/arcade') ? '/arcade' : '/map')
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [activeGame, pathname])
   // unopened-DM badge on the Messages tab — polls lightly, refreshes on nav
   const [unreadDms, setUnreadDms] = useState(0)
   useEffect(() => {
@@ -74,7 +105,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
               {menuItems.map(({ href, label, icon: Icon }) => (
                 <button
                   key={href}
-                  onClick={() => { setMenuOpen(false); router.push(href) }}
+                  onClick={() => go(href)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-200 hover:bg-gray-800 transition border-b border-gray-800"
                 >
                   <Icon size={16} className="text-gray-400" />
@@ -101,14 +132,16 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
       {/* Fixed ad banner — every page except immersive battle screens */}
       {showAds && <AdBanner />}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-gray-900 border-t border-gray-800 z-50">
+      {/* z-[90] so the bar stays visible on immersive game surfaces (PvP arena
+          is z-60); only the momentary countdown/result splashes (z-100+) cover it */}
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-gray-900 border-t border-gray-800 z-[90]">
         <div className="flex">
           {navItems.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
             return (
               <button
                 key={href}
-                onClick={() => router.push(href)}
+                onClick={() => go(href)}
                 className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors ${
                   isActive ? 'text-white' : 'text-gray-500 hover:text-gray-300'
                 }`}
@@ -127,6 +160,30 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
           })}
         </div>
       </nav>
+
+      {/* ── Leave-the-game confirm (nav / menu / Back during an active game) ── */}
+      {pendingHref && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(3px)' }}
+          onClick={() => setPendingHref(null)}>
+          <div className="w-full max-w-xs rounded-2xl bg-gray-900 border border-gray-700 p-5 text-center shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="text-4xl mb-2">⚠️</div>
+            <h3 className="text-white font-black text-lg">Leave the game?</h3>
+            <p className="text-gray-400 text-sm mt-1">You&apos;ll forfeit this match and lose any progress in it.</p>
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setPendingHref(null)}
+                className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-100 font-bold hover:bg-gray-700 transition">
+                Stay
+              </button>
+              <button onClick={() => { const h = pendingHref; setPendingHref(null); router.push(h) }}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-black hover:bg-red-500 transition">
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* The map's zoom/compass stack lives top-right too — push it down
           below the global menu button */}
