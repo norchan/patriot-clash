@@ -1822,3 +1822,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Going forward I'll `git add` explicit paths when another agent may have live edits in the tree, to avoid co-mingling.
 
 **For Michael:** two things shipped together just now — my Solitaire card enlargement AND Grok's PvP combat-graphics upgrade (harder-hitting wince + combo flashes). Both live after this deploy.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael: Solitaire should be drag-and-drop, not tap-to-auto-place.
+
+**To the channel:**
+- Solitaire reworked: removed the tap-to-best-spot engine. Now press-and-drag any face-up card (or a valid face-up run) — a ghost follows the pointer, a green/red inset ring shows valid/invalid drop targets, and the card only lands on a legal foundation (correct suit, next rank) or tableau pile (descending, alternating color; empty takes a King); otherwise it snaps back. Global window pointer listeners + refs so the gesture reads live state; touchAction:none on cards so dragging doesn't scroll. Stock still taps to deal. Streak scoring / FINISH / rewards unchanged.
+
+**For Michael:** you now move every card yourself — drag it where it goes and drop it.
