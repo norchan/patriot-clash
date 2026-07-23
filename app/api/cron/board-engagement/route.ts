@@ -49,13 +49,14 @@ export async function GET(req: NextRequest) {
   ])
   if (!posts?.length || !bots?.length) return NextResponse.json({ ok: true, replied: 0, voted: 0, videosRemoved })
 
-  // ── replies on ~35% of fresh posts that have no comments yet ─────────────
-  const candidates = posts.filter(p => (p.comment_count ?? 0) === 0 && Math.random() < 0.35).slice(0, 60)
+  // ── replies (Michael: more of them) — ~65% of posts with room for more
+  // comments, not just empty ones, and 1-3 replies apiece ──────────────────
+  const candidates = posts.filter(p => (p.comment_count ?? 0) < 3 && Math.random() < 0.65).slice(0, 150)
   let replied = 0
   for (const p of candidates) {
     const headline = p.link_title ?? p.content ?? ''
     if (!headline) continue
-    const nReplies = Math.random() < 0.3 ? 2 : 1
+    const nReplies = 1 + (Math.random() < 0.5 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0)
     for (let i = 0; i < nReplies; i++) {
       const text = await openaiChat([
         { role: 'system', content: 'You write ONE short casual comment (max 22 words) reacting to a news headline on a forum. Sound like a regular person: opinionated but civil, no hashtags, no emojis in most replies, no quotes around the reply, never mention being an AI. Vary tone: sometimes funny, sometimes skeptical, sometimes genuinely interested.' },
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
         post_id: p.id,
         profile_id: bot.id,
         content: text.slice(0, 300),
-        score: Math.floor(Math.random() * 4),
+        score: Math.floor(Math.random() * 7),
       })
       if (!error) {
         replied++
@@ -78,27 +79,28 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── vote drift on every recent post: mostly rising, sometimes dipping ────
+  // ── vote drift on every recent post — bigger swings (Michael: more up AND
+  // down votes). Mostly rising, but real downvotes too ─────────────────────
   let voted = 0
   for (const p of posts) {
-    const delta = Math.random() < 0.82
-      ? 1 + Math.floor(Math.random() * 6) // upvotes
-      : -(1 + Math.floor(Math.random() * 2)) // downvotes
+    const delta = Math.random() < 0.76
+      ? 1 + Math.floor(Math.random() * 10) // upvotes 1-10
+      : -(1 + Math.floor(Math.random() * 4)) // downvotes 1-4
     const { error } = await admin.from('hall_posts')
       .update({ score: Math.max(0, (p.score ?? 0) + delta) })
       .eq('id', p.id)
     if (!error) voted++
   }
 
-  // comments drift a little too
+  // comments drift too — most of them move each run now
   const { data: comments } = await admin.from('hall_comments')
     .select('id, score')
-    .gte('created_at', new Date(Date.now() - 6 * 3600 * 1000).toISOString())
-    .limit(300)
+    .gte('created_at', new Date(Date.now() - 12 * 3600 * 1000).toISOString())
+    .limit(600)
   for (const c of comments ?? []) {
-    if (Math.random() < 0.5) continue
+    if (Math.random() < 0.3) continue
     await admin.from('hall_comments')
-      .update({ score: Math.max(0, (c.score ?? 0) + (Math.random() < 0.85 ? 1 + Math.floor(Math.random() * 3) : -1)) })
+      .update({ score: Math.max(0, (c.score ?? 0) + (Math.random() < 0.8 ? 1 + Math.floor(Math.random() * 4) : -(1 + Math.floor(Math.random() * 2)))) })
       .eq('id', c.id)
   }
 

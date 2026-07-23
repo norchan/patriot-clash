@@ -24,18 +24,16 @@ const MAX_EDGE_DEG = 2.3 // skip absurd cross-country hull edges
 const dist = (a: HallDot, lat: number, lng: number) =>
   Math.hypot(a.lat - lat, (a.lng - lng) * Math.cos((lat * Math.PI) / 180))
 
-export default function BattleMap({ halls, height = '60vh', signedIn = false, homeGymId = null, homeCenter = null, collapsible = false }: {
+export default function BattleMap({ halls, height = '60vh', signedIn = false, homeGymId = null, homeCenter = null }: {
   halls: HallDot[]
   height?: string
   signedIn?: boolean
   homeGymId?: string | null
   homeCenter?: { lat: number; lng: number } | null // signed-in: open over the assigned hall
-  collapsible?: boolean // open on load; a chevron lets people tuck the map away
 }) {
   const router = useRouter()
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
-  const [hidden, setHidden] = useState(false)
   const [finder, setFinder] = useState(false)
   const [query, setQuery] = useState('')
   const [locating, setLocating] = useState(false)
@@ -240,14 +238,8 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
 
   return (
     <div>
-    {collapsible && (
-      <button onClick={() => setHidden(h => !h)}
-        className="mb-2 ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black text-gray-400 hover:text-white bg-gray-900 border border-gray-800 transition">
-        {hidden ? '▼ Show map' : '▲ Hide map'}
-      </button>
-    )}
     <div className="relative w-full overflow-hidden rounded-2xl border border-gray-800"
-      style={{ height, display: hidden ? 'none' : undefined }}>
+      style={{ height }}>
       {/* w-full h-full is load-bearing: mapbox-gl.css forces .mapboxgl-map to
           position:relative (beating our `absolute`), so inset-0 alone
           collapses to 0 height */}

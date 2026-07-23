@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { ArrowLeft, Swords, Check } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
@@ -18,7 +18,13 @@ const BODY_KEY = 'pvp_fighter'
 const HEAD_KEY = 'pvp_head'
 
 export default function MyFighterPage() {
+  return <Suspense fallback={<div className="min-h-screen bg-gray-950" />}><MyFighterInner /></Suspense>
+}
+
+function MyFighterInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const welcome = searchParams.get('welcome') === '1' // new-player onboarding step
   const { profile } = useProfile()
   const isDem = profile?.party === 'democrat'
   const partySuffix = isDem ? 'dem' : 'rep'
@@ -61,13 +67,27 @@ export default function MyFighterPage() {
     setSaved(true); setTimeout(() => setSaved(false), 1200)
   }
 
+  // Onboarding skip: keep the default body + own head and head into the game.
+  function skipToGame() {
+    save('fighter1', null)
+    router.push('/map')
+  }
+
   return (
-    <div className="min-h-screen bg-gray-950 pb-10">
+    <div className="min-h-screen bg-gray-950 pb-28">
       <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-gray-800">
-        <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>
-        <h1 className="text-white font-bold text-lg">My Fighter</h1>
+        {!welcome && <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>}
+        <h1 className="text-white font-bold text-lg">{welcome ? 'Build your fighter' : 'My Fighter'}</h1>
         {saved && <span className="ml-auto text-green-400 text-xs font-bold">Saved ✓</span>}
       </div>
+
+      {welcome && (
+        <div className="px-4 pt-3">
+          <p className="text-gray-400 text-sm">
+            Last step — pick a body and a head for your street fighter. Not sure? <span className="text-white font-bold">Skip</span> it and we&apos;ll give you one; you can change it anytime.
+          </p>
+        </div>
+      )}
 
       {/* Live 3D preview — the exact fighter opponents will see in PvP */}
       <div className="relative mx-auto" style={{ width: '100%', maxWidth: 480, aspectRatio: '1 / 1' }}>
@@ -132,6 +152,21 @@ export default function MyFighterPage() {
           Tap a body and a head — it saves instantly and this exact fighter shows up in your next PvP battle.
         </p>
       </div>
+
+      {/* onboarding: fixed action bar — Skip (default fighter) or enter the game */}
+      {welcome && (
+        <div className="fixed bottom-0 inset-x-0 z-20 bg-gray-950/95 backdrop-blur border-t border-gray-800 px-4 py-3 flex items-center gap-3 max-w-[520px] mx-auto">
+          <button onClick={skipToGame}
+            className="px-5 py-3.5 rounded-2xl font-bold text-gray-300 bg-gray-900 border border-gray-700 hover:text-white">
+            Skip
+          </button>
+          <button onClick={() => { save(body, head); router.push('/map') }}
+            className="flex-1 py-3.5 rounded-2xl font-black text-lg text-white"
+            style={{ background: isDem ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : 'linear-gradient(135deg,#dc2626,#b91c1c)' }}>
+            Enter the game →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

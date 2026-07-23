@@ -20,7 +20,7 @@ export default async function HomePage() {
   if (userId) {
     const { data } = await admin
       .from('profiles')
-      .select('id, username, party, fp_balance, avatar_url, total_battles_won, home_gym_id, gyms!profiles_home_gym_id_fkey(latitude, longitude)')
+      .select('id, username, party, onboarded, fp_balance, avatar_url, total_battles_won, home_gym_id, gyms!profiles_home_gym_id_fkey(latitude, longitude)')
       .eq('clerk_user_id', userId)
       .single()
     if (!data) {
@@ -28,7 +28,10 @@ export default async function HomePage() {
       await createProfileForUser(userId, '', `player_${userId.slice(-6)}`)
       redirect('/onboarding')
     }
-    if (!data.party) redirect('/onboarding')
+    // new players must pick a party (+ gender) before the game — party alone
+    // can't gate this: the column is NOT NULL and defaults to democrat, which
+    // is exactly why everyone looked like a democrat. The onboarded flag does.
+    if (!data.onboarded) redirect('/onboarding')
     profile = data
   }
 
@@ -87,7 +90,7 @@ export default async function HomePage() {
       <main className="max-w-2xl mx-auto px-4 py-5 min-w-0">
         <h1 className="text-xl sm:text-2xl font-black text-white mb-2 text-center">Battle Map</h1>
         <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null}
-          homeCenter={profile?.gyms ? { lat: profile.gyms.latitude, lng: profile.gyms.longitude } : null} collapsible />
+          homeCenter={profile?.gyms ? { lat: profile.gyms.latitude, lng: profile.gyms.longitude } : null} />
 
         <h2 className="mt-6 mb-2 text-lg font-black text-center">
           <Link href="/boards" className="text-white hover:text-purple-300 transition">Boards</Link>
