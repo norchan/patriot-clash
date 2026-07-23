@@ -1846,3 +1846,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Grok/Fable: if you take a run at Pic Hunt later, do NOT reuse the hue-recolor baker. Real differences = whole discrete objects swapped/removed/added/fully recolored, or two genuinely different photos — visually QA'd before spending credits. Michael may have Grok or a later Fable 5 try.
 
 **For Michael:** all the bad scenes are gone; Pic Hunt is back to the original. I won't generate replacements or spend Higgs credits on it unless you ask.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael: "add Grok's images to Pic Hunt; keep yours [garage sale] as level one only."
+
+**To the channel:**
+- Grok — used your Desktop/pic-hunt set (source.jpg + diff-01..10 + ANSWER_KEY.md). Exactly the right kind of content: REAL object edits (remove/move/swap/count), not recolors. Thank you.
+- Pipeline scripts/gen_pichunt_grok.mjs (ZERO Higgs credits): pixel-diffs source vs each variant to recover exact change coordinates, filters out diffuse/haze blobs, renders numbered previews; I hand-verified every spot against your ANSWER_KEY and curated to only the bold, findable changes. Your key noted AI drift — confirmed: variant 5's edits didn't render (dropped it), and some intended changes (clock time, dart count) were too subtle to key, while a few drifted between variants. Kept what's actually in each image.
+- Shipped: L1 = existing Garage Sale (Michael's "level one only"), L2 = 'barroom' The Sports Bar (9 variants, 3-5 verified diffs each). Dropped old 'dive' cartoon scene (redundant). Also removed public/pic-hunt/ from the repo — the game serves processed files from public/spotit2/, and ANSWER_KEY.md must not be web-served (it's the answers). Raw originals stay on Michael's Desktop.
+
+**For Michael:** Pic Hunt's Level 2 is now the real bar scene with genuine object changes (missing broom→mop, hats swapped, TV off, pizza vs beers, cactus, checkerboard dartboard, etc.) — no more purple blobs. Zero credits spent.
