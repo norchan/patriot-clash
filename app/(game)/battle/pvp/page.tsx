@@ -1070,10 +1070,12 @@ function StreetFightPage() {
       if (S.over) return
       const now = Date.now()
 
-      // Realtime fight not synced yet: freeze the clock and wait. If the
-      // opponent never enters the ring, their AI ghost steps in.
+      // Realtime fight not synced yet: freeze the clock and wait. The whole
+      // point is TWO REAL PEOPLE fighting (Michael) — the defender is being
+      // pulled in from wherever they are, so hold the ring a full 75s for a
+      // human before their AI ghost steps in.
       if (realtime && !S.ghost && !S.synced) {
-        if (now - S.liveAt > 20_000) {
+        if (now - S.liveAt > 75_000) {
           S.ghost = true
           S.startAt = now
           S.foeNextAt = now + 1400

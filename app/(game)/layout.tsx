@@ -67,6 +67,39 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [activeGame, pathname])
+  // ── Incoming PvP fight: pull the defender into the ring from ANY screen ──
+  // Challenges arm instantly; the point is two REAL people fighting. On most
+  // screens we flash a banner and auto-route into the fight. If they're mid-
+  // game (arcade run / another battle), the banner stays with a JOIN button
+  // instead of yanking them out.
+  const [incomingFight, setIncomingFight] = useState<{ id: string; from: string } | null>(null)
+  useEffect(() => {
+    if (pathname.startsWith('/battle')) return // already in a ring
+    const check = async () => {
+      try {
+        const res = await fetch('/api/pvp/pending')
+        const d = await res.json()
+        const c = d.challenge
+        if (!c) return
+        const key = `pvp_pulled_${c.id}`
+        if (localStorage.getItem(key)) return
+        localStorage.setItem(key, '1')
+        setIncomingFight({ id: c.id, from: c.challenger_username })
+      } catch {}
+    }
+    check()
+    const iv = setInterval(check, 5000)
+    return () => clearInterval(iv)
+  }, [pathname])
+  useEffect(() => {
+    if (!incomingFight || activeGame) return // in-game: wait for their tap
+    const t = setTimeout(() => {
+      setIncomingFight(null)
+      router.push(`/battle/pvp?id=${incomingFight.id}`)
+    }, 1400)
+    return () => clearTimeout(t)
+  }, [incomingFight, activeGame, router])
+
   // unopened-DM badge on the Messages tab — polls lightly, refreshes on nav
   const [unreadDms, setUnreadDms] = useState(0)
   useEffect(() => {
@@ -166,6 +199,29 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
           })}
         </div>
       </nav>
+
+      {/* ── Incoming fight banner: auto-enters the ring (or JOIN if mid-game) ── */}
+      {incomingFight && (
+        <div className="fixed top-16 inset-x-4 z-[130] max-w-md mx-auto">
+          <div className="rounded-2xl border-2 border-red-500 bg-gray-950/95 backdrop-blur px-4 py-3 shadow-2xl flex items-center gap-3"
+            style={{ animation: 'fightPulse 0.8s ease-in-out infinite' }}>
+            <span className="text-3xl">⚔️</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-white font-black text-sm truncate">{incomingFight.from} called you out!</p>
+              <p className="text-red-300 text-xs font-bold">{activeGame ? 'Tap JOIN when ready — the ring is waiting' : 'Entering the ring…'}</p>
+            </div>
+            {activeGame && (
+              <button
+                onClick={() => { const f = incomingFight; setIncomingFight(null); router.push(`/battle/pvp?id=${f.id}`) }}
+                className="shrink-0 px-4 py-2.5 rounded-xl font-black text-white text-sm"
+                style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)' }}>
+                JOIN
+              </button>
+            )}
+          </div>
+          <style>{`@keyframes fightPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.02) } }`}</style>
+        </div>
+      )}
 
       {/* ── Leave-the-game confirm (nav / menu / Back during an active game) ── */}
       {pendingHref && (

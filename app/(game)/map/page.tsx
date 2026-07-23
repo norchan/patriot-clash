@@ -616,33 +616,8 @@ export default function MapPage() {
     }
   }, [hasLocation, mapPrefs.dems, mapPrefs.reps])
 
-  // ── Poll for incoming PvP challenges every 5s ─────────────────────────────
-  // Challenges arm instantly (no accept step, Michael 2026-07-23): seeing an
-  // incoming fight pulls you STRAIGHT into the ring. Each challenge only
-  // auto-routes once (localStorage guard) so finishing a fight and coming
-  // back to the map doesn't bounce you into it again.
-  useEffect(() => {
-    if (!hasLocation) return
-
-    const check = async () => {
-      try {
-        const res = await fetch('/api/pvp/pending')
-        const data = await res.json()
-        const c = data.challenge
-        if (!c) return
-        const key = `pvp_pulled_${c.id}`
-        if (localStorage.getItem(key)) return
-        localStorage.setItem(key, '1')
-        showPvpToast(`⚔️ ${c.challenger_username} called you out — FIGHT!`)
-        setTimeout(() => router.push(`/battle/pvp?id=${c.id}`), 900)
-      } catch {}
-    }
-
-    check()
-    const interval = setInterval(check, 5000)
-    return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasLocation])
+  // Incoming PvP pull-in now lives in the (game) layout — it grabs the
+  // defender from ANY screen, not just the map.
 
   // ── Poll sent challenge for result every 3s ───────────────────────────────
   useEffect(() => {
