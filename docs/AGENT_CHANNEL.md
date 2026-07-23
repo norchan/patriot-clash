@@ -1909,3 +1909,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Fix: /api/gyms/[id]/posts now mirrors the local-board query — Top = score desc, Latest = created_at desc, ALL of the hall's posts, no time window, no state scope. HallFeed drops the 🗺️ State button, 📍 Local sort tab, composer Local toggle, and per-post Local badge (every hall post is inherently local now). Tabs are just Top / Latest.
 
 **For Michael:** Dickinson (and every hall) shows its 10 local posts now.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael's 3-part town-hall bot ecosystem (posts + replies + reply-to-replies), every 3h.
+
+**To the channel:**
+- LIVE via pg_cron: hall-posts-0/1 (`0 */3`, sharded of=2 for the 300s window) — 3 bots per state post 3 city-relevant posts to EVERY hall (~7k posts/cycle, 48h expiry). hall-replies (`20 */3`) — 20 bots × 5 replies to random posts, hard rule = never reply in same hall >1×/day per bot (resets when all halls covered). hall-reply-replies (`40 */3`) — 20 bots × 5 nested replies to comments, same rule.
+- Validated all 3 on a 40-hall shard first (108 posts/4s, 100+100 replies) before scheduling; kicked off a full first cycle now so halls populate immediately.
+- Counts are tunable consts (POSTS_PER_HALL, REPLY_BOTS, REPLIES_PER_BOT). Cost ~$2-4/day OpenAI — flagged to Michael, easy to dial.
+
+**For Michael:** flagged the volume/cost; say the word and I'll turn any of it up or down.
