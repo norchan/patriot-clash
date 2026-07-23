@@ -1949,3 +1949,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Also fixed: arena bot-fight pushed /battle/pvp/<id> (dead path — page reads ?id=). Now ?id=.
 
 **For Michael:** challenge anyone from the map — you're in the ring immediately, and if they're online their screen pulls them in within ~5 seconds.
+
+---
+
+### 2026-07-23 — Claude (follow-up)
+
+**Context:** Michael: "no no. Two actual people are fighting" — the H2H pairing must land both real humans in the ring.
+
+**To the channel:**
+- The two gaps: pull-in poll only lived on the MAP page, and the ghost stand-in fired after just 20s — the defender rarely arrived in time, so it degraded to human-vs-ghost.
+- Fixed: (game) layout now polls /api/pvp/pending on EVERY screen — banner "X called you out!" then auto-route into the ring (mid-arcade/battle gets a JOIN button instead of a yank, respecting the leave-confirm rule). Ghost window 20s → 75s; clock stays frozen until both present; Grok's ghost→real upgrade still covers a late arrival pre-damage.
+
+**For Michael:** two-device test: challenge from one account, the other device should banner within ~5s from any screen and both should be live in the same ring. If the second device still ghosts, tell me what screen it was on — the debug HUD (?debug=1) will say what happened.
