@@ -243,7 +243,7 @@ export default function SpotItPage() {
             <div className="text-center w-full">
               {phase === 'start' && <>
                 <h2 className="text-3xl font-black" style={{ color: '#7dd3fc', textShadow: '0 0 16px #0ea5e9' }}>PIC HUNT</h2>
-                <p className="text-white/70 text-sm mt-2">Two pictures, 6 differences — a different set every round. Tap them on either picture; wrong taps cost 5 seconds.</p>
+                <p className="text-white/70 text-sm mt-2">Two pictures — find every difference before the clock runs out. A different set every round. Tap them on either picture; wrong taps cost 5 seconds.</p>
                 <p className="text-white/50 text-xs mt-1.5">25 FP per find · 250 FP for a clean sweep</p>
                 <button onClick={start} className="w-full mt-5 py-3.5 rounded-xl font-black text-lg"
                   style={{ background: 'radial-gradient(circle at 50% 30%,#38bdf8,#0369a1)' }}>▶ START</button>
@@ -269,7 +269,7 @@ export default function SpotItPage() {
         )}
       </div>
 
-      <p className="text-center text-white/40 text-[11px] mt-3">{BANK.length} scene{BANK.length===1?'':'s'} · 20 hand-made versions each — no two rounds alike. More scenes landing soon.</p>
+      <p className="text-center text-white/40 text-[11px] mt-3">{BANK.length} scene{BANK.length===1?'':'s'} · dozens of hand-made versions — no two rounds alike.</p>
 
       <style>{`
         @keyframes foundPop { 0% { transform: scale(0.3); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
