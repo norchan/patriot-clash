@@ -13,7 +13,7 @@ import { openaiChat } from '@/lib/openai'
 export const maxDuration = 300
 
 const POSTS_PER_HALL = 3
-const CONCURRENCY = 24
+const CONCURRENCY = 10 // kept modest + openaiChat retries 429s → few skips
 const TIME_BUDGET_MS = 275_000
 
 const SYSTEM = `You write short, believable community-board posts from residents of a specific US town.

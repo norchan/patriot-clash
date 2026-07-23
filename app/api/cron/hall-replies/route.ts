@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
   let replied = 0
   const bump = new Map<string, number>()
   let ti = 0
-  await Promise.all(Array.from({ length: 12 }, async () => {
+  await Promise.all(Array.from({ length: 8 }, async () => {
     while (ti < tasks.length) {
       const t = tasks[ti++]
       const text = await replyTo(t.post.link_title ?? t.post.content ?? '')
