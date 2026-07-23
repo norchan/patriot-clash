@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from './supabase-server'
 
@@ -6,8 +7,11 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from './supabas
 // Shared utilities for getting the current user and their game profile.
 // =============================================================================
 
-// Get the current user's game profile from Supabase
-export async function getCurrentProfile() {
+// Get the current user's game profile from Supabase.
+// Wrapped in React cache() so multiple calls within ONE request (a route that
+// calls requireProfile more than once, layout + page, etc.) share a single
+// Clerk auth() + DB lookup instead of repeating the round-trip.
+export const getCurrentProfile = cache(async () => {
   const { userId } = await auth()
   if (!userId) return null
 
@@ -20,7 +24,7 @@ export async function getCurrentProfile() {
 
   if (error || !data) return null
   return data
-}
+})
 
 // Get profile or throw a 401 response — use in protected API routes
 export async function requireProfile() {

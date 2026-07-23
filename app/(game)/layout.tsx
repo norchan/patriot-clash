@@ -50,6 +50,12 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
     else router.push(href)
   }
 
+  // Prefetch the bottom-nav destinations so tapping a tab loads instantly
+  // instead of fetching its JS + data on the tap.
+  useEffect(() => {
+    navItems.forEach(n => router.prefetch(n.href))
+  }, [router])
+
   // Intercept the Back button while in a game: keep them put and confirm first.
   useEffect(() => {
     if (!activeGame) return
