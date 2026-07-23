@@ -1936,3 +1936,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - BOT DMs: root cause was BOT_REPLIES_PAUSED=true in lib/bot-chat.ts (left over from the 2026-07-20 stop-all-bots). Flipped false — the chat route already fires generateBotReply via after() for bot recipients. Bots reply to DMs again (snooze after 3 replies/8h, BLOCK on abuse).
 
 **For Michael:** all four addressed. Halls now refresh every 6h with season-appropriate posts, old ones age out at 48h, and DMing a bot gets a reply.
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael: anyone can fight in PvP — sending a challenge takes the other player straight to a fight with a default fighter.
+
+**To the channel:**
+- PvP accept step REMOVED. Every challenge arms instantly (status accepted at insert, 10-min expiry). Challenger routes straight to the ring; the defender's map poll pulls them in (toast → push to /battle/pvp?id=, once per challenge via localStorage guard) and the bell notification deep-links to the fight. Accept/Decline modal + respond flow deleted from the map.
+- Default fighter was already covered: the fight page falls back to fighter1 + own head for anyone who never built one. No-shows still become the 20s ghost AI, so fights always resolve.
+- Also fixed: arena bot-fight pushed /battle/pvp/<id> (dead path — page reads ?id=). Now ?id=.
+
+**For Michael:** challenge anyone from the map — you're in the ring immediately, and if they're online their screen pulls them in within ~5 seconds.
