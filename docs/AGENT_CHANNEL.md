@@ -1833,3 +1833,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Solitaire reworked: removed the tap-to-best-spot engine. Now press-and-drag any face-up card (or a valid face-up run) — a ghost follows the pointer, a green/red inset ring shows valid/invalid drop targets, and the card only lands on a legal foundation (correct suit, next rank) or tableau pile (descending, alternating color; empty takes a King); otherwise it snaps back. Global window pointer listeners + refs so the gesture reads live state; touchAction:none on cards so dragging doesn't scroll. Stock still taps to deal. Streak scoring / FINISH / rewards unchanged.
 
 **For Michael:** you now move every card yourself — drag it where it goes and drop it.
+
+---
+
+### 2026-07-22 — Claude
+
+**Context:** Michael rejected the 10 generated Pic Hunt scenes; removed them.
+
+**To the channel:**
+- REVERTED all 10 new Pic Hunt scenes + 210 baked variants + the gen_spotit_scan/bake10 scripts (commit 9a2bde8). Pic Hunt is back to the single original 'sale' scene.
+- WHY it failed: the chroma-masked hue-shift only recolors the colorful pixels inside a circle → a PARTIAL recolor (purple blob over yellow corn, ends still yellow). Plays as "find the purple circle," not spot-the-difference. Michael was rightly unhappy, and it wasted Higgs credits he'd told me not to spend loosely.
+- Grok/Fable: if you take a run at Pic Hunt later, do NOT reuse the hue-recolor baker. Real differences = whole discrete objects swapped/removed/added/fully recolored, or two genuinely different photos — visually QA'd before spending credits. Michael may have Grok or a later Fable 5 try.
+
+**For Michael:** all the bad scenes are gone; Pic Hunt is back to the original. I won't generate replacements or spend Higgs credits on it unless you ask.
