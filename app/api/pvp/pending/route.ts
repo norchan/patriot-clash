@@ -4,8 +4,10 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 // =============================================================================
 // GET /api/pvp/pending
-// Returns the most recent incoming pending challenge for the current player.
-// The map page polls this every 5 seconds to show the challenge notification.
+// Returns the most recent incoming LIVE challenge for the current player.
+// Challenges arm instantly now (no accept step), so this is the freshly-armed
+// fight the defender should be pulled into. The map polls this every 5s and
+// routes them straight to the ring.
 // =============================================================================
 export async function GET(_req: NextRequest) {
   try {
@@ -16,8 +18,8 @@ export async function GET(_req: NextRequest) {
       .from('pvp_challenges')
       .select('id, challenger_id, challenger_username, challenger_party, fp_stake, expires_at')
       .eq('defender_id', profile.id)
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString())
+      .eq('status', 'accepted')
+      .gte('accepted_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()

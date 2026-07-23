@@ -159,7 +159,6 @@ export default function MapPage() {
   // PvP / player interaction state
   const [selectedPlayer, setSelectedPlayer] = useState<NearbyPlayer | null>(null)
   const [selfSheet, setSelfSheet] = useState(false)
-  const [incomingChallenge, setIncomingChallenge] = useState<IncomingChallenge | null>(null)
   const [sentChallenge, setSentChallenge] = useState<{ id: string; opponentName: string } | null>(null)
   const [challengeLoading, setChallengeLoading] = useState(false)
   const [pvpToast, setPvpToast] = useState('')
@@ -618,21 +617,32 @@ export default function MapPage() {
   }, [hasLocation, mapPrefs.dems, mapPrefs.reps])
 
   // ── Poll for incoming PvP challenges every 5s ─────────────────────────────
+  // Challenges arm instantly (no accept step, Michael 2026-07-23): seeing an
+  // incoming fight pulls you STRAIGHT into the ring. Each challenge only
+  // auto-routes once (localStorage guard) so finishing a fight and coming
+  // back to the map doesn't bounce you into it again.
   useEffect(() => {
-    if (!hasLocation || incomingChallenge || sentChallenge) return
+    if (!hasLocation) return
 
     const check = async () => {
       try {
         const res = await fetch('/api/pvp/pending')
         const data = await res.json()
-        if (data.challenge) setIncomingChallenge(data.challenge)
+        const c = data.challenge
+        if (!c) return
+        const key = `pvp_pulled_${c.id}`
+        if (localStorage.getItem(key)) return
+        localStorage.setItem(key, '1')
+        showPvpToast(`⚔️ ${c.challenger_username} called you out — FIGHT!`)
+        setTimeout(() => router.push(`/battle/pvp?id=${c.id}`), 900)
       } catch {}
     }
 
     check()
     const interval = setInterval(check, 5000)
     return () => clearInterval(interval)
-  }, [hasLocation, incomingChallenge, sentChallenge])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasLocation])
 
   // ── Poll sent challenge for result every 3s ───────────────────────────────
   useEffect(() => {
@@ -683,40 +693,6 @@ export default function MapPage() {
       showPvpToast('❌ Could not send challenge')
     } finally {
       setChallengeLoading(false)
-    }
-  }
-
-  // ── Respond to incoming challenge ─────────────────────────────────────────
-  async function respondToChallenge(accept: boolean) {
-    if (!incomingChallenge || !profile) return
-    const challenge = incomingChallenge
-    setIncomingChallenge(null)
-
-    if (!accept) {
-      fetch(`/api/pvp/${challenge.id}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accept: false }),
-      }).catch(() => {})
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/pvp/${challenge.id}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accept: true }),
-      })
-      const data = await res.json()
-
-      if (res.ok && (data.status === 'accepted' || data.status === 'completed')) {
-        // Accepting arms the fight — the challenger plays it; watch for the result
-        router.push(`/battle/pvp?id=${challenge.id}`)
-      } else {
-        showPvpToast(`❌ ${data.error || 'Battle failed'}`)
-      }
-    } catch {
-      showPvpToast('❌ Could not complete battle')
     }
   }
 
@@ -1595,46 +1571,6 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* ── Incoming challenge modal ──────────────────────────────────────── */}
-      {incomingChallenge && (
-        <div className="absolute inset-0 z-40 bg-black/70 flex items-center justify-center p-6">
-          <div className="bg-gray-900 rounded-2xl p-6 border border-purple-500/50 shadow-2xl w-full max-w-sm">
-            <div className="text-center mb-5">
-              <div className="text-6xl mb-3">⚔️</div>
-              <h2 className="text-white font-black text-xl">You're Challenged!</h2>
-              <p className="text-gray-400 text-sm mt-2">
-                <span className={`font-bold ${incomingChallenge.challenger_party === 'democrat' ? 'text-blue-400' : 'text-red-400'}`}>
-                  {incomingChallenge.challenger_username}
-                </span>{' '}
-                wants to battle you
-              </p>
-              <div className="mt-4 bg-purple-900/40 rounded-xl p-3 border border-purple-700">
-                <p className="text-purple-300 font-black text-xl">⚡ {incomingChallenge.fp_stake} FP</p>
-                <p className="text-gray-500 text-xs mt-1">at stake — winner takes all</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => respondToChallenge(false)}
-                className="py-3 rounded-xl font-bold transition text-purple-200 bg-purple-950/50 border border-purple-800 hover:bg-purple-900/50"
-              >
-                Decline
-              </button>
-              <button
-                onClick={() => respondToChallenge(true)}
-                disabled={(profile?.fp_balance || 0) < incomingChallenge.fp_stake}
-                className="py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-              >
-                ⚔️ Accept!
-              </button>
-            </div>
-            {profile && profile.fp_balance < incomingChallenge.fp_stake && (
-              <p className="text-red-400 text-xs text-center mt-2">Insufficient FP to accept</p>
-            )}
-          </div>
-        </div>
-      )}
       {/* ── Incoming message popup ────────────────────────────────────────── */}
       {incomingMsg && !activeChatUserId && (
         <div className="absolute bottom-20 left-4 right-4 z-40">

@@ -52,7 +52,7 @@ export default function ArenaPage() {
       if (res.ok) {
         // Bots auto-accept — straight into the ring, no waiting
         if (d.status === 'accepted') {
-          router.push(`/battle/pvp/${d.id}`)
+          router.push(`/battle/pvp?id=${d.id}`)
           return
         }
         setSent(s => new Set(s).add(o.id))

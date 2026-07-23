@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const isBot = defender.clerk_user_id?.startsWith('bot_')
 
-    // Block duplicate pending challenges between these two players
+    // Block duplicate live challenges between these two players
     const { data: existing } = await admin
       .from('pvp_challenges')
       .select('id')
@@ -53,14 +53,18 @@ export async function POST(req: NextRequest) {
         `and(challenger_id.eq.${profile.id},defender_id.eq.${defender_id}),` +
         `and(challenger_id.eq.${defender_id},defender_id.eq.${profile.id})`
       )
-      .eq('status', 'pending')
+      .in('status', ['pending', 'accepted'])
       .gt('expires_at', new Date().toISOString())
       .maybeSingle()
 
     if (existing) {
-      return NextResponse.json({ error: 'A challenge is already pending between you two' }, { status: 400 })
+      return NextResponse.json({ error: 'A challenge is already live between you two' }, { status: 400 })
     }
 
+    // EVERY challenge arms instantly (Michael 2026-07-23: anyone can fight —
+    // no accept step). The challenger goes straight to the ring; the defender
+    // gets pulled in by their map poll / notification. If they never show,
+    // the live fight's 20s no-show ghost takes over, so the fight always runs.
     const { data: challenge, error } = await admin
       .from('pvp_challenges')
       .insert({
@@ -71,11 +75,9 @@ export async function POST(req: NextRequest) {
         challenger_party: profile.party,
         defender_party: defender.party,
         fp_stake: FP_STAKE,
-        // Bots auto-accept: the challenge is immediately ARMED — the
-        // challenger fights it live on the fight screen
-        status: isBot ? 'accepted' : 'pending',
-        accepted_at: isBot ? new Date().toISOString() : null,
-        expires_at: new Date(Date.now() + 60 * 1000).toISOString(),
+        status: 'accepted',
+        accepted_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       })
       .select()
       .single()
@@ -89,9 +91,9 @@ export async function POST(req: NextRequest) {
       await notify(admin, {
         profileId: defender.id,
         type: 'pvp',
-        title: `⚔️ ${profile.username} challenged you!`,
-        body: `${FP_STAKE} FP at stake — open the map to accept`,
-        link: '/map',
+        title: `⚔️ ${profile.username} called you out!`,
+        body: `The fight is ON — ${FP_STAKE} FP at stake. Tap to jump in!`,
+        link: `/battle/pvp?id=${challenge.id}`,
       })
     }
 
