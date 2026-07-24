@@ -596,14 +596,40 @@ function StreetFightPage() {
     setTimeout(() => setHint(''), 1400)
   }
 
-  // Live-fight intro: WAIT for both fighters' models, then 3…2…1…FIGHT!
-  // and only then hand control to the player (and wake the bot AI)
+  // The SYNCED 3-2-1: fired on BOTH clients by the same presence event the
+  // moment both players are in the ring — one shared countdown, then the
+  // bell. The clock and inputs stay locked until startAt (Michael: the
+  // countdowns weren't synced — each client used to run its own on arrival).
+  function beginSyncedCountdown(preBanner?: string) {
+    const S = L.current
+    const lead = preBanner ? 900 : 0
+    S.startAt = Date.now() + lead + 3200
+    setAwaitingOpp(false)
+    if (preBanner) { setBanner(preBanner); sfx.bell(true) }
+    const seq: [number, () => void][] = [
+      [lead, () => { setBanner('3'); sfx.tap() }],
+      [lead + 800, () => { setBanner('2'); sfx.tap() }],
+      [lead + 1600, () => { setBanner('1'); sfx.tap() }],
+      [lead + 2400, () => { setBanner('FIGHT!'); sfx.bell(true) }],
+      [lead + 3200, () => setBanner('')],
+    ]
+    for (const [ms, fn] of seq) timersRef.current.push(setTimeout(fn, ms))
+  }
+
+  // Live-fight intro. Bot fights: local 3-2-1 then hand over control.
+  // REALTIME fights: no local countdown — straight into the ring (lobby
+  // overlay), the shared countdown fires when both players are present.
   useEffect(() => {
     // guests have NO profile — requiring one froze every guest in the intro
     // forever (fighters visible, fight never started, owner waited on a
     // presence that could never come). guest || profile lets them through.
     if (!isLive || phase !== 'intro' || liveStarted.current || (!profile && !guest) || !arenaReady) return
     liveStarted.current = true
+    if (realtime) {
+      L.current.liveAt = Date.now()
+      setPhase('live') // lobby shows; beginSyncedCountdown() runs on sync
+      return
+    }
     setBanner('3'); sfx.tap()
     const t1 = setTimeout(() => { setBanner('2'); sfx.tap() }, 800)
     const t2 = setTimeout(() => { setBanner('1'); sfx.tap() }, 1600)
@@ -611,11 +637,9 @@ function StreetFightPage() {
     const t4 = setTimeout(() => {
       setBanner('')
       L.current.liveAt = Date.now()
-      if (!realtime) {
-        // Bot fight: clock starts now and the AI wakes up
-        L.current.startAt = Date.now()
-        L.current.foeNextAt = Date.now() + 1600
-      }
+      // Bot fight: clock starts now and the AI wakes up
+      L.current.startAt = Date.now()
+      L.current.foeNextAt = Date.now() + 1600
       setPhase('live')
     }, 3000)
     timersRef.current.push(t1, t2, t3, t4)
@@ -732,23 +756,18 @@ function StreetFightPage() {
         const both = roles.includes('c') && roles.includes('d')
         if (both && !S.synced && !S.ghost) {
           S.synced = true
-          S.startAt = Date.now()
-          setAwaitingOpp(false)
-          setBanner('FIGHT!')
-          sfx.bell(true)
-          setTimeout(() => setBanner(''), 800)
+          // both clients see this same presence event → one SHARED 3-2-1
+          beginSyncedCountdown()
         } else if (both && S.ghost) {
           // opponent arrived AFTER the ghost stepped in. If the ghost fight is
           // still fresh (no damage either way), upgrade to the REAL fight.
           const fresh = S.myHp === 100 && S.foeHp === 100
           if (fresh) {
             S.ghost = false; S.synced = true
-            S.startAt = Date.now(); S.foeWindupAt = 0; S.foeNextAt = 0
+            S.foeWindupAt = 0; S.foeNextAt = 0
             setTelegraph(false)
             S.dbg.note = 'ghost->real upgrade'
-            setBanner((theirUsername?.toUpperCase() ?? 'OPPONENT') + ' IS HERE!')
-            sfx.bell(true)
-            setTimeout(() => setBanner(''), 1000)
+            beginSyncedCountdown((theirUsername?.toUpperCase() ?? 'OPPONENT') + ' IS HERE!')
           } else {
             S.dbg.note = 'opp arrived too late - staying ghost'
             console.warn('[pvp] opponent presence arrived after ghost fight progressed; staying ghost')
@@ -964,6 +983,8 @@ function StreetFightPage() {
     const now = Date.now()
     if (now < S.myCd || now < S.dodgeUntil) return false
     if (realtime && !S.ghost && !S.synced) { flashHint(`⏳ Waiting for ${theirUsername ?? 'opponent'} to enter...`); return false }
+    // shared countdown running — nobody swings before the bell
+    if (realtime && !S.ghost && S.synced && Date.now() < S.startAt) { return false }
     S.myCd = now + cd
     return true
   }
@@ -1135,7 +1156,8 @@ function StreetFightPage() {
       }
 
       const t = (now - S.startAt) / 1000
-      setClock(Math.max(0, Math.ceil(30 - t)))
+      // clamp at 30: during the shared countdown startAt is in the FUTURE
+      setClock(Math.max(0, Math.min(30, Math.ceil(30 - t))))
       if (t >= 30) { endFight(S.myHp > S.foeHp, false); return }
 
       // AI opponent only (bots / ghosts) — humans attack via the channel
