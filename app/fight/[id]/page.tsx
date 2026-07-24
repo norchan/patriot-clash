@@ -29,15 +29,16 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const owner = await getOwner(id)
   if (!owner) return { title: 'PoliticsGo' }
   const title = `⚔️ ${owner.username} challenges YOU to a fight!`
-  const description = `Think you can take ${owner.username} in the ring? One tap and you're in a live PoliticsGo street fight.`
+  const description = `Think you can take ${owner.username} in the ring? One tap and you're in a live PoliticsGo street fight — no account needed.`
+  // same big battle-map card as the homepage (Michael) — personalized headline
   return {
     title,
     description,
     openGraph: {
       title, description,
-      ...(owner.avatar_url ? { images: [{ url: owner.avatar_url }] } : {}),
+      images: [{ url: '/og.jpg', width: 2400, height: 1260, alt: 'The PoliticsGo national battle map' }],
     },
-    twitter: { card: 'summary', title, description },
+    twitter: { card: 'summary_large_image', title, description, images: ['/og.jpg'] },
   }
 }
 
