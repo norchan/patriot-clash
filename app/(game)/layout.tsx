@@ -75,6 +75,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const [incomingFight, setIncomingFight] = useState<{ id: string; from: string } | null>(null)
   useEffect(() => {
     if (pathname.startsWith('/battle')) return // already in a ring
+    if (pathname === '/lobby') return // the lobby lists fights — clicking IS the entry
     const check = async () => {
       try {
         const res = await fetch('/api/pvp/pending')

@@ -94,6 +94,16 @@ export default function ArenaPage() {
         </button>
       </div>
 
+      {/* the Fight Lobby — the press room where queued fights wait */}
+      <div className="max-w-md mx-auto px-4 mt-5">
+        <button onClick={() => router.push('/lobby')}
+          className="w-full py-3.5 rounded-2xl font-black text-white transition active:scale-[0.98] flex items-center justify-center gap-2"
+          style={{ background: 'linear-gradient(135deg,#1d4ed8,#7c3aed)', boxShadow: '0 6px 24px rgba(29,78,216,0.35)' }}>
+          🎙️ FIGHT LOBBY
+          <span className="text-white/70 text-xs font-bold">· your queued fights</span>
+        </button>
+      </div>
+
       {/* find a fight */}
       <div className="max-w-md mx-auto px-4 mt-5">
         <h2 className="flex items-center gap-2 text-[12px] font-black tracking-widest text-orange-300 mb-2"><Swords size={14} /> FIND A FIGHT</h2>
