@@ -29,6 +29,24 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview | nu
 
   const base: LinkPreview = { url: url.toString(), title: null, image: null, domain: url.hostname.replace(/^www\./, '') }
 
+  // TikTok's pages are JS-walled from datacenter IPs (og scrape gets nothing)
+  // but its oEmbed endpoint answers cleanly — real thumbnail + title, which is
+  // what the reels pager and feed cards need (A1 reels brief, Phase 2)
+  if (/(^|\.)tiktok\.com$/.test(url.hostname.replace(/^www\./, ''))) {
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 5000)
+      const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url.toString())}`, { signal: ctrl.signal })
+      clearTimeout(timer)
+      if (r.ok) {
+        const d: any = await r.json()
+        if (d?.title) base.title = String(d.title).slice(0, 200)
+        if (d?.thumbnail_url && /^https:\/\//.test(d.thumbnail_url)) base.image = d.thumbnail_url
+      }
+    } catch { /* fall through to the generic scrape */ }
+    if (base.image) return base
+  }
+
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 4500)

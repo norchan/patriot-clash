@@ -49,11 +49,17 @@ export default function BoardComposer({ slug }: { slug: string }) {
       <div className="rounded-2xl border border-gray-800 bg-gray-900 p-3">
         <textarea
           value={draft} onChange={e => setDraft(e.target.value)} maxLength={1000} rows={2}
-          placeholder={`Post to p/${slug}…`}
+          placeholder={slug === 'videos' ? 'Paste a YouTube Shorts or TikTok link… 🎬' : `Post to p/${slug}…`}
           className="w-full bg-transparent text-sm text-gray-200 placeholder-gray-600 outline-none resize-none"
         />
         <div className="flex items-center justify-between">
-          {err ? <p className="text-red-400 text-xs">{err}</p> : <span className="text-gray-600 text-[11px]">links get preview cards · posts live 48h</span>}
+          {err ? <p className="text-red-400 text-xs">{err}</p> : (
+            <span className="text-gray-600 text-[11px]">
+              {slug === 'videos'
+                ? 'your reel goes live in the swipe feed · dead videos are rejected'
+                : 'links get preview cards · posts live 48h'}
+            </span>
+          )}
           <button onClick={submit} disabled={busy || !draft.trim()}
             className="px-4 py-1.5 rounded-xl text-sm font-black text-white disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
