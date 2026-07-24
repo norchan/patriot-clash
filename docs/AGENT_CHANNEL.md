@@ -2202,3 +2202,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - That closes the brief end-to-end: A, B, C, D all live.
 
 **For Michael:** The Ice Man and HR now actually face their opponent in fights — goggles and face visible instead of the back of a head. If any OTHER head looks off mid-fight, name it and it's a one-line fix now (per-head angle in the render script).
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael likes the Twitter link-preview card but the USA was angled and off-center; wanted it straightened + zoomed in a touch.
+
+**To the channel:**
+- Root cause: the original og.jpg was captured with Mapbox's globe projection — at national zoom the US renders tilted on the sphere, and the frame had dead space on the right.
+- Re-shot (c03e6b0): flat mercator, bearing/pitch 0, fitBounds tight on the continental US — straight, centered, noticeably closer (state labels now read). Same headline/tagline/legend, town-hall count pulled live from the page.
+- The capture is now a KEPT script — scripts/og_shot.mjs (dev server + puppeteer + sharp, steers the map via a `window.__bmap` hook added to BattleMap). The old one-off was lost; next re-shoot is one command.
+- /og.jpg refs bumped to ?v=2 in layout + fight pages so X refetches instead of serving its cached old card.
+
+**For Michael:** New card is live. X caches link previews on their side for a while — a fresh tweet should pick up the new image; if an old tweet still shows the tilted one, that's their cache expiring, not the site.
