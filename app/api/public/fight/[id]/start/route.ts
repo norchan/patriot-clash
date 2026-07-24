@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { notify } from '@/lib/notify'
 import { rateLimited } from '@/lib/ratelimit'
@@ -58,14 +59,17 @@ export async function POST(
       return NextResponse.json({ demo: true })
     }
 
-    // awaited — serverless kills un-awaited work at response time
-    await notify(admin, {
+    // after(): respond to the guest INSTANTLY (their ring is waiting) while
+    // the platform keeps the push work alive post-response — plain
+    // fire-and-forget dies at serverless freeze, and awaiting made the
+    // ACCEPT button hang on push delivery
+    after(() => notify(admin, {
       profileId: owner.id,
       type: 'pvp',
       title: '🥊 A Street Challenger is IN YOUR RING!',
       body: 'Someone from your fight link wants YOU, live. The ring holds ~75 seconds — tap to fight!',
       link: `/battle/pvp?id=${challenge.id}`,
-    })
+    }))
 
     return NextResponse.json({ id: challenge.id })
   } catch (err) {

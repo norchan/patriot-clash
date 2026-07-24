@@ -100,7 +100,10 @@ function StreetFightPage() {
   // fights the owner's fighter (AI at their level) right in the browser —
   // sign-up is pitched AFTER the fight, not before.
   const guestVs = searchParams.get('vs')
-  const guest = searchParams.get('guest') === '1' && !!guestVs
+  // guest=1 alone is enough: real street fights arrive as ?id=<uuid>&guest=1
+  // (no vs param — requiring vs left the flag false and the page tried the
+  // AUTHED challenge API, 404-looping on "Loading fight..." forever)
+  const guest = searchParams.get('guest') === '1'
   const { profile, loading: profileLoading } = useProfile()
 
   const [challenge, setChallenge] = useState<ChallengeData | null>(null)
@@ -242,6 +245,7 @@ function StreetFightPage() {
           return
         }
         // demo fallback: the owner's fighter on AI autopilot
+        if (!guestVs) { setPhase('aborted'); return }
         const res = await fetch(`/api/public/fight/${guestVs}`)
         if (!res.ok) { setPhase('aborted'); return }
         setChallenge(await res.json())
