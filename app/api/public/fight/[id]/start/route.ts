@@ -26,7 +26,9 @@ export async function POST(
     ])
     if (!owner || !guest) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // one live street fight per owner at a time — extra guests get the demo
+    // a street fight vs this owner is already armed → the guest REJOINS that
+    // ring instead of getting a demo (kills the confusing retest loop where
+    // a second ACCEPT within 10 min silently downgraded to AI + /arena ping)
     const { data: existing } = await admin
       .from('pvp_challenges')
       .select('id')
@@ -35,7 +37,17 @@ export async function POST(
       .eq('status', 'accepted')
       .gt('expires_at', new Date().toISOString())
       .maybeSingle()
-    if (existing) return NextResponse.json({ demo: true })
+    if (existing) {
+      after(() => notify(admin, {
+        profileId: owner.id,
+        type: 'pvp',
+        title: '🥊 A Street Challenger is IN YOUR RING!',
+        body: 'Someone from your fight link wants YOU, live. Tap to fight!',
+        link: `/battle/pvp?id=${existing.id}`,
+        dedupeUnreadLink: true, // no bell pile-up; push replaces via tag
+      }))
+      return NextResponse.json({ id: existing.id, rejoined: true })
+    }
 
     const guestParty = owner.party === 'democrat' ? 'republican' : 'democrat'
     const { data: challenge, error } = await admin

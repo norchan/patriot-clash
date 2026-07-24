@@ -49,13 +49,16 @@ export async function GET(
         .limit(1)
       if (!recent?.length) {
         // MUST await: serverless freezes at response time and kills
-        // fire-and-forget promises — un-awaited notify() never lands
+        // fire-and-forget promises — un-awaited notify() never lands.
+        // Purely informational (AI demo fight) — nothing to join, so the
+        // link goes home, NOT to /arena (Michael kept landing there
+        // expecting a fight to enter)
         await notify(admin, {
           profileId: owner.id,
           type: 'pvp',
-          title: '👀 Someone took a swing at your fighter!',
-          body: 'A challenger from your fight link is in the ring with your fighter right now. If they sign up, you\'ll get called out for real.',
-          link: '/arena',
+          title: '👀 Someone tried your fighter on autopilot',
+          body: 'A visitor from your fight link fought your fighter\'s AI. If they sign up, you\'ll get called out for real — nothing to do right now.',
+          link: '/',
         })
       }
     } catch { /* never block the fight on the ping */ }
