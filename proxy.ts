@@ -47,8 +47,10 @@ export default clerkMiddleware(async (auth, request) => {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and static files
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Skip Next.js internals and static files. glb/mp4/audio matter: without
+    // them the middleware bounced signed-out visitors' 3D-model requests to
+    // an HTML page and guest fights crashed ("This page couldn't load").
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|glb|gltf|bin|mp4|mp3|wav|ogg)).*)',
     '/(api|trpc)(.*)',
   ],
 }

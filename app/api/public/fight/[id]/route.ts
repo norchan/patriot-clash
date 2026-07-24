@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fighterLevel } from '@/lib/fighter'
 import { headMeta } from '@/config/heads'
+import { notify } from '@/lib/notify'
 
 // PUBLIC guest-fight data (no auth): a challenge-SHAPED object for the fight
 // screen's guest mode (/battle/pvp?guest=1&vs=<id>). The link owner is cast
@@ -32,6 +33,30 @@ export async function GET(
       .eq('id', id)
       .maybeSingle()
     if (!owner) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    // Heads-up push to the link owner: someone's fighting their fighter
+    // (Michael 2026-07-23 — he wants to KNOW when the link gets bites).
+    // Throttled to one ping per 30 minutes so reloads/rematches don't spam.
+    try {
+      const since = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const { data: recent } = await admin
+        .from('notifications')
+        .select('id')
+        .eq('profile_id', owner.id)
+        .eq('type', 'pvp')
+        .like('title', '%took a swing%')
+        .gte('created_at', since)
+        .limit(1)
+      if (!recent?.length) {
+        notify(admin, {
+          profileId: owner.id,
+          type: 'pvp',
+          title: '👀 Someone took a swing at your fighter!',
+          body: 'A challenger from your fight link is in the ring with your fighter right now. If they sign up, you\'ll get called out for real.',
+          link: '/arena',
+        }).catch(() => {})
+      }
+    } catch { /* never block the fight on the ping */ }
 
     // party-gate the head like the real fight route does
     const headParty = owner.head_id ? headMeta(owner.head_id)?.party : null
