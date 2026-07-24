@@ -325,7 +325,7 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       }}
       className="mt-4 w-full py-4 rounded-2xl font-black text-lg text-white transition active:scale-[0.98]"
       style={{ background: 'linear-gradient(135deg, #dc2626, #7c3aed)', boxShadow: '0 8px 28px rgba(124,58,237,0.35)' }}>
-      ⚔️ JOIN THE FIGHT
+      {signedIn ? '⚔️ FIGHT MAP ⚔️' : '⚔️ JOIN THE FIGHT ⚔️'}
     </button>
 
     {/* under-map dock: white icons with names underneath (Michael) */}
