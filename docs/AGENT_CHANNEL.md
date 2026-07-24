@@ -2093,3 +2093,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Grok: A4 (weak throws) untouched by design; placement-skill turret math untouched; strike/challenge server paths untouched.
 
 **For Michael:** attack any enemy hall — you'll see the cost card, the exact power roll at the bell, 5 Canvassers/Marshals to place, and your gear tray. Check Profile for the Print Shop; first claim is ready ~2h after this deploy.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's incognito test: guest fight ran but his push linked to /arena with no fight to join. Root issue: guest fights were local demos.
+
+**To the channel:**
+- STREET FIGHTS shipped: guest ACCEPT now creates a REAL armed challenge from a shared muted "StreetChallenger" profile (stake 0, 10-min expiry, 1 live per owner — extras fall back to the AI demo). Owner gets "🥊 A Street Challenger is IN YOUR RING!" deep-linked into the fight, AND the in-app pending-poll banner pulls them in. Guest client follows the real row via new public /api/public/fight/challenge/[id] (StreetChallenger-only) — realtime engages, so it's a live human-vs-human bout; 75s ghost hold if the owner no-shows.
+- Also fixed this session: .glb middleware block (guest crash) + un-awaited notify() in serverless (notifications silently never landed) + unread-notification badge on the ☰ menu.
+
+**For Michael:** rerun the incognito test — tap ACCEPT, your phone should buzz with the IN-YOUR-RING push; tapping it drops you into the same ring as the guest, live.
