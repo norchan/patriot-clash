@@ -394,7 +394,7 @@ export default function MapPage() {
         btn.type = 'button'
         btn.title = 'Zoom to my location'
         btn.setAttribute('aria-label', 'Zoom to my location')
-        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.2" stroke-linecap="round" style="display:block;margin:auto"><circle cx="12" cy="12" r="6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>'
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.2" stroke-linecap="round" style="display:block;margin:auto"><circle cx="12" cy="12" r="6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>'
         btn.addEventListener('click', () => {
           const l = displayedLocRef.current ?? locationRef.current
           if (l && map.current) map.current.flyTo({ center: [l.lng, l.lat], zoom: 16, pitch: 30 })
@@ -1231,38 +1231,39 @@ export default function MapPage() {
           together). Every pill: same height, same glass, same radius. Row 1
           is status (party home · FP · steps), row 2 is actions. ─────────── */}
       <div className="absolute left-4 z-20 flex flex-col gap-1.5" style={{ top: 'calc(1rem + env(safe-area-inset-top))' }}>
-        <div className="flex items-stretch gap-1.5 flex-wrap">
-          <div className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full pl-1 pr-3 flex items-center gap-1.5">
-            {/* party home button → the battlemap home page. BIG hit target
-                (Michael: "I have to click it a bunch") — the icon rides in a
-                full-height 36px round button, not a 16px sliver */}
-            <button onClick={() => router.push('/')} aria-label="Battle Map home"
-              className="h-9 -my-px flex items-center gap-1.5 pr-1 active:scale-95 transition">
-              <span className="w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ background: `${partyColor}26` }}>
-                <Home size={20} strokeWidth={2.6} style={{ color: partyColor }} />
-              </span>
-              <span className="text-white text-xs font-bold">
-                {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
-              </span>
-            </button>
-            <div className="w-px h-3.5 bg-white/15" />
-            {/* Tap FP → shop */}
-            <button onClick={() => router.push('/shop')}
-              className="text-yellow-400 text-xs font-bold hover:text-yellow-300 active:scale-95 transition whitespace-nowrap">
-              ⚡ {profile?.fp_balance?.toLocaleString() || 0}
-            </button>
-          </div>
-          {/* Local Players → active players screen (left of the step counter) */}
-          <button onClick={() => router.push('/active')}
-            className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center gap-1.5 hover:bg-purple-900/60 active:scale-95 transition">
-            <span className="text-xs">✊</span>
-            <span className="text-white text-xs font-bold whitespace-nowrap">Local Players</span>
+        {/* ONE status bar (Michael): party/home · FP · Local Players · steps
+            joined in a single pill, hairline dividers between segments */}
+        <div className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full pl-1 pr-2.5 flex items-center gap-1.5 max-w-[calc(100vw-2rem)]">
+          {/* party home button → the battlemap home page. BIG hit target —
+              the icon rides in a 28px disc on a full-height button */}
+          <button onClick={() => router.push('/')} aria-label="Battle Map home"
+            className="h-9 flex items-center gap-1.5 shrink-0 active:scale-95 transition">
+            <span className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ background: `${partyColor}26` }}>
+              <Home size={20} strokeWidth={2.6} style={{ color: partyColor }} />
+            </span>
+            <span className="text-white text-[11px] font-bold">
+              {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
+            </span>
           </button>
+          <div className="w-px h-3.5 bg-white/15 shrink-0" />
+          {/* Tap FP → shop */}
+          <button onClick={() => router.push('/shop')}
+            className="text-yellow-400 text-[11px] font-bold hover:text-yellow-300 active:scale-95 transition whitespace-nowrap shrink-0">
+            ⚡ {profile?.fp_balance?.toLocaleString() || 0}
+          </button>
+          <div className="w-px h-3.5 bg-white/15 shrink-0" />
+          {/* Local Players → active players screen */}
+          <button onClick={() => router.push('/active')}
+            className="flex items-center gap-1 active:scale-95 transition shrink-0">
+            <span className="text-[11px]">✊</span>
+            <span className="text-white text-[11px] font-bold whitespace-nowrap">Local Players</span>
+          </button>
+          <div className="w-px h-3.5 bg-white/15 shrink-0" />
           {/* Steps — tap opens the Step Tracker */}
           <button onClick={() => router.push('/steps')}
-            className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center active:scale-95 transition">
-            <span className="text-white text-xs font-bold whitespace-nowrap">👟 {steps.toLocaleString()}</span>
+            className="text-white text-[11px] font-bold whitespace-nowrap active:scale-95 transition shrink-0">
+            👟 {steps.toLocaleString()}
           </button>
         </div>
 
@@ -1690,6 +1691,17 @@ export default function MapPage() {
         }
         .mapboxgl-popup-tip {
           border-top-color: rgba(17, 24, 39, 0.95) !important;
+        }
+        /* zoom stack (Michael): bigger 40px targets, centered under the ☰
+           menu (☰ is 40px wide at the same computed right offset) */
+        .mapboxgl-ctrl-top-right {
+          top: calc(3.75rem + env(safe-area-inset-top));
+          right: calc(max(0px, (100vw - 28rem) / 2) + 12px);
+        }
+        .mapboxgl-ctrl-top-right .mapboxgl-ctrl { margin: 0 !important; }
+        .mapboxgl-ctrl-top-right .mapboxgl-ctrl-group button {
+          width: 40px !important;
+          height: 40px !important;
         }
       `}</style>
     </div>
