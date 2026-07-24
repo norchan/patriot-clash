@@ -1664,7 +1664,7 @@ function StreetFightPage() {
           const attack = (
             <div className="relative select-none" style={{ width: 138, height: 138 }}>
               {/* N head kick · S low kick · W LEFT punch · E RIGHT punch ·
-                  CENTER special · ⚡ power tucked in the NW corner */}
+                  CENTER special (⚡ power button removed — Michael 2026-07-24) */}
               <button title="Head kick (high)" className={base} style={{ top: 0, left: 47 }}
                 onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerHighKick() }}>🦵</button>
               <button title="Leg kick (low)" className={base} style={{ bottom: 0, left: 47 }}
@@ -1676,10 +1676,6 @@ function StreetFightPage() {
               <button title="Special (full power bar)"
                 className={`${base} ${meter >= 100 ? 'bg-yellow-500/50 border-yellow-300/60 animate-pulse' : ''}`} style={{ top: 47, left: 47 }}
                 onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerSpecial() }}>★</button>
-              <button title="Power (spend meter — next hit lands harder)"
-                className={`${base} ${powerArmed ? 'bg-yellow-500/50 border-yellow-300/60' : ''}`}
-                style={{ top: 0, left: 0, transform: 'scale(0.82)' }}
-                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPower() }}>⚡</button>
             </div>
           )
           const swallow = {
@@ -1734,7 +1730,7 @@ function StreetFightPage() {
         ) : phase === 'live' ? (
           layout === 'portrait' ? null : (
             <div className="text-center space-y-1">
-              <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ⚡ power · ★ special</p>
+              <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ★ special</p>
               <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — land hits to fill the ⚡ bar</p>
             </div>
           )
