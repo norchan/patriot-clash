@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Menu, Plus, LayoutGrid, X, Play } from 'lucide-react'
 import PostActions from '@/components/PostActions'
 import { videoEmbed } from '@/lib/video-embed'
+import { ReelCard, type ReelItem } from '@/components/ReelsViewer'
 
 // THE BOARDS DECK — the reddit-app-style psub reader under the battle map.
 // ☰ menu + swipeable tab strip (p/all first), active tab underlined; cards
@@ -233,22 +234,23 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                 <img src={p.image_url} alt="" loading="lazy"
                   className="mt-2 w-full max-h-[540px] object-cover rounded-2xl border border-gray-700/80" />
               )}
-              {/* video links: on p/videos the player runs RIGHT IN THE FEED,
-                  reels-style and big; on other boards it's a thumbnail +
-                  play badge and the post page carries the player */}
+              {/* video links: on p/videos a tap goes FULLSCREEN — swipe up
+                  for the next video, reels-style (Michael); on other boards
+                  it's a thumbnail + play badge and the post page carries
+                  the player */}
               {(() => {
                 const v = videoEmbed(p.link_url)
                 if (!v) return null
                 if (tab === 'videos') {
-                  return (
-                    <div className={`mt-2 rounded-2xl overflow-hidden border border-gray-800 bg-black mx-auto ${v.vertical ? 'w-full max-w-[340px]' : 'w-full'}`}
-                      style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9' }}
-                      onClick={e => e.stopPropagation()}>
-                      <iframe src={v.src} className="w-full h-full" loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen title="Video" />
-                    </div>
-                  )
+                  const items: ReelItem[] = []
+                  let index = 0
+                  for (const q of posts) {
+                    const qv = videoEmbed(q.link_url)
+                    if (!qv) continue
+                    if (q.id === p.id) index = items.length
+                    items.push({ id: q.id, kind: qv.kind, videoId: qv.id, vertical: qv.vertical, thumb: qv.thumb, title: q.link_title ?? q.content, username: q.username })
+                  }
+                  return <ReelCard items={items} index={index} />
                 }
                 return (
                   <div className={`mt-2 relative rounded-2xl overflow-hidden border border-gray-700/80 bg-black ${v.vertical ? 'max-w-[300px]' : ''}`}

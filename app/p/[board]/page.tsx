@@ -7,6 +7,7 @@ import PsubNav from '@/components/PsubNav'
 import BoardBanner from '@/components/BoardBanner'
 import { videoEmbed } from '@/lib/video-embed'
 import PostActions from '@/components/PostActions'
+import { ReelCard, type ReelItem } from '@/components/ReelsViewer'
 
 // P/ BOARDS (psubs) — the public post boards. p/all + party windows, topic
 // boards (videos, space...), team boards, state boards, one local board per
@@ -67,6 +68,13 @@ export default async function BoardPage({ params, searchParams }: {
 
   const newest = sort === 'new'
   const posts = await fetchBoardPosts(admin, b, newest ? 'new' : 'top', 60)
+  // fullscreen reels pager (Michael): every video card opens the pager at its
+  // own slot and keeps swiping through the rest of this feed's videos
+  const reelItems: ReelItem[] = (posts ?? []).flatMap((q: any) => {
+    const qv = videoEmbed(q.link_url)
+    return qv ? [{ id: q.id, kind: qv.kind, videoId: qv.id, vertical: qv.vertical, thumb: qv.thumb, title: q.link_title ?? q.content, username: q.profiles?.username }] : []
+  })
+  const reelIndex = new Map(reelItems.map((it, i) => [it.id, i]))
   const dbBoard = b.kind === 'board' ? b.board : null
   const isLocal = dbBoard?.category === 'local'
   const postable = !!dbBoard && !isLocal
@@ -179,19 +187,8 @@ export default async function BoardPage({ params, searchParams }: {
                   <img src={p.image_url} alt="" className="mt-2 w-full rounded-2xl border border-gray-700/80 max-h-[540px] object-cover" loading="lazy" />
                 )}
               </Link>
-              {/* p/videos: the video PLAYS right in the feed, reels-sized */}
-              {(() => {
-                const v = videoEmbed(p.link_url)
-                if (!v) return null
-                return (
-                  <div className={`mt-2 rounded-2xl overflow-hidden border border-gray-800 bg-black ${v.vertical ? 'max-w-[300px] mx-auto' : ''}`}
-                    style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9' }}>
-                    <iframe src={v.src} className="w-full h-full" loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen title="Video" />
-                  </div>
-                )
-              })()}
+              {/* videos: tap → FULLSCREEN pager, swipe up = next (Michael) */}
+              {reelIndex.has(p.id) && <ReelCard items={reelItems} index={reelIndex.get(p.id)!} />}
               <PostActions kind="post" id={p.id} postId={p.id} score={p.score ?? 0} commentCount={p.comment_count ?? 0} />
             </article>
           ))}
