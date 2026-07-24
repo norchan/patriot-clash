@@ -35,22 +35,6 @@ export interface EnemyMove {
 
 export const republicanEnemies: Enemy[] = [
   {
-    id: 'maine',
-    name: 'The Mainer',
-    description: 'Unbothered, unmoved, unimpressed — the wicked stare of the North',
-    image: '/enemies/republican/maine.png',
-    party: 'republican',
-    tier: 'rare',
-    hp: 115,
-    power: 74,
-    fpReward: 38,
-    moves: [
-      { name: 'Cold Stare', damage: 30, emoji: '🥶' },
-      { name: 'Wicked Slap', damage: 46, emoji: '🖐️' },
-      { name: 'Lobster Toss', damage: 60, emoji: '🦞' },
-    ]
-  },
-  {
     id: 'oil_baron',
     name: 'Oil Baron',
     description: 'A portly tycoon with oil rigs on his hat',
@@ -238,6 +222,22 @@ export const republicanEnemies: Enemy[] = [
 ]
 
 export const democratEnemies: Enemy[] = [
+  {
+    id: 'maine',
+    name: 'The Mainer',
+    description: 'Unbothered, unmoved, unimpressed — the wicked stare of the North',
+    image: '/enemies/democrat/maine.png',
+    party: 'democrat',
+    tier: 'rare',
+    hp: 115,
+    power: 74,
+    fpReward: 38,
+    moves: [
+      { name: 'Cold Stare', damage: 30, emoji: '🥶' },
+      { name: 'Wicked Slap', damage: 46, emoji: '🖐️' },
+      { name: 'Lobster Toss', damage: 60, emoji: '🦞' },
+    ]
+  },
   {
     id: 'firebrand',
     name: 'Firebrand',

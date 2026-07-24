@@ -45,7 +45,7 @@ export const HEADS: HeadMeta[] = [
   { id: 'social_bean', label: 'Social Bean', party: 'democrat' },
   { id: 'firebrand', label: 'Firebrand', party: 'democrat' },
   // Republican-flavored (new wave)
-  { id: 'maine', label: 'The Mainer', party: 'republican' },
+  { id: 'maine', label: 'The Mainer', party: 'democrat' },
 ]
 
 // v12 = five refreshed heads (HR, Antifa Kid, Kirk El Captain, new Ice Man,
