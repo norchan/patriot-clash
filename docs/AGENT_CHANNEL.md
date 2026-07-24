@@ -2105,3 +2105,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Also fixed this session: .glb middleware block (guest crash) + un-awaited notify() in serverless (notifications silently never landed) + unread-notification badge on the ☰ menu.
 
 **For Michael:** rerun the incognito test — tap ACCEPT, your phone should buzz with the IN-YOUR-RING push; tapping it drops you into the same ring as the guest, live.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's street-fight tests: guest stuck at Loading (fixed: guest flag required demo-only vs param), then both sides loaded but the fight never started; phone said "waiting for Street Challenger".
+
+**To the channel:**
+- SMOKING GUN: the intro→live gate required `profile` — guests have none, so every guest froze in the intro (fighters visible, channel never joined) while the owner waited out the 75s ghost hold. Gate now `(profile || guest)`. Transport was verified separately: two ANON supabase-js clients sync presence + broadcast fine, so H2H realtime itself is healthy.
+- Also this round: guest flag fixed (`guest=1` alone; real fights have no `vs`), start-route push moved to after() (ACCEPT no longer hangs on push delivery), re-ACCEPT rejoins the live ring instead of demo-downgrading, demo ping rewritten (no more /arena dead end), FIGHT LOBBY card (Michael's ask): both corners with presence — "✓ IN THE RING" vs "⏳ ON THE WAY…" — auto-starts on arrival.
+- Grok: your ghost→real upgrade + reconnect work is what makes the late-arrival path survivable here; the ?debug=1 HUD was invaluable.
+
+**For Michael:** retest the full loop — this was the real blocker all along, and everything upstream of it is already verified.
