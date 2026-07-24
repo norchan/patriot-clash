@@ -167,3 +167,31 @@ describe('rateLimited', () => {
     expect(rateLimited(b, 5, 60_000)).toBe(false)
   })
 })
+
+// ── Print Shop farm (siege Phase B4) ─────────────────────────────────────────
+import { printShopReady, printShopNextInMs, PRINT_SHOP_RATE_MS, PRINT_SHOP_CAP } from '@/lib/farm'
+
+describe('printShopReady', () => {
+  const H = 3600 * 1000
+  it('produces nothing before the first cycle', () => {
+    expect(printShopReady(0)).toBe(0)
+    expect(printShopReady(2 * H - 1)).toBe(0)
+  })
+  it('one per 2 hours', () => {
+    expect(printShopReady(2 * H)).toBe(1)
+    expect(printShopReady(7 * H)).toBe(3)
+  })
+  it('hard-caps the stockpile — no AFK infinite mint', () => {
+    expect(printShopReady(60 * H)).toBe(PRINT_SHOP_CAP)
+    expect(printShopReady(365 * 24 * H)).toBe(PRINT_SHOP_CAP)
+  })
+  it('rejects garbage elapsed values', () => {
+    expect(printShopReady(-5)).toBe(0)
+    expect(printShopReady(NaN)).toBe(0)
+  })
+  it('countdown reaches zero exactly at the cycle boundary', () => {
+    expect(printShopNextInMs(0)).toBe(PRINT_SHOP_RATE_MS)
+    expect(printShopNextInMs(PRINT_SHOP_RATE_MS / 2)).toBe(PRINT_SHOP_RATE_MS / 2)
+    expect(printShopNextInMs(200 * H)).toBe(0) // capped: nothing more to wait for
+  })
+})

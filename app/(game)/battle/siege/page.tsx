@@ -10,7 +10,7 @@ import { SIEGE_ATTACKS, ATTACKS_FOR_PARTY, type SiegeAttackId } from '@/config/s
 // Siege Mode: attacking a town hall plays out over the fortified-hall
 // scene. The server stays fully authoritative twice over:
 //  - /api/gyms/[id]/challenge is called ONCE per 100 FP assault and rolls
-//    total damage + capture; swipes (rocks) and taps (ninjas) spend that
+//    total damage + capture; swipes (rocks) and taps (troops) spend that
 //    damage budget interactively.
 //  - the three party special buttons call /api/gyms/[id]/strike, which
 //    spends FP and rolls bonus damage server-side; the animations here
@@ -37,7 +37,7 @@ interface Projectile {
 
 interface Soldier {
   id: number
-  kind: 'ninja' | 'poor'
+  kind: 'troop' | 'poor'
   x: number; y: number     // current position (%)
   tx: number; ty: number   // fight position at the walls (%)
   flip: boolean            // mirror the sprite to face the travel direction
@@ -76,10 +76,10 @@ const ASSAULT_MAX_MS = 12000   // hard cap: an assault lasts at most 12 seconds
 const HALL_X = 50
 const HALL_Y = 47
 
-// Corner defense turrets (screen %). Every tick they may pick off a ninja —
-// the closer he is to a turret, the deadlier. Unlimited ninjas, but the
+// Corner defense turrets (screen %). Every tick they may pick off a troop —
+// the closer he is to a turret, the deadlier. The free troops are capped, and the
 // defenses terminate some of them: WHERE you drop them is the skill.
-// Ring of towers around the central keep (matches the base art) — ninjas
+// Ring of towers around the central keep (matches the base art) — troops
 // charging the center must run this gauntlet
 const DEFENSE_GUNS = [
   { x: 50, y: 33 },
@@ -89,8 +89,11 @@ const DEFENSE_GUNS = [
 ]
 const KILL_BASE = { march: 0.022, fight: 0.028 } // per 200ms tick
 
-const NINJA_RUN = ['/halls/soldier_run1.png', '/halls/soldier_run3.png', '/halls/soldier_run2.png']
-const NINJA_ATK = ['/halls/soldier_atk1.png', '/halls/soldier_atk3.png', '/halls/soldier_atk2.png']
+const TROOP_RUN = ['/halls/soldier_run1.png', '/halls/soldier_run3.png', '/halls/soldier_run2.png']
+const TROOP_ATK = ['/halls/soldier_atk1.png', '/halls/soldier_atk3.png', '/halls/soldier_atk2.png']
+// Free ground game per 100 FP assault (siege rework A2) — no unlimited spam;
+// pressure beyond this comes from owned gear and party specials
+const FREE_TROOPS = 5
 const POOR_RUN = ['/siege/poor_run1.png', '/siege/poor_run2.png']
 const POOR_ATK = ['/siege/poor_atk.png']
 
@@ -167,12 +170,21 @@ function SiegePage() {
   const [fx, setFx] = useState<Fx[]>([])
   const [shockwaves, setShockwaves] = useState<{ id: number; x: number; y: number }[]>([])
   const [strikeBusy, setStrikeBusy] = useState(false)
+  const [boostBusy, setBoostBusy] = useState(false)
   const [result, setResult] = useState<{ captured: boolean; damage: number; remaining: number } | null>(null)
+  // owned siege gear (firecracker/dynamite/rocket) for the in-assault tray
+  const [inv, setInv] = useState<Record<string, number>>({})
+  const [troopsLeft, setTroopsLeft] = useState(FREE_TROOPS)
+  const [powerFlash, setPowerFlash] = useState<number | null>(null)
 
-  // Higher-level attackers field deadlier, hardier ninjas
+  // Party ground game (siege rework A1): Democrats field Canvassers,
+  // Republicans field Marshals — same troops, party-true names
+  const troopName = profile?.party === 'republican' ? 'Marshals' : 'Canvassers'
+
+  // Higher-level attackers field deadlier, hardier troops
   const playerLevel = fighterLevel(profile?.total_battles_won ?? 0)
-  const ninjaPower = 1 + Math.min(1.5, (playerLevel - 1) * 0.12)  // +12%/level, cap +150%
-  const ninjaMaxHits = 4 + Math.min(6, Math.floor(playerLevel / 2)) // survive more turret shots
+  const troopPower = 1 + Math.min(1.5, (playerLevel - 1) * 0.12)  // +12%/level, cap +150%
+  const troopMaxHits = 4 + Math.min(6, Math.floor(playerLevel / 2)) // survive more turret shots
 
   const idRef = useRef(0)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -192,6 +204,7 @@ function SiegePage() {
     remaining: 0,      // authoritative defense after everything lands
     throwCount: 0,
     lastThrow: 0,
+    troopsUsed: 0,     // free units are CAPPED per assault (siege rework A2)
     ended: false,
   })
 
@@ -333,9 +346,15 @@ function SiegePage() {
       st.budget = Math.max(1, st.captured ? defense : st.damage)
       st.dealt = 0
       st.throwCount = 0
+      st.troopsUsed = 0
       st.ended = false
+      setTroopsLeft(FREE_TROOPS)
       setPhase('assault')
       setBanner('ASSAULT!')
+      // Honest power reveal (siege rework A3): flash the server's exact roll
+      // so nobody thinks free troops "almost took" a hall the roll capped
+      setPowerFlash(Math.round(st.budget))
+      schedule(2200, () => setPowerFlash(null))
       sfx.bell(true)
       siegeMusic.start()
       schedule(800, () => setBanner(''))
@@ -379,6 +398,56 @@ function SiegePage() {
       showToast('❌ Strike failed')
       setStrikeBusy(false)
     }
+  }
+
+  // ── Siege gear (rework B1-B3): owned consumables, spent server-side ──────
+  // Load the bag when the screen opens (GET also claims the daily freebie)
+  useEffect(() => {
+    fetch('/api/items').then(r => r.json())
+      .then(d => { if (d.items) setInv(d.items) })
+      .catch(() => {})
+  }, [])
+
+  async function useGear(item: 'firecracker' | 'dynamite' | 'rocket') {
+    const st = S.current
+    if (!gym || boostBusy || st.ended || st.captured) return
+    if (!location) { showToast('📍 Still finding your location...'); return }
+    if ((inv[item] ?? 0) <= 0) return
+    setBoostBusy(true)
+    try {
+      const res = await fetch(`/api/gyms/${gym.id}/boost`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item, latitude: location.lat, longitude: location.lng }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(`❌ ${data.message || data.error || 'Gear failed'}`)
+        setBoostBusy(false)
+        return
+      }
+      setInv(v => ({ ...v, [item]: Math.max(0, (v[item] ?? 0) - 1) }))
+      st.remaining = data.defense_remaining
+      // gear damage is REAL hall damage on top of the assault budget —
+      // dramatize the server's number
+      const x = HALL_X - 6 + Math.random() * 12, y = HALL_Y - 4 + Math.random() * 8
+      addFx({ boom: true, emoji: item === 'rocket' ? '🚀💥' : item === 'dynamite' ? '💣💥' : '🧨💥', x0: x, y0: y, x1: x, y1: y, size: item === 'rocket' ? 64 : 48, dur: 750 }, 800)
+      addSpark(x, y - 6, `-${data.damage.toLocaleString()}`, '#fbbf24')
+      const id = ++idRef.current
+      setShockwaves(w => [...w, { id, x, y }])
+      schedule(900, () => setShockwaves(w => w.filter(s => s.id !== id)))
+      setDefense(data.defense_remaining)
+      sfx.siegeBlow()
+      buzz(40)
+      // Option 1 capture rule (brief non-goal preserved): gear can NEVER
+      // finish a hall — be honest about the floor
+      if (data.defense_remaining <= 1) {
+        showToast('🛡️ Defenses can\'t fall below 1 — win an assault to capture!')
+      }
+    } catch {
+      showToast('❌ Gear failed')
+    }
+    setBoostBusy(false)
   }
 
   // Choreography per attack — returns total duration ms
@@ -542,18 +611,24 @@ function SiegePage() {
     })
   }
 
-  // ── Tap → deploy a ninja at the tap spot ──────────────────────────────────
+  // ── Tap → deploy one of the LIMITED free troops at the tap spot ──────────
   function deploySoldier(x: number, y: number) {
     const st = S.current
     if (st.ended) return
+    // Capped free units per assault (siege rework A2) — the horde is finite
+    if (st.troopsUsed >= FREE_TROOPS) {
+      showToast(`🪧 Out of ${troopName}! Use your gear or a special attack`)
+      return
+    }
     const rect = stageRef.current?.getBoundingClientRect()
     if (!rect) return
-    // Unlimited ninjas — the base's defenses thin the horde instead
+    st.troopsUsed++
+    setTroopsLeft(FREE_TROOPS - st.troopsUsed)
     const sx = (x / rect.width) * 100
     const tx = HALL_X - 8 + Math.random() * 16
     const soldier: Soldier = {
       id: ++idRef.current,
-      kind: 'ninja',
+      kind: 'troop',
       x: sx,
       y: (y / rect.height) * 100,
       tx,
@@ -563,7 +638,7 @@ function SiegePage() {
       spawnedAt: Date.now(),
       lastHit: 0,
       hits: 0,
-      maxHits: ninjaMaxHits, // higher-level players' ninjas survive longer
+      maxHits: troopMaxHits, // higher-level players' troops survive longer
     }
     soldiersRef.current = [...soldiersRef.current, soldier]
     setSoldiers(soldiersRef.current)
@@ -579,9 +654,9 @@ function SiegePage() {
       const st = S.current
       let changed = false
       const next = soldiersRef.current.map(s => {
-        // Base defenses fire on ninjas: per-tick death roll scaled by how
+        // Base defenses fire on troops: per-tick death roll scaled by how
         // close he is to the nearest turret — placement is the skill
-        if (s.kind === 'ninja' && (s.state === 'march' || s.state === 'fight')) {
+        if (s.kind === 'troop' && (s.state === 'march' || s.state === 'fight')) {
           // approximate live position: use start point early in the march
           const px = s.state === 'fight' || now - s.spawnedAt > MARCH_MS / 2 ? s.tx : s.x
           const py = s.state === 'fight' || now - s.spawnedAt > MARCH_MS / 2 ? s.ty : s.y
@@ -606,7 +681,7 @@ function SiegePage() {
         if (s.state === 'fight' && now - s.lastHit >= SOLDIER_HIT_MS && !st.ended) {
           changed = true
           if (s.kind === 'poor') chipStrike(strikePool.current.chunk, s.tx, s.ty - 6)
-          else applyDamage(st.budget * 0.03 * ninjaPower * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
+          else applyDamage(st.budget * 0.03 * troopPower * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
           const hits = s.hits + 1
           return hits >= s.maxHits
             ? { ...s, state: 'poof' as const, hits, lastHit: now }
@@ -627,7 +702,7 @@ function SiegePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
-  // ── Pointer input: short + still = tap (ninja), else swipe (throw) ───────
+  // ── Pointer input: short + still = tap (troop), else swipe (throw) ───────
   function onPointerDown(e: React.PointerEvent) {
     const rect = stageRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -730,7 +805,7 @@ function SiegePage() {
         </div>
       ))}
 
-      {/* ── soldiers (ninjas + the poor) ─────────────────────────────────── */}
+      {/* ── soldiers (party troops + the poor) ─────────────────────────────────── */}
       {soldiers.map(s => (
         <div key={s.id} className="absolute z-20 pointer-events-none" style={{
           left: `${s.x}%`,
@@ -750,7 +825,7 @@ function SiegePage() {
               <Flipbook
                 frames={s.kind === 'poor'
                   ? (s.state === 'fight' ? POOR_ATK : POOR_RUN)
-                  : (s.state === 'fight' ? NINJA_ATK : NINJA_RUN)}
+                  : (s.state === 'fight' ? TROOP_ATK : TROOP_RUN)}
                 cycleMs={s.state === 'fight' ? 640 : 330}
               />
             </span>
@@ -779,10 +854,46 @@ function SiegePage() {
         </div>
       ))}
 
-      {/* ── assault controls: party SPECIAL ATTACKS + hint ───────────────── */}
+      {/* ── power flash: the server's exact roll, shown honestly (A3) ────── */}
+      {powerFlash !== null && (
+        <div className="absolute top-24 inset-x-0 z-40 text-center pointer-events-none">
+          <span className="inline-block px-5 py-2 rounded-2xl font-black text-xl text-amber-300 bg-black/70 border border-amber-500/60"
+            style={{ textShadow: '0 0 14px #f59e0b' }}>
+            💥 ASSAULT POWER: {powerFlash.toLocaleString()} DEF
+          </span>
+        </div>
+      )}
+
+      {/* ── assault controls: GEAR TRAY + party SPECIAL ATTACKS + hint ───── */}
       {phase === 'assault' && (
         <div className="absolute bottom-3 left-3 right-3 z-30"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {/* owned gear — server-spent, real hall damage on top of the budget */}
+          <div className="flex justify-center gap-2 mb-2">
+            {(['firecracker', 'dynamite', 'rocket'] as const).map(itemId => {
+              const count = inv[itemId] ?? 0
+              const emoji = itemId === 'rocket' ? '🚀' : itemId === 'dynamite' ? '💣' : '🧨'
+              return (
+                <button key={itemId}
+                  onPointerDown={e => e.stopPropagation()}
+                  onPointerUp={e => e.stopPropagation()}
+                  onClick={() => useGear(itemId)}
+                  disabled={boostBusy || count <= 0}
+                  className="relative rounded-xl px-3 py-1.5 border backdrop-blur transition active:scale-95 disabled:opacity-35"
+                  style={{ background: 'rgba(10,14,26,0.85)', borderColor: count > 0 ? '#f59e0b' : '#374151' }}>
+                  <span className="text-xl leading-none">{emoji}</span>
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center justify-center">
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
+            {(inv.firecracker ?? 0) + (inv.dynamite ?? 0) + (inv.rocket ?? 0) === 0 && (
+              <span className="self-center text-gray-400 text-[10px] font-bold bg-black/55 rounded-full px-3 py-1">
+                📦 Out of gear — your Print Shop is making more
+              </span>
+            )}
+          </div>
           <p className="text-center text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1 drop-shadow">
             ⚡ Special Attacks
           </p>
@@ -809,7 +920,7 @@ function SiegePage() {
             })}
           </div>
           <p className="text-center text-white/90 text-xs font-bold bg-black/55 backdrop-blur rounded-full px-4 py-1.5 mx-auto w-max max-w-full pointer-events-none">
-            🪨 SWIPE to throw · 👆 TAP for ninjas — dodge the turrets!
+            🪨 SWIPE to throw · 👆 TAP: <span className={troopsLeft > 0 ? 'text-emerald-300' : 'text-red-400'}>{troopsLeft} {troopName} left</span>
           </p>
         </div>
       )}
@@ -830,6 +941,16 @@ function SiegePage() {
               </div>
             ) : (
               <>
+                {/* honest assault math (siege rework A3): the roll owns the
+                    ceiling — troops/throws just spend it, gear hits extra */}
+                <div className="bg-gray-900/95 rounded-2xl p-3.5 border border-gray-700">
+                  <p className="text-white text-sm font-black text-center">March on {gym.city_name} Town Hall — 100 FP</p>
+                  <p className="text-gray-400 text-[11px] text-center mt-1.5 leading-snug">
+                    Each assault rolls <span className="text-amber-300 font-black">~200–400 DEF</span> of attack power
+                    (revealed at the bell). Your <span className="text-white font-bold">{FREE_TROOPS} {troopName}</span> and
+                    throws spend that roll — <span className="text-amber-300 font-bold">gear 🧨💣🚀 and specials hit extra</span>.
+                  </p>
+                </div>
                 <button onClick={beginAssault} disabled={busy || (profile.fp_balance ?? 0) < 100}
                   className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black text-lg transition active:scale-95 shadow-2xl">
                   {busy ? '⏳ ...' : '⚔️ BEGIN ASSAULT (100 FP)'}

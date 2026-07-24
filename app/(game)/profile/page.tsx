@@ -151,6 +151,24 @@ export default function ProfilePage() {
     setTimeout(() => setSharedPost(''), 1500)
   }
   const [todaySteps, setTodaySteps] = useState<number | null>(null)
+  // Campaign HQ (Print Shop) — production status + claim
+  const [farm, setFarm] = useState<{ ready: number; cap: number; rate_hours: number; next_in_secs: number } | null>(null)
+  const [farmBusy, setFarmBusy] = useState(false)
+  useEffect(() => {
+    fetch('/api/farm').then(r => r.json()).then(d => { if (typeof d.ready === 'number') setFarm(d) }).catch(() => {})
+  }, [])
+  async function claimFarm() {
+    if (farmBusy) return
+    setFarmBusy(true)
+    try {
+      const res = await fetch('/api/farm', { method: 'POST' })
+      const d = await res.json()
+      if (res.ok && d.claimed > 0) {
+        setFarm(f => f ? { ...f, ready: 0, next_in_secs: f.rate_hours * 3600 } : f)
+      }
+    } catch {}
+    setFarmBusy(false)
+  }
   const [albumPhotos, setAlbumPhotos] = useState<{ id: string; url: string }[]>([])
   const [addingPhoto, setAddingPhoto] = useState(false)
   const [viewerStart, setViewerStart] = useState<number | null>(null)
@@ -582,6 +600,30 @@ export default function ProfilePage() {
             <p className="text-gray-400 text-xs">100 FP / 150 steps ›</p>
           </div>
         </button>
+      </div>
+
+      {/* Campaign HQ — the Print Shop farm (siege rework B4): slowly prints
+          siege firecrackers; claim adds them to the bag */}
+      <div className="px-4 mt-3">
+        <div className="w-full bg-gray-900 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-amber-500/15 flex items-center justify-center text-xl">🖨️</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-gray-500 text-xs">Campaign HQ · Print Shop</p>
+            {farm === null ? (
+              <p className="text-gray-500 text-sm font-bold">Loading…</p>
+            ) : farm.ready > 0 ? (
+              <p className="text-amber-300 font-black text-lg leading-tight">🧨 {farm.ready} firecracker{farm.ready === 1 ? '' : 's'} ready</p>
+            ) : (
+              <p className="text-gray-400 text-sm font-bold">Printing… next 🧨 in {Math.max(1, Math.ceil((farm.next_in_secs ?? 0) / 60))} min</p>
+            )}
+            <p className="text-gray-600 text-[10px]">1 every {farm?.rate_hours ?? 2}h · holds {farm?.cap ?? 10}</p>
+          </div>
+          <button onClick={claimFarm} disabled={!farm || farm.ready <= 0 || farmBusy}
+            className="px-4 py-2.5 rounded-xl font-black text-sm text-black transition active:scale-95 disabled:opacity-35"
+            style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+            {farmBusy ? '…' : 'CLAIM'}
+          </button>
+        </div>
       </div>
 
       {/* My Friends — private list, only you can see it */}
