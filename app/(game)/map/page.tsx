@@ -383,28 +383,25 @@ export default function MapPage() {
       pitch: 30,
     })
 
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
-
-    // Home button under the zoom/compass stack — fly back to where you are
-    const homeControl = {
-      onAdd() {
-        const div = document.createElement('div')
-        div.className = 'mapboxgl-ctrl mapboxgl-ctrl-group'
+    // Clean control stack (Michael): zoom in / zoom out / locate-me, ONE box.
+    // No compass (nobody rotates), no floating 📍 pill — the locate button is
+    // appended INTO mapbox's own zoom group so all three share a pill.
+    map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+    {
+      const zoomGroup = mapContainer.current?.querySelector('.mapboxgl-ctrl-zoom-out')?.parentElement
+      if (zoomGroup) {
         const btn = document.createElement('button')
         btn.type = 'button'
-        btn.title = 'Go to my location'
-        btn.style.fontSize = '17px'
-        btn.textContent = '📍'
+        btn.title = 'Zoom to my location'
+        btn.setAttribute('aria-label', 'Zoom to my location')
+        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.2" stroke-linecap="round" style="display:block;margin:auto"><circle cx="12" cy="12" r="6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>'
         btn.addEventListener('click', () => {
           const l = displayedLocRef.current ?? locationRef.current
           if (l && map.current) map.current.flyTo({ center: [l.lng, l.lat], zoom: 16, pitch: 30 })
         })
-        div.appendChild(btn)
-        return div
-      },
-      onRemove() {},
+        zoomGroup.appendChild(btn)
+      }
     }
-    map.current.addControl(homeControl as unknown as mapboxgl.IControl, 'top-right')
 
     map.current.on('zoom', applyZoomVisibility)
 
@@ -1230,50 +1227,50 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* ── HUD: Top Left ───────────────────────────────────────────────── */}
-      <div className="absolute left-4 z-20 flex flex-col gap-2" style={{ top: 'calc(1rem + env(safe-area-inset-top))' }}>
-        {/* Row 1: party + FP, with the steps bubble to the RIGHT (same height) */}
-        <div className="flex items-stretch gap-2">
-          <div className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2">
+      {/* ── HUD: Top Left — ONE pill system (Michael: buttons felt thrown
+          together). Every pill: same height, same glass, same radius. Row 1
+          is status (party home · FP · steps), row 2 is actions. ─────────── */}
+      <div className="absolute left-4 z-20 flex flex-col gap-1.5" style={{ top: 'calc(1rem + env(safe-area-inset-top))' }}>
+        <div className="flex items-stretch gap-1.5">
+          <div className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center gap-2">
             {/* party home button → the battlemap home page */}
             <button onClick={() => router.push('/')} aria-label="Battle Map home"
               className="flex items-center gap-1.5 active:scale-95 transition">
-              <Home size={17} strokeWidth={2.6} className="flex-shrink-0" style={{ color: partyColor }} />
-              <span className="text-white text-xs font-semibold">
+              <Home size={16} strokeWidth={2.6} className="flex-shrink-0" style={{ color: partyColor }} />
+              <span className="text-white text-xs font-bold">
                 {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
               </span>
             </button>
-            <div className="w-px h-3 bg-gray-600" />
+            <div className="w-px h-3.5 bg-white/15" />
             {/* Tap FP → shop */}
             <button onClick={() => router.push('/shop')}
-              className="text-yellow-400 text-xs font-bold hover:text-yellow-300 active:scale-95 transition">
+              className="text-yellow-400 text-xs font-bold hover:text-yellow-300 active:scale-95 transition whitespace-nowrap">
               ⚡ {profile?.fp_balance?.toLocaleString() || 0}
             </button>
           </div>
           {/* Steps — tap opens the Step Tracker */}
           <button onClick={() => router.push('/steps')}
-            className="bg-black/75 backdrop-blur rounded-xl px-2.5 py-2 flex items-center active:scale-95 transition">
-            <span className="text-white text-xs whitespace-nowrap">👟 {steps.toLocaleString()}</span>
+            className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center active:scale-95 transition">
+            <span className="text-white text-xs font-bold whitespace-nowrap">👟 {steps.toLocaleString()}</span>
           </button>
         </div>
 
-        {/* Row 2: See Local Players, with the Show-on-map menu to the RIGHT */}
-        <div className="flex items-start gap-2">
-          {/* See Local Players → active players screen */}
+        <div className="flex items-start gap-1.5">
+          {/* Local Players → active players screen */}
           <button onClick={() => router.push('/active')}
-            className="bg-black/75 backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-purple-900/60 transition">
+            className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center gap-1.5 hover:bg-purple-900/60 active:scale-95 transition">
             <span className="text-xs">✊</span>
-            <span className="text-white text-xs font-medium whitespace-nowrap">See Local Players</span>
+            <span className="text-white text-xs font-bold whitespace-nowrap">Local Players</span>
           </button>
         <div className="relative">
           <button
             onClick={() => setShowMapMenu(v => !v)}
-            className={`backdrop-blur rounded-xl px-3 py-2 flex items-center gap-2 transition-all ${
-              showMapMenu ? 'bg-blue-900/80 border border-blue-500/60' : 'bg-black/75 border border-transparent'
+            className={`h-9 backdrop-blur rounded-full px-3 flex items-center gap-1.5 transition-all active:scale-95 ${
+              showMapMenu ? 'bg-blue-900/80 border border-blue-500/60' : 'bg-black/70 border border-white/10'
             }`}
           >
             <span className="text-xs">🗺️</span>
-            <span className="text-white text-xs font-medium">Show on map</span>
+            <span className="text-white text-xs font-bold">Layers</span>
             <span className="text-gray-400 text-[9px]">{showMapMenu ? '▲' : '▼'}</span>
           </button>
 
