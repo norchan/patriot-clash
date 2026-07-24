@@ -45,12 +45,28 @@ export async function videoAvailable(url: string | null | undefined): Promise<bo
         const inEmbed = /"playableInEmbed":(true|false)/.exec(html)?.[1]
         // LOGIN_REQUIRED = YouTube's bot wall (datacenter IPs get "sign in to
         // confirm you're not a bot") — that's a verdict on OUR REQUEST, not
-        // the video; fall through to oEmbed instead of failing every video
+        // the video; fall through to the embed-page probe instead
         if (status && status !== 'LOGIN_REQUIRED' && status !== 'CONTENT_CHECK_REQUIRED') {
           return status === 'OK' && inEmbed !== 'false'
         }
       }
-      // scrape gave nothing — oEmbed still catches hard-deleted + embed-disabled
+      // Watch page bot-walled → probe the EMBED PAGE itself. Embeds must be
+      // servable cross-site, so it answers datacenters honestly: blocked/
+      // deleted videos carry UNPLAYABLE/ERROR in the player response — this
+      // catches the embed-disabled videos oEmbed happily 200s for (the gap
+      // that let blocked videos sit in the reels feed, 2026-07-24).
+      const er = await fetchWithTimeout(`https://www.youtube-nocookie.com/embed/${v.id}`, 8000, {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+        'Cookie': 'SOCS=CAI; CONSENT=YES+cb',
+      })
+      if (er.ok) {
+        const ehtml = await er.text()
+        const estatus = /"previewPlayabilityStatus":\{"status":"([A-Z_]+)"/.exec(ehtml)?.[1]
+          ?? /"playabilityStatus":\{"status":"([A-Z_]+)"/.exec(ehtml)?.[1]
+        if (estatus === 'UNPLAYABLE' || estatus === 'ERROR' || estatus === 'LIVE_STREAM_OFFLINE') return false
+        if (estatus === 'OK') return true
+      }
+      // both probes inconclusive — oEmbed still catches hard-deleted videos
       const oe = await fetchWithTimeout(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${v.id}`)}`, 6000)
       return oe.ok
     }
