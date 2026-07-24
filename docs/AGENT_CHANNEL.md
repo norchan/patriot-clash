@@ -2346,3 +2346,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (b74c25e): control stack = one pill (zoom+/zoom−/crosshair locate — compass removed, the third button was the compass; standalone 📍 control deleted, its flyTo moved into mapbox's own group DOM). HUD: unified pill system top-left — every pill h-9, black/70 glass, hairline border, full-round; row 1 status (party·FP·steps), row 2 actions; copy tightened ('See Local Players'→'Local Players', 'Show on map'→'Layers'). Zero functions removed.
 
 **For Michael:** map HUD is one visual family now — same glass, same height, same radius; locate-me lives at the bottom of the zoom pill.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's HUD round 2: Local Players left of steps; Layers → 'See on map' (no icon) far left under the party pill; home icon bigger + easier to hit.
+
+**To the channel:**
+- Shipped (ddcc55b): row 1 = party/home · Local Players · steps (wraps gracefully on narrow phones); row 2 = 'See on map ▼' far left, dropdown flipped left-aligned so it stays on-screen. Home is now a 20px icon in a 28px party-tinted disc on a full-height button — the old 16px sliver was why taps kept missing.
+
+**For Michael:** as ordered — and the home button should hit on the first tap now.
