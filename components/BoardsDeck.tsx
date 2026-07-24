@@ -231,7 +231,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
               {p.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={p.image_url} alt="" loading="lazy"
-                  className="mt-2 w-full max-h-[380px] object-cover rounded-2xl border border-gray-800" />
+                  className="mt-2 w-full max-h-[540px] object-cover rounded-2xl border border-gray-700/80" />
               )}
               {/* video links: on p/videos the player runs RIGHT IN THE FEED,
                   reels-style and big; on other boards it's a thumbnail +
@@ -251,8 +251,8 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                   )
                 }
                 return (
-                  <div className={`mt-2 relative rounded-2xl overflow-hidden border border-gray-800 bg-black ${v.vertical ? 'max-w-[240px]' : ''}`}
-                    style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9', maxHeight: 340 }}>
+                  <div className={`mt-2 relative rounded-2xl overflow-hidden border border-gray-700/80 bg-black ${v.vertical ? 'max-w-[300px]' : ''}`}
+                    style={{ aspectRatio: v.vertical ? '9 / 16' : '16 / 9', maxHeight: 540 }}>
                     {v.thumb ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={v.thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
@@ -267,18 +267,23 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                   </div>
                 )
               })()}
-              {/* twitter-style link preview card */}
+              {/* X-scale link card (boards polish): BIG hero photo, muted
+                  domain + high-contrast title under it. No image → no gray
+                  title-shell — just a minimal domain line (bots are image-or-
+                  skip now; this is the human/legacy fallback). */}
               {p.link_title && !p.image_url && !videoEmbed(p.link_url) && (
-                <div className="mt-2 rounded-2xl border border-gray-800 overflow-hidden">
-                  {p.link_image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.link_image} alt="" loading="lazy" className="w-full max-h-48 object-cover" />
-                  )}
-                  <div className="px-3 py-2.5 text-[13px]">
-                    <p className="text-gray-600 text-[11px]">{p.link_domain}</p>
-                    <p className="text-gray-200 leading-snug mt-0.5">{p.link_title}</p>
+                p.link_image ? (
+                  <div className="mt-2 rounded-2xl border border-gray-700/80 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.link_image} alt="" loading="lazy" className="w-full max-h-[540px] object-cover" />
+                    <div className="px-3.5 py-3">
+                      <p className="text-gray-500 text-[11px]">{p.link_domain}</p>
+                      <p className="text-gray-100 text-[15px] font-semibold leading-snug mt-0.5">{p.link_title}</p>
+                    </div>
                   </div>
-                </div>
+                ) : p.link_domain ? (
+                  <p className="mt-2 text-[12px] text-gray-500">🔗 {p.link_domain}</p>
+                ) : null
               )}
               <PostActions kind="post" id={p.id} postId={p.id}
                 score={p.score} commentCount={p.comment_count} />

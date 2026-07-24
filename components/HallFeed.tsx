@@ -64,18 +64,30 @@ export function VoteButtons({ score, myVote, onVote, compact }: {
   )
 }
 
-export function LinkCard({ post }: { post: { link_url: string | null; link_title: string | null; link_image: string | null; link_domain: string | null } }) {
+// X-scale link card (boards polish): BIG hero photo with muted domain +
+// high-contrast title under it. No image (or the post already shows an
+// uploaded hero via suppressImage) → a minimal domain line, never the old
+// gray title-only shell.
+export function LinkCard({ post, suppressImage = false }: { post: { link_url: string | null; link_title: string | null; link_image: string | null; link_domain: string | null }; suppressImage?: boolean }) {
   if (!post.link_url) return null
+  if (!post.link_image || suppressImage) {
+    if (!post.link_domain) return null
+    return (
+      <a href={post.link_url} target="_blank" rel="noopener noreferrer"
+        onClick={e => e.stopPropagation()}
+        className="block mt-2 text-[12px] text-gray-500 hover:text-gray-300 transition">
+        🔗 {post.link_domain}
+      </a>
+    )
+  }
   return (
     <a href={post.link_url} target="_blank" rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      className="block mt-2 rounded-xl overflow-hidden border border-gray-800 bg-gray-900/60 hover:bg-gray-800/60 transition">
-      {post.link_image && (
-        <img src={post.link_image} alt="" className="w-full max-h-52 object-cover" />
-      )}
-      <div className="px-3 py-2">
-        <p className="text-gray-500 text-[10px] uppercase">{post.link_domain}</p>
-        {post.link_title && <p className="text-gray-200 text-xs font-medium line-clamp-2">{post.link_title}</p>}
+      className="block mt-2 rounded-2xl overflow-hidden border border-gray-700/80 bg-gray-900/60 hover:bg-gray-800/60 transition">
+      <img src={post.link_image} alt="" className="w-full max-h-[540px] object-cover" />
+      <div className="px-3.5 py-3">
+        <p className="text-gray-500 text-[11px]">{post.link_domain}</p>
+        {post.link_title && <p className="text-gray-100 text-[15px] font-semibold leading-snug mt-0.5">{post.link_title}</p>}
       </div>
     </a>
   )
@@ -276,9 +288,11 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                     <p className="text-gray-200 text-sm whitespace-pre-wrap break-words mt-0.5">{p.content}</p>
                   )}
                   {p.image_url && (
-                    <img src={p.image_url} alt="" className="rounded-xl mt-2 w-full object-cover max-h-80 border border-gray-800" />
+                    <img src={p.image_url} alt="" className="rounded-2xl mt-2 w-full object-cover max-h-[540px] border border-gray-700/80" />
                   )}
-                  <LinkCard post={p} />
+                  {/* one hero per card: an uploaded image claims the hero
+                      slot, the link collapses to its minimal domain line */}
+                  <LinkCard post={p} suppressImage={!!p.image_url} />
                   {/* Action row */}
                   <div className="flex items-center gap-4 mt-2">
                     <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => vote(p, v)} />

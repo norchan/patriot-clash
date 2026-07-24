@@ -100,7 +100,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
           )}
           {p.image_url && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={p.image_url} alt="" className="mt-3 w-full rounded-2xl border border-gray-800 max-h-[520px] object-contain bg-black/40" />
+            <img src={p.image_url} alt="" className="mt-3 w-full rounded-2xl border border-gray-700/80 max-h-[560px] object-contain bg-black/40" />
           )}
           {/* video links play RIGHT HERE via the platform's official player */}
           {(() => {
@@ -114,18 +114,26 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
               </div>
             )
           })()}
+          {/* X-scale link card: big photo, domain muted + title strong under
+              it. One hero per post (uploaded image wins the hero slot); links
+              with no photo collapse to a minimal domain line. */}
           {p.link_url && !videoEmbed(p.link_url) && (
-            <a href={p.link_url} target="_blank" rel="noopener noreferrer"
-              className="block mt-3 rounded-2xl border border-gray-800 overflow-hidden hover:border-gray-600 transition">
-              {p.link_image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.link_image} alt="" className="w-full max-h-56 object-cover" />
-              )}
-              <div className="px-3.5 py-2.5">
-                <p className="text-gray-200 text-sm leading-snug">{p.link_title ?? p.link_url}</p>
-                <p className="text-gray-600 text-xs mt-0.5">🔗 {p.link_domain ?? new URL(p.link_url).hostname}</p>
-              </div>
-            </a>
+            p.link_image && !p.image_url ? (
+              <a href={p.link_url} target="_blank" rel="noopener noreferrer"
+                className="block mt-3 rounded-2xl border border-gray-700/80 overflow-hidden hover:border-gray-500 transition">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.link_image} alt="" className="w-full max-h-[560px] object-cover" />
+                <div className="px-3.5 py-3">
+                  <p className="text-gray-500 text-xs">🔗 {p.link_domain ?? new URL(p.link_url).hostname}</p>
+                  <p className="text-gray-100 text-[16px] font-semibold leading-snug mt-0.5">{p.link_title ?? p.link_url}</p>
+                </div>
+              </a>
+            ) : (
+              <a href={p.link_url} target="_blank" rel="noopener noreferrer"
+                className="block mt-3 text-[13px] text-gray-500 hover:text-gray-300 transition">
+                🔗 {p.link_domain ?? new URL(p.link_url).hostname}
+              </a>
+            )
           )}
           <div className="mt-2">
             <PostActions kind="post" id={p.id} postId={p.id} score={p.score} commentCount={p.comment_count} />

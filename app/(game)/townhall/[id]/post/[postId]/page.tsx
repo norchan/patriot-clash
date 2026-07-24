@@ -201,9 +201,9 @@ export default function HallPostPage() {
           <p className="text-gray-100 text-[15px] whitespace-pre-wrap break-words mt-3">{post.content}</p>
         )}
         {post.image_url && (
-          <img src={post.image_url} alt="" className="rounded-xl mt-3 w-full object-contain max-h-[28rem] border border-gray-800" />
+          <img src={post.image_url} alt="" className="rounded-2xl mt-3 w-full object-contain max-h-[560px] border border-gray-700/80" />
         )}
-        <LinkCard post={post} />
+        <LinkCard post={post} suppressImage={!!post.image_url} />
         <div className="flex items-center gap-5 mt-3">
           <VoteButtons score={post.score} myVote={post.my_vote} onVote={votePost} />
           <span className="flex items-center gap-1 text-gray-500">

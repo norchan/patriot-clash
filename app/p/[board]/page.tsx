@@ -158,21 +158,25 @@ export default async function BoardPage({ params, searchParams }: {
                   outside the link so tapping play doesn't navigate */}
               <Link href={`/p/post/${p.id}`} className="block">
                 <p className="mt-2 text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>
-                {p.link_title && !videoEmbed(p.link_url) && (
-                  <div className="mt-2 rounded-2xl border border-gray-800 overflow-hidden">
-                    {p.link_image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.link_image} alt="" loading="lazy" className="w-full max-h-52 object-cover" />
-                    )}
-                    <div className="px-3 py-2.5 text-xs">
-                      <p className="text-gray-600 text-[11px]">🔗 {p.link_domain}</p>
-                      <p className="text-gray-300 mt-0.5 leading-snug">{p.link_title}</p>
+                {/* one hero per card: uploaded image wins; link card only
+                    renders X-style WITH a photo — no gray title-only shells */}
+                {p.link_title && !p.image_url && !videoEmbed(p.link_url) && (
+                  p.link_image ? (
+                    <div className="mt-2 rounded-2xl border border-gray-700/80 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.link_image} alt="" loading="lazy" className="w-full max-h-[540px] object-cover" />
+                      <div className="px-3.5 py-3">
+                        <p className="text-gray-500 text-[11px]">🔗 {p.link_domain}</p>
+                        <p className="text-gray-100 text-[15px] font-semibold mt-0.5 leading-snug">{p.link_title}</p>
+                      </div>
                     </div>
-                  </div>
+                  ) : p.link_domain ? (
+                    <p className="mt-2 text-[12px] text-gray-500">🔗 {p.link_domain}</p>
+                  ) : null
                 )}
                 {p.image_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image_url} alt="" className="mt-2 rounded-xl max-h-80 object-cover" loading="lazy" />
+                  <img src={p.image_url} alt="" className="mt-2 w-full rounded-2xl border border-gray-700/80 max-h-[540px] object-cover" loading="lazy" />
                 )}
               </Link>
               {/* p/videos: the video PLAYS right in the feed, reels-sized */}
