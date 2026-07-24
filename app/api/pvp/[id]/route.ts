@@ -83,13 +83,14 @@ export async function GET(
         .select('id')
         .maybeSingle()
       if (claimed) {
-        notify(admin, {
+        // awaited — serverless kills un-awaited promises at response time
+        await notify(admin, {
           profileId: challenge.challenger_id,
           type: 'pvp',
           title: `🥊 ${challenge.defender_username} answered your challenge!`,
           body: 'They\'re in the ring waiting — tap to fight!',
           link: `/battle/pvp?id=${id}`,
-        }).catch(() => {})
+        })
       }
     }
 

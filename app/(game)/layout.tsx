@@ -102,10 +102,17 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
   // unopened-DM badge on the Messages tab — polls lightly, refreshes on nav
   const [unreadDms, setUnreadDms] = useState(0)
+  // unread bell notifications → red dot on the ☰ menu + count on the item
+  // (Michael 2026-07-23: opening the app must SHOW there's something waiting)
+  const [unreadNotifs, setUnreadNotifs] = useState(0)
   useEffect(() => {
     let alive = true
-    const load = () => fetch('/api/chat/unread').then(r => r.json())
-      .then(d => { if (alive) setUnreadDms(d.count ?? 0) }).catch(() => {})
+    const load = () => {
+      fetch('/api/chat/unread').then(r => r.json())
+        .then(d => { if (alive) setUnreadDms(d.count ?? 0) }).catch(() => {})
+      fetch('/api/notifications').then(r => r.json())
+        .then(d => { if (alive) setUnreadNotifs(d.unread ?? 0) }).catch(() => {})
+    }
     load()
     const iv = setInterval(load, 25_000)
     return () => { alive = false; clearInterval(iv) }
@@ -132,10 +139,15 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       <div className="fixed z-[80]" style={{ top: 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
-          className="w-10 h-10 rounded-xl bg-gray-900/90 backdrop-blur border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white shadow-lg transition"
+          className="relative w-10 h-10 rounded-xl bg-gray-900/90 backdrop-blur border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white shadow-lg transition"
           aria-label="Menu"
         >
           <Menu size={19} />
+          {unreadNotifs > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border border-gray-950">
+              {unreadNotifs > 99 ? '99+' : unreadNotifs}
+            </span>
+          )}
         </button>
         {menuOpen && (
           <>
@@ -148,7 +160,12 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
                   className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-200 hover:bg-gray-800 transition border-b border-gray-800"
                 >
                   <Icon size={16} className="text-gray-400" />
-                  <span className="text-sm font-medium">{label}</span>
+                  <span className="text-sm font-medium flex-1">{label}</span>
+                  {href === '/notifications' && unreadNotifs > 0 && (
+                    <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center">
+                      {unreadNotifs > 99 ? '99+' : unreadNotifs}
+                    </span>
+                  )}
                 </button>
               ))}
               <button

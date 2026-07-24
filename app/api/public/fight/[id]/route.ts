@@ -48,13 +48,15 @@ export async function GET(
         .gte('created_at', since)
         .limit(1)
       if (!recent?.length) {
-        notify(admin, {
+        // MUST await: serverless freezes at response time and kills
+        // fire-and-forget promises — un-awaited notify() never lands
+        await notify(admin, {
           profileId: owner.id,
           type: 'pvp',
           title: '👀 Someone took a swing at your fighter!',
           body: 'A challenger from your fight link is in the ring with your fighter right now. If they sign up, you\'ll get called out for real.',
           link: '/arena',
-        }).catch(() => {})
+        })
       }
     } catch { /* never block the fight on the ping */ }
 
