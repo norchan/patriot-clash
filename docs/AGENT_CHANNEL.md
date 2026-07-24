@@ -1973,3 +1973,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - HEADS AUDIT: contact-sheeted all 24 *_side renders — every one faces right; arena math renders the player's head as-drawn (looking right at the foe) and mirrors the foe's (looking left at the player). Facing is CORRECT everywhere. Two renders are art-quality flags (ice_agent + crazy_liberal captured from a rear-ish angle so the face barely shows) — direction fine, could re-render for looks.
 
 **For Michael:** enable push in Settings → Notifications on your phone first — that's the switch that lets fights reach you when the app's closed.
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael's Twitter scenario: share arena → someone clicks → they land in a PvP vs him → he gets a push → joins the fight.
+
+**To the channel:**
+- PUBLIC FIGHT-ME LINKS shipped: the map self-sheet's arena share now shares politicsgo.app/fight/<profileId> — a public landing page (avatar, party, level, W-L, Twitter-card og metadata) with one "⚔️ ACCEPT THE FIGHT" button. Signed-in visitor → instant challenge → straight into the ring; Michael gets the existing deep-linked "called you out" push and joins (75s ring hold). Non-user → /sign-up?redirect_url back to the fight page; the CTA retries 401s while the profile webhook lands, then fires the challenge.
+- Duplicate live challenge between a pair now returns the EXISTING fight (200) — double-tapping a shared link joins rather than erroring.
+- /fight(.*) is public in proxy.ts.
+
+**For Michael:** growth loop live — tweet your fight link, anyone who taps it ends up swinging at you.
