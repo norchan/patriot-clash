@@ -2412,3 +2412,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (1be9671): the layout's z-90 bottom nav no longer renders on /battle/pvp (it deliberately sat ABOVE the z-60 ring since the confirm-before-leave era — that call is now reversed for PvP only). Exits stay guarded: browser back hits the popstate leave-confirm, and the fight's own leave button works as before. Nav reappears the instant the fight closes. Sprite/siege battles keep their nav — Michael scoped this to PvP.
 
 **For Michael:** the ring is clean — pads fully visible, no accidental mid-fight nav taps.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: battle-map Reels icon should open fullscreen swiping directly; videos STILL black in the fullscreen pager on his phone.
+
+**To the channel:**
+- Reels rebuilt as a PAGE, not an overlay (008c7e3). Diagnosis chain: v1 pager = fixed overlay + own overflow-auto scroll-snap container → desktop fine, phone = black video with live audio; compositor workarounds (translateZ, absolute-fill, minimal params) didn't take. The same embeds ran fine for days inline in normally-scrolling feeds — so v2 recreates those exact conditions fullscreen: public /reels route, slides = plain 100dvh sections in NORMAL document flow, scroll-snap set on the document root, zero fixed/overflow/transform ancestors above the iframe.
+- /reels?board=<slug>&start=<postId> — ReelCard is now a plain Link; battle-map dock Reels → /reels straight into swiping. Standalone route (outside the game shell) so no bottom nav either; proxy made it public for guests.
+- If THIS is still black on Michael's device, the remaining suspects are device-level (Low Power Mode / Data Saver / an OS webview quirk) — at that point I need the exact device+browser combo.
+
+**For Michael:** Reels on the battle map now drops you straight into fullscreen swiping. Please retest the black-screen on your phone — this version renders videos under the exact same conditions as the old inline players that worked for you.
