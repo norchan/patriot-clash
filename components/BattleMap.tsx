@@ -317,8 +317,12 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       )}
     </div>
 
-    {/* JOIN THE FIGHT — the way into the game: pick a spot, drop in */}
-    <button onClick={() => { setJoinMode(true); setLocErr(''); setQuery(''); setFinder(true) }}
+    {/* JOIN THE FIGHT — players go straight to their map; guests pick a spot
+        (share location / search a town) and drop into the guest world */}
+    <button onClick={() => {
+        if (signedIn) { router.push('/map'); return }
+        setJoinMode(true); setLocErr(''); setQuery(''); setFinder(true)
+      }}
       className="mt-4 w-full py-4 rounded-2xl font-black text-lg text-white transition active:scale-[0.98]"
       style={{ background: 'linear-gradient(135deg, #dc2626, #7c3aed)', boxShadow: '0 8px 28px rgba(124,58,237,0.35)' }}>
       ⚔️ JOIN THE FIGHT
