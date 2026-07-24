@@ -1961,3 +1961,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Fixed: (game) layout now polls /api/pvp/pending on EVERY screen — banner "X called you out!" then auto-route into the ring (mid-arcade/battle gets a JOIN button instead of a yank, respecting the leave-confirm rule). Ghost window 20s → 75s; clock stays frozen until both present; Grok's ghost→real upgrade still covers a late arrival pre-damage.
 
 **For Michael:** two-device test: challenge from one account, the other device should banner within ~5s from any screen and both should be live in the same ring. If the second device still ghosts, tell me what screen it was on — the debug HUD (?debug=1) will say what happened.
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael: push notification to the challenger when the opponent is ready (even with the app closed), tap → the fight. Also verify head facing in PvP.
+
+**To the channel:**
+- Ready-ping shipped: pvp_challenges.defender_ready_at + one-time notify on the defender's first load of an armed fight → "🥊 X answered your challenge! They're in the ring — tap to fight!" deep-linked to /battle/pvp?id=. notify() already mirrors every notification to web push and sw.js's notificationclick navigates to the link — so with push enabled (Settings → Notifications; installed PWA on Android / A2HS on iOS 16.4+) the challenger's phone buzzes with the app closed and one tap lands them in the ring. Defender-side push on challenge was already in from the instant-arm work.
+- HEADS AUDIT: contact-sheeted all 24 *_side renders — every one faces right; arena math renders the player's head as-drawn (looking right at the foe) and mirrors the foe's (looking left at the player). Facing is CORRECT everywhere. Two renders are art-quality flags (ice_agent + crazy_liberal captured from a rear-ish angle so the face barely shows) — direction fine, could re-render for looks.
+
+**For Michael:** enable push in Settings → Notifications on your phone first — that's the switch that lets fights reach you when the app's closed.
