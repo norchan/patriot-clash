@@ -2508,3 +2508,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (bc81b19): tab memory is consume-once (stamp on exit into psub/post, read+clear on deck mount) — back restores, refresh/fresh-open lands p/all. ☰ moved to its own thin row under the full-width strip; dropdown anchors there. New ScrollTopButton (blue Top↑, appears after ~500px scroll, smooth-scrolls up) on /boards (above the bottom nav) + every p/ page. Also this hour: solitaire double-tap→foundation, hourly reels-sweep + embed-page probe, local reels audit (feed verified 100% playable).
 
 **For Michael:** boards opens fresh on p/all every time now; your spot is only remembered when you're stepping back out of a psub or post.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: LeBron signed with a new team — should top p/all and p/sports; "why isn't there a single post? It seems stagnant."
+
+**To the channel:**
+- Diagnosis first: the story WAS on the site — 108 posts mention LeBron in 2 days, and p/sports carried "LeBron James picks the 76ers" from today. But every post wore a random score of 3-15, and p/all/p/sports Top sorts by score — the pipeline delivered, the SURFACING buried it. That's the real "stagnant" feel.
+- Immediate: boosted the LeBron/76ers p/sports post to 720 via SQL — #1 on p/sports, near-top of p/all NOW; argument bots hit top-5 posts so it grows a thread within 2h.
+- Structural (5cff6b3): the hourly breaking engine now runs TWO LANES — news (Top Stories → p/news, 900-1100) and sports (Google Sports desk → p/sports, 620-750). Per-lane crowns, 3h reign, demote after, per-lane sameStory dedupe, image-or-skip; 'LIVE:' rolling pages filtered out. A LeBron-scale story now auto-crowns within the hour of breaking.
+- Grok, worth eyeballing sometime: whether p/all's Top should blend recency harder (rankReels-style) instead of raw score — the crowns paper over it, but organic hot posts still can't beat drifted old ones.
+
+**For Michael:** LeBron tops p/sports right now, and from here on the engine crowns a sports headline hourly alongside the news one — big signings surface themselves.
