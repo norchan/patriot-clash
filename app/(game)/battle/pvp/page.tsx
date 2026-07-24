@@ -8,6 +8,7 @@ import { defaultFighter, sanitizeFighter, fighterStats } from '@/lib/fighter'
 import type { FighterDesign } from '@/lib/fighter'
 import { MOVES, movesForLevel, strikeDamage, type Move } from '@/lib/pvp'
 import { sfx, buzz } from '@/lib/juice'
+import { headSideImage } from '@/config/heads'
 import { createSupabaseBrowserClient } from '@/lib/supabase-client'
 import dynamic from 'next/dynamic'
 
@@ -141,6 +142,12 @@ function StreetFightPage() {
   const [impactFx, setImpactFx] = useState<{ key: number; side: 'player' | 'opp'; kind: 'light' | 'heavy' | 'special' | 'block' } | undefined>(undefined)
   const fireImpact = (side: 'player' | 'opp', kind: 'light' | 'heavy' | 'special' | 'block') =>
     setImpactFx(f => ({ key: (f?.key ?? 0) + 1, side, kind }))
+  // ★ SPECIAL cinema (brief Phase C2): full-frame party-color flash
+  const [specialFlash, setSpecialFlash] = useState<string | null>(null)
+  const flashSpecial = (color: string) => {
+    setSpecialFlash(color)
+    setTimeout(() => setSpecialFlash(null), 450)
+  }
   const myJab = (right: boolean) => right ? setPlayerJabRKey(k => k + 1) : setPlayerJabLKey(k => k + 1)
   const myKick = (high: boolean) => high ? setPlayerKickHiKey(k => k + 1) : setPlayerKickLoKey(k => k + 1)
   const foeKick = (high: boolean) => high ? setOppKickHiKey(k => k + 1) : setOppKickLoKey(k => k + 1)
@@ -692,6 +699,8 @@ function StreetFightPage() {
       else foeJab(!!p.right) // 3D: right or left jab
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
+      // their SPECIAL is an event on OUR screen too: party flash + punch-in
+      if (p.move === 'special') { flashSpecial(theirColor); setZoom(true); setTimeout(() => setZoom(false), 700) }
 
       let result: 'hit' | 'blocked' | 'dodged' = 'hit'
       let dmg = 0
@@ -718,6 +727,7 @@ function StreetFightPage() {
         // heavies knock the body back farther — the number pops AND the fighter moves
         setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // 3D flinch + knockback
         contactJuice(heavy || dmg >= 10)
+        if (p.move === 'special') triggerHitStop(220) // specials freeze the frame longest
         if (p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook') sfx.kick()
         else sfx.punch(heavy)
         setShake(true); setTimeout(() => setShake(false), 170)
@@ -748,6 +758,7 @@ function StreetFightPage() {
         setFoePose('hit'); reel(true); addBurst(true, p.dmg >= 10)
         sfx.punch(p.dmg >= 10) // confirm SFX the moment the H2H result lands
         contactJuice(p.dmg >= 10)
+        if (sentMove === 'special') triggerHitStop(220) // my special connected — longest stop
         addSpark(true, `-${p.dmg}`, '#facc15')
         fireImpact('opp', sentMove === 'special' ? 'special' : p.dmg >= 10 ? 'heavy' : 'light')
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (p.dmg >= 10 ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
@@ -1072,6 +1083,7 @@ function StreetFightPage() {
       if (result === 'hit') {
         setFoePose('hit'); reel(true); addBurst(true, heavy)
         contactJuice(heavy || dmg >= 10)
+        if (move === 'special') triggerHitStop(220) // special connected — longest stop
         addSpark(true, `-${dmg}`, '#facc15')
         fireImpact('opp', move === 'special' ? 'special' : heavy ? 'heavy' : 'light')
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (heavy ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
@@ -1141,6 +1153,7 @@ function StreetFightPage() {
     S.meter = 0; setMeter(0)
     S.counts.specials++
     setZoom(true); setTimeout(() => setZoom(false), 700)
+    flashSpecial(myColor) // full-frame party flash — the special is an EVENT (brief C2)
     strikeCore('special', true, '★ SPECIAL ★', 270)
   }
   // keyboard fallback (desktop): space/enter = punch
@@ -1385,6 +1398,9 @@ function StreetFightPage() {
   const fpStake = challenge?.fp_stake ?? 0
   const myColor = myParty === 'democrat' ? '#2563eb' : '#dc2626'
   const theirColor = theirParty === 'democrat' ? '#2563eb' : '#dc2626'
+  // lighter partners for the party HP-bar gradients (brief Phase C1)
+  const myColorLite = myParty === 'democrat' ? '#60a5fa' : '#f87171'
+  const theirColorLite = theirParty === 'democrat' ? '#60a5fa' : '#f87171'
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-gray-950 overflow-hidden overscroll-none">
@@ -1452,27 +1468,40 @@ function StreetFightPage() {
         {/* ── HUD: HP bars + clock ── */}
         <div key={hpShake} className="absolute top-3 left-3 right-3 z-20 flex items-start gap-2"
           style={{ animation: hpShake ? 'hpJolt 0.28s ease-out' : undefined }}>
+          {/* party chrome (brief Phase C1): head mug + party-colored bar/plate —
+              one glance says which corner is which party */}
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1">
+              {myHeadId && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={headSideImage(myHeadId)} alt="" className="h-6 w-6 object-contain shrink-0"
+                  style={{ filter: `drop-shadow(0 0 3px ${myColor})` }} />
+              )}
               <span className="text-white text-xs font-black truncate">{myUsername ?? 'You'}</span>
-              <span className="text-[9px] font-bold px-1 rounded" style={{ background: `${myColor}33`, color: myColor }}>Lv.{myLevel}</span>
+              <span className="text-[9px] font-bold px-1 rounded" style={{ background: `${myColor}55`, color: '#fff', border: `1px solid ${myColor}` }}>Lv.{myLevel}</span>
             </div>
-            <div className="h-3.5 bg-black/60 rounded-sm overflow-hidden border border-white/20" style={{ transform: 'skewX(-12deg)' }}>
+            <div className="h-3.5 bg-black/60 rounded-sm overflow-hidden border" style={{ transform: 'skewX(-12deg)', borderColor: `${myColor}88` }}>
               <div className="h-full transition-all duration-300"
-                style={{ width: `${myHp}%`, background: 'linear-gradient(90deg, #fbbf24, #f59e0b)' }} />
+                style={{ width: `${myHp}%`, background: `linear-gradient(90deg, ${myColorLite}, ${myColor})` }} />
             </div>
           </div>
-          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-black/70 border-2 border-white/30 flex items-center justify-center mt-1">
+          <div className="flex-shrink-0 w-12 h-12 rounded-full border-2 border-white/30 flex items-center justify-center mt-1"
+            style={{ background: `linear-gradient(100deg, ${myColor}66 0%, rgba(0,0,0,0.75) 38%, rgba(0,0,0,0.75) 62%, ${theirColor}66 100%)` }}>
             <span className="text-white font-black text-lg tabular-nums">{clock}</span>
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1 justify-end">
-              <span className="text-[9px] font-bold px-1 rounded" style={{ background: `${theirColor}33`, color: theirColor }}>Lv.{foeLevel}</span>
+              <span className="text-[9px] font-bold px-1 rounded" style={{ background: `${theirColor}55`, color: '#fff', border: `1px solid ${theirColor}` }}>Lv.{foeLevel}</span>
               <span className="text-white text-xs font-black truncate">{theirUsername ?? 'Foe'}</span>
+              {oppHeadId && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={headSideImage(oppHeadId)} alt="" className="h-6 w-6 object-contain shrink-0"
+                  style={{ filter: `drop-shadow(0 0 3px ${theirColor})`, transform: 'scaleX(-1)' }} />
+              )}
             </div>
-            <div className="h-3.5 bg-black/60 rounded-sm overflow-hidden border border-white/20" style={{ transform: 'skewX(12deg)' }}>
+            <div className="h-3.5 bg-black/60 rounded-sm overflow-hidden border" style={{ transform: 'skewX(12deg)', borderColor: `${theirColor}88` }}>
               <div className="h-full transition-all duration-300 ml-auto"
-                style={{ width: `${foeHp}%`, background: 'linear-gradient(90deg, #f59e0b, #fbbf24)' }} />
+                style={{ width: `${foeHp}%`, background: `linear-gradient(90deg, ${theirColor}, ${theirColorLite})` }} />
             </div>
           </div>
         </div>
@@ -1517,6 +1546,15 @@ function StreetFightPage() {
             style={{ background: 'white', animation: 'sfKoFlash 0.32s ease-out forwards' }} />
         )}
 
+        {/* ★ SPECIAL party-color flash (brief Phase C2) */}
+        {specialFlash && (
+          <div className="absolute inset-0 z-40 pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 50% 45%, ${specialFlash}cc 0%, ${specialFlash}55 55%, transparent 85%)`,
+              animation: 'sfKoFlash 0.45s ease-out forwards',
+            }} />
+        )}
+
         {/* banner (ROUND 1 / FIGHT! / K.O.!) */}
         {banner && (
           <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
@@ -1550,6 +1588,8 @@ function StreetFightPage() {
             follow={layout === 'portrait'}
             arena={arena}
             impact={impactFx}
+            playerTint={myColor}
+            oppTint={theirColor}
             playerPrefix={myPvpFighter}
             oppPrefix={oppPvpFighter}
             playerHeadId={myHeadId}
