@@ -189,8 +189,10 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
       {/* Fixed ad banner — every page except immersive battle screens */}
       {showAds && <AdBanner />}
-      {/* z-[90] so the bar stays visible on immersive game surfaces (PvP arena
-          is z-60); only the momentary countdown/result splashes (z-100+) cover it */}
+      {/* z-[90] keeps the bar above immersive surfaces — EXCEPT the PvP ring
+          (Michael): it was covering the attack pads, and mid-fight nav is a
+          misclick hazard anyway. Back button + leave-confirm still guard exit. */}
+      {!pathname.startsWith('/battle/pvp') && (
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-gray-900 border-t border-gray-800 z-[90]">
         <div className="flex">
           {navItems.map(({ href, label, icon: Icon }) => {
@@ -217,6 +219,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
           })}
         </div>
       </nav>
+      )}
 
       {/* ── Incoming fight banner: auto-enters the ring (or JOIN if mid-game) ── */}
       {incomingFight && (
