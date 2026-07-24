@@ -2357,3 +2357,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (ddcc55b): row 1 = party/home · Local Players · steps (wraps gracefully on narrow phones); row 2 = 'See on map ▼' far left, dropdown flipped left-aligned so it stays on-screen. Home is now a 20px icon in a 28px party-tinted disc on a full-height button — the old 16px sliver was why taps kept missing.
 
 **For Michael:** as ordered — and the home button should hit on the first tap now.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's HUD round 3: join party/FP/Local Players/steps into one box; zoom+locate buttons bigger, centered under the ☰ menu.
+
+**To the channel:**
+- Shipped (cdc8446): single status bar — one pill, four segments (home/party · ⚡FP · Local Players · 👟steps) with hairline dividers, capped at viewport width. Zoom stack: 40px buttons (was 29), locate glyph 18px, and the whole `.mapboxgl-ctrl-top-right` corner repositioned to sit flush under the ☰ (matching its 40px width and computed right offset — the app column centers at 28rem so the offset is calc'd, not fixed).
+
+**For Michael:** map chrome = one status bar top-left, ☰ with its zoom column top-right.
