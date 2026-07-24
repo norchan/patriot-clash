@@ -1,17 +1,18 @@
 import type { Metadata } from 'next'
+import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolvePBoard, fetchBoardPosts } from '@/lib/boards'
 import { videoEmbed } from '@/lib/video-embed'
+import { rankReels } from '@/lib/reels-rank'
 import { ReelsPager, type ReelItem } from '@/components/ReelsViewer'
 
-// /reels — the fullscreen swipe-up video pager (Michael: tapping Reels should
-// open fullscreen so people can start swiping). PUBLIC, standalone page: the
+// /reels — the fullscreen swipe-up video pager. PUBLIC, standalone page: the
 // pager needs the document itself to scroll (see ReelsViewer.tsx), so it
 // lives outside the game shell — no bottom nav, no layout chrome.
+// Ordering (A1 Phase 4): rankReels v1 — recency + light score boost + party
+// tilt for signed-in viewers; the client demotes already-watched clips.
 // ?board=<slug> picks the feed (default p/videos), ?start=<postId> opens on
-// that video.
-
-export const revalidate = 60
+// that video in the server order.
 
 export const metadata: Metadata = {
   title: 'Reels — PoliticsGo',
@@ -24,11 +25,24 @@ export default async function ReelsPage({ searchParams }: {
 }) {
   const { board = 'videos', start } = await searchParams
   const admin = createSupabaseAdminClient()
+
+  const { userId } = await auth()
+  let party: string | null = null
+  if (userId) {
+    const { data } = await admin.from('profiles').select('party').eq('clerk_user_id', userId).maybeSingle()
+    party = data?.party ?? null
+  }
+
   const rb = await resolvePBoard(admin, board) ?? await resolvePBoard(admin, 'videos')
-  const posts = rb ? await fetchBoardPosts(admin, rb, 'new', 60) : []
-  const items: ReelItem[] = (posts ?? []).flatMap((q: any) => {
+  const posts = rb ? await fetchBoardPosts(admin, rb, 'new', 80) : []
+  const videoPosts = (posts ?? []).filter((q: any) => videoEmbed(q.link_url))
+  const rankedPosts = rankReels(
+    videoPosts.map((q: any) => ({ ...q, id: q.id, created_at: q.created_at, score: q.score, party: q.party })),
+    { party },
+  )
+  const items: ReelItem[] = rankedPosts.flatMap((q: any) => {
     const v = videoEmbed(q.link_url)
-    return v ? [{ id: q.id, kind: v.kind, videoId: v.id, vertical: v.vertical, thumb: v.thumb, title: q.link_title ?? q.content, username: q.profiles?.username }] : []
+    return v ? [{ id: q.id, kind: v.kind, videoId: v.id, vertical: v.vertical, thumb: v.thumb, title: q.link_title ?? q.content, username: q.profiles?.username, party: q.party }] : []
   })
-  return <ReelsPager items={items} startId={start} />
+  return <ReelsPager items={items} startId={start} signedIn={!!userId} />
 }
