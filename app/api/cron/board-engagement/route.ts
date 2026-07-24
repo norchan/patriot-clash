@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { openaiChat } from '@/lib/openai'
-import { videoEmbed, videoAvailable } from '@/lib/video-embed'
 import { tooSimilar } from '@/lib/content-unique'
 
 // BOARD ENGAGEMENT BOTS (Michael, 2026-07-22): the boards should feel alive —
@@ -24,21 +23,8 @@ export async function GET(req: NextRequest) {
   }
   const admin = createSupabaseAdminClient()
 
-  // ── video sweep: delete posts whose video got blocked/removed after posting
-  // (NFL-style copyright takedowns render a dead "Video unavailable" frame) ──
-  let videosRemoved = 0
-  const { data: videoPosts } = await admin.from('hall_posts')
-    .select('id, link_url')
-    .not('board_id', 'is', null)
-    .or('link_url.ilike.%youtube.com%,link_url.ilike.%youtu.be%,link_url.ilike.%tiktok.com%')
-    .gte('created_at', new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
-    .limit(200)
-  for (const p of videoPosts ?? []) {
-    if (!videoEmbed(p.link_url)) continue
-    if (await videoAvailable(p.link_url)) continue
-    const { error } = await admin.from('hall_posts').delete().eq('id', p.id)
-    if (!error) videosRemoved++
-  }
+  // (video sweep moved to the dedicated HOURLY reels-sweep cron — the capped
+  // 200-post pass here let blocked videos linger in the swipe feed)
 
   const [{ data: posts }, { data: bots }] = await Promise.all([
     admin.from('hall_posts')
@@ -48,7 +34,7 @@ export async function GET(req: NextRequest) {
       .gte('created_at', new Date(Date.now() - 6 * 3600 * 1000).toISOString()),
     admin.from('profiles').select('id, username, party').like('clerk_user_id', 'bot%').limit(400),
   ])
-  if (!posts?.length || !bots?.length) return NextResponse.json({ ok: true, replied: 0, voted: 0, videosRemoved })
+  if (!posts?.length || !bots?.length) return NextResponse.json({ ok: true, replied: 0, voted: 0 })
   const demBots = bots.filter((b: any) => b.party === 'democrat')
   const repBots = bots.filter((b: any) => b.party === 'republican')
 
@@ -223,5 +209,5 @@ export async function GET(req: NextRequest) {
       .eq('id', c.id)
   }
 
-  return NextResponse.json({ ok: true, replied, argued, skipped_similar: skippedSimilar, voted, posts: posts.length, videosRemoved })
+  return NextResponse.json({ ok: true, replied, argued, skipped_similar: skippedSimilar, voted, posts: posts.length })
 }
