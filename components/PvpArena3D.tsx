@@ -345,6 +345,52 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   )
 }
 
+// ── Ground plane (Phase A of the presentation brief): a real dark-asphalt
+// surface the fighters stand ON, so feet + ContactShadows read as grounded
+// instead of floating over the backdrop photo. Speckle is drawn once to a
+// canvas (no asset download); scene fog fades the far edge into the arena JPG
+// so there's no hard horizon line.
+let asphaltTex: THREE.CanvasTexture | null = null
+function getAsphaltTexture(): THREE.CanvasTexture {
+  if (asphaltTex) return asphaltTex
+  const cv = document.createElement('canvas')
+  cv.width = 256; cv.height = 256
+  const ctx = cv.getContext('2d')!
+  ctx.fillStyle = '#17171c'
+  ctx.fillRect(0, 0, 256, 256)
+  // aggregate speckle — light + dark grains
+  for (let i = 0; i < 1400; i++) {
+    const l = Math.random()
+    ctx.fillStyle = l < 0.5
+      ? `rgba(255,255,255,${0.03 + Math.random() * 0.07})`
+      : `rgba(0,0,0,${0.08 + Math.random() * 0.14})`
+    const s = Math.random() < 0.92 ? 1 : 2
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, s, s)
+  }
+  asphaltTex = new THREE.CanvasTexture(cv)
+  asphaltTex.wrapS = asphaltTex.wrapT = THREE.RepeatWrapping
+  asphaltTex.repeat.set(7, 4)
+  asphaltTex.needsUpdate = true
+  return asphaltTex
+}
+
+function Ground() {
+  const tex = useMemo(() => getAsphaltTexture(), [])
+  return (
+    <group>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0.6]} receiveShadow>
+        <planeGeometry args={[34, 18]} />
+        <meshStandardMaterial map={tex} color="#8a8a92" roughness={0.96} metalness={0} />
+      </mesh>
+      {/* faint painted center line where the fighters square off */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0.6]}>
+        <planeGeometry args={[0.09, 18]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.07} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
 // ── Cinematic arena backdrop (fills the canvas behind the fighters) ──────────
 function Backdrop({ url }: { url: string }) {
   const tex = useTexture(url)
@@ -362,6 +408,9 @@ function Backdrop({ url }: { url: string }) {
 // PORTRAIT follow-cam: classic 2D-fighter framing for the vertical layout —
 // tracks the midpoint of the two fighters and zooms with their separation, so
 // fighters stay big (builder-preview size) when they close in.
+// ── CAMERA CONTRACT (frozen per PVP_PRESENTATION_BRIEF Phase A3) ─────────────
+// FOV 48 · z = clamp(3.4 + gap*1.05, 4.5, 7.2) · cam y 1.52 · lookAt y 1.42.
+// Do NOT tune these numbers again without Michael explicitly asking.
 function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
   const { camera } = useThree()
   useLayoutEffect(() => {
@@ -399,6 +448,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
       dpr={[1, 2]}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
       onCreated={({ camera }) => camera.lookAt(0, solo ? 1.0 : 1.35, 0)}>
+      {/* fight mode: fog fades the asphalt's far edge into the backdrop JPG so
+          the ground reads as part of the arena, not a floating slab */}
+      {!solo && <fog attach="fog" args={['#111116', 9, 22]} />}
       {/* dramatic stage lighting to match the gritty arena */}
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 8, 4]} intensity={2.4} color="#ffd6a0" castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
@@ -420,6 +472,7 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
               jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} hitKey={oppHitKey} />}
           </>
         )}
+        {!solo && <Ground />}
         <ContactShadows position={[0, 0.01, 0.6]} opacity={0.65} scale={12} blur={2.6} far={5} color="#000000" />
         <ReadySignal onReady={onReady} />
       </Suspense>

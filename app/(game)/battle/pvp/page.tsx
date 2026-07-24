@@ -1416,41 +1416,9 @@ function StreetFightPage() {
           background: 'linear-gradient(180deg, #0d0a1e 0%, #221439 38%, #45274b 52%, #2b2b31 60%, #232329 74%, #1a1a1f 100%)',
         }}>
 
-        {/* painted street backdrop — flashes brighter when the crowd pops on a big hit */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'url(/backgrounds/street_fight.webp)',
-          backgroundSize: 'cover', backgroundPosition: 'center 72%',
-          filter: crowdBump ? 'brightness(1.18) saturate(1.1)' : 'brightness(1) saturate(1)',
-          transition: 'filter 130ms ease-out',
-        }} />
-        {/* darken the lower third so fighters + HUD pop off the art */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'linear-gradient(180deg, rgba(5,4,12,0.35) 0%, transparent 22%, transparent 55%, rgba(5,4,12,0.42) 100%)',
-        }} />
-
-        {/* party graffiti tags behind each corner */}
-        <div className="absolute pointer-events-none font-black" style={{
-          bottom: '30%', left: '4%', fontSize: 22, transform: 'rotate(-8deg) skewX(-6deg)',
-          color: myColor, opacity: 0.20, filter: 'blur(0.4px)', letterSpacing: 1,
-          textShadow: `2px 2px 0 ${myColor}55`,
-        }}>{myParty === 'democrat' ? 'BLUE CREW' : 'RED RULES'}</div>
-        <div className="absolute pointer-events-none font-black" style={{
-          bottom: '32%', right: '4%', fontSize: 22, transform: 'rotate(6deg) skewX(6deg)',
-          color: theirColor, opacity: 0.20, filter: 'blur(0.4px)', letterSpacing: 1,
-          textShadow: `2px 2px 0 ${theirColor}55`,
-        }}>{theirParty === 'democrat' ? 'BLUE CREW' : 'RED RULES'}</div>
-
-        {/* manhole steam */}
-        <div className="absolute pointer-events-none" style={{
-          bottom: '12%', left: '47%', width: 46, height: 110,
-          background: 'radial-gradient(ellipse 50% 40% at 50% 85%, rgba(255,255,255,0.25), transparent 70%)',
-          filter: 'blur(7px)', animation: 'sfSteam 3.4s ease-out infinite',
-        }} />
-        <div className="absolute pointer-events-none" style={{
-          bottom: '12%', left: '49%', width: 34, height: 90,
-          background: 'radial-gradient(ellipse 50% 40% at 50% 85%, rgba(255,255,255,0.18), transparent 70%)',
-          filter: 'blur(6px)', animation: 'sfSteam 4.1s ease-out infinite 1.6s',
-        }} />
+        {/* ONE visual story (PVP_PRESENTATION_BRIEF Phase A1): the 3D arena is
+            the only stage. The old CSS street_fight.webp layer + graffiti +
+            steam double-exposed a second street behind/below the canvas. */}
 
         {/* ── HUD: HP bars + clock ── */}
         <div key={hpShake} className="absolute top-3 left-3 right-3 z-20 flex items-start gap-2"
@@ -1541,7 +1509,13 @@ function StreetFightPage() {
             Portrait: the arena stops above the control deck; the follow-cam
             keeps the fighters builder-preview big. */}
         <div className="absolute z-[5] pointer-events-none"
-          style={layout === 'portrait' ? { top: 0, left: 0, right: 0, bottom: 200 } : { inset: 0 }}>
+          style={{
+            ...(layout === 'portrait' ? { top: 0, left: 0, right: 0, bottom: 200 } : { inset: 0 }),
+            // crowd-pop flash now lives on the canvas itself (the CSS street it
+            // used to brighten is gone)
+            filter: crowdBump ? 'brightness(1.16) saturate(1.08)' : 'none',
+            transition: 'filter 130ms ease-out',
+          }}>
           <PvpArena3D
             onReady={() => setArenaReady(true)}
             follow={layout === 'portrait'}
@@ -1843,7 +1817,6 @@ function StreetFightPage() {
         @keyframes sfParticle { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0.3);opacity:0} }
         @keyframes sfKoFlash { 0%{opacity:0.9} 100%{opacity:0} }
         @keyframes sfNeon { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.4} 94%{opacity:1} 96%{opacity:0.6} 97%{opacity:1} }
-        @keyframes sfSteam { 0%{transform:translateY(0) scaleX(1);opacity:0} 15%{opacity:0.8} 100%{transform:translateY(-70px) scaleX(1.7);opacity:0} }
       `}</style>
     </div>
   )
