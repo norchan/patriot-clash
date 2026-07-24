@@ -52,11 +52,20 @@ export default function GuestPlayPage() {
     if (started.current || !mapContainer.current) return
     started.current = true
 
+    // Join the Fight can drop guests at THEIR town (?flat&flng); Cahokia
+    // stays the default for everyone else
+    const sp = new URLSearchParams(window.location.search)
+    const flat = parseFloat(sp.get('flat') ?? '')
+    const flng = parseFloat(sp.get('flng') ?? '')
+    const start = !isNaN(flat) && !isNaN(flng)
+      ? { lat: flat, lng: flng, zoom: CAHOKIA.zoom }
+      : CAHOKIA
+
     const m = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [CAHOKIA.lng, CAHOKIA.lat],
-      zoom: CAHOKIA.zoom,
+      center: [start.lng, start.lat],
+      zoom: start.zoom,
       pitch: 30,
     })
     map.current = m

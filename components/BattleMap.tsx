@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2, User, Landmark, MessagesSquare } from 'lucide-react'
+import { Gamepad2, User, Landmark, MessagesSquare, Newspaper } from 'lucide-react'
 import mapboxgl from 'mapbox-gl'
 import { Delaunay } from 'd3-delaunay'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -35,9 +35,19 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [finder, setFinder] = useState(false)
+  // finder flavors: 'hall' = the Town Hall dock button (existing behavior),
+  // 'join' = the Join the Fight button — picks a spot, then INTO the game
+  const [joinMode, setJoinMode] = useState(false)
   const [query, setQuery] = useState('')
   const [locating, setLocating] = useState(false)
   const [locErr, setLocErr] = useState('')
+
+  // Join the Fight: drop into the game at this spot — the real map for
+  // players, the guest world (Cahokia-style but centered here) for visitors
+  function enterGame(lat: number, lng: number) {
+    setFinder(false)
+    router.push(`${signedIn ? '/map' : '/play'}?flat=${lat.toFixed(5)}&flng=${lng.toFixed(5)}`)
+  }
 
   useEffect(() => {
     if (!el.current || map.current) return
@@ -203,6 +213,7 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
     navigator.geolocation?.getCurrentPosition(
       pos => {
         setLocating(false)
+        if (joinMode) { enterGame(pos.coords.latitude, pos.coords.longitude); return }
         const h = nearestHall(pos.coords.latitude, pos.coords.longitude)
         if (h) goToHall(h)
       },
@@ -255,18 +266,20 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       </button>
 
 
-      {/* finder popup */}
+      {/* finder popup — doubles as the Join the Fight location chooser */}
       {finder && (
         <div className="absolute inset-0 z-20 flex items-center justify-center p-4"
           style={{ background: 'rgba(3,7,18,0.72)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setFinder(false)}>
+          onClick={() => { setFinder(false); setJoinMode(false) }}>
           <div className="w-full max-w-sm rounded-3xl p-5 shadow-2xl"
             style={{ background: 'linear-gradient(160deg, #17102b, #0b0716)', border: '1px solid rgba(139,92,246,0.45)' }}
             onClick={e => e.stopPropagation()}>
             <div className="text-center">
-              <div className="text-3xl">🏛️</div>
-              <h3 className="text-white font-black text-lg mt-1">Find your town hall</h3>
-              <p className="text-gray-400 text-xs mt-1">Every hall is real. One of them is yours.</p>
+              <div className="text-3xl">{joinMode ? '⚔️' : '🏛️'}</div>
+              <h3 className="text-white font-black text-lg mt-1">{joinMode ? 'Join the Fight' : 'Find your town hall'}</h3>
+              <p className="text-gray-400 text-xs mt-1">
+                {joinMode ? 'Pick where you fight — your location or any town in America.' : 'Every hall is real. One of them is yours.'}
+              </p>
             </div>
             <button onClick={shareLocation} disabled={locating}
               className="w-full mt-4 py-3 rounded-xl font-black text-white text-sm transition active:scale-95 disabled:opacity-60"
@@ -285,7 +298,7 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
             <div className="mt-2 max-h-44 overflow-y-auto space-y-1">
               {results.map(h => (
                 <button key={`${h.city}-${h.state}-${h.lat}`}
-                  onClick={() => goToHall(h)}
+                  onClick={() => joinMode ? enterGame(h.lat, h.lng) : goToHall(h)}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm text-gray-200 hover:bg-white/5">
                   <span className="w-2 h-2 rounded-full shrink-0"
                     style={{ background: h.party === 'democrat' ? '#3b82f6' : h.party === 'republican' ? '#ef4444' : '#6b7280' }} />
@@ -296,7 +309,7 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
                 <p className="text-gray-600 text-xs text-center py-2">No hall matches “{query.trim()}”</p>
               )}
             </div>
-            <button onClick={() => setFinder(false)} className="w-full mt-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5">
+            <button onClick={() => { setFinder(false); setJoinMode(false) }} className="w-full mt-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5">
               Close
             </button>
           </div>
@@ -304,13 +317,20 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       )}
     </div>
 
-    {/* under-map dock: bare white icons — play, arcade, profile, town hall */}
+    {/* JOIN THE FIGHT — the way into the game: pick a spot, drop in */}
+    <button onClick={() => { setJoinMode(true); setLocErr(''); setQuery(''); setFinder(true) }}
+      className="mt-4 w-full py-4 rounded-2xl font-black text-lg text-white transition active:scale-[0.98]"
+      style={{ background: 'linear-gradient(135deg, #dc2626, #7c3aed)', boxShadow: '0 8px 28px rgba(124,58,237,0.35)' }}>
+      ⚔️ JOIN THE FIGHT
+    </button>
+
+    {/* under-map dock: bare white icons — boards, arcade, profile, town hall, messages */}
     <div className="mt-4 flex items-center justify-center gap-10">
-      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
-        title="Play" aria-label="Play"
-        className="w-[42px] h-[42px] rounded-full border-[2.5px] border-white text-white text-[11px] font-black tracking-wide transition active:scale-90 hover:opacity-80 flex items-center justify-center"
+      <button onClick={() => router.push('/boards')}
+        title="Boards" aria-label="Boards"
+        className="text-white transition active:scale-90 hover:opacity-80"
         style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-        PLAY
+        <Newspaper size={38} strokeWidth={2.2} />
       </button>
       <button onClick={() => router.push(signedIn ? '/arcade' : '/play/arcade')}
         title="Arcade" aria-label="Arcade"
