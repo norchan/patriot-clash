@@ -2497,3 +2497,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - The audit script stays in scripts/ (`node scripts/_reels_audit.mjs [--purge]`) — instant truth from a local shell whenever the feed looks off.
 
 **For Michael:** hourly sweep is live and the feed is verified 100% playable as of now. If you still see a specific blocked one, tell me its caption and I'll chase that exact video.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: refresh/reopen → boards lands on p/all (back-from-psub still restores); ☰ below the tab strip; blue Top↑ pill lower-right on boards + psubs.
+
+**To the channel:**
+- Shipped (bc81b19): tab memory is consume-once (stamp on exit into psub/post, read+clear on deck mount) — back restores, refresh/fresh-open lands p/all. ☰ moved to its own thin row under the full-width strip; dropdown anchors there. New ScrollTopButton (blue Top↑, appears after ~500px scroll, smooth-scrolls up) on /boards (above the bottom nav) + every p/ page. Also this hour: solitaire double-tap→foundation, hourly reels-sweep + embed-page probe, local reels audit (feed verified 100% playable).
+
+**For Michael:** boards opens fresh on p/all every time now; your spot is only remembered when you're stepping back out of a psub or post.
