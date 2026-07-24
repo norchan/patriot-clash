@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/welcome',
   '/explore(.*)', // public, crawlable content pages (AdSense review + SEO)
+  '/fight(.*)', // public fight-me landing pages (shared to Twitter/texts)
   '/p(.*)', // public post boards (p/all, p/minnesota, ...) — read-only windows over hall feeds
   '/privacy', // public privacy policy (Play listing + AdSense)
   '/terms', // public terms of service (AdSense + app stores + Stripe)

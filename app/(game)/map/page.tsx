@@ -1436,13 +1436,16 @@ export default function MapPage() {
               </button>
               <div className="w-px my-2 bg-white/25" />
               <button
-                aria-label="Share the Arena"
+                aria-label="Share a fight-me link"
                 onClick={async () => {
-                  const url = `${window.location.origin}/arena`
-                  const data = { title: 'PoliticsGo Arena', text: '🏟️ Meet me in the PoliticsGo Arena — national rankings on the line', url }
+                  // public fight-me page: ANYONE who clicks it (even non-users,
+                  // via a quick sign-up) lands in a live PvP against me — I get
+                  // the "called you out" push and join from the notification
+                  const url = `${window.location.origin}/fight/${profile?.id}`
+                  const data = { title: 'PoliticsGo', text: `⚔️ Think you can beat me in a street fight? Prove it.`, url }
                   try {
                     if (navigator.share) await navigator.share(data)
-                    else { await navigator.clipboard.writeText(url); showPvpToast('🔗 Arena link copied!') }
+                    else { await navigator.clipboard.writeText(url); showPvpToast('🔗 Fight-me link copied!') }
                   } catch { /* user closed the share sheet */ }
                 }}
                 className="px-5 py-3 text-white text-lg transition active:bg-black/20">

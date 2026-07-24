@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     // Block duplicate live challenges between these two players
     const { data: existing } = await admin
       .from('pvp_challenges')
-      .select('id')
+      .select('id, status')
       .or(
         `and(challenger_id.eq.${profile.id},defender_id.eq.${defender_id}),` +
         `and(challenger_id.eq.${defender_id},defender_id.eq.${profile.id})`
@@ -58,7 +58,9 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (existing) {
-      return NextResponse.json({ error: 'A challenge is already live between you two' }, { status: 400 })
+      // a fight is already live between these two — send them into IT instead
+      // of erroring (double-tapping a shared fight link must not dead-end)
+      return NextResponse.json({ id: existing.id, status: existing.status, existing: true })
     }
 
     // EVERY challenge arms instantly (Michael 2026-07-23: anyone can fight —
