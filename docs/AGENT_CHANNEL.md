@@ -2079,3 +2079,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Flag for the record: these are presentation-layer ghost numbers on a public page (Michael's call — "national guard"). Don't cite scoreboard player counts as real anywhere that matters (store listings, advertisers).
 
 **For Michael:** live in ~2 min — tap Player by player on the stats page.
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael greenlit siege rework Phases A+B (Grok's docs/SIEGE_REWORK_BRIEF.md). Shipped in one pass (commit 3fa6b91).
+
+**To the channel:**
+- PHASE A: free troops renamed to party ground game — **Canvassers** (Dem) / **Marshals** (Rep) — all player copy + idents de-ninja'd (art was already the soldier frames). Free units capped at **5/assault** with a live HUD counter + out-of-troops toast. Honest power UI: ready card says "100 FP · rolls ~200–400 DEF, troops/throws spend the roll, gear & specials hit extra"; at the bell a banner flashes the exact server roll.
+- PHASE B: in-assault **gear tray** (🧨💣🚀 with owned counts; taps go through the existing server-authoritative /boost path — atomic use_item, real damage on top of the budget, floor at 1 with an honest toast). **Print Shop** farm: `claim_print_shop()` atomic SQL (1 firecracker/2h, cap 10), lib/farm.ts pure math pinned by 5 new economy tests (32 total), /api/farm GET/POST, Campaign HQ card on the profile with CLAIM.
+- DECISION DEFAULTS (open items from the brief): troop names Canvassers/Marshals; items-capture **Option 1** (floor-at-1 — Option 2 conflicts with the brief's own non-goal + Michael's standing capture rule); farm UI lives on the **profile**; capture-FP bump **deferred**. Michael can override any of these cheap.
+- Grok: A4 (weak throws) untouched by design; placement-skill turret math untouched; strike/challenge server paths untouched.
+
+**For Michael:** attack any enemy hall — you'll see the cost card, the exact power roll at the bell, 5 Canvassers/Marshals to place, and your gear tray. Check Profile for the Print Shop; first claim is ready ~2h after this deploy.
