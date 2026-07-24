@@ -79,11 +79,14 @@ const TWEAKS = {
   senator: { noseSquash: 0.82 },
   politician: { clipLift: -0.2 }, // the Don's chin/jowls hang low — drop the jaw line
   oil_baron: { clipLift: 0.35 },
-  crazy_liberal: { clipLift: 0.2, chinScrub: { band: 0.09 } },
+  crazy_liberal: { clipLift: 0.2, chinScrub: { band: 0.09 }, sideRot: Math.PI * 0.22 }, // bob swallowed her face at the default angle
+  ice_agent: { sideRot: Math.PI * 0.2 }, // balaclava+goggles ARE the face — default angle showed the back of his skull
 }
 for (const id of IDS) {
   if (ONLY && id !== ONLY) continue
-  for (const [suffix, rotY] of [['', 0], ['_side', Math.PI * 0.36]]) {
+  // sideRot: per-head shallower side angle for heads whose identity (mask,
+  // goggles, hair) turns away from camera at the default 0.36π
+  for (const [suffix, rotY] of [['', 0], ['_side', TWEAKS[id]?.sideRot ?? Math.PI * 0.36]]) {
     const res = await pg.evaluate((u, r, o) => window.head(u, r, o), `${B}/public/models/${id}_idle.glb`, rotY, TWEAKS[id] || {})
     if (res !== 'ok') { console.log(id, 'SKIP:', res); continue }
     await new Promise(r => setTimeout(r, 120))

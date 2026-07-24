@@ -48,13 +48,16 @@ export const HEADS: HeadMeta[] = [
   { id: 'maine', label: 'The Mainer', party: 'democrat' },
 ]
 
-// v12 = five refreshed heads (HR, Antifa Kid, Kirk El Captain, new Ice Man,
-// new Purple Reign) re-rendered from replaced models. v11 = new-wave heads (Governor, Dan Dankas, Mainer, Firebrand, Social Bean)
-// + The Queen re-rendered with her LONG beard from the rebuilt model.
+// v13 = side-render fix for Ice Man + HR (per-head shallower sideRot in
+// render_heads.mjs — the default 0.36π angle showed the back of the skull /
+// a wall of hair instead of the face). v12 = five refreshed heads (HR, Antifa
+// Kid, Kirk El Captain, new Ice Man, new Purple Reign) re-rendered from
+// replaced models. v11 = new-wave heads (Governor, Dan Dankas, Mainer,
+// Firebrand, Social Bean) + The Queen re-rendered with her LONG beard.
 // v8/9: adaptive jaw clip, normalized heights, senator nose fix, Don chin
-export const headImage = (id: string) => `/heads/${id}.png?v=12`
+export const headImage = (id: string) => `/heads/${id}.png?v=13`
 // side-profile render of the same head — used IN FIGHTS so the face looks at
 // the opponent (the frontal art stays in the designer grid)
-export const headSideImage = (id: string) => `/heads/${id}_side.png?v=12`
+export const headSideImage = (id: string) => `/heads/${id}_side.png?v=13`
 export const isValidHead = (id: unknown): id is string =>
   typeof id === 'string' && HEADS.some(h => h.id === id)
