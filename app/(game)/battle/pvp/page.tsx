@@ -222,8 +222,26 @@ function StreetFightPage() {
 
   const fetchChallenge = useCallback(async () => {
     if (guest) {
-      // synthetic challenge: the link owner as an AI-driven opponent
       try {
+        if (challengeId) {
+          // REAL street fight (guest vs the link owner, live): public window
+          // onto the challenge row — realtime engages like any human fight
+          const res = await fetch(`/api/public/fight/challenge/${challengeId}`)
+          if (!res.ok) { setPhase('aborted'); return }
+          const data = await res.json()
+          setChallenge(data)
+          if (data.status === 'completed') {
+            if (pollRef.current) clearInterval(pollRef.current)
+            setPhase(p => (p === 'loading' || p === 'waiting') ? 'done' : p)
+          } else if (data.status === 'accepted') {
+            setPhase(p => (p === 'loading' || p === 'waiting') ? 'intro' : p)
+          } else {
+            setPhase('aborted')
+            if (pollRef.current) clearInterval(pollRef.current)
+          }
+          return
+        }
+        // demo fallback: the owner's fighter on AI autopilot
         const res = await fetch(`/api/public/fight/${guestVs}`)
         if (!res.ok) { setPhase('aborted'); return }
         setChallenge(await res.json())
@@ -266,10 +284,10 @@ function StreetFightPage() {
 
   useEffect(() => {
     fetchChallenge()
-    if (guest) return // synthetic challenge — nothing to poll
+    if (guest && !challengeId) return // demo mode — nothing to poll
     pollRef.current = setInterval(fetchChallenge, 3000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [fetchChallenge, guest])
+  }, [fetchChallenge, guest, challengeId])
 
   // The 'accepted' branch needs the profile id — refetch once it loads
   useEffect(() => { if (profile?.id) fetchChallenge() }, [profile?.id, fetchChallenge])
@@ -1696,10 +1714,10 @@ function StreetFightPage() {
                   : `${theirUsername}'s fighter got you… and that was just the autopilot.`}
               </p>
             </div>
-            <a href={`/sign-up?redirect_url=${encodeURIComponent(`/fight/${guestVs}`)}`}
+            <a href={`/sign-up?redirect_url=${encodeURIComponent(`/fight/${guestVs ?? challenge?.defender_id ?? ''}`)}`}
               className="block w-full py-4 rounded-2xl font-black text-lg text-white text-center transition active:scale-95"
               style={{ background: 'linear-gradient(135deg,#dc2626,#991b1b)', boxShadow: '0 8px 30px rgba(220,38,38,0.4)' }}>
-              ⚔️ SIGN UP & FIGHT {theirUsername?.toUpperCase()} FOR REAL
+              ⚔️ SIGN UP & KEEP FIGHTING {theirUsername?.toUpperCase()}
             </a>
             <p className="text-gray-500 text-xs text-center">
               They get called out on their phone — live, human vs human, 50 FP on the line. Takes 30 seconds.

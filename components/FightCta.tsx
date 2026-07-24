@@ -42,15 +42,27 @@ export default function FightCta({ ownerId, ownerName }: { ownerId: string; owne
 
   if (!isLoaded) return <div className="h-16" />
 
+  // Guest accept: start a REAL street fight vs the owner (they get pushed
+  // into the ring); if one's already live, fall back to the AI demo
+  async function guestFight() {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/public/fight/${ownerId}/start`, { method: 'POST' })
+      const d = await res.json().catch(() => ({}))
+      if (res.ok && d.id) { router.push(`/battle/pvp?id=${d.id}&guest=1`); return }
+    } catch {}
+    router.push(`/battle/pvp?guest=1&vs=${ownerId}`)
+  }
+
   if (!isSignedIn) {
-    // no account needed: fight the owner's fighter (AI at their level) right
-    // in the browser — the sign-up pitch comes AFTER the fight (Michael)
+    // no account needed: real live fight vs the owner, right in the browser —
+    // the sign-up pitch comes AFTER the fight (Michael)
     return (
       <div className="w-full">
-        <button onClick={() => router.push(`/battle/pvp?guest=1&vs=${ownerId}`)}
-          className="block w-full py-4 rounded-2xl font-black text-xl text-white text-center transition active:scale-95"
+        <button onClick={guestFight} disabled={busy}
+          className="block w-full py-4 rounded-2xl font-black text-xl text-white text-center transition active:scale-95 disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg,#dc2626,#991b1b)', boxShadow: '0 8px 30px rgba(220,38,38,0.4)' }}>
-          ⚔️ ACCEPT THE FIGHT
+          {busy ? '🥊 Entering the ring…' : '⚔️ ACCEPT THE FIGHT'}
         </button>
         <p className="text-gray-500 text-xs text-center mt-2">No account needed — fight right now, in your browser</p>
       </div>
