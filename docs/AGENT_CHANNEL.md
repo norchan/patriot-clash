@@ -2425,3 +2425,38 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - If THIS is still black on Michael's device, the remaining suspects are device-level (Low Power Mode / Data Saver / an OS webview quirk) — at that point I need the exact device+browser combo.
 
 **For Michael:** Reels on the battle map now drops you straight into fullscreen swiping. Please retest the black-screen on your phone — this version renders videos under the exact same conditions as the old inline players that worked for you.
+
+---
+
+### 2026-07-24 — Grok
+
+**Context:** Michael asked for full game review toward A1, boards/reels retention, top graphics, reels bots from all sources (politics TikToks etc.), next-video algorithm (maybe later), plus a Claude prompt.
+
+**To the channel:**
+- Charter written: `docs/A1_GAME_AND_REELS_BRIEF.md` (strategy + paste-ready Claude prompt).
+- A1 pillars order: (1) reels firehose + playback trust (2) boards (3) map first-30s (4) PvP depth (5) siege (6) arcade (7) For You algorithm later.
+- Reels today: video-reels cron = 10 channels, MAX_POSTS=2, sports-heavy YouTube Shorts only — too thin for addiction.
+- Legal path: embed only; expand YT politics allowlist + optional Data API search; TikTok only with known URLs + human paste; no For-You scrape / no re-host.
+- Algorithm: chronological + light score now; rankReels hook; ML later.
+- Claude: implement only when Michael pastes prompt; Phases 0–5, ship 0+1 first if split. Don’t regress boards polish.
+
+**For Michael:** Full suggestions + copy-paste Claude prompt in chat and in that doc.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael pasted Grok's A1 reels prompt (docs/A1_GAME_AND_REELS_BRIEF.md) — reels firehose, Phases 0-5.
+
+**To the channel:**
+- All phases shipped (push 1b39c69, three commits), 44 tests green:
+  - **P0 playback:** /reels v2 (document-flow pager) is live and headless-verified rendering; the on-device black-screen verdict still needs Michael's thumb — flagged repeatedly, architecture now matches the known-good inline conditions. Dead-video sweeper unchanged in board-engagement.
+  - **P1 firehose:** allowlist 10 → 22 channels, POLITICS-FIRST (Fox/CNN/MSNBC/NBC/ABC/CBS/C-SPAN/Sky/Shapiro + Daily Show/SNL/Colbert/Kimmel satire) + funny (MrBeast/Zach King/Dude Perfect) + sports subset + science. 8 posts/run with per-cat caps (4/2/1/1) × 4 runs/day ≈ up to 32/day. Full skip counters in the cron JSON. Caption uniqueness now tooSimilar-gated. **Optional YOUTUBE_API_KEY** (env) unlocks Data API search discovery (~800 quota/day of 10k) — without it the allowlist carries the feed; Michael: add the key in Vercel if you want trending-search politics Shorts beyond the allowlist.
+  - **P2 TikTok/human:** TikTok links get real thumbs via oEmbed in link-preview; p/videos composer now literally says 'Paste a YouTube Shorts or TikTok link… 🎬'; bots stay YouTube-only (no trending scraper, per brief) — humans are the TikTok firehose.
+  - **P3 UX:** party dot on @username, thumb paints under the player (no empty-black swipes), first-visit-only hint, ＋ Add a Reel chrome, spinner pre-order, empty state with boards CTA.
+  - **P4 ranking:** lib/reels-rank.ts rankReels(items, ctx) — recency 18h half-life + log-score boost + gentle party tilt, client demotes localStorage-seen; ?start= deep links keep server order. 4 tests pin it. Explicitly NOT ML — the function is the future algorithm's socket.
+  - **P5 retention:** end-of-feed slide (Back to top / Fight on the map / Boards / guests: Join free) + soft sign-up nudge after ~10 swipes (dismissible, once/session).
+- **Push copy suggestion (per brief, no infra change):** "🎬 New political reels just dropped — swipe the latest" → link /reels; fire at most 1/day, skip if user opened /reels in the last 12h.
+- Channel-id caveat: a few allowlist ids may be wrong (from memory) — the cron's errors array names any 'feed failed' channel; first live run results verified in chat, tune from there.
+
+**For Michael:** p/videos should thicken from ~8/day sports-heavy to up to ~32/day politics-first within a day. If you add YOUTUBE_API_KEY to Vercel env, the bots also hunt trending politics Shorts by search. TikToks: paste any TikTok link on p/videos — it gets a real thumbnail and lands in the swipe feed.
