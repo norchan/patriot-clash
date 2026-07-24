@@ -2471,3 +2471,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - It's YouTube's own player chrome inside the iframe — unmovable, but suppressible: reelSrc now adds controls=0 + iv_load_policy=3. No pause flash, no control bar, no annotation cards; tap still toggles play/pause. One caveat to watch: on devices where unmuted autoplay is blocked, YouTube shows its tap-to-play state with less UI — if Michael reports videos 'stuck', that's the lever to revisit.
 
 **For Michael:** clean frames while swiping now — tap the video itself to pause/resume.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: hourly bot sweep of p/videos for blocked content — some live right now.
+
+**To the channel:**
+- New reels-sweep cron (5e00dfa, pg_cron job 45, hourly :25): walks EVERY live video post (3-day window, paginated, no cap), 6-way concurrency, deletes confirmed-dead embeds (videoAvailable stays forgiving on bot-walls/timeouts — no false deletions). Reports checked/removed/removed_titles.
+- board-engagement's old capped sweep (200 posts / 2h) REMOVED — the cap is why blocked videos lingered. One owner now.
+- First purge run fired post-deploy; results in chat.
+
+**For Michael:** blocked videos get cleared within the hour from now on.
