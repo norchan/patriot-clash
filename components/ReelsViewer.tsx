@@ -18,9 +18,12 @@ export interface ReelItem {
   username?: string | null
 }
 
+// Param set kept MINIMAL on purpose: the inline feed players (same embeds,
+// mobile-verified) used a bare src — loop/playlist/modestbranding are the
+// kind of extras that break mobile playback in surprising ways.
 export function reelSrc(it: ReelItem): string {
   return it.kind === 'youtube'
-    ? `https://www.youtube-nocookie.com/embed/${it.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${it.videoId}`
+    ? `https://www.youtube-nocookie.com/embed/${it.videoId}?autoplay=1&playsinline=1&rel=0`
     : `https://www.tiktok.com/player/v1/${it.videoId}?autoplay=1`
 }
 
@@ -57,25 +60,35 @@ export default function ReelsViewer({ items, startIndex = 0, onClose }: { items:
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[130] bg-black">
-      <div ref={wrap} className="h-full w-full overflow-y-auto snap-y snap-mandatory"
+    // stopPropagation: in the deck the viewer mounts INSIDE a clickable card —
+    // a tap in here must never bubble into "open the post page" underneath
+    <div className="fixed inset-0 z-[130] bg-black" onClick={e => e.stopPropagation()}>
+      <div ref={wrap} className="h-full w-full overflow-y-auto snap-y snap-mandatory overscroll-contain"
         style={{ scrollbarWidth: 'none' }}>
         {items.map((it, i) => (
           <div key={it.id} data-idx={i}
             className="h-full w-full snap-start snap-always relative flex items-center justify-center">
             {Math.abs(i - active) <= 1 && (
-              i === active ? (
-                <iframe src={reelSrc(it)} title={it.title ?? 'Video'}
-                  className={it.vertical ? 'h-full aspect-[9/16] max-w-full' : 'w-full aspect-video max-h-full'}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen />
-              ) : (
-                // pre-rendered neighbor: thumbnail only, becomes live on arrival
-                it.thumb ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={it.thumb} alt="" className={`object-cover ${it.vertical ? 'h-full aspect-[9/16] max-w-full' : 'w-full aspect-video'}`} />
-                ) : <div className="text-gray-700 text-sm font-bold">Loading…</div>
-              )
+              // sized wrapper + absolute-fill: replaced-element aspect sizing
+              // is flaky on mobile engines; a box + inset-0 iframe is not.
+              // translateZ(0) forces the video onto its own compositing layer —
+              // THE fix for "audio plays, picture black" inside scroll-snap
+              // containers on phones.
+              <div className={it.vertical ? 'relative h-full aspect-[9/16] max-w-full' : 'relative w-full aspect-video max-h-full'}>
+                {i === active ? (
+                  <iframe src={reelSrc(it)} title={it.title ?? 'Video'}
+                    className="absolute inset-0 w-full h-full"
+                    style={{ transform: 'translateZ(0)' }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen />
+                ) : (
+                  // pre-rendered neighbor: thumbnail only, becomes live on arrival
+                  it.thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={it.thumb} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-sm font-bold">Loading…</div>
+                )}
+              </div>
             )}
             {/* caption — kept clear of the player controls */}
             {(it.title || it.username) && i === active && (
