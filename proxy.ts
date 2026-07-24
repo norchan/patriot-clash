@@ -16,6 +16,7 @@ const isPublicRoute = createRouteMatcher([
   '/fight(.*)', // public fight-me landing pages (shared to Twitter/texts)
   '/battle/pvp', // guest mode (?guest=1&vs=) — visitors fight before signing up
   '/p(.*)', // public post boards (p/all, p/minnesota, ...) — read-only windows over hall feeds
+  '/reels(.*)', // fullscreen swipe-up video pager (public — guests can watch)
   '/privacy', // public privacy policy (Play listing + AdSense)
   '/terms', // public terms of service (AdSense + app stores + Stripe)
   '/manifest.json', // PWA manifest — must be public for install prompts + the Android TWA build

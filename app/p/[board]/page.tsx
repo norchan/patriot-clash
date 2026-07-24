@@ -205,8 +205,8 @@ export default async function BoardPage({ params, searchParams }: {
                   <img src={p.image_url} alt="" className="mt-2 w-full rounded-2xl border border-gray-700/80 max-h-[540px] object-cover" loading="lazy" />
                 )}
               </Link>
-              {/* videos: tap → FULLSCREEN pager, swipe up = next (Michael) */}
-              {reelIndex.has(p.id) && <ReelCard items={reelItems} index={reelIndex.get(p.id)!} />}
+              {/* videos: tap → /reels fullscreen pager, swipe up = next (Michael) */}
+              {reelIndex.has(p.id) && <ReelCard items={reelItems} index={reelIndex.get(p.id)!} board={dbBoard?.slug ?? b.label.slice(2)} />}
               <PostActions kind="post" id={p.id} postId={p.id} score={p.score ?? 0} commentCount={p.comment_count ?? 0} />
             </article>
           ))}

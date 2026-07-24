@@ -289,7 +289,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                     if (q.id === p.id) index = items.length
                     items.push({ id: q.id, kind: qv.kind, videoId: qv.id, vertical: qv.vertical, thumb: qv.thumb, title: q.link_title ?? q.content, username: q.username })
                   }
-                  return <ReelCard items={items} index={index} />
+                  return <ReelCard items={items} index={index} board={tab} />
                 }
                 return (
                   <div className={`mt-2 relative rounded-2xl overflow-hidden border border-gray-700/80 bg-black ${v.vertical ? 'max-w-[300px]' : ''}`}

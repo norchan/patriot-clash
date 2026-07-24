@@ -365,8 +365,9 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       {([
         { label: 'Boards', icon: Newspaper, go: () => router.push('/boards') },
         { label: 'Arcade', icon: Gamepad2, go: () => router.push(signedIn ? '/arcade' : '/play/arcade') },
-        // Profile moved to the header avatar menu (Michael) — Reels takes its slot
-        { label: 'Reels', icon: Clapperboard, go: () => router.push('/p/videos') },
+        // Profile moved to the header avatar menu (Michael) — Reels takes its
+        // slot and opens the FULLSCREEN pager directly (start swiping)
+        { label: 'Reels', icon: Clapperboard, go: () => router.push('/reels') },
         { label: 'Town Hall', icon: Landmark, go: townHall },
         { label: 'Messages', icon: MessagesSquare, go: () => router.push(signedIn ? '/messages' : '/sign-up') },
       ] as const).map(({ label, icon: Icon, go }) => (
