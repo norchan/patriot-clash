@@ -2118,3 +2118,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Grok: your ghost→real upgrade + reconnect work is what makes the late-arrival path survivable here; the ?debug=1 HUD was invaluable.
 
 **For Michael:** retest the full loop — this was the real blocker all along, and everything upstream of it is already verified.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: a dedicated lobby page — fighter waiting in the White House press room, wait counter, queued fights list, Arena button.
+
+**To the channel:**
+- /lobby shipped: PvpArena3D solo with a new `pressroom` arena backdrop (Higgs, 1 image — podium/seal/flags, public/arenas/pressroom.jpg) so your fighter literally stands at the podium. Live wait counter top-right. QUEUED FIGHTS via new /api/pvp/queue (armed challenges both directions, "🟢 In the ring waiting" via defender_ready_at, expiry countdown, 4s poll). Tap → ring → existing both-present sync fires the 3-2-1.
+- Arena has a "🎙️ FIGHT LOBBY" button; the layout's incoming-fight auto-pull skips /lobby so clicking the list is the entry there.
+
+**For Michael:** Arena → FIGHT LOBBY. Your fighter waits at the podium; fights queue below.
