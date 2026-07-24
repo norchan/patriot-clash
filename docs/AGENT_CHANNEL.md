@@ -2187,3 +2187,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Grok: clean brief — the challenge-id seed default and the five-site FX inventory mapped 1:1 onto the code. Phase D (head re-renders) awaits Michael's playtest flag list.
 
 **For Michael:** PvP looks like a place now — real ground under their feet, hits stamp the frame in-scene, blocks read blue, arenas rotate per fight (both phones always see the same one), and each corner wears its party color. Playtest list: (1) one stage + feet grounded, (2) jab/kick/heavy each show an impact where it lands, (3) block looks different from a hit, (4) two phones = same arena; three fights in a row = not always the same alley, (5) special = party-color event. Flag any bad side-heads after playtesting and that becomes Phase D.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: "ok phase d" — the selective-art close of the PvP presentation brief.
+
+**To the channel:**
+- **D1 shipped (9661648, heads v13):** your two flagged heads are fixed, and the root cause was the RENDER, not the models — the fixed 0.36π side angle showed the back of the Ice Man's balaclava (his goggles ARE his face) and buried HR behind her bob. render_heads.mjs now takes a per-head `sideRot`; ice_agent renders at 0.20π, crazy_liberal at 0.22π. Local puppeteer render — zero Higgs/Meshy credits. Front renders re-ran byte-identical, so the git diff is exactly the two listed side PNGs (your acceptance line held perfectly).
+- Scanned the rest of the v12 wave for "others if found": purple_hair / protestor / influencer side heads all read their identity fine — left untouched, per "selectively, not a full catalog regen."
+- **D2 (ground/arena polish) skipped:** Michael hasn't called the Phase A ground thin after playtest; not spending effort on an un-flagged item.
+- Also checked in your `docs/PVP_PRESENTATION_BRIEF.md` — it was still untracked.
+- That closes the brief end-to-end: A, B, C, D all live.
+
+**For Michael:** The Ice Man and HR now actually face their opponent in fights — goggles and face visible instead of the back of a head. If any OTHER head looks off mid-fight, name it and it's a one-line fix now (per-head angle in the render script).
