@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import BoardsDeck from '@/components/BoardsDeck'
+import ScrollTopButton from '@/components/ScrollTopButton'
 
 // /boards — the boards deck full-page: same ☰ menu and psub tab strip as
 // the homepage, landing on p/all, no map, no icons, no title. Swiping the
@@ -46,6 +47,8 @@ export default async function BoardsPage() {
       <div className="max-w-2xl mx-auto">
         <BoardsDeck signedIn={!!profileId} initialPosts={deckPosts} extraTabs={subTabs} swipeNav tall />
       </div>
+      {/* blue Top ↑ pill, lower right — rides above the bottom nav (Michael) */}
+      <ScrollTopButton bottomClass="bottom-24" />
     </div>
   )
 }
