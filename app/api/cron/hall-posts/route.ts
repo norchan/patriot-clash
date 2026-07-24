@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { openaiChat } from '@/lib/openai'
 
-// SET 1 — HALL POSTS (Michael 2026-07-22): 3 bots in each state post to EVERY
-// town hall in the state, every 3 hours. HARD RULE: each post is relevant to
-// the specific town hall it's posted in (about that city). One gpt-4o-mini
-// call per hall returns 3 posts (one per state bot). These are normal bot
-// posts (expire in 48h) so halls stay fresh — the permanent seed is separate.
-// Sharded (?shard=N&of=M) so the ~2,351 halls fit inside the 300s cron window
-// across parallel jobs. Tunable: POSTS_PER_HALL.
+// SET 1 — HALL POSTS (Michael 2026-07-22): 3 bots in each state post to town
+// halls in the state. HARD RULE: each post is relevant to the specific town
+// hall it's posted in (about that city). One gpt-4o-mini call per hall
+// returns 3 posts (one per state bot). Normal bot posts (48h expiry).
+// Cadence after two rounds of cost tuning: cron fires every 6h and a
+// ROTATION covers half the halls per cycle → every hall gets 3 fresh posts
+// twice a day, ~4.7k OpenAI calls/day (~$1/day). Sharded (?shard=N&of=M) to
+// fit the 300s cron window. Tunable: POSTS_PER_HALL.
 
 export const maxDuration = 300
 
@@ -70,7 +71,12 @@ export async function GET(req: NextRequest) {
     gyms.push(...(data ?? []))
     if (!data || data.length < 1000) break
   }
-  const mine = gyms.filter((_, i) => i % of === shard)
+  // ROTATION (Michael 2026-07-23, "the clean lever"): each 6h cycle covers
+  // HALF the halls, alternating by cycle — every hall still gets fresh posts
+  // twice a day, at half the OpenAI spend (~$1/day). Parity flips with the
+  // 6-hour window, so cycles 00:00/12:00 take one half, 06:00/18:00 the other.
+  const rot = Math.floor(Date.now() / (6 * 3600 * 1000)) % 2
+  const mine = gyms.filter((_, i) => i % 2 === rot).filter((_, j) => j % of === shard)
 
   const { data: botRows } = await admin
     .from('profiles')
