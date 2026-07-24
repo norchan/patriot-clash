@@ -96,6 +96,11 @@ function StreetFightPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const challengeId = searchParams.get('id')
+  // GUEST MODE (Michael 2026-07-23): a fight-me link visitor with no account
+  // fights the owner's fighter (AI at their level) right in the browser —
+  // sign-up is pitched AFTER the fight, not before.
+  const guestVs = searchParams.get('vs')
+  const guest = searchParams.get('guest') === '1' && !!guestVs
   const { profile, loading: profileLoading } = useProfile()
 
   const [challenge, setChallenge] = useState<ChallengeData | null>(null)
@@ -216,6 +221,16 @@ function StreetFightPage() {
   const chatRef = useRef<HTMLDivElement>(null)
 
   const fetchChallenge = useCallback(async () => {
+    if (guest) {
+      // synthetic challenge: the link owner as an AI-driven opponent
+      try {
+        const res = await fetch(`/api/public/fight/${guestVs}`)
+        if (!res.ok) { setPhase('aborted'); return }
+        setChallenge(await res.json())
+        setPhase(p => (p === 'loading' || p === 'waiting') ? 'intro' : p)
+      } catch {}
+      return
+    }
     if (!challengeId) return
     try {
       const res = await fetch(`/api/pvp/${challengeId}`)
@@ -245,15 +260,16 @@ function StreetFightPage() {
         if (pollRef.current) clearInterval(pollRef.current)
       }
     } catch {}
-  }, [challengeId])
+  }, [challengeId, guest, guestVs])
 
   useEffect(() => { profileRef.current = profile?.id ?? null }, [profile?.id])
 
   useEffect(() => {
     fetchChallenge()
+    if (guest) return // synthetic challenge — nothing to poll
     pollRef.current = setInterval(fetchChallenge, 3000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [fetchChallenge])
+  }, [fetchChallenge, guest])
 
   // The 'accepted' branch needs the profile id — refetch once it loads
   useEffect(() => { if (profile?.id) fetchChallenge() }, [profile?.id, fetchChallenge])
@@ -268,8 +284,8 @@ function StreetFightPage() {
 
   const log = challenge?.battle_log
   const validLog = log && log.version === 2 && Array.isArray(log.events)
-  const isLive = challenge?.status === 'accepted' && !!profile
-    && (challenge.challenger_id === profile.id || challenge.defender_id === profile.id)
+  const isLive = challenge?.status === 'accepted' && (guest || (!!profile
+    && (challenge.challenger_id === profile.id || challenge.defender_id === profile.id)))
   const oppIsBot = isChallenger ? !!challenge?.defender_is_bot : !!challenge?.challenger_is_bot
   // Chosen 3D fighters for the arena — each fighter has a blue (Democrat) and
   // red (Republican) team-kit model; pick the variant matching each player's party.
@@ -851,6 +867,11 @@ function StreetFightPage() {
 
   async function submitFight(won: boolean) {
     const S = L.current
+    if (guest) {
+      // nothing to settle — no account, no stakes. Straight to the pitch.
+      setPhase('done')
+      return
+    }
     setSubmitting(true)
     const payload = {
       won,
@@ -1283,7 +1304,8 @@ function StreetFightPage() {
     )
   }
 
-  const iWon = challenge?.winner_id === profile?.id
+  // guests have no winner_id (nothing settles server-side) — use the local result
+  const iWon = guest ? L.current.lastResult?.won === true : challenge?.winner_id === profile?.id
   const fpStake = challenge?.fp_stake ?? 0
   const myColor = myParty === 'democrat' ? '#2563eb' : '#dc2626'
   const theirColor = theirParty === 'democrat' ? '#2563eb' : '#dc2626'
@@ -1660,6 +1682,36 @@ function StreetFightPage() {
           )
         ) : phase !== 'done' ? (
           <p className="text-gray-600 text-xs text-center">🥊 Street fight in progress — one round, 30 seconds</p>
+        ) : guest ? (
+          /* GUEST post-fight: the sign-up pitch — this fight was the demo */
+          <div className="max-w-md mx-auto space-y-3">
+            <div className="text-center">
+              <div className="text-5xl mb-1">{iWon ? '🏆' : '💀'}</div>
+              <h2 className="font-black text-3xl" style={{ color: iWon ? '#22c55e' : '#ef4444' }}>
+                {iWon ? 'YOU WON!' : 'DEFEATED!'}
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                {iWon
+                  ? `You just dropped ${theirUsername}'s fighter… on autopilot.`
+                  : `${theirUsername}'s fighter got you… and that was just the autopilot.`}
+              </p>
+            </div>
+            <a href={`/sign-up?redirect_url=${encodeURIComponent(`/fight/${guestVs}`)}`}
+              className="block w-full py-4 rounded-2xl font-black text-lg text-white text-center transition active:scale-95"
+              style={{ background: 'linear-gradient(135deg,#dc2626,#991b1b)', boxShadow: '0 8px 30px rgba(220,38,38,0.4)' }}>
+              ⚔️ SIGN UP & FIGHT {theirUsername?.toUpperCase()} FOR REAL
+            </a>
+            <p className="text-gray-500 text-xs text-center">
+              They get called out on their phone — live, human vs human, 50 FP on the line. Takes 30 seconds.
+            </p>
+            <button onClick={() => window.location.reload()}
+              className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition">
+              ↻ Rematch the autopilot
+            </button>
+            <a href="/" className="block text-center text-gray-600 text-xs font-bold hover:text-gray-400">
+              What is PoliticsGo? →
+            </a>
+          </div>
         ) : (
           <div className="max-w-md mx-auto space-y-3">
             <div className="text-center">

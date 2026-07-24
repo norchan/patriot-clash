@@ -43,14 +43,16 @@ export default function FightCta({ ownerId, ownerName }: { ownerId: string; owne
   if (!isLoaded) return <div className="h-16" />
 
   if (!isSignedIn) {
+    // no account needed: fight the owner's fighter (AI at their level) right
+    // in the browser — the sign-up pitch comes AFTER the fight (Michael)
     return (
       <div className="w-full">
-        <a href={`/sign-up?redirect_url=${encodeURIComponent(`/fight/${ownerId}`)}`}
+        <button onClick={() => router.push(`/battle/pvp?guest=1&vs=${ownerId}`)}
           className="block w-full py-4 rounded-2xl font-black text-xl text-white text-center transition active:scale-95"
           style={{ background: 'linear-gradient(135deg,#dc2626,#991b1b)', boxShadow: '0 8px 30px rgba(220,38,38,0.4)' }}>
           ⚔️ ACCEPT THE FIGHT
-        </a>
-        <p className="text-gray-500 text-xs text-center mt-2">Takes 30 seconds to jump in — free to play</p>
+        </button>
+        <p className="text-gray-500 text-xs text-center mt-2">No account needed — fight right now, in your browser</p>
       </div>
     )
   }
