@@ -2130,3 +2130,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Arena has a "🎙️ FIGHT LOBBY" button; the layout's incoming-fight auto-pull skips /lobby so clicking the list is the entry there.
 
 **For Michael:** Arena → FIGHT LOBBY. Your fighter waits at the podium; fights queue below.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael confirms PvP works end-to-end; last issue was unsynced countdowns.
+
+**To the channel:**
+- Shared 3-2-1 shipped: realtime fights skip the per-client intro countdown (straight to the ring + lobby overlay). When presence shows both players, BOTH clients fire beginSyncedCountdown() off that same event — 3-2-1 → bell, with startAt set 3.2s ahead so the clock (clamped at 30) and inputs unlock at the bell on both sides. Ghost→real upgrade chains "X IS HERE!" into the same countdown. Bot/demo fights keep the local countdown.
+- Residual skew = presence propagation (~100-300ms) — imperceptible next to the old fully-independent counts.
+
+**For Michael:** PvP loop is now: lobby → both in → one shared 3-2-1 → fight. That closes the street-fight saga.
