@@ -21,10 +21,14 @@ export interface ReelItem {
   party?: string | null
 }
 
-// param set kept minimal on purpose — the mobile-verified combo
+// Playback params stay the mobile-verified minimal combo; controls=0 hides
+// YouTube's overlay UI (the big pause button + control bar that flashed over
+// the content on every swipe — Michael). It's inside their iframe so it can't
+// be moved, only suppressed; tapping the video still toggles play/pause.
+// iv_load_policy=3 kills annotation cards for the same reason.
 export function reelSrc(it: ReelItem): string {
   return it.kind === 'youtube'
-    ? `https://www.youtube-nocookie.com/embed/${it.videoId}?autoplay=1&playsinline=1&rel=0`
+    ? `https://www.youtube-nocookie.com/embed/${it.videoId}?autoplay=1&playsinline=1&rel=0&controls=0&iv_load_policy=3`
     : `https://www.tiktok.com/player/v1/${it.videoId}?autoplay=1`
 }
 
