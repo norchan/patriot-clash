@@ -46,9 +46,11 @@ export async function GET(req: NextRequest) {
       .not('board_id', 'is', null)
       .eq('hidden', false)
       .gte('created_at', new Date(Date.now() - 6 * 3600 * 1000).toISOString()),
-    admin.from('profiles').select('id, username').like('clerk_user_id', 'bot%').limit(400),
+    admin.from('profiles').select('id, username, party').like('clerk_user_id', 'bot%').limit(400),
   ])
   if (!posts?.length || !bots?.length) return NextResponse.json({ ok: true, replied: 0, voted: 0, videosRemoved })
+  const demBots = bots.filter((b: any) => b.party === 'democrat')
+  const repBots = bots.filter((b: any) => b.party === 'republican')
 
   // ── replies (Michael: more of them) — ~65% of posts with room for more
   // comments, not just empty ones, and 1-3 replies apiece.
@@ -103,6 +105,99 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── COMMENT GRAVITY + ARGUMENTS (Michael): the top of p/all must carry a
+  // real conversation. The highest-scored posts of the last 24h (incl. the
+  // breaking-news story) accumulate comments until they look ALIVE, and on
+  // political posts the bots ARGUE — threaded dem-vs-rep reply chains hung
+  // off the highest-upvoted comment, each turn pushing back on the last. ──
+  let argued = 0
+  const POLITICAL_SLUGS = new Set(['politics', 'news', 'democrats', 'republicans'])
+  const { data: topPosts } = await admin.from('hall_posts')
+    .select('id, content, link_title, comment_count, score, party, boards(slug)')
+    .not('board_id', 'is', null)
+    .eq('hidden', false)
+    .gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+    .order('score', { ascending: false })
+    .limit(5)
+  for (const p of topPosts ?? []) {
+    const headline = (p.link_title ?? p.content ?? '').replace(/^🚨 BREAKING: /, '')
+    if (!headline || !demBots.length || !repBots.length) continue
+    const target = 12 + Math.floor(Math.random() * 7) // a top post should look BUSY
+    const room = Math.min(4, target - (p.comment_count ?? 0)) // per run, not all at once
+    if (room <= 0) continue
+    const political = !!p.party || POLITICAL_SLUGS.has((p as any).boards?.slug ?? '')
+
+    const { data: thread } = await admin.from('hall_comments')
+      .select('id, content, score, parent_id')
+      .eq('post_id', p.id)
+      .order('score', { ascending: false })
+      .limit(40)
+    const all = (thread ?? []).map(c => c.content).filter(Boolean) as string[]
+    let added = 0
+
+    // seed the room: a busy post needs top-level takes before a fight can start
+    const topLevel = (thread ?? []).filter(c => !c.parent_id)
+    while (topLevel.length < 2 && added < room) {
+      const lean = Math.random() < 0.5 ? 'democrat' : 'republican'
+      const voice = political
+        ? `You are a ${lean === 'democrat' ? 'progressive Democratic voter' : 'conservative Republican voter'} on a political forum. React to the headline with ONE punchy opinionated comment (max 24 words).`
+        : 'You write ONE short casual comment (max 22 words) reacting to a news headline on a forum. Sound like a regular person.'
+      const text = await openaiChat([
+        { role: 'system', content: `${voice} No hashtags, no @mentions, no quotes around it, never mention being an AI.` },
+        { role: 'user', content: `Headline: ${headline}${all.length ? `\n\nAlready said (be DIFFERENT):\n${all.slice(-8).map(a => `- ${a}`).join('\n')}` : ''}` },
+      ], 60, 1.0)
+      if (!text || all.some(e => tooSimilar(e, text))) break
+      const pool = lean === 'democrat' ? demBots : repBots
+      const { data: newC } = await admin.from('hall_comments').insert({
+        post_id: p.id, profile_id: pick(pool).id, content: text.slice(0, 300),
+        score: 2 + Math.floor(Math.random() * 8),
+      }).select('id, content, score, parent_id').single()
+      if (!newC) break
+      topLevel.push(newC as any); all.push(text); added++; argued++
+    }
+
+    // THE ARGUMENT: a reply chain under the highest-upvoted comment, sides
+    // alternating, every turn answering the one before it
+    const anchor = topLevel.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
+    if (anchor && added < room) {
+      let lastId = anchor.id
+      let lastText = anchor.content ?? ''
+      let lean: 'democrat' | 'republican' = Math.random() < 0.5 ? 'democrat' : 'republican'
+      while (added < room) {
+        const voice = political
+          ? `You are a ${lean === 'democrat' ? 'progressive Democrat' : 'conservative Republican'} arguing politics in a forum thread. Push back on the LAST comment with your side's take — heated but civil, max 25 words.`
+          : 'You write ONE short casual reply in a forum thread reacting to the last comment (max 20 words).'
+        const text = await openaiChat([
+          { role: 'system', content: `${voice} No hashtags, no @mentions, no quotes, no slurs, never mention being an AI.` },
+          { role: 'user', content: `Post: ${headline}\nLast comment: ${lastText.slice(0, 200)}${all.length ? `\n\nAlready said in this thread (be DIFFERENT):\n${all.slice(-8).map(a => `- ${a}`).join('\n')}` : ''}` },
+        ], 60, 1.0)
+        if (!text || tooSimilar(lastText, text) || all.some(e => tooSimilar(e, text))) break
+        const pool = lean === 'democrat' ? demBots : repBots
+        const { data: newC } = await admin.from('hall_comments').insert({
+          post_id: p.id, parent_id: lastId, profile_id: pick(pool).id,
+          content: text.slice(0, 300), score: Math.floor(Math.random() * 5),
+        }).select('id').single()
+        if (!newC) break
+        lastId = newC.id; lastText = text; all.push(text); added++; argued++
+        lean = lean === 'democrat' ? 'republican' : 'democrat' // the other side answers
+      }
+    }
+
+    if (added) {
+      await admin.from('hall_posts')
+        .update({ comment_count: (p.comment_count ?? 0) + added })
+        .eq('id', p.id)
+    }
+
+    // rich-get-richer drift: the anchor comment pulls further ahead, so the
+    // best take is VISIBLY the best take (and the next argument lands there)
+    if (anchor) {
+      await admin.from('hall_comments')
+        .update({ score: (anchor.score ?? 0) + 3 + Math.floor(Math.random() * 7) })
+        .eq('id', anchor.id)
+    }
+  }
+
   // ── vote drift on every recent post — bigger swings (Michael: more up AND
   // down votes). Mostly rising, but real downvotes too ─────────────────────
   let voted = 0
@@ -128,5 +223,5 @@ export async function GET(req: NextRequest) {
       .eq('id', c.id)
   }
 
-  return NextResponse.json({ ok: true, replied, skipped_similar: skippedSimilar, voted, posts: posts.length, videosRemoved })
+  return NextResponse.json({ ok: true, replied, argued, skipped_similar: skippedSimilar, voted, posts: posts.length, videosRemoved })
 }
