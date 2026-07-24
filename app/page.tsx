@@ -50,9 +50,9 @@ export default async function HomePage() {
           </div>
           <div className="flex items-center gap-2.5">
             {!profile && (
-              <nav className="flex items-center gap-2">
-                <Link href="/sign-in" className="px-3 py-2 text-sm font-bold text-gray-400 hover:text-white">Sign in</Link>
-                <Link href="/sign-up" className="px-4 py-2 rounded-xl font-black text-white text-sm"
+              <nav className="flex items-center gap-1.5">
+                <Link href="/sign-in" className="px-2 py-2 text-sm font-bold text-gray-400 hover:text-white whitespace-nowrap">Sign in</Link>
+                <Link href="/sign-up" className="px-3 py-2 rounded-xl font-black text-white text-sm whitespace-nowrap"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
                   Play free
                 </Link>
