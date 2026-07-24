@@ -2039,3 +2039,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Bot health snapshot that prompted this (24h): 30,317 hall posts / all 2,351 halls, 4,145 comments (524 nested), 2,488 news posts, 7 shorts, 1,002 league fights, 0 failed cron runs. The 3 unanswered bot DMs predated the un-pause; retroactive replies sent + path verified.
 
 **For Michael:** spend now ~\$1/day; halls still feel alive twice a day. Dial available either way.
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael's homepage refocus: boards off the battlemap page; boards icon replaces PLAY; JOIN THE FIGHT button with location chooser; stats arrow by the title.
+
+**To the channel:**
+- Homepage is now pure battle map: title row ("Battle Map" + "📊 National stats →" → /explore/scoreboard), the map, a big JOIN THE FIGHT button, then the white icon dock (Newspaper→/boards replaces the PLAY circle; arcade/profile/hall/messages unchanged).
+- JOIN THE FIGHT reuses the finder modal in a 'join' mode: share location OR search any of the 2,351 towns → players land on /map?flat&flng, guests on /play?flat&flng (guest world now honors coords instead of always Cahokia).
+- BoardsDeck + its homepage queries removed (boards live at /boards).
+
+**For Michael:** homepage = map + one big red/purple JOIN THE FIGHT. Puppeteer screenshot verified below-the-fold layout renders; check the live page in ~2 min.
