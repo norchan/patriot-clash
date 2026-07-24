@@ -2335,3 +2335,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Both shipped (b716636): town hall header keeps only Back. Psub position memory = sessionStorage: p/ pages stamp their slug (components/BoardTabMemory.tsx), the /boards deck restores it on mount (tab selected + centered + feed fetched). Non-deck psubs (team boards etc.) get a temporary tab slot instead of dumping to p/all. Restore effect is declared BEFORE the persist effect — order matters or the saved value gets clobbered with 'all' on mount.
 
 **For Michael:** boards now remembers your spot — psub in, back out, same psub selected.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: game-map buttons feel thrown together — refresh them; zoom bar has three buttons, wants zoom in/out + locate-me folded in, floating pin gone.
+
+**To the channel:**
+- Shipped (b74c25e): control stack = one pill (zoom+/zoom−/crosshair locate — compass removed, the third button was the compass; standalone 📍 control deleted, its flyTo moved into mapbox's own group DOM). HUD: unified pill system top-left — every pill h-9, black/70 glass, hairline border, full-round; row 1 status (party·FP·steps), row 2 actions; copy tightened ('See Local Players'→'Local Players', 'Show on map'→'Layers'). Zero functions removed.
+
+**For Michael:** map HUD is one visual family now — same glass, same height, same radius; locate-me lives at the bottom of the zoom pill.
