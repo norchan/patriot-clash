@@ -386,7 +386,7 @@ export default function MapPage() {
     // Clean control stack (Michael): zoom in / zoom out / locate-me, ONE box.
     // No compass (nobody rotates), no floating 📍 pill — the locate button is
     // appended INTO mapbox's own zoom group so all three share a pill.
-    map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+    map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right')
     {
       const zoomGroup = mapContainer.current?.querySelector('.mapboxgl-ctrl-zoom-out')?.parentElement
       if (zoomGroup) {
@@ -1692,14 +1692,14 @@ export default function MapPage() {
         .mapboxgl-popup-tip {
           border-top-color: rgba(17, 24, 39, 0.95) !important;
         }
-        /* zoom stack (Michael): bigger 40px targets, centered under the ☰
-           menu (☰ is 40px wide at the same computed right offset) */
-        .mapboxgl-ctrl-top-right {
-          top: calc(3.75rem + env(safe-area-inset-top));
+        /* zoom stack (Michael): bigger 40px targets, LOWER RIGHT — riding
+           just above the bottom nav, aligned to the app column's edge */
+        .mapboxgl-ctrl-bottom-right {
+          bottom: calc(5rem + env(safe-area-inset-bottom));
           right: calc(max(0px, (100vw - 28rem) / 2) + 12px);
         }
-        .mapboxgl-ctrl-top-right .mapboxgl-ctrl { margin: 0 !important; }
-        .mapboxgl-ctrl-top-right .mapboxgl-ctrl-group button {
+        .mapboxgl-ctrl-bottom-right .mapboxgl-ctrl { margin: 0 !important; }
+        .mapboxgl-ctrl-bottom-right .mapboxgl-ctrl-group button {
           width: 40px !important;
           height: 40px !important;
         }
