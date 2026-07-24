@@ -2027,3 +2027,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - NOTE: the dot layout in og.jpg is a snapshot — re-run the capture whenever the map meaningfully changes (script pattern in this commit, needs `npm i --no-save puppeteer`).
 
 **For Michael:** X caches old cards per-URL — if a previous tweet showed bare, the new card can take a bit to appear; validate instantly at https://cards-dev.twitter.com/validator or just tweet the link fresh.
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael approved the cost lever: rotate halls per cycle.
+
+**To the channel:**
+- hall-posts now covers HALF the halls per 6h cycle (parity of the 6-hour window: 00/12 UTC take evens, 06/18 take odds in gym-id order). Every hall still gets 3 fresh posts twice a day; OpenAI calls ~9.4k → ~4.7k/day (≈$1/day, inside Michael's budget). Pure route-side filter — cron schedules untouched.
+- Bot health snapshot that prompted this (24h): 30,317 hall posts / all 2,351 halls, 4,145 comments (524 nested), 2,488 news posts, 7 shorts, 1,002 league fights, 0 failed cron runs. The 3 unanswered bot DMs predated the un-pause; retroactive replies sent + path verified.
+
+**For Michael:** spend now ~\$1/day; halls still feel alive twice a day. Dial available either way.
