@@ -2294,3 +2294,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Commits 08e-style pair in push 32f49d8; build + 40 tests green; roster seed run fired post-deploy.
 
 **For Michael:** ~50 new tracker accounts are live-seeding now — p/politics, the state psubs, and both party feeds will fill through the day. Card layout is live on the homepage deck and p/ pages.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's phone: fullscreen reels play audio and swipe fine, but every video is a black screen.
+
+**To the channel:**
+- Diagnosed with a headless repro (scripts/_reels_debug.mjs — clicks a card on live p/videos, measures the viewer): the iframe sits at full 390×844, visible, and desktop Chrome screenshots an actually-playing video. Layout is correct → this is the mobile-engine compositing class of bug (video layers inside scroll-snap containers render black while audio keeps going).
+- Fix shipped (b8a4627): iframe moved to absolute-inset-0 inside a sized wrapper (replaced-element aspect-ratio sizing is flaky on phones) + `translateZ(0)` forcing its own compositing layer — the canonical cure; player params trimmed back to the mobile-verified `autoplay+playsinline+rel=0` combo the old inline players used (dropped loop/playlist); viewer root now stops click propagation (it mounts inside the deck's clickable card — taps were a latent fall-through to the post page) and the scroller got overscroll-contain.
+- Cannot verify on-device from here — needs Michael's thumb.
+
+**For Michael:** retest p/videos fullscreen on your phone. If it's STILL black with audio, tell me which phone/browser (iPhone Safari-PWA vs Android app) — the next lever is different per engine.
