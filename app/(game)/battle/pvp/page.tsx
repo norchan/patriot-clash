@@ -104,6 +104,16 @@ function StreetFightPage() {
   // (no vs param — requiring vs left the flag false and the page tried the
   // AUTHED challenge API, 404-looping on "Loading fight..." forever)
   const guest = searchParams.get('guest') === '1'
+  // Seeded arena variety (presentation brief Phase B4): hash a stable fight id
+  // so BOTH H2H clients land on the same stage. Pressroom is lobby-only.
+  const arena = (() => {
+    const FIGHT_ARENAS = ['foundry', 'club', 'rooftop']
+    const seed = challengeId ?? guestVs
+    if (!seed) return 'foundry'
+    let h = 0
+    for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0
+    return FIGHT_ARENAS[Math.abs(h) % FIGHT_ARENAS.length]
+  })()
   const { profile, loading: profileLoading } = useProfile()
 
   const [challenge, setChallenge] = useState<ChallengeData | null>(null)
@@ -126,6 +136,11 @@ function StreetFightPage() {
   const [oppKickLoKey, setOppKickLoKey] = useState(0)
   const [playerHitKey, setPlayerHitKey] = useState(0)
   const [oppHitKey, setOppHitKey] = useState(0)
+  // 3D contact stamp (presentation brief Phase B): fired at every resolved
+  // contact so the impact reads IN the scene, not just as DOM overlays
+  const [impactFx, setImpactFx] = useState<{ key: number; side: 'player' | 'opp'; kind: 'light' | 'heavy' | 'special' | 'block' } | undefined>(undefined)
+  const fireImpact = (side: 'player' | 'opp', kind: 'light' | 'heavy' | 'special' | 'block') =>
+    setImpactFx(f => ({ key: (f?.key ?? 0) + 1, side, kind }))
   const myJab = (right: boolean) => right ? setPlayerJabRKey(k => k + 1) : setPlayerJabLKey(k => k + 1)
   const myKick = (high: boolean) => high ? setPlayerKickHiKey(k => k + 1) : setPlayerKickLoKey(k => k + 1)
   const foeKick = (high: boolean) => high ? setOppKickHiKey(k => k + 1) : setOppKickLoKey(k => k + 1)
@@ -452,6 +467,7 @@ function StreetFightPage() {
           setDefPose('hit')
           reel(iAttack)
           addBurst(iAttack, heavy)
+          fireImpact(iAttack ? 'opp' : 'player', ev.move === 'special' ? 'special' : heavy ? 'heavy' : 'light')
           addSpark(iAttack, `-${ev.dmg}`, iAttack ? '#facc15' : '#f87171')
           if (ev.move === 'kick') sfx.kick()
           else sfx.punch(heavy)
@@ -467,6 +483,7 @@ function StreetFightPage() {
           }
         } else if (ev.result === 'blocked') {
           setDefPose('block')
+          fireImpact(iAttack ? 'opp' : 'player', 'block')
           addSpark(iAttack, 'BLOCK', '#93c5fd')
           sfx.block()
         } else {
@@ -690,13 +707,16 @@ function StreetFightPage() {
         dmg = Math.max(0, Math.floor(strikeDamage(foeLevel, def.mult) * 0.15))
         S.counts.blocks++
         addSpark(false, 'BLOCKED!', '#93c5fd')
+        fireImpact('player', 'block')
         sfx.block(); buzz(15)
       } else {
         dmg = strikeDamage(foeLevel, def.mult)
         if (p.boost) { dmg = Math.floor(dmg * p.boost); addSpark(false, '⚡ POWER!', '#fde047') } // their armed power buff
         setMyPose('hit'); reel(false); addBurst(false, heavy)
         addSpark(false, `-${dmg}`, '#f87171')
-        setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.1); setPlayerX(S.playerX) // 3D flinch + knockback
+        fireImpact('player', p.move === 'special' ? 'special' : heavy ? 'heavy' : 'light')
+        // heavies knock the body back farther — the number pops AND the fighter moves
+        setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // 3D flinch + knockback
         contactJuice(heavy || dmg >= 10)
         if (p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook') sfx.kick()
         else sfx.punch(heavy)
@@ -716,6 +736,9 @@ function StreetFightPage() {
     const applyMyAttackResult = (p: { seq: number; result: 'hit' | 'blocked' | 'dodged'; dmg: number; hp: number }) => {
       if (S.over) return
       S.dbg.recv++; S.dbg.lastRecvAt = Date.now()
+      // which move this result confirms (for special-sized impact FX) — must be
+      // read BEFORE the pending slot is cleared
+      const sentMove = S.pendingMove?.seq === p.seq ? S.pendingMove.payload.move : undefined
       if (S.pendingMove && S.pendingMove.seq === p.seq) S.pendingMove = null
       S.foeHp = Math.max(0, Math.min(100, p.hp))
       setFoeHp(S.foeHp)
@@ -726,7 +749,8 @@ function StreetFightPage() {
         sfx.punch(p.dmg >= 10) // confirm SFX the moment the H2H result lands
         contactJuice(p.dmg >= 10)
         addSpark(true, `-${p.dmg}`, '#facc15')
-        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.1); setOppX(S.oppX) // 3D flinch + knockback
+        fireImpact('opp', sentMove === 'special' ? 'special' : p.dmg >= 10 ? 'heavy' : 'light')
+        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (p.dmg >= 10 ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
         S.meter = Math.min(100, S.meter + p.dmg * 1.7)
         setMeter(S.meter)
         if (p.dmg >= 10) { bumpCrowd(); sfx.crowd(0.3) }
@@ -734,6 +758,7 @@ function StreetFightPage() {
       } else if (p.result === 'blocked') {
         setFoePose('block')
         addSpark(true, 'BLOCK', '#93c5fd'); sfx.block()
+        fireImpact('opp', 'block')
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
       } else {
         setFoePose('dodge')
@@ -1048,7 +1073,8 @@ function StreetFightPage() {
         setFoePose('hit'); reel(true); addBurst(true, heavy)
         contactJuice(heavy || dmg >= 10)
         addSpark(true, `-${dmg}`, '#facc15')
-        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + 0.1); setOppX(S.oppX) // 3D flinch + knockback
+        fireImpact('opp', move === 'special' ? 'special' : heavy ? 'heavy' : 'light')
+        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (heavy ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
         if (kicky) sfx.kick(); else sfx.punch(heavy)
         S.meter = Math.min(100, S.meter + dmg * 1.7)
         setMeter(S.meter)
@@ -1056,6 +1082,7 @@ function StreetFightPage() {
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
       } else if (result === 'blocked') {
         addSpark(true, 'BLOCK', '#93c5fd'); sfx.block()
+        fireImpact('opp', 'block')
         setOppBlocking(true); setTimeout(() => { if (!L.current.over) setOppBlocking(false) }, 450)
       } else {
         addSpark(true, 'MISS', '#9ca3af'); sfx.whoosh()
@@ -1202,11 +1229,13 @@ function StreetFightPage() {
           dmg = Math.max(0, Math.floor(dmg * 0.15))
           S.counts.blocks++
           addSpark(false, 'BLOCKED!', '#93c5fd')
+          fireImpact('player', 'block')
           sfx.block(); buzz(15)
         } else {
           setMyPose('hit'); reel(false); addBurst(false, heavy)
           addSpark(false, `-${dmg}`, '#f87171')
-          setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - 0.1); setPlayerX(S.playerX) // 3D flinch + knockback
+          fireImpact('player', heavy ? 'heavy' : 'light')
+          setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // 3D flinch + knockback
           if (S.foeMove === 'kick' || S.foeMove === 'jumpkick') sfx.kick()
           else sfx.punch(heavy)
           setShake(true); setTimeout(() => setShake(false), 170)
@@ -1519,6 +1548,8 @@ function StreetFightPage() {
           <PvpArena3D
             onReady={() => setArenaReady(true)}
             follow={layout === 'portrait'}
+            arena={arena}
+            impact={impactFx}
             playerPrefix={myPvpFighter}
             oppPrefix={oppPvpFighter}
             playerHeadId={myHeadId}

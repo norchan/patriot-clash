@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { Fragment, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, ContactShadows, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
@@ -345,6 +345,148 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   )
 }
 
+// ── 3D contact impacts (Phase B of the presentation brief): a comic starburst
+// stamped IN THE SCENE at the strike point, so the hit moment lives where the
+// fighters are — the DOM damage numbers reinforce it instead of carrying it.
+// Textures are drawn once to canvases; sprites come from a fixed pool.
+export type ImpactKind = 'light' | 'heavy' | 'special' | 'block'
+export interface ImpactEvent { key: number; side: 'player' | 'opp'; kind: ImpactKind }
+
+let impactTexes: { star: THREE.CanvasTexture; ring: THREE.CanvasTexture; block: THREE.CanvasTexture } | null = null
+function getImpactTextures() {
+  if (impactTexes) return impactTexes
+  const make = (draw: (ctx: CanvasRenderingContext2D) => void) => {
+    const cv = document.createElement('canvas')
+    cv.width = 256; cv.height = 256
+    const ctx = cv.getContext('2d')!
+    ctx.translate(128, 128)
+    draw(ctx)
+    const t = new THREE.CanvasTexture(cv)
+    t.needsUpdate = true
+    return t
+  }
+  // comic starburst — white core, yellow spikes, orange rim
+  const star = make(ctx => {
+    const g = ctx.createRadialGradient(0, 0, 10, 0, 0, 120)
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, '#fde047')
+    g.addColorStop(0.8, '#f97316'); g.addColorStop(1, 'rgba(249,115,22,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    const spikes = 9
+    for (let i = 0; i < spikes * 2; i++) {
+      const a = (i * Math.PI) / spikes
+      const r = i % 2 === 0 ? 118 : 38 + ((i * 37) % 22) // jagged inner radii
+      const x = Math.cos(a) * r, y = Math.sin(a) * r
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+    }
+    ctx.closePath(); ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+    ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill()
+  })
+  // expanding shockwave ring (heavy/special only)
+  const ring = make(ctx => {
+    ctx.strokeStyle = 'rgba(255,240,200,0.9)'; ctx.lineWidth = 10
+    ctx.shadowColor = '#fde047'; ctx.shadowBlur = 24
+    ctx.beginPath(); ctx.arc(0, 0, 96, 0, Math.PI * 2); ctx.stroke()
+  })
+  // blue-white CLANG — the guard ate it, visually distinct from a hit
+  const block = make(ctx => {
+    const g = ctx.createRadialGradient(0, 0, 8, 0, 0, 110)
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, '#bfdbfe')
+    g.addColorStop(0.85, '#3b82f6'); g.addColorStop(1, 'rgba(59,130,246,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3 - Math.PI / 6
+      const x = Math.cos(a) * 100, y = Math.sin(a) * 100
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+    }
+    ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 7; ctx.lineCap = 'round'
+    for (const a of [0.4, 2.2, 3.9, 5.3]) {
+      ctx.beginPath()
+      ctx.moveTo(Math.cos(a) * 30, Math.sin(a) * 30)
+      ctx.lineTo(Math.cos(a) * 88, Math.sin(a) * 88)
+      ctx.stroke()
+    }
+  })
+  impactTexes = { star, ring, block }
+  return impactTexes
+}
+
+const IMPACT_POOL = 5
+const IMPACT_PARAMS: Record<ImpactKind, { dur: number; star: number; ring: number }> = {
+  light:   { dur: 260, star: 0.9, ring: 0 },
+  heavy:   { dur: 380, star: 1.4, ring: 2.1 },
+  special: { dur: 520, star: 2.0, ring: 3.0 },
+  block:   { dur: 300, star: 1.0, ring: 0 },
+}
+
+function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: number; oppX: number }) {
+  const texes = useMemo(() => getImpactTextures(), [])
+  const slots = useRef(Array.from({ length: IMPACT_POOL }, () => ({ born: -1, kind: 'light' as ImpactKind })))
+  const starRefs = useRef<(THREE.Sprite | null)[]>([])
+  const ringRefs = useRef<(THREE.Sprite | null)[]>([])
+  const lastKey = useRef(0)
+  useEffect(() => {
+    if (!impact || impact.key === lastKey.current) return
+    lastKey.current = impact.key
+    const i = impact.key % IMPACT_POOL
+    const s = slots.current[i]
+    s.born = performance.now()
+    s.kind = impact.kind
+    // strike point: the struck fighter's torso/head band, nudged toward the attacker
+    const x = impact.side === 'player' ? playerX + 0.32 : oppX - 0.32
+    const y = (impact.kind === 'block' ? 1.1 : 1.25) + (Math.random() - 0.5) * 0.24
+    const star = starRefs.current[i], ring = ringRefs.current[i]
+    if (star) {
+      star.position.set(x, y, 1.0)
+      const m = star.material as THREE.SpriteMaterial
+      m.map = impact.kind === 'block' ? texes.block : texes.star
+      m.rotation = impact.kind === 'block' ? 0 : Math.random() * Math.PI * 2
+    }
+    if (ring) ring.position.set(x, y, 0.98)
+  }, [impact]) // eslint-disable-line react-hooks/exhaustive-deps
+  useFrame(() => {
+    const now = performance.now()
+    for (let i = 0; i < IMPACT_POOL; i++) {
+      const s = slots.current[i]
+      const star = starRefs.current[i], ring = ringRefs.current[i]
+      if (!star || !ring) continue
+      const P = IMPACT_PARAMS[s.kind]
+      const t = s.born < 0 ? Infinity : now - s.born
+      if (t > P.dur) { star.visible = false; ring.visible = false; continue }
+      const p = t / P.dur
+      const ease = 1 - (1 - p) * (1 - p)
+      star.visible = true
+      const sv = P.star * (0.55 + 0.85 * ease)
+      star.scale.set(sv, sv, 1)
+      ;(star.material as THREE.SpriteMaterial).opacity = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85
+      if (P.ring > 0) {
+        ring.visible = true
+        const rv = P.ring * (0.4 + 1.8 * ease)
+        ring.scale.set(rv, rv, 1)
+        ;(ring.material as THREE.SpriteMaterial).opacity = (1 - p) * 0.8
+      } else ring.visible = false
+    }
+  })
+  return (
+    <group>
+      {Array.from({ length: IMPACT_POOL }).map((_, i) => (
+        <Fragment key={i}>
+          {/* depthTest off — the stamp must read over the fighter meshes */}
+          <sprite ref={el => { starRefs.current[i] = el }} visible={false} renderOrder={999}>
+            <spriteMaterial map={texes.star} transparent depthWrite={false} depthTest={false} />
+          </sprite>
+          <sprite ref={el => { ringRefs.current[i] = el }} visible={false} renderOrder={998}>
+            <spriteMaterial map={texes.ring} transparent depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} />
+          </sprite>
+        </Fragment>
+      ))}
+    </group>
+  )
+}
+
 // ── Ground plane (Phase A of the presentation brief): a real dark-asphalt
 // surface the fighters stand ON, so feet + ContactShadows read as grounded
 // instead of floating over the backdrop photo. Speckle is drawn once to a
@@ -440,8 +582,8 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
   return null
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, onReady }:
-  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; onReady?: () => void }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, onReady }:
+  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; onReady?: () => void }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
@@ -473,6 +615,7 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
           </>
         )}
         {!solo && <Ground />}
+        {!solo && <ImpactFX impact={impact} playerX={playerX} oppX={oppX} />}
         <ContactShadows position={[0, 0.01, 0.6]} opacity={0.65} scale={12} blur={2.6} far={5} color="#000000" />
         <ReadySignal onReady={onReady} />
       </Suspense>
