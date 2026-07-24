@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolveArticle } from '@/lib/og-image'
+import { sameStory } from '@/lib/content-unique'
 
 // Local-events bot: once an hour a bot shares something FUN and local into a
 // hall's Town Square — a concert, festival, parade, county fair, local sports
@@ -150,11 +151,35 @@ export async function GET(req: NextRequest) {
     rows.forEach(r => seen.add(`${r.gym_id}|${r.link_url}`))
   }
 
+  // ── Same-STORY dedupe (boards polish Phase C): compare against the batch
+  // halls' recent link-post headlines, not just exact URLs ────────────────
+  const hallTitles = new Map<string, string[]>()
+  {
+    const since3d = new Date(Date.now() - 3 * 86400 * 1000).toISOString()
+    const ids = batch.map(g => g.id)
+    for (let i = 0; i < ids.length; i += 100) {
+      const rows = await pageAll<{ gym_id: string; link_title: string | null; content: string | null }>((from, to) =>
+        admin.from('hall_posts').select('gym_id, link_title, content')
+          .in('gym_id', ids.slice(i, i + 100)).not('link_url', 'is', null)
+          .gte('created_at', since3d).order('id').range(from, to))
+      for (const r of rows) {
+        const t = r.link_title ?? r.content
+        if (t) (hallTitles.get(r.gym_id) ?? hallTitles.set(r.gym_id, []).get(r.gym_id)!).push(t)
+      }
+    }
+  }
+
   // ── One fresh event post per hall in the batch ──────────────────────────
   const rows: any[] = []
+  let skippedDupe = 0
   for (const gym of batch) {
     const items = shuffle(cityPools.get(gym.id) ?? [])
-    const pick = items.find(i => !seen.has(`${gym.id}|${i.link}`))
+    const prevTitles = hallTitles.get(gym.id) ?? []
+    const pick = items.find(i => {
+      if (seen.has(`${gym.id}|${i.link}`)) return false
+      if (prevTitles.some(t => sameStory(t, i.title))) { skippedDupe++; return false }
+      return true
+    })
     if (!pick) continue
     seen.add(`${gym.id}|${pick.link}`)
     const bot = bots[Math.floor(Math.random() * bots.length)]
@@ -203,6 +228,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     inserted,
     skipped_no_image: skippedNoImage,
+    skipped_dupe: skippedDupe,
     batch: batch.length,
     city_with_events: cityPools.size,
     flavor,

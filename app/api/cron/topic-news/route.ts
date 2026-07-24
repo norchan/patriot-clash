@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolveArticle } from '@/lib/og-image'
+import { sameStory } from '@/lib/content-unique'
 
 // TOPIC-NEWS REPORTER BOTS — fills the featured psubs (p/politics, p/news,
 // p/space, p/movies, p/sports) with fresh top-site headlines every 6 hours,
@@ -37,19 +38,6 @@ const TOPICS: Record<string, { feed: string; must?: RegExp }> = {
 
 // listing/junk headlines that add nothing to a board
 const JUNK = /live score|box ?score|game story, scores|scores\/highlights|tv channel|streaming options for|how to submit|schedule:\s*$|betting|odds|parlay|tickets/i
-
-function titleTokens(t: string, ignore?: Set<string>): Set<string> {
-  return new Set(
-    t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
-      .filter(w => w.length > 2 && !ignore?.has(w)))
-}
-function sameStory(a: string, b: string): boolean {
-  const ta = titleTokens(a), tb = titleTokens(b)
-  if (!ta.size || !tb.size) return false
-  let hit = 0
-  for (const w of ta) if (tb.has(w)) hit++
-  return hit / Math.min(ta.size, tb.size) >= 0.5
-}
 
 interface NewsItem { title: string; link: string; source: string }
 
@@ -144,11 +132,12 @@ export async function GET(req: NextRequest) {
   }
 
   const inserts: any[] = []
+  let skippedDupe = 0 // boards whose entire fresh pool was already-covered stories
   for (const b of boards) {
     const e = existing.get(b.id) ?? { links: new Set<string>(), titles: [] }
     const pick = (pools.get(b.id) ?? []).find(item =>
       !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title)))
-    if (!pick) continue
+    if (!pick) { if (pools.get(b.id)?.length) skippedDupe++; continue }
     e.links.add(pick.link)
     e.titles.push(pick.title)
     inserts.push({
@@ -183,5 +172,5 @@ export async function GET(req: NextRequest) {
     else console.error('topic-news insert error:', error)
   }
 
-  return NextResponse.json({ ok: true, phase, inserted, skipped_no_image: skippedNoImage, boards: boards.length })
+  return NextResponse.json({ ok: true, phase, inserted, skipped_no_image: skippedNoImage, skipped_dupe: skippedDupe, boards: boards.length })
 }

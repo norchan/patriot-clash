@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolveArticle } from '@/lib/og-image'
+import { sameStory, titleTokens } from '@/lib/content-unique'
 
 // SPORTS-REPORTER BOTS — the one bot behavior that survived the 2026-07-20
 // bot-content shutdown (Michael's explicit order, 2026-07-21). Two designated
@@ -14,23 +15,8 @@ import { resolveArticle } from '@/lib/og-image'
 
 export const maxDuration = 120
 
-// Same-story detection: token overlap between normalized headlines.
-// "Vikings release TE Josh Oliver" vs "Vikings expected to release
-// injury-riddled TE Josh Oliver - ESPN" → duplicate. The subject words
-// (team name) are stripped first — they're shared by every headline — and
-// paraphrase-tolerant 50% overlap flags the match.
-function titleTokens(t: string, ignore?: Set<string>): Set<string> {
-  return new Set(
-    t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
-      .filter(w => w.length > 2 && !ignore?.has(w)))
-}
-function sameStory(a: string, b: string, ignore?: Set<string>): boolean {
-  const ta = titleTokens(a, ignore), tb = titleTokens(b, ignore)
-  if (!ta.size || !tb.size) return false
-  let hit = 0
-  for (const w of ta) if (tb.has(w)) hit++
-  return hit / Math.min(ta.size, tb.size) >= 0.5
-}
+// Same-story detection lives in lib/content-unique (shared by every news
+// cron since the boards polish — one detector, no drifting copies).
 
 interface NewsItem { title: string; link: string; source: string }
 
@@ -158,6 +144,7 @@ export async function GET(req: NextRequest) {
   // one article per team per phase — phase 1 posts as reporter #1, phase 2
   // as reporter #2, and NEVER a story the board already has
   const rows: any[] = []
+  let skippedDupe = 0 // boards whose entire fresh pool was already-covered stories
   for (const t of teams) {
     const bots = reporters[t.state as string] ?? []
     const bot = phase === 1 ? bots[0] : bots[1]
@@ -166,7 +153,7 @@ export async function GET(req: NextRequest) {
     const subject = titleTokens(t.name)
     const pick = (pools.get(t.id) ?? []).find(item =>
       !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title, subject)))
-    if (!pick) continue // nothing genuinely new — skip, no doubles
+    if (!pick) { if (pools.get(t.id)?.length) skippedDupe++; continue } // nothing genuinely new — skip, no doubles
     e.links.add(pick.link)
     e.titles.push(pick.title)
     rows.push({
@@ -207,6 +194,7 @@ export async function GET(req: NextRequest) {
     phase,
     inserted,
     skipped_no_image: skippedNoImage,
+    skipped_dupe: skippedDupe,
     teams: teams.length,
     teams_with_news: pools.size,
     states_with_reporters: Object.keys(reporters).length,

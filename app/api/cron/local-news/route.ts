@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolveArticle } from '@/lib/og-image'
+import { sameStory } from '@/lib/content-unique'
 
 // Local-news bot: bots share LOCAL stories into each hall's Town Square —
 // city news first (via a Google News query for the hall's own town), state
@@ -151,16 +152,35 @@ export async function GET(req: NextRequest) {
     rows.forEach(r => seen.add(`${r.gym_id}|${r.link_url}`))
   }
 
+  // ── Same-STORY dedupe (boards polish Phase C): a hall must never get the
+  // same story twice just because two outlets carried it — compare against
+  // the hall's recent link-post headlines, not just exact URLs ─────────────
+  const hallTitles = new Map<string, string[]>()
+  {
+    const since3d = new Date(Date.now() - 3 * 86400 * 1000).toISOString()
+    const rows = await pageAll<{ gym_id: string; link_title: string | null; content: string | null }>((from, to) =>
+      admin.from('hall_posts').select('gym_id, link_title, content')
+        .not('gym_id', 'is', null).not('link_url', 'is', null)
+        .gte('created_at', since3d).order('id').range(from, to))
+    for (const r of rows) {
+      const t = r.link_title ?? r.content
+      if (t) (hallTitles.get(r.gym_id) ?? hallTitles.set(r.gym_id, []).get(r.gym_id)!).push(t)
+    }
+  }
+
   // ── Build posts: city stories first, state stories fill in — max 2 ──────
   const rows: any[] = []
+  let skippedDupe = 0
   for (const gym of gyms) {
     const cityItems = shuffle(cityPools.get(gym.id) ?? [])
     const stateItems = shuffle(statePools[gym.state] ?? [])
+    const prevTitles = hallTitles.get(gym.id) ?? []
     const picks: NewsItem[] = []
     for (const item of [...cityItems, ...stateItems]) {
       if (picks.length >= 2) break
       if (seen.has(`${gym.id}|${item.link}`)) continue
       if (picks.some(p => p.link === item.link)) continue
+      if (prevTitles.some(t => sameStory(t, item.title)) || picks.some(p => sameStory(p.title, item.title))) { skippedDupe++; continue }
       picks.push(item)
     }
     for (const item of picks) {
@@ -214,6 +234,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     inserted,
     skipped_no_image: skippedNoImage,
+    skipped_dupe: skippedDupe,
     links_resolved: resolved.size,
     gyms: gyms.length,
     city_scanned: cityBatch.length,

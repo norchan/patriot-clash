@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolveArticle } from '@/lib/og-image'
+import { sameStory } from '@/lib/content-unique'
 
 // Town Square content bot: pulls political news RSS feeds (right-leaning
 // outlets for Republican bots, left-leaning for Democrat bots) and has a
@@ -155,13 +156,38 @@ export async function GET(req: NextRequest) {
     admin.from('hall_posts').select('gym_id, link_url').in('link_url', poolLinks).order('id').range(from, to))
   const seen = new Set(existing.map(e => `${e.gym_id}|${e.link_url}`))
 
+  // same-STORY dedupe (boards polish Phase C): a hall must not get the same
+  // story from two outlets — compare recent link-post headlines per hall
+  const hallTitles = new Map<string, string[]>()
+  {
+    const since3d = new Date(Date.now() - 3 * 86400 * 1000).toISOString()
+    const rows = await pageAll<{ gym_id: string; link_title: string | null; content: string | null }>((from, to) =>
+      admin.from('hall_posts').select('gym_id, link_title, content')
+        .not('gym_id', 'is', null).not('link_url', 'is', null)
+        .gte('created_at', since3d).order('id').range(from, to))
+    for (const r of rows) {
+      const t = r.link_title ?? r.content
+      if (t) (hallTitles.get(r.gym_id) ?? hallTitles.set(r.gym_id, []).get(r.gym_id)!).push(t)
+    }
+  }
+
   const rows: any[] = []
+  let skippedDupe = 0
   for (const gym of gyms) {
     const picks: { post: NewsItem; party: 'democrat' | 'republican' }[] = []
-    const freshRep = shuffle(repPosts).find(p => !seen.has(`${gym.id}|${p.link}`))
-    const freshDem = shuffle(demPosts).find(p => !seen.has(`${gym.id}|${p.link}`))
+    const prevTitles = hallTitles.get(gym.id) ?? []
+    const freshOf = (pool: NewsItem[]) => shuffle(pool).find(p => {
+      if (seen.has(`${gym.id}|${p.link}`)) return false
+      if (prevTitles.some(t => sameStory(t, p.title))) { skippedDupe++; return false }
+      return true
+    })
+    const freshRep = freshOf(repPosts)
+    const freshDem = freshOf(demPosts)
     if (freshRep && repBots.length) picks.push({ post: freshRep, party: 'republican' })
-    if (freshDem && demBots.length) picks.push({ post: freshDem, party: 'democrat' })
+    // both wings covering the same story from different outlets is still a dupe
+    if (freshDem && demBots.length && !(freshRep && sameStory(freshRep.title, freshDem.title))) {
+      picks.push({ post: freshDem, party: 'democrat' })
+    }
 
     for (const { post, party } of picks) {
       const pool = party === 'democrat' ? demBots : repBots
@@ -193,6 +219,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     inserted,
     skipped_no_image: skippedNoImage,
+    skipped_dupe: skippedDupe,
     gyms: gyms.length,
     fetched: { republican: repPosts.length, democrat: demPosts.length },
   })

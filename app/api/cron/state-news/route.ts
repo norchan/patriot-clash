@@ -1,30 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolveArticle } from '@/lib/og-image'
+import { sameStory, titleTokens } from '@/lib/content-unique'
 
 // STATE-NEWS REPORTER BOTS (Michael, 2026-07-21) — the same two designated
 // bots per state post top-site articles to their STATE's psub, every 6 hours,
 // in two passes five minutes apart (?phase=1 then ?phase=2). HARD RULE: the
 // state's name must appear in the headline. Both passes scan the board first
-// so neither ever posts a duplicate (by link OR by same-story headline).
+// so neither ever posts a duplicate (by link OR by same-story headline —
+// detector shared via lib/content-unique).
 
 export const maxDuration = 120
-
-function titleTokens(t: string, ignore?: Set<string>): Set<string> {
-  return new Set(
-    t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
-      .filter(w => w.length > 2 && !ignore?.has(w)))
-}
-// Paraphrased headlines ("feds' suit" vs "federal lawsuit") are the same
-// story — the subject words (state/team name) are stripped first since they
-// are shared by EVERY headline on the board, then 50% token overlap flags it.
-function sameStory(a: string, b: string, ignore?: Set<string>): boolean {
-  const ta = titleTokens(a, ignore), tb = titleTokens(b, ignore)
-  if (!ta.size || !tb.size) return false
-  let hit = 0
-  for (const w of ta) if (tb.has(w)) hit++
-  return hit / Math.min(ta.size, tb.size) >= 0.5
-}
 
 interface NewsItem { title: string; link: string; source: string }
 
@@ -145,6 +131,7 @@ export async function GET(req: NextRequest) {
   }
 
   const rows: any[] = []
+  let skippedDupe = 0 // boards whose entire fresh pool was already-covered stories
   for (const b of stateBoards) {
     const bots = reporters[b.state as string] ?? []
     const bot = phase === 1 ? bots[0] : bots[1]
@@ -153,7 +140,7 @@ export async function GET(req: NextRequest) {
     const subject = titleTokens(b.name)
     const pick = (pools.get(b.id) ?? []).find(item =>
       !e.links.has(item.link) && !e.titles.some(prev => sameStory(prev, item.title, subject)))
-    if (!pick) continue // nothing genuinely new with the state's name — skip
+    if (!pick) { if (pools.get(b.id)?.length) skippedDupe++; continue } // nothing genuinely new with the state's name — skip
     e.links.add(pick.link)
     e.titles.push(pick.title)
     rows.push({
@@ -193,6 +180,7 @@ export async function GET(req: NextRequest) {
     phase,
     inserted,
     skipped_no_image: skippedNoImage,
+    skipped_dupe: skippedDupe,
     states: stateBoards.length,
     states_with_news: pools.size,
   })
