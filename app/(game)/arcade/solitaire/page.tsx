@@ -261,9 +261,46 @@ export default function SolitairePage() {
     setG(next)
   }
 
+  // DOUBLE-TAP → send the card to its foundation if it fits (Michael).
+  // Single taps/holds still drag — this only fires on a quick second tap on
+  // the SAME card, and only the exposed top card of a pile can fly up.
+  const lastTapRef = useRef<{ key: string; at: number }>({ key: '', at: 0 })
+  function tryAutoFound(from: 'waste' | 'tab', pi?: number, ci?: number) {
+    const cur = gRef.current
+    if (!cur || phase !== 'playing' || finishing) return
+    let card: Card | undefined
+    if (from === 'waste') {
+      card = cur.waste[cur.waste.length - 1]
+    } else {
+      const pile = cur.tab[pi!]
+      if (!pile || ci !== pile.length - 1) return // buried cards can't go up
+      card = pile[ci!]
+      if (card && !card.faceUp) return
+    }
+    if (!card) return
+    const fi = canFound(card, cur.found)
+    if (fi < 0) { sfx.invalid(); return } // doesn't fit — soft no
+    pushUndo(cur)
+    const next = deepCopy(cur)
+    next.found[fi].push((from === 'waste' ? next.waste : next.tab[pi!]).pop()!)
+    bumpStreak()
+    afterMove(next)
+  }
+
   // pick up the top waste card, or a face-up card + everything stacked on it
   function startDrag(from: 'waste' | 'tab', e: React.PointerEvent, pi?: number, ci?: number) {
     if (!g || phase !== 'playing' || finishing) return
+    // second quick tap on the same card = auto-foundation attempt, not a drag
+    const tapKey = from === 'waste' ? 'waste' : `t${pi}-${ci}`
+    const now = Date.now()
+    if (lastTapRef.current.key === tapKey && now - lastTapRef.current.at < 350) {
+      lastTapRef.current = { key: '', at: 0 }
+      dragRef.current = null
+      setDrag(null)
+      tryAutoFound(from, pi, ci)
+      return
+    }
+    lastTapRef.current = { key: tapKey, at: now }
     let cards: Card[]
     if (from === 'waste') {
       if (!g.waste.length) return
