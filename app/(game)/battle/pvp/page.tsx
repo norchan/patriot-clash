@@ -599,7 +599,10 @@ function StreetFightPage() {
   // Live-fight intro: WAIT for both fighters' models, then 3…2…1…FIGHT!
   // and only then hand control to the player (and wake the bot AI)
   useEffect(() => {
-    if (!isLive || phase !== 'intro' || liveStarted.current || !profile || !arenaReady) return
+    // guests have NO profile — requiring one froze every guest in the intro
+    // forever (fighters visible, fight never started, owner waited on a
+    // presence that could never come). guest || profile lets them through.
+    if (!isLive || phase !== 'intro' || liveStarted.current || (!profile && !guest) || !arenaReady) return
     liveStarted.current = true
     setBanner('3'); sfx.tap()
     const t1 = setTimeout(() => { setBanner('2'); sfx.tap() }, 800)
@@ -617,7 +620,7 @@ function StreetFightPage() {
     }, 3000)
     timersRef.current.push(t1, t2, t3, t4)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive, phase, profile?.id, arenaReady])
+  }, [isLive, phase, profile?.id, guest, arenaReady])
 
   // ── Realtime channel: two humans exchange moves live ──────────────────────
   // Each client is authoritative for its OWN fighter: when the opponent's
@@ -1577,13 +1580,24 @@ function StreetFightPage() {
           </div>
         )}
 
-        {/* waiting for the human opponent to enter the ring */}
+        {/* FIGHT LOBBY (Michael): both corners listed, presence visible —
+            the fight auto-starts the moment both players are in */}
         {phase === 'live' && awaitingOpp && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none bg-black/40">
-            <div className="text-center">
-              <div className="text-4xl mb-2 animate-pulse">🥊</div>
-              <p className="text-white font-black text-lg">Waiting for {theirUsername ?? 'opponent'}...</p>
-              <p className="text-gray-400 text-xs mt-1">Fight starts when they step in (20s max)</p>
+          <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none bg-black/60">
+            <div className="w-full max-w-xs mx-4 rounded-3xl border border-purple-500/50 bg-gray-950/95 p-5 text-center shadow-2xl">
+              <p className="text-purple-300 text-[10px] font-black tracking-[0.3em]">FIGHT LOBBY</p>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between rounded-xl bg-gray-900 px-4 py-3">
+                  <span className="text-white font-black text-sm truncate">{myUsername ?? 'You'}</span>
+                  <span className="text-emerald-400 text-[11px] font-black shrink-0">✓ IN THE RING</span>
+                </div>
+                <p className="text-gray-600 font-black text-xs">VS</p>
+                <div className="flex items-center justify-between rounded-xl bg-gray-900 px-4 py-3">
+                  <span className="text-white font-black text-sm truncate">{theirUsername ?? 'Opponent'}</span>
+                  <span className="text-amber-300 text-[11px] font-black shrink-0 animate-pulse">⏳ ON THE WAY…</span>
+                </div>
+              </div>
+              <p className="text-gray-500 text-[11px] mt-4">The fight starts the second they step in — the ring holds ~75 seconds.</p>
             </div>
           </div>
         )}
