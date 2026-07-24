@@ -178,12 +178,6 @@ export default function TownHallPage() {
           <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-400 hover:text-white">
             <ArrowLeft size={16} /><span className="text-sm">Back</span>
           </button>
-          {/* the battlemap home — every hall carries a way back to it */}
-          <button onClick={() => router.push('/')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-black text-white border border-purple-800 transition active:scale-95"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-            🗺️ Battle Map
-          </button>
         </div>
         <h1 className="text-white font-bold text-xl">{gym.city_name} Town Hall</h1>
         <p className="text-gray-500 text-sm">{gym.county} County, {gym.state} • Pop. {gym.population?.toLocaleString()}</p>

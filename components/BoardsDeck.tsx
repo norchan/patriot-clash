@@ -41,7 +41,15 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
   swipeNav?: boolean // /boards: swiping the FEED left/right changes psub
   tall?: boolean // /boards: let the feed fill the page
 }) {
-  const tabs = [...BASE_TABS, ...extraTabs.filter(t => !BASE_TABS.includes(t)), 'profile']
+  // bonusTab: a psub restored from session memory that isn't a regular tab
+  // (e.g. a team board you walked into) still gets a selectable slot
+  const [bonusTab, setBonusTab] = useState<string | null>(null)
+  const tabs = [
+    ...BASE_TABS,
+    ...extraTabs.filter(t => !BASE_TABS.includes(t)),
+    ...(bonusTab && !BASE_TABS.includes(bonusTab) && !extraTabs.includes(bonusTab) ? [bonusTab] : []),
+    'profile',
+  ]
   const router = useRouter()
   const [tab, setTab] = useState('all')
   const [posts, setPosts] = useState<DeckPost[]>(initialPosts)
@@ -52,6 +60,31 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
   const [createErr, setCreateErr] = useState('')
   const [creating, setCreating] = useState(false)
   const cache = useRef<Record<string, DeckPost[]>>({ all: initialPosts })
+
+  // ── back-to-the-same-spot (Michael): walking into a psub and coming back
+  // reopens the deck ON that psub. p/ pages stamp the slug into session
+  // memory (BoardTabMemory); this restores it on mount. Declared BEFORE the
+  // persist effect so the saved value is read before it's overwritten. ────
+  useEffect(() => {
+    let saved: string | null = null
+    try { saved = sessionStorage.getItem('pg_boards_tab') } catch {}
+    if (!saved || saved === 'all' || saved === 'profile') return
+    if (!tabs.includes(saved)) setBonusTab(saved)
+    setTab(saved)
+    requestAnimationFrame(() =>
+      document.getElementById(`ptab-${saved}`)?.scrollIntoView({ inline: 'center', block: 'nearest' }))
+    const name = saved
+    setLoading(true)
+    fetch(`/api/public/boards/${name}`)
+      .then(r => r.json())
+      .then(d => { cache.current[name] = d.posts ?? []; setPosts(d.posts ?? []) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    try { sessionStorage.setItem('pg_boards_tab', tab) } catch {}
+  }, [tab])
 
   function openTab(name: string) {
     if (name === 'profile') { router.push(signedIn ? '/profile' : '/sign-up'); return }
