@@ -2,27 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { resolveArticle } from '@/lib/og-image'
 import { sameStory } from '@/lib/content-unique'
+import { POLITICIANS } from '@/config/politicians'
 
 // POLITICIAN TRACKERS (Michael): dedicated, clearly-labeled tracker accounts
-// ("WalzWatch") that repost what each politician said/posted today into
-// p/politics — headline + link + photo, 2-3 a day, like a wire service for
-// one person. NOT impersonation: the accounts never speak AS the politician
-// (app-store / AdSense poison); they REPORT the politician, with links.
-// Source: Google News coverage of each politician (free, catches their
-// statements, speeches, and social posts within hours — X/Truth/Facebook
-// have no free APIs, news coverage is the reliable path).
+// ("WalzWatch", "MaceWatch") that repost what each politician said/posted
+// today — headline + link + photo, up to 3 a day each, like a wire service
+// for one person. Roster: one politician per state + the national figures
+// (config/politicians.ts). NOT impersonation: the accounts never speak AS
+// the politician (app-store / AdSense poison); they REPORT, with links.
+//
+// ROTATION (Michael): posts alternate run-by-run between p/politics and the
+// politician's own STATE psub (national figures fall back to p/news).
+// Every post is party-tagged, so it ALWAYS also appears in p/democrats or
+// p/republicans — those are virtual windows over party-tagged posts.
+//
+// Source: Google News coverage (free, catches statements/speeches/social
+// posts within hours — X/Truth/Facebook have no free APIs).
 
 export const maxDuration = 300
-
-// Balanced roster; add a politician = add a row (profile auto-created).
-const POLITICIANS = [
-  { key: 'walz', name: 'Tim Walz', username: 'WalzWatch', party: 'democrat' },
-  { key: 'trump', name: 'Donald Trump', username: 'TrumpTracker', party: 'republican' },
-  { key: 'vance', name: 'JD Vance', username: 'VanceWatch', party: 'republican' },
-  { key: 'newsom', name: 'Gavin Newsom', username: 'NewsomTracker', party: 'democrat' },
-  { key: 'aoc', name: 'Alexandria Ocasio-Cortez', username: 'AOCWatch', party: 'democrat' },
-  { key: 'johnson', name: 'Mike Johnson', username: 'SpeakerWatch', party: 'republican' },
-] as const
 
 // headlines about what they SAID (not just about them) rank first
 const QUOTEY = /\b(says?|said|announc\w*|posts?|posted|slams?|calls?|warns?|touts?|propos\w*|responds?|statement|urges?|unveil\w*|defends?|blasts?|vows?|demands?|tells?|claims?|pledges?|signs?)\b/i
@@ -72,6 +69,18 @@ async function gnews(query: string): Promise<NewsItem[]> {
   }
 }
 
+async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T, i: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let idx = 0
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (idx < items.length) {
+      const i = idx++
+      results[i] = await fn(items[i], i)
+    }
+  }))
+  return results
+}
+
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
@@ -79,66 +88,82 @@ export async function GET(req: NextRequest) {
   }
   const admin = createSupabaseAdminClient()
 
-  const { data: politicsBoard } = await admin.from('boards').select('id').eq('slug', 'politics').maybeSingle()
+  const [{ data: politicsBoard }, { data: newsBoard }, { data: stateBoardRows }] = await Promise.all([
+    admin.from('boards').select('id').eq('slug', 'politics').maybeSingle(),
+    admin.from('boards').select('id').eq('slug', 'news').maybeSingle(),
+    admin.from('boards').select('id, state').eq('category', 'state'),
+  ])
   if (!politicsBoard) return NextResponse.json({ error: 'p/politics board missing' }, { status: 500 })
+  const stateBoards = new Map((stateBoardRows ?? []).filter(b => b.state).map(b => [b.state as string, b.id]))
 
-  // ── ensure the tracker accounts exist (idempotent) ───────────────────────
+  // ── ensure every tracker account exists (idempotent, batched) ────────────
+  const clerkIds = POLITICIANS.map(p => `bot_tracker_${p.key}`)
+  const { data: existing } = await admin.from('profiles')
+    .select('id, clerk_user_id').in('clerk_user_id', clerkIds)
   const trackers = new Map<string, string>() // key → profile id
-  for (const pol of POLITICIANS) {
-    const clerkId = `bot_tracker_${pol.key}`
-    const { data: existing } = await admin.from('profiles').select('id').eq('clerk_user_id', clerkId).maybeSingle()
-    if (existing) { trackers.set(pol.key, existing.id); continue }
-    const { data: created, error } = await admin.from('profiles').insert({
-      clerk_user_id: clerkId,
+  for (const row of existing ?? []) trackers.set(row.clerk_user_id.replace('bot_tracker_', ''), row.id)
+  const missing = POLITICIANS.filter(p => !trackers.has(p.key))
+  if (missing.length) {
+    const { data: created, error } = await admin.from('profiles').insert(missing.map(pol => ({
+      clerk_user_id: `bot_tracker_${pol.key}`,
       username: pol.username,
       party: pol.party,
       onboarded: true,
       avatar_url: `/api/avatar/flag?party=${pol.party}`,
       about_me: `Unofficial tracker — reposting what ${pol.name} says in public, with links. Not affiliated with ${pol.name}.`,
       notification_prefs: { push: false, dm: false },
-    }).select('id').single()
-    if (error) console.error('tracker create failed:', pol.key, error)
-    if (created) trackers.set(pol.key, created.id)
+    }))).select('id, clerk_user_id')
+    if (error) console.error('tracker create failed:', error)
+    for (const row of created ?? []) trackers.set(row.clerk_user_id.replace('bot_tracker_', ''), row.id)
   }
 
-  // ── what's already on p/politics (links + titles, 3 days) ────────────────
+  // ── dedupe window: p/politics + everything the trackers posted anywhere
+  // (state-psub rotation posts live on other boards), last 3 days ──────────
   const since = new Date(Date.now() - 3 * 86400 * 1000).toISOString()
   const links = new Set<string>()
   const titles: string[] = []
-  for (let off = 0; ; off += 1000) {
-    const { data: rows } = await admin.from('hall_posts')
-      .select('link_url, link_title, content')
-      .eq('board_id', politicsBoard.id)
-      .gte('created_at', since)
-      .range(off, off + 999)
-    for (const r of rows ?? []) {
-      if (r.link_url) links.add(r.link_url)
-      const t = r.link_title ?? r.content
-      if (t) titles.push(t)
+  const trackerIds = [...trackers.values()]
+  const seed = async (build: (q: any) => any) => {
+    for (let off = 0; ; off += 1000) {
+      const { data: rows } = await build(
+        admin.from('hall_posts').select('link_url, link_title, content').gte('created_at', since))
+        .range(off, off + 999)
+      for (const r of rows ?? []) {
+        if (r.link_url) links.add(r.link_url)
+        const t = r.link_title ?? r.content
+        if (t) titles.push(t)
+      }
+      if (!rows || rows.length < 1000) break
     }
-    if (!rows || rows.length < 1000) break
   }
+  await seed((q: any) => q.eq('board_id', politicsBoard.id))
+  if (trackerIds.length) await seed((q: any) => q.in('profile_id', trackerIds))
 
-  // ── one fresh "what they said" post per politician per run ───────────────
+  // ── one fresh "what they said" post per politician per run, boards
+  // rotating politics ↔ their state psub run-by-run ────────────────────────
+  const runIdx = Math.floor(Date.now() / (8 * 3600 * 1000))
   const results: Record<string, string> = {}
   let posted = 0, skippedDupe = 0, skippedNoImage = 0
-  for (const pol of POLITICIANS) {
+  await mapLimit(POLITICIANS, 8, async (pol, i) => {
     const profileId = trackers.get(pol.key)
-    if (!profileId) { results[pol.key] = 'no profile'; continue }
-    const lastName = pol.name.split(' ').pop()!
+    if (!profileId) return
+    const toStatePsub = (runIdx + i) % 2 === 1
+    const boardId = toStatePsub
+      ? (pol.state ? stateBoards.get(pol.state) : null) ?? newsBoard?.id ?? politicsBoard.id
+      : politicsBoard.id
     const items = (await gnews(`"${pol.name}" when:1d`))
-      .filter(i => i.title.includes(lastName))
+      .filter(it => it.title.includes(pol.lastName))
       // what they SAID first, coverage about them second
       .sort((a, b) => (QUOTEY.test(b.title) ? 1 : 0) - (QUOTEY.test(a.title) ? 1 : 0))
-    let done = false
     for (const item of items) {
       if (links.has(item.link) || titles.some(t => sameStory(t, item.title))) { skippedDupe++; continue }
+      links.add(item.link) // claim before the slow resolve — no double-posting a shared story
       const a = await resolveArticle(item.link)
       if (!a.image || !/^https:\/\//.test(a.image)) { skippedNoImage++; continue } // house rule
       const { error } = await admin.from('hall_posts').insert({
-        board_id: politicsBoard.id,
+        board_id: boardId,
         profile_id: profileId,
-        party: pol.party,
+        party: pol.party, // always party-tagged → always visible in the party psub
         content: `🎙️ ${item.title}`,
         link_url: a.url,
         link_title: item.title,
@@ -149,14 +174,19 @@ export async function GET(req: NextRequest) {
       })
       if (!error) {
         posted++
-        links.add(item.link); links.add(a.url); titles.push(item.title)
-        results[pol.key] = item.title.slice(0, 80)
-        done = true
+        links.add(a.url); titles.push(item.title)
+        results[pol.key] = `${toStatePsub ? '→state' : '→politics'} ${item.title.slice(0, 60)}`
       }
       break // one per politician per run
     }
-    if (!done && !results[pol.key]) results[pol.key] = 'nothing fresh'
-  }
+  })
 
-  return NextResponse.json({ ok: true, posted, skipped_dupe: skippedDupe, skipped_no_image: skippedNoImage, results })
+  return NextResponse.json({
+    ok: true,
+    posted,
+    politicians: POLITICIANS.length,
+    skipped_dupe: skippedDupe,
+    skipped_no_image: skippedNoImage,
+    results,
+  })
 }
