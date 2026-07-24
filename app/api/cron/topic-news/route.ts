@@ -172,12 +172,16 @@ export async function GET(req: NextRequest) {
     if (a.image) r.link_image = a.image
   }
 
+  // HARD RULE (Michael, boards polish): no image, no bot link post
+  const withImage = inserts.filter((r: any) => typeof r.link_image === 'string' && /^https:\/\//.test(r.link_image))
+  const skippedNoImage = inserts.length - withImage.length
+
   let inserted = 0
-  if (inserts.length) {
-    const { error } = await admin.from('hall_posts').insert(inserts)
-    if (!error) inserted = inserts.length
+  if (withImage.length) {
+    const { error } = await admin.from('hall_posts').insert(withImage)
+    if (!error) inserted = withImage.length
     else console.error('topic-news insert error:', error)
   }
 
-  return NextResponse.json({ ok: true, phase, inserted, boards: boards.length })
+  return NextResponse.json({ ok: true, phase, inserted, skipped_no_image: skippedNoImage, boards: boards.length })
 }

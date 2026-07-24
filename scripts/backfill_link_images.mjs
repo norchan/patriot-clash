@@ -1,6 +1,10 @@
-// Backfill v2: resolve every board post's Google News link to the REAL
-// article URL and pull the real og:image (the generic Google-logo images from
-// v1 are wiped and replaced).
+// Backfill v3 (boards polish Phase A — Michael's hard rule: no bot link post
+// without a real image). For the last 7 days of BOT posts with a link_url and
+// no link_image (boards AND town halls): re-resolve the article's og:image —
+// found → update the row; still bare → DELETE the post so feeds stop showing
+// broken title-only cards. Human posts are never touched.
+// (v2 of this script was the 2026-07-21 Google-News URL decode backfill.)
+// Usage: node scripts/backfill_link_images.mjs
 import fs from 'fs'
 import { createClient } from '@supabase/supabase-js'
 
@@ -48,38 +52,64 @@ function extractOg(html) {
     || /content=["']([^"']+)["'][^>]*property=["']og:image/.exec(html)
     || /name=["']twitter:image["'][^>]*content=["']([^"']+)/.exec(html)
   const img = m?.[1]
-  return img && /^https?:\/\//.test(img) ? img : null
+  return img && /^https:\/\//.test(img) ? img : null
 }
 
-// wipe the generic Google-logo images first
-await db.from('hall_posts')
-  .update({ link_image: null })
-  .not('board_id', 'is', null)
-  .like('link_image', '%googleusercontent%')
+async function resolveArticle(url) {
+  let real = url
+  try {
+    if (new URL(url).hostname.endsWith('news.google.com')) real = (await resolveGoogleNews(url)) ?? url
+  } catch {}
+  let image = null
+  if (!real.includes('news.google.com')) {
+    const html = await fetchText(real, {}, 8000)
+    if (html) image = extractOg(html)
+  }
+  let domain = null
+  try { domain = new URL(real).hostname.replace(/^www\./, '') } catch {}
+  return { url: real, domain, image }
+}
 
-const { data: posts } = await db.from('hall_posts')
-  .select('id, link_url')
-  .not('board_id', 'is', null)
-  .like('link_url', '%news.google.com%')
-  .limit(3000)
-console.log('posts to resolve:', posts?.length ?? 0)
+const since = new Date(Date.now() - 7 * 86400 * 1000).toISOString()
+const posts = []
+for (let off = 0; ; off += 1000) {
+  const { data, error } = await db.from('hall_posts')
+    .select('id, link_url, profiles!hall_posts_profile_id_fkey(clerk_user_id)')
+    .not('link_url', 'is', null)
+    .is('link_image', null)
+    .gte('created_at', since)
+    .order('id')
+    .range(off, off + 999)
+  if (error) { console.error(error); process.exit(1) }
+  posts.push(...(data ?? []))
+  if (!data || data.length < 1000) break
+}
+const botPosts = posts.filter(p => p.profiles?.clerk_user_id?.startsWith('bot'))
+console.log(`imageless link posts (7d): ${posts.length} · bot-authored: ${botPosts.length}`)
 
-let done = 0, found = 0, idx = 0
+// resolve each unique link once (many rows can share one article)
+const uniq = [...new Set(botPosts.map(p => p.link_url))]
+const resolved = new Map()
+let idx = 0, done = 0
 await Promise.all(Array.from({ length: 8 }, async () => {
-  while (idx < posts.length) {
-    const p = posts[idx++]
-    const real = await resolveGoogleNews(p.link_url)
-    if (real) {
-      let image = null
-      const html = await fetchText(real, {}, 8000)
-      if (html) image = extractOg(html)
-      let domain = null
-      try { domain = new URL(real).hostname.replace(/^www\./, '') } catch {}
-      await db.from('hall_posts').update({ link_url: real, ...(domain ? { link_domain: domain } : {}), ...(image ? { link_image: image } : {}) }).eq('id', p.id)
-      if (image) found++
-    }
-    done++
-    if (done % 100 === 0) console.log(`${done}/${posts.length} (${found} images)`)
+  while (idx < uniq.length) {
+    const link = uniq[idx++]
+    resolved.set(link, await resolveArticle(link))
+    if (++done % 50 === 0) console.log(`resolved ${done}/${uniq.length}`)
   }
 }))
-console.log(`DONE: ${found}/${done} images`)
+
+let updated = 0, deleted = 0
+for (const p of botPosts) {
+  const a = resolved.get(p.link_url)
+  if (a?.image) {
+    const { error } = await db.from('hall_posts')
+      .update({ link_url: a.url, ...(a.domain ? { link_domain: a.domain } : {}), link_image: a.image })
+      .eq('id', p.id)
+    if (!error) updated++
+  } else {
+    const { error } = await db.from('hall_posts').delete().eq('id', p.id)
+    if (!error) deleted++
+  }
+}
+console.log(`DONE — updated with image: ${updated} · deleted (no image found): ${deleted}`)

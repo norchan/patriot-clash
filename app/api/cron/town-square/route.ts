@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { resolveArticle } from '@/lib/og-image'
 
 // Town Square content bot: pulls political news RSS feeds (right-leaning
 // outlets for Republican bots, left-leaning for Democrat bots) and has a
 // random party-matched bot share fresh headlines into each town hall's
 // thread as link posts (headline + link + thumbnail + source domain).
 // Runs on a Vercel cron; callable manually with the same bearer secret.
+// HARD RULE (Michael, boards polish): every link post needs a real photo —
+// feed items without one get an og:image resolve; still bare → dropped.
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 const FEEDS: Record<'republican' | 'democrat', string[]> = {
   republican: [
@@ -77,6 +80,28 @@ async function fetchFeed(url: string): Promise<NewsItem[]> {
 
 const shuffle = <T,>(arr: T[]) => arr.map(v => [Math.random(), v] as const).sort((a, b) => a[0] - b[0]).map(([, v]) => v)
 
+async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let idx = 0
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (idx < items.length) {
+      const i = idx++
+      results[i] = await fn(items[i])
+    }
+  }))
+  return results
+}
+
+// image-or-drop: items the feed didn't give a picture get ONE og:image
+// resolve; whatever is still bare leaves the pool (no broken cards)
+async function requireImages(items: NewsItem[]): Promise<NewsItem[]> {
+  await mapLimit(items.filter(i => !i.image || !/^https:\/\//.test(i.image)), 8, async i => {
+    const a = await resolveArticle(i.link)
+    if (a.image && /^https:\/\//.test(a.image)) i.image = a.image
+  })
+  return items.filter(i => i.image && /^https:\/\//.test(i.image))
+}
+
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET
   const auth = req.headers.get('authorization')
@@ -90,11 +115,13 @@ export async function GET(req: NextRequest) {
     Promise.all(FEEDS.republican.map(fetchFeed)),
     Promise.all(FEEDS.democrat.map(fetchFeed)),
   ])
-  const repPosts = repFeeds.flat()
-  const demPosts = demFeeds.flat()
-  if (repPosts.length === 0 && demPosts.length === 0) {
+  const repFetched = repFeeds.flat()
+  const demFetched = demFeeds.flat()
+  if (repFetched.length === 0 && demFetched.length === 0) {
     return NextResponse.json({ error: 'All feeds returned nothing' }, { status: 502 })
   }
+  const [repPosts, demPosts] = await Promise.all([requireImages(repFetched), requireImages(demFetched)])
+  const skippedNoImage = repFetched.length - repPosts.length + (demFetched.length - demPosts.length)
 
   // PostgREST caps every response at 1000 rows — page anything that can
   // be bigger than that (2300+ gyms, and the dedupe rows grow daily)
@@ -165,6 +192,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     inserted,
+    skipped_no_image: skippedNoImage,
     gyms: gyms.length,
     fetched: { republican: repPosts.length, democrat: demPosts.length },
   })

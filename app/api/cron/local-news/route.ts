@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { resolveArticle } from '@/lib/og-image'
 
 // Local-news bot: bots share LOCAL stories into each hall's Town Square —
 // city news first (via a Google News query for the hall's own town), state
@@ -7,8 +8,10 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // posts per hall per run. City queries are expensive (one HTTP fetch per
 // town), so each run city-scans a rotating batch of halls while every hall
 // still gets the fresh state pool. Runs 4x daily from pg_cron.
+// HARD RULE (Michael, boards polish): every link post needs a real photo —
+// articles that don't resolve an og:image are SKIPPED, not posted bare.
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 const CITY_BATCH = 250 // halls that get a dedicated city query this run
 
@@ -174,7 +177,6 @@ export async function GET(req: NextRequest) {
         content: namesPlace ? item.title : `${gym.city_name}, ${gym.state} — ${item.title}`,
         link_url: item.link,
         link_title: item.title,
-        link_image: null,
         link_domain: item.source,
         score: Math.floor(Math.random() * 10),
         created_at: new Date(Date.now() - Math.random() * 3 * 3600 * 1000).toISOString(),
@@ -183,15 +185,36 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Resolve each UNIQUE link once (state-pool stories are shared by many
+  // halls), then require a real https og:image — no image, no post ─────────
+  const uniqLinks = [...new Set(rows.map(r => r.link_url as string))]
+  const resolved = new Map<string, { url: string; domain: string | null; image: string | null }>()
+  const deadline = Date.now() + 240_000 // stay inside maxDuration
+  await mapLimit(uniqLinks, 10, async l => {
+    if (Date.now() > deadline) return
+    resolved.set(l, await resolveArticle(l))
+  })
+  for (const r of rows) {
+    const a = resolved.get(r.link_url)
+    if (!a) continue
+    r.link_url = a.url
+    if (a.domain) r.link_domain = a.domain
+    if (a.image && /^https:\/\//.test(a.image)) r.link_image = a.image
+  }
+  const withImage = rows.filter(r => r.link_image)
+  const skippedNoImage = rows.length - withImage.length
+
   let inserted = 0
-  for (let i = 0; i < rows.length; i += 500) {
-    const { error } = await admin.from('hall_posts').insert(rows.slice(i, i + 500))
-    if (!error) inserted += Math.min(500, rows.length - i)
+  for (let i = 0; i < withImage.length; i += 500) {
+    const { error } = await admin.from('hall_posts').insert(withImage.slice(i, i + 500))
+    if (!error) inserted += Math.min(500, withImage.length - i)
   }
 
   return NextResponse.json({
     ok: true,
     inserted,
+    skipped_no_image: skippedNoImage,
+    links_resolved: resolved.size,
     gyms: gyms.length,
     city_scanned: cityBatch.length,
     city_with_news: cityPools.size,

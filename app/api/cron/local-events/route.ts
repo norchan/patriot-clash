@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { resolveArticle } from '@/lib/og-image'
 
 // Local-events bot: once an hour a bot shares something FUN and local into a
 // hall's Town Square — a concert, festival, parade, county fair, local sports
@@ -7,8 +8,10 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 // expensive (one HTTP fetch per town), so each hourly run scans a rotating
 // batch of halls; over a day every hall gets covered. Never reposts a link a
 // hall already has. Separate from local-news (headlines) on purpose.
+// HARD RULE (Michael, boards polish): every link post needs a real photo —
+// articles that don't resolve an og:image are SKIPPED, not posted bare.
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 const CITY_BATCH = 260 // halls that get a dedicated events query this run
 
@@ -165,7 +168,6 @@ export async function GET(req: NextRequest) {
       content: namesPlace ? pick.title : `${gym.city_name}, ${gym.state} — ${pick.title}`,
       link_url: pick.link,
       link_title: pick.title,
-      link_image: null,
       link_domain: pick.source,
       score: Math.floor(Math.random() * 8),
       created_at: new Date().toISOString(),
@@ -173,15 +175,34 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // ── Resolve each unique link once; require a real https og:image ─────────
+  const uniqLinks = [...new Set(rows.map(r => r.link_url as string))]
+  const resolved = new Map<string, { url: string; domain: string | null; image: string | null }>()
+  const deadline = Date.now() + 240_000
+  await mapLimit(uniqLinks, 10, async l => {
+    if (Date.now() > deadline) return
+    resolved.set(l, await resolveArticle(l))
+  })
+  for (const r of rows) {
+    const a = resolved.get(r.link_url)
+    if (!a) continue
+    r.link_url = a.url
+    if (a.domain) r.link_domain = a.domain
+    if (a.image && /^https:\/\//.test(a.image)) r.link_image = a.image
+  }
+  const withImage = rows.filter(r => r.link_image)
+  const skippedNoImage = rows.length - withImage.length
+
   let inserted = 0
-  for (let i = 0; i < rows.length; i += 500) {
-    const { error } = await admin.from('hall_posts').insert(rows.slice(i, i + 500))
-    if (!error) inserted += Math.min(500, rows.length - i)
+  for (let i = 0; i < withImage.length; i += 500) {
+    const { error } = await admin.from('hall_posts').insert(withImage.slice(i, i + 500))
+    if (!error) inserted += Math.min(500, withImage.length - i)
   }
 
   return NextResponse.json({
     ok: true,
     inserted,
+    skipped_no_image: skippedNoImage,
     batch: batch.length,
     city_with_events: cityPools.size,
     flavor,

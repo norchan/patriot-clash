@@ -177,10 +177,14 @@ export async function GET(req: NextRequest) {
     if (a.image) r.link_image = a.image
   })
 
+  // HARD RULE (Michael, boards polish): no image, no bot link post
+  const withImage = rows.filter((r: any) => typeof r.link_image === 'string' && /^https:\/\//.test(r.link_image))
+  const skippedNoImage = rows.length - withImage.length
+
   let inserted = 0
-  for (let i = 0; i < rows.length; i += 500) {
-    const { error } = await admin.from('hall_posts').insert(rows.slice(i, i + 500))
-    if (!error) inserted += Math.min(500, rows.length - i)
+  for (let i = 0; i < withImage.length; i += 500) {
+    const { error } = await admin.from('hall_posts').insert(withImage.slice(i, i + 500))
+    if (!error) inserted += Math.min(500, withImage.length - i)
     else console.error('state-news insert error:', error)
   }
 
@@ -188,6 +192,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     phase,
     inserted,
+    skipped_no_image: skippedNoImage,
     states: stateBoards.length,
     states_with_news: pools.size,
   })
