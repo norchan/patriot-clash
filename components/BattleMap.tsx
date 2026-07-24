@@ -324,38 +324,23 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       ⚔️ JOIN THE FIGHT
     </button>
 
-    {/* under-map dock: bare white icons — boards, arcade, profile, town hall, messages */}
-    <div className="mt-4 flex items-center justify-center gap-10">
-      <button onClick={() => router.push('/boards')}
-        title="Boards" aria-label="Boards"
-        className="text-white transition active:scale-90 hover:opacity-80"
-        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-        <Newspaper size={38} strokeWidth={2.2} />
-      </button>
-      <button onClick={() => router.push(signedIn ? '/arcade' : '/play/arcade')}
-        title="Arcade" aria-label="Arcade"
-        className="text-white transition active:scale-90 hover:opacity-80"
-        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-        <Gamepad2 size={38} strokeWidth={2.2} />
-      </button>
-      <button onClick={() => router.push(signedIn ? '/profile' : '/sign-up')}
-        title="Profile" aria-label="Profile"
-        className="text-white transition active:scale-90 hover:opacity-80"
-        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-        <User size={38} strokeWidth={2.2} />
-      </button>
-      <button onClick={townHall} disabled={locating}
-        title="Town Hall" aria-label="Town Hall"
-        className="text-white transition active:scale-90 hover:opacity-80 disabled:opacity-50"
-        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-        <Landmark size={38} strokeWidth={2.2} />
-      </button>
-      <button onClick={() => router.push(signedIn ? '/messages' : '/sign-up')}
-        title="Messages" aria-label="Messages"
-        className="text-white transition active:scale-90 hover:opacity-80"
-        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-        <MessagesSquare size={38} strokeWidth={2.2} />
-      </button>
+    {/* under-map dock: white icons with names underneath (Michael) */}
+    <div className="mt-4 flex items-start justify-center gap-7">
+      {([
+        { label: 'Boards', icon: Newspaper, go: () => router.push('/boards') },
+        { label: 'Arcade', icon: Gamepad2, go: () => router.push(signedIn ? '/arcade' : '/play/arcade') },
+        { label: 'Profile', icon: User, go: () => router.push(signedIn ? '/profile' : '/sign-up') },
+        { label: 'Town Hall', icon: Landmark, go: townHall },
+        { label: 'Messages', icon: MessagesSquare, go: () => router.push(signedIn ? '/messages' : '/sign-up') },
+      ] as const).map(({ label, icon: Icon, go }) => (
+        <button key={label} onClick={go} disabled={label === 'Town Hall' && locating}
+          title={label} aria-label={label}
+          className="flex flex-col items-center text-white transition active:scale-90 hover:opacity-80 disabled:opacity-50"
+          style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
+          <Icon size={38} strokeWidth={2.2} />
+          <span className="text-[11px] font-bold mt-1 whitespace-nowrap">{label}</span>
+        </button>
+      ))}
     </div>
     </div>
   )

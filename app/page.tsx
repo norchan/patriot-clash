@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
@@ -63,13 +64,18 @@ export default async function HomePage() {
       <main className="max-w-2xl mx-auto px-4 py-5 min-w-0">
         <div className="relative mb-2 flex items-center justify-center">
           <h1 className="text-xl sm:text-2xl font-black text-white text-center">Battle Map</h1>
-          {/* national stats, one tap from the title (Michael) */}
+          {/* national stats: boxed ↗ arrow + "stats" underneath (Michael) */}
           <Link href="/explore/scoreboard" aria-label="National stats"
-            className="absolute right-0 flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-black transition">
-            📊 <span className="hidden sm:inline">National stats</span> →
+            className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-center text-white hover:opacity-75 transition">
+            <span className="w-8 h-8 rounded-lg border-2 border-white flex items-center justify-center">
+              <ArrowUpRight size={18} strokeWidth={2.5} />
+            </span>
+            <span className="text-[10px] font-bold mt-0.5">stats</span>
           </Link>
         </div>
-        <BattleMap halls={halls} height="56vh" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null}
+        {/* map fills the screen downward — the button + icon dock ride just
+            above the bottom (where the ad bar will eventually live) */}
+        <BattleMap halls={halls} height="max(46vh, calc(100dvh - 350px))" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null}
           homeCenter={profile?.gyms ? { lat: profile.gyms.latitude, lng: profile.gyms.longitude } : null} />
       </main>
     </div>
