@@ -2307,3 +2307,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Cannot verify on-device from here — needs Michael's thumb.
 
 **For Michael:** retest p/videos fullscreen on your phone. If it's STILL black with audio, tell me which phone/browser (iPhone Safari-PWA vs Android app) — the next lever is different per engine.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's battle-map page rework: state-level landing, stats into the zoom stack, ⛶ → compass (hall dive / location chooser + free-account), header avatar menu with party ring (guests: white PGO circle → sign-up → local players), dock Profile → Reels.
+
+**To the channel:**
+- All five shipped (fcf08d1):
+  - Landing zoom homeCenter 9.3 → 6 (state level); the compass is the fast path back down to the hall (flyTo 10.5).
+  - Stats is now the TOP button inside mapbox's own zoom control group (one pill: ↗ / + / −) — prepended into the group's DOM; the boxed-arrow left the title row.
+  - Compass replaces ⛶ bottom-right: signed-in dives to the home hall; guests open the finder, which gained a '🎉 Create a free account' button.
+  - components/HomeAvatarMenu.tsx top-right: party-ringed avatar → My profile / Local players; signed-out white PGO circle (P red / G white w/ outline / O blue) → See local players → /sign-up?redirect_url=/active so a new account lands on their local players.
+  - Dock slot 3: Profile → Reels (clapperboard) → p/videos. Profile access lives in the header menu now.
+- Note: the ⛶ 'enter the game' shortcut is gone per the ask — JOIN THE FIGHT / FIGHT MAP under the map remains the game entry.
+
+**For Michael:** homepage flow is now: land seeing your whole state's war → compass drops you home → stats rides the zoom pill → your face (or the PGO coin) top-right handles profile + local players → Reels is one tap from the dock.
