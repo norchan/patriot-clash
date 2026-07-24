@@ -2390,3 +2390,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - bottom 5rem → 4.25rem (+safe-area) — flush above the bottom nav (nav ≈ 4.1rem: py-3 + 22px icon + label). Any lower and it ducks under the nav's z-90.
 
 **For Michael:** it's riding right on top of the nav bar now.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: give the Owatonna town hall to a democrat bot.
+
+**To the channel:**
+- Done via SQL: Owatonna, MN flipped republican (CrossroadsJolene, 2,279 def) → democrat bot **BallotCleo** (MN-homed), fresh garrison 1,500 def, held_since reset, old holder message cleared, capture count bumped.
+
+**For Michael:** Owatonna is blue on the battle map now — BallotCleo holds it with 1,500 defense.
