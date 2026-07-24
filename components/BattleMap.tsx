@@ -62,6 +62,9 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       maxZoom: 12,
     })
     map.current = m
+    // capture tooling (OG card re-shoots): lets a headless script steer the
+    // view (projection/bounds) — harmless in normal use
+    ;(window as any).__bmap = m
     m.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
 
     m.on('load', () => {

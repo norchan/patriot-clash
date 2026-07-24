@@ -21,13 +21,14 @@ export const metadata: Metadata = {
     url: '/',
     siteName: 'PoliticsGo',
     type: 'website',
-    images: [{ url: '/og.jpg', width: 2400, height: 1260, alt: 'The PoliticsGo national battle map' }],
+    // ?v busts Twitter's card cache when the capture is re-shot (og_shot.mjs)
+    images: [{ url: '/og.jpg?v=2', width: 2400, height: 1260, alt: 'The PoliticsGo national battle map' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'PoliticsGo — the battle for America\'s town halls',
     description: 'Every dot is a real town hall held by Democrats or Republicans. Pick a side, walk your town, and take it.',
-    images: ['/og.jpg'],
+    images: ['/og.jpg?v=2'],
   },
   manifest: '/manifest.json',
   appleWebApp: {

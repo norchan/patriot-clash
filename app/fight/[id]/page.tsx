@@ -36,9 +36,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     description,
     openGraph: {
       title, description,
-      images: [{ url: '/og.jpg', width: 2400, height: 1260, alt: 'The PoliticsGo national battle map' }],
+      images: [{ url: '/og.jpg?v=2', width: 2400, height: 1260, alt: 'The PoliticsGo national battle map' }],
     },
-    twitter: { card: 'summary_large_image', title, description, images: ['/og.jpg'] },
+    twitter: { card: 'summary_large_image', title, description, images: ['/og.jpg?v=2'] },
   }
 }
 
