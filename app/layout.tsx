@@ -10,8 +10,25 @@ const inter = Inter({ subsets: ['latin'] })
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || 'ca-pub-5293418453940819'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://politicsgo.app'),
   title: 'PoliticsGo',
-  description: 'The political augmented reality battle game',
+  description: 'Pick a party. Battle the other side in the streets, capture your town hall, and put your town on the battle map.',
+  // Link-preview card (Twitter/X, iMessage, Discord…): the live national
+  // battle map — without these tags a share is just a bare URL (Michael)
+  openGraph: {
+    title: 'PoliticsGo — the battle for America\'s town halls',
+    description: 'Every dot is a real town hall held by Democrats or Republicans. Pick a side, walk your town, and take it.',
+    url: '/',
+    siteName: 'PoliticsGo',
+    type: 'website',
+    images: [{ url: '/og.jpg', width: 2400, height: 1260, alt: 'The PoliticsGo national battle map' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PoliticsGo — the battle for America\'s town halls',
+    description: 'Every dot is a real town hall held by Democrats or Republicans. Pick a side, walk your town, and take it.',
+    images: ['/og.jpg'],
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
