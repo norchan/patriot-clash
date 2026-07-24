@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { openaiChat, cleanPostText } from '@/lib/openai'
+import { tooSimilar } from '@/lib/content-unique'
 
 // Hall-chatter bot: makes the Town Square feel alive by having bots leave
 // RELEVANT, OpenAI-written comments on recent posts and replies to random
@@ -87,10 +88,15 @@ export async function GET(req: NextRequest) {
     // 1) a relevant top-level comment
     const party = Math.random() < 0.5 ? 'democrat' : 'republican'
     const lean = party === 'democrat' ? 'a progressive Democratic voter' : 'a conservative Republican voter'
-    const comment = cleanPostText(await openaiChat([
+    // UNIQUENESS (boards polish Phase D): show the model what's already on
+    // the post; reject near-dupes with tooSimilar rather than insert sludge
+    const priorTexts = (commentsByPost[post.id] ?? []).map(c => c.content)
+    const avoidBlock = priorTexts.length ? `\n\nComments already on this post (say something DIFFERENT — do not repeat or paraphrase any):\n${priorTexts.slice(-8).map(a => `- ${a}`).join('\n')}` : ''
+    let comment = cleanPostText(await openaiChat([
       { role: 'system', content: `You are ${lean} chatting in a political town-square app. React to the post below with ONE short comment (max 22 words), punchy and opinionated, in your own voice. It must clearly relate to the post. No hashtags, no @mentions, no quotes.` },
-      { role: 'user', content: topic },
+      { role: 'user', content: topic + avoidBlock },
     ], 60) ?? '')
+    if (comment && priorTexts.some(e => tooSimilar(e, comment))) comment = ''
     if (comment) {
       const { data: newC } = await admin.from('hall_comments')
         .insert({ post_id: post.id, profile_id: pick(byParty[party]), content: comment.slice(0, 300), score: Math.floor(Math.random() * 6) })
@@ -108,7 +114,10 @@ export async function GET(req: NextRequest) {
           { role: 'system', content: `You are ${rlean} in a political town-square. Reply to this comment in ONE short line (max 18 words) — agree or push back, keep it conversational. No hashtags, no @mentions, no quotes.` },
           { role: 'user', content: `Post: ${topic}\nComment: ${target.content.slice(0, 200)}` },
         ], 50) ?? '')
-        if (reply) {
+        // no parroting the comment it answers, no echoing the thread
+        if (reply && (tooSimilar(target.content, reply) || priorTexts.some(e => tooSimilar(e, reply)) || tooSimilar(comment, reply))) {
+          // near-dupe — drop it, the thread is better off shorter
+        } else if (reply) {
           await admin.from('hall_comments').insert({ post_id: post.id, parent_id: target.id, profile_id: pick(byParty[rparty]), content: reply.slice(0, 300), score: Math.floor(Math.random() * 4) })
           replied++
         }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { openaiChat } from '@/lib/openai'
+import { tooSimilar } from '@/lib/content-unique'
 
 // SET 3 — REPLIES TO REPLIES (Michael 2026-07-22): 20 minutes after the reply
 // run, 20 bots each find 5 random recent replies (comments) and reply to them
@@ -18,10 +19,10 @@ const REPLIES_PER_BOT = 5
 const shuffle = <T,>(a: T[]) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[b[i], b[j]] = [b[j], b[i]] } return b }
 const startOfTodayISO = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString() }
 
-async function replyToComment(commentText: string): Promise<string | null> {
+async function replyToComment(commentText: string, avoid: string[]): Promise<string | null> {
   return openaiChat([
     { role: 'system', content: 'You write ONE short, casual reply to another neighbor\'s comment in a town message-board thread. React to THEIR comment naturally — agree, joke, riff, or gently disagree. Under 20 words. No hashtags, no @mentions, no quotes, never mention being an AI.' },
-    { role: 'user', content: commentText },
+    { role: 'user', content: `${commentText}${avoid.length ? `\n\nReplies already in this thread (write something DIFFERENT — do not repeat or paraphrase any):\n${avoid.map(a => `- ${a}`).join('\n')}` : ''}` },
   ], 50, 1.0)
 }
 
@@ -76,19 +77,45 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  let replied = 0
+  // UNIQUENESS (boards polish Phase D): a nested reply must not echo the
+  // parent comment or its existing sibling replies — the model sees them,
+  // and a tooSimilar gate rejects near-dupes (one regenerate, then skip)
+  const sibsByParent = new Map<string, string[]>()
+  {
+    const parentIds = [...new Set(tasks.map(t => t.comment.id))]
+    for (let i = 0; i < parentIds.length; i += 100) {
+      const { data: sibs } = await admin.from('hall_comments')
+        .select('parent_id, content')
+        .in('parent_id', parentIds.slice(i, i + 100))
+        .limit(1000)
+      for (const s of sibs ?? []) {
+        if (s.content && s.parent_id) (sibsByParent.get(s.parent_id) ?? sibsByParent.set(s.parent_id, []).get(s.parent_id)!).push(s.content)
+      }
+    }
+  }
+
+  let replied = 0, skippedSimilar = 0
   const bump = new Map<string, number>()
   let ti = 0
   await Promise.all(Array.from({ length: 8 }, async () => {
     while (ti < tasks.length) {
       const t = tasks[ti++]
-      const text = await replyToComment(t.comment.content ?? '')
-      if (!text) continue
+      const sibs = sibsByParent.get(t.comment.id) ?? []
+      // the parent itself counts — a reply that parrots what it answers is sludge
+      const clash = (txt: string) => tooSimilar(t.comment.content ?? '', txt) || sibs.some(s => tooSimilar(s, txt))
+      let text = await replyToComment(t.comment.content ?? '', sibs.slice(-8))
+      if (text && clash(text)) text = await replyToComment(t.comment.content ?? '', sibs.slice(-8)) // one retry
+      if (!text || clash(text)) { skippedSimilar++; continue }
       const { error } = await admin.from('hall_comments').insert({
         post_id: t.comment.post_id, parent_id: t.comment.id, profile_id: t.botId,
         content: text.slice(0, 300), score: Math.floor(Math.random() * 5),
       })
-      if (!error) { replied++; bump.set(t.comment.post_id, (bump.get(t.comment.post_id) ?? 0) + 1) }
+      if (!error) {
+        replied++
+        bump.set(t.comment.post_id, (bump.get(t.comment.post_id) ?? 0) + 1)
+        sibs.push(text)
+        sibsByParent.set(t.comment.id, sibs)
+      }
     }
   }))
   // nested replies still count toward the post's comment tally
@@ -97,5 +124,5 @@ export async function GET(req: NextRequest) {
     await admin.from('hall_posts').update({ comment_count: (p?.comment_count ?? 0) + delta }).eq('id', postId)
   }
 
-  return NextResponse.json({ ok: true, bots: cohort.length, tasks: tasks.length, replied })
+  return NextResponse.json({ ok: true, bots: cohort.length, tasks: tasks.length, replied, skipped_similar: skippedSimilar })
 }

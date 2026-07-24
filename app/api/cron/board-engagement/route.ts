@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { openaiChat } from '@/lib/openai'
 import { videoEmbed, videoAvailable } from '@/lib/video-embed'
+import { tooSimilar } from '@/lib/content-unique'
 
 // BOARD ENGAGEMENT BOTS (Michael, 2026-07-22): the boards should feel alive —
 // replies on SOME (not all) posts, and real up/down vote movement. Every run:
@@ -50,19 +51,39 @@ export async function GET(req: NextRequest) {
   if (!posts?.length || !bots?.length) return NextResponse.json({ ok: true, replied: 0, voted: 0, videosRemoved })
 
   // ── replies (Michael: more of them) — ~65% of posts with room for more
-  // comments, not just empty ones, and 1-3 replies apiece ──────────────────
+  // comments, not just empty ones, and 1-3 replies apiece.
+  // UNIQUENESS (boards polish Phase D): the model sees what's already on the
+  // post and must not repeat it; a tooSimilar gate rejects near-dupes anyway
+  // (one regenerate, then skip — prefer silence over copy-paste sludge). ──
   const candidates = posts.filter(p => (p.comment_count ?? 0) < 3 && Math.random() < 0.65).slice(0, 150)
-  let replied = 0
+  const priorByPost = new Map<string, string[]>()
+  if (candidates.length) {
+    const ids = candidates.map(c => c.id)
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data: prior } = await admin.from('hall_comments')
+        .select('post_id, content')
+        .in('post_id', ids.slice(i, i + 100))
+        .limit(1000)
+      for (const c of prior ?? []) {
+        if (c.content) (priorByPost.get(c.post_id) ?? priorByPost.set(c.post_id, []).get(c.post_id)!).push(c.content)
+      }
+    }
+  }
+  let replied = 0, skippedSimilar = 0
   for (const p of candidates) {
     const headline = p.link_title ?? p.content ?? ''
     if (!headline) continue
     const nReplies = 1 + (Math.random() < 0.5 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0)
+    const prior = priorByPost.get(p.id) ?? []
+    let insertedHere = 0
     for (let i = 0; i < nReplies; i++) {
-      const text = await openaiChat([
+      const gen = () => openaiChat([
         { role: 'system', content: 'You write ONE short casual comment (max 22 words) reacting to a news headline on a forum. Sound like a regular person: opinionated but civil, no hashtags, no emojis in most replies, no quotes around the reply, never mention being an AI. Vary tone: sometimes funny, sometimes skeptical, sometimes genuinely interested.' },
-        { role: 'user', content: `Headline: ${headline}` },
+        { role: 'user', content: `Headline: ${headline}${prior.length ? `\n\nComments already on this post (say something DIFFERENT — do not repeat or paraphrase any of these):\n${prior.slice(-8).map(a => `- ${a}`).join('\n')}` : ''}` },
       ], 60, 1.0)
-      if (!text) continue
+      let text = await gen()
+      if (text && prior.some(e => tooSimilar(e, text!))) text = await gen() // one retry
+      if (!text || prior.some(e => tooSimilar(e, text!))) { skippedSimilar++; continue }
       const bot = pick(bots)
       const { error } = await admin.from('hall_comments').insert({
         post_id: p.id,
@@ -72,8 +93,11 @@ export async function GET(req: NextRequest) {
       })
       if (!error) {
         replied++
+        insertedHere++
+        prior.push(text)
+        priorByPost.set(p.id, prior)
         await admin.from('hall_posts')
-          .update({ comment_count: (p.comment_count ?? 0) + i + 1 })
+          .update({ comment_count: (p.comment_count ?? 0) + insertedHere })
           .eq('id', p.id)
       }
     }
@@ -104,5 +128,5 @@ export async function GET(req: NextRequest) {
       .eq('id', c.id)
   }
 
-  return NextResponse.json({ ok: true, replied, voted, posts: posts.length, videosRemoved })
+  return NextResponse.json({ ok: true, replied, skipped_similar: skippedSimilar, voted, posts: posts.length, videosRemoved })
 }
