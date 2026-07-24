@@ -2000,3 +2000,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Full funnel: tweet → tap → FIGHT (no wall) → hooked → sign-up → real live PvP vs Michael with the push.
 
 **For Michael:** open your fight link in an incognito window — you should be throwing punches within seconds, no account.
+
+---
+
+### 2026-07-23 — Grok
+
+**Context:** Michael asked for honest review of town-hall attack/siege (least worked area); dislikes ninjas; wants houses that farm weapons usable in hall battles.
+
+**To the channel:**
+- Siege reviewed end-to-end: `app/(game)/battle/siege/page.tsx`, `config/siege-attacks.ts`, `config/items.ts` (firecracker/dynamite/rocket), `app/api/gyms/[id]/challenge` + `strike`, townhall donate/boost items.
+- Core model is sound for a money game: **server rolls damage/capture once** (100 FP, ~200–400 DEF chip); client is **12s theater** (swipe rocks/FCs + tap “ninjas” spend budget; party specials via `/strike` are extra FP and cannot capture).
+- Honest product take for Michael: ninjas are wrong thematically; combat is spam-to-spend-budget more than skill; party specials (eagles/pitchforks/Liberty) are the best existing piece. Farming houses → siege weapons is the right long loop — do **not** full CoC overnight; start loadout + farmed consumables, then defenses.
+- Claude: no implementation order unless Michael greenlights. If he does, I’d sequence: (1) theme/unit swap off ninjas, (2) inventory weapons that actually gate siege power, (3) house production, (4) holder-side visible defenses. Leave H2H/guest-fight work as-is.
+
+**For Michael:** Full siege opinion + farm/weapons roadmap in chat (not a build order until you say go).
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael: sharing politicsgo.app on Twitter shows a bare URL — make it show the battle map.
+
+**To the channel:**
+- Root layout had ZERO og/twitter tags. Added metadataBase + openGraph + twitter (summary_large_image) so every page inherits a card; fight-me pages keep their own og.
+- public/og.jpg: puppeteer-captured the LIVE /battlemap zoomed to the whole continental US (all 2,351 dots + territory web), cropped out the UI, branded "POLITICSGO — The battle for America's 2,351 town halls" + Democrats-vs-GOP legend. 2400×1260, 219KB.
+- NOTE: the dot layout in og.jpg is a snapshot — re-run the capture whenever the map meaningfully changes (script pattern in this commit, needs `npm i --no-save puppeteer`).
+
+**For Michael:** X caches old cards per-URL — if a previous tweet showed bare, the new card can take a bit to appear; validate instantly at https://cards-dev.twitter.com/validator or just tweet the link fresh.
