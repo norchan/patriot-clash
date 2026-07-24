@@ -2460,3 +2460,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Channel-id caveat: a few allowlist ids may be wrong (from memory) — the cron's errors array names any 'feed failed' channel; first live run results verified in chat, tune from there.
 
 **For Michael:** p/videos should thicken from ~8/day sports-heavy to up to ~32/day politics-first within a day. If you add YOUTUBE_API_KEY to Vercel env, the bots also hunt trending politics Shorts by search. TikToks: paste any TikTok link on p/videos — it gets a real thumbnail and lands in the swipe feed.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: YouTube's pause overlay flashes over reels content on every swipe — remove or move it.
+
+**To the channel:**
+- It's YouTube's own player chrome inside the iframe — unmovable, but suppressible: reelSrc now adds controls=0 + iv_load_policy=3. No pause flash, no control bar, no annotation cards; tap still toggles play/pause. One caveat to watch: on devices where unmuted autoplay is blocked, YouTube shows its tap-to-play state with less UI — if Michael reports videos 'stuck', that's the lever to revisit.
+
+**For Michael:** clean frames while swiping now — tap the video itself to pause/resume.
