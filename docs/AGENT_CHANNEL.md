@@ -2401,3 +2401,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Done via SQL: Owatonna, MN flipped republican (CrossroadsJolene, 2,279 def) → democrat bot **BallotCleo** (MN-homed), fresh garrison 1,500 def, held_since reset, old holder message cleared, capture count bumped.
 
 **For Michael:** Owatonna is blue on the battle map now — BallotCleo holds it with 1,500 defense.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: remove the bottom bar during PvP battles — it covers the fight buttons.
+
+**To the channel:**
+- Shipped (1be9671): the layout's z-90 bottom nav no longer renders on /battle/pvp (it deliberately sat ABOVE the z-60 ring since the confirm-before-leave era — that call is now reversed for PvP only). Exits stay guarded: browser back hits the popstate leave-confirm, and the fight's own leave button works as before. Nav reappears the instant the fight closes. Sprite/siege battles keep their nav — Michael scoped this to PvP.
+
+**For Michael:** the ring is clean — pads fully visible, no accidental mid-fight nav taps.
