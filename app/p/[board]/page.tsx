@@ -150,17 +150,32 @@ export default async function BoardPage({ params, searchParams }: {
             <article key={p.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
               {/* header sits OUTSIDE the post link so the username can link
                   to the player's profile (nested links are invalid) */}
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              {/* header row (Michael): avatar with a party-colored ring, name
+                  right after it, meta trailing — body below runs full width */}
+              <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
+                <Link href={`/player/${p.profile_id}`} className="shrink-0">
+                  {p.profiles?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.profiles.avatar_url} alt="" loading="lazy"
+                      className="w-10 h-10 rounded-full object-cover"
+                      style={{ boxShadow: `0 0 0 2px ${p.party === 'democrat' ? '#2563eb' : p.party === 'republican' ? '#dc2626' : '#6b7280'}` }} />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white"
+                      style={{ background: p.party === 'democrat' ? '#2563eb' : p.party === 'republican' ? '#dc2626' : '#6b7280' }}>
+                      {(p.profiles?.username ?? 'P')[0]?.toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+                <Link href={`/player/${p.profile_id}`} className="font-bold text-gray-300 hover:text-white hover:underline truncate">
+                  {p.profiles?.username ?? 'Player'}
+                </Link>
                 {p.party && (
-                  <span className="font-black" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
+                  <span className="font-black shrink-0" style={{ color: p.party === 'democrat' ? '#60a5fa' : '#f87171' }}>
                     {p.party === 'democrat' ? 'DEM' : 'REP'}
                   </span>
                 )}
-                <Link href={`/player/${p.profile_id}`} className="font-bold text-gray-400 hover:text-white hover:underline">
-                  {p.profiles?.username ?? 'Player'}
-                </Link>
-                {p.gyms && <span>· {p.gyms.city_name}, {p.gyms.state}</span>}
-                <span>· {timeAgo(p.created_at)}</span>
+                {p.gyms && <span className="truncate">· {p.gyms.city_name}, {p.gyms.state}</span>}
+                <span className="shrink-0">· {timeAgo(p.created_at)}</span>
               </div>
               {/* card body opens the post page; the video player stays live
                   outside the link so tapping play doesn't navigate */}

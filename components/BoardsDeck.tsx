@@ -196,27 +196,30 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
           </div>
         )}
         {!loading && posts.map(p => (
-          /* X-style card: avatar rail + content, whole card opens the post */
+          /* Card layout (Michael): the avatar no longer eats a left rail —
+             it sits in a HEADER row above the post (name right after the
+             circle, party-colored ring around it), and the post body +
+             media stretch the full card width. Same avatar/name sizes. */
           <article key={p.id}
             onClick={() => router.push(`/p/post/${p.id}`)}
-            className="px-4 py-3 flex gap-3 cursor-pointer hover:bg-white/[0.03] transition">
-            {/* avatar + name open the player's profile, not the post */}
-            <div onClick={e => { if (p.profile_id) { e.stopPropagation(); router.push(`/player/${p.profile_id}`) } }}
-              className="shrink-0">
-              {p.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.avatar_url} alt="" loading="lazy"
-                  className="w-10 h-10 rounded-full object-cover shrink-0 border-2"
-                  style={{ borderColor: partyColor(p.party) }} />
-              ) : (
-                <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-black text-white"
-                  style={{ background: partyColor(p.party) }}>
-                  {p.username[0]?.toUpperCase() ?? 'P'}
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-[13px] min-w-0">
+            className="px-4 py-3 cursor-pointer hover:bg-white/[0.03] transition">
+            {/* header: avatar + name open the player's profile, not the post */}
+            <div className="flex items-center gap-2 min-w-0">
+              <div onClick={e => { if (p.profile_id) { e.stopPropagation(); router.push(`/player/${p.profile_id}`) } }}
+                className="shrink-0">
+                {p.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.avatar_url} alt="" loading="lazy"
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                    style={{ boxShadow: `0 0 0 2px ${partyColor(p.party)}` }} />
+                ) : (
+                  <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-black text-white"
+                    style={{ background: partyColor(p.party), boxShadow: `0 0 0 2px ${partyColor(p.party)}` }}>
+                    {p.username[0]?.toUpperCase() ?? 'P'}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 text-[13px] min-w-0 flex-1">
                 <span className="font-bold text-white truncate hover:underline"
                   onClick={e => { if (p.profile_id) { e.stopPropagation(); router.push(`/player/${p.profile_id}`) } }}>
                   {p.username}
@@ -224,8 +227,11 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                 {p.city && <span className="text-gray-500 truncate">· {p.city}, {p.state}</span>}
                 <span className="text-gray-500 shrink-0">· {timeAgo(p.created_at)}</span>
               </div>
+            </div>
+            {/* body: full width, no avatar gutter */}
+            <div className="min-w-0">
               {p.content && (
-                <p className="mt-0.5 text-[15px] text-gray-100 leading-snug whitespace-pre-wrap break-words">
+                <p className="mt-1.5 text-[15px] text-gray-100 leading-snug whitespace-pre-wrap break-words">
                   {p.content}
                 </p>
               )}
