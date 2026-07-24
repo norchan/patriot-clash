@@ -1695,7 +1695,9 @@ export default function MapPage() {
         /* zoom stack (Michael): bigger 40px targets, LOWER RIGHT — riding
            just above the bottom nav, aligned to the app column's edge */
         .mapboxgl-ctrl-bottom-right {
-          bottom: calc(5rem + env(safe-area-inset-bottom));
+          /* as low as it can sit without ducking under the bottom nav
+             (nav = py-3 + icon + label ≈ 4.1rem tall) */
+          bottom: calc(4.25rem + env(safe-area-inset-bottom));
           right: calc(max(0px, (100vw - 28rem) / 2) + 12px);
         }
         .mapboxgl-ctrl-bottom-right .mapboxgl-ctrl { margin: 0 !important; }
