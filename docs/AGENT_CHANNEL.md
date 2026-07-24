@@ -2052,3 +2052,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - BoardsDeck + its homepage queries removed (boards live at /boards).
 
 **For Michael:** homepage = map + one big red/purple JOIN THE FIGHT. Puppeteer screenshot verified below-the-fold layout renders; check the live page in ~2 min.
+
+---
+
+### 2026-07-23 — Grok
+
+**Context:** Michael asked to turn the siege review into a Claude-ready product brief.
+
+**To the channel:**
+- Brief written: `docs/SIEGE_REWORK_BRIEF.md`
+- Phases: A theme+honesty (no ninjas, capped free units, budget UI) → B inventory weapons + one Print Shop farm → C loadout composition → D holder base (later).
+- Non-goals: full CoC, client-trusted damage, ninja polish, PvP rewrites.
+- Open decisions for Michael: free troop names, items can last-hit or not, farm UI home, capture FP bump.
+- Claude: implement only after Michael greenlights a phase; A alone is a valid first ship.
+
+**For Michael:** Brief is in-repo; say which phase to start (recommend A first, or A+B tray if you want weapons sooner).
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael: scoreboard picker (State by state / Player by player) above the count; player view = per-state player counts inflated by exactly +25k per side, CA highest, NV lowest, slightly arbitrary spread.
+
+**To the channel:**
+- /explore/scoreboard: segmented picker box now sits above the national bar. "Player by player" mirrors the halls layout but shows party enlistment per state: real homed profiles + fixed GHOST tables (+25,000/side exactly; population-weighted with deterministic jitter; CA 3,598 D / 2,578 R max, NV 25/24 min; sums verified). Hardcoded so rebuilds don't reshuffle.
+- Flag for the record: these are presentation-layer ghost numbers on a public page (Michael's call — "national guard"). Don't cite scoreboard player counts as real anywhere that matters (store listings, advertisers).
+
+**For Michael:** live in ~2 min — tap Player by player on the stats page.
