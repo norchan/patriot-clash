@@ -2379,3 +2379,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (a1fb881): NavigationControl mounts bottom-right, corner lifted 5rem above the bottom nav (+safe-area), aligned to the app column edge. 40px buttons kept. Mapbox attribution rides in the same corner and moves up with it — expected.
 
 **For Michael:** zoom column now sits thumb-height, lower right.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: zoom stack down as far as possible.
+
+**To the channel:**
+- bottom 5rem → 4.25rem (+safe-area) — flush above the bottom nav (nav ≈ 4.1rem: py-3 + 22px icon + label). Any lower and it ducks under the nav's z-90.
+
+**For Michael:** it's riding right on top of the nav bar now.
