@@ -1231,12 +1231,17 @@ export default function MapPage() {
           together). Every pill: same height, same glass, same radius. Row 1
           is status (party home · FP · steps), row 2 is actions. ─────────── */}
       <div className="absolute left-4 z-20 flex flex-col gap-1.5" style={{ top: 'calc(1rem + env(safe-area-inset-top))' }}>
-        <div className="flex items-stretch gap-1.5">
-          <div className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center gap-2">
-            {/* party home button → the battlemap home page */}
+        <div className="flex items-stretch gap-1.5 flex-wrap">
+          <div className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full pl-1 pr-3 flex items-center gap-1.5">
+            {/* party home button → the battlemap home page. BIG hit target
+                (Michael: "I have to click it a bunch") — the icon rides in a
+                full-height 36px round button, not a 16px sliver */}
             <button onClick={() => router.push('/')} aria-label="Battle Map home"
-              className="flex items-center gap-1.5 active:scale-95 transition">
-              <Home size={16} strokeWidth={2.6} className="flex-shrink-0" style={{ color: partyColor }} />
+              className="h-9 -my-px flex items-center gap-1.5 pr-1 active:scale-95 transition">
+              <span className="w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ background: `${partyColor}26` }}>
+                <Home size={20} strokeWidth={2.6} style={{ color: partyColor }} />
+              </span>
               <span className="text-white text-xs font-bold">
                 {profile?.party === 'democrat' ? 'Democrats' : 'Republicans'}
               </span>
@@ -1248,6 +1253,12 @@ export default function MapPage() {
               ⚡ {profile?.fp_balance?.toLocaleString() || 0}
             </button>
           </div>
+          {/* Local Players → active players screen (left of the step counter) */}
+          <button onClick={() => router.push('/active')}
+            className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center gap-1.5 hover:bg-purple-900/60 active:scale-95 transition">
+            <span className="text-xs">✊</span>
+            <span className="text-white text-xs font-bold whitespace-nowrap">Local Players</span>
+          </button>
           {/* Steps — tap opens the Step Tracker */}
           <button onClick={() => router.push('/steps')}
             className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center active:scale-95 transition">
@@ -1255,13 +1266,8 @@ export default function MapPage() {
           </button>
         </div>
 
+        {/* row 2: See on map — far left, under the party/home pill */}
         <div className="flex items-start gap-1.5">
-          {/* Local Players → active players screen */}
-          <button onClick={() => router.push('/active')}
-            className="h-9 bg-black/70 backdrop-blur border border-white/10 rounded-full px-3 flex items-center gap-1.5 hover:bg-purple-900/60 active:scale-95 transition">
-            <span className="text-xs">✊</span>
-            <span className="text-white text-xs font-bold whitespace-nowrap">Local Players</span>
-          </button>
         <div className="relative">
           <button
             onClick={() => setShowMapMenu(v => !v)}
@@ -1269,8 +1275,7 @@ export default function MapPage() {
               showMapMenu ? 'bg-blue-900/80 border border-blue-500/60' : 'bg-black/70 border border-white/10'
             }`}
           >
-            <span className="text-xs">🗺️</span>
-            <span className="text-white text-xs font-bold">Layers</span>
+            <span className="text-white text-xs font-bold">See on map</span>
             <span className="text-gray-400 text-[9px]">{showMapMenu ? '▲' : '▼'}</span>
           </button>
 
@@ -1278,7 +1283,7 @@ export default function MapPage() {
             <>
               {/* Click-away catcher: tapping anywhere outside closes the bubble */}
               <div className="fixed inset-0 z-0" onClick={() => setShowMapMenu(false)} />
-              <div className="absolute top-full right-0 mt-2 z-10 w-56 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl p-1.5">
+              <div className="absolute top-full left-0 mt-2 z-10 w-56 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl p-1.5">
                 {([
                   { key: 'me' as const,      label: '📍 Show me on map' },
                   { key: 'dems' as const,    label: '🔵 Show Democrats' },
