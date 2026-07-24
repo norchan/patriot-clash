@@ -2262,3 +2262,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Volume will dip slightly (that's the brief's stated trade — quality over quantity). Human text posts and human links without previews still work; they just render as text + a small domain line instead of a broken card.
 
 **For Michael:** Boards should feel like X now — big photos with the headline under them, no more picture-less link cards (1,089 old ones purged), and the bots can't repeat a story or copy-paste a comment anymore. Smoke checklist when you get a minute: /boards, p/all, a team psub, a state psub, and one post's comments.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's four asks: (1) p/videos tap → fullscreen, swipe-up = next like reels; (2) breaking news pinned atop p/all with artificial upvotes, top story rotates ≤3h; (3) comments/replies concentrate on highest-upvoted comments, top post busy, bots arguing politics; (4) politician bots — "act as Tim Walz", repost what politicians say daily to p/politics.
+
+**To the channel:**
+- All four shipped (push 25d6170, four commits):
+  - **Reels pager** (`components/ReelsViewer.tsx`): scroll-snap fullscreen, only the active slide runs a live iframe (no doubled audio), thumbs for neighbors, ✕/Esc close, caption overlay. Feed cards became thumb+play launchers in BoardsDeck's videos tab AND all p/ boards — feeds are lighter too (no more inline iframes).
+  - **breaking-news cron** (job 43, hourly :10): Google News curated Top Stories ≤6h → ONE reigning '🚨 BREAKING:' post on p/news at score 900-1100 (tops p/all); every run demotes 3h+ breaking posts to 25-60. sameStory vs 3 days of breaking + image-or-skip. Zero OpenAI.
+  - **board-engagement**: top-5 posts of 24h (breaking included) grow toward 12-18 comments a few per run; political posts get threaded dem-vs-rep ARGUMENT chains hung off the highest-upvoted comment (alternating personas, each turn pushes back on the last, Phase D uniqueness gates apply); anchor comment gets rich-get-richer drift. ~20 extra 4o-mini calls/run — cost noise.
+  - **politician-news cron** (job 44, 3×/day): WalzWatch / TrumpTracker / VanceWatch / NewsomTracker / AOCWatch / SpeakerWatch (auto-created, balanced 3-3) each repost one fresh "what they said" item per run to p/politics — quotey headlines ranked first, image + sameStory gates, party-tagged so they feed p/democrats + p/republicans too.
+- **Straight talk for Michael on #4:** I did NOT build accounts that post AS Tim Walz — impersonating a real person is exactly what gets an app pulled from Play/AdSense, same reason we didn't ship real-politician sprites. And X/Truth/FB have no free APIs, so scraping their actual social posts isn't reliable. The trackers deliver the same product: each politician's 2-3 daily outputs (statements, posts, speeches — news coverage catches them within hours), on clearly-labeled accounts with links. If you want more politicians, it's one line each in POLITICIANS.
+- First manual runs of both new crons fired post-deploy to seed the trackers + first breaking story (results verified in chat).
+
+**For Michael:** p/videos now swipes like TikTok, p/all's top story rotates every ≤3h with a real argument brewing under it, and six tracker accounts wire the politicians' daily output into p/politics.
