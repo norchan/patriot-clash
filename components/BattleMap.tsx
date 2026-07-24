@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2, User, Landmark, MessagesSquare, Newspaper } from 'lucide-react'
+import { Gamepad2, Landmark, MessagesSquare, Newspaper, Compass, Clapperboard } from 'lucide-react'
 import mapboxgl from 'mapbox-gl'
 import { Delaunay } from 'd3-delaunay'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -57,7 +57,7 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       container: el.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: homeCenter ? [homeCenter.lng, homeCenter.lat] : CAHOKIA,
-      zoom: homeCenter ? 9.3 : 7.6, // opens a notch further out (Michael)
+      zoom: homeCenter ? 6 : 7.6, // signed-in opens at STATE level (Michael); the compass button dives to the hall
       minZoom: 2.8,
       maxZoom: 12,
     })
@@ -66,6 +66,20 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
     // view (projection/bounds) — harmless in normal use
     ;(window as any).__bmap = m
     m.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+    // NATIONAL STATS lives as the TOP button of the zoom stack (Michael) —
+    // prepended into mapbox's own control group so all three share one pill
+    {
+      const zoomGroup = el.current.querySelector('.mapboxgl-ctrl-zoom-in')?.parentElement
+      if (zoomGroup) {
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.title = 'National stats'
+        b.setAttribute('aria-label', 'National stats')
+        b.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>'
+        b.onclick = () => router.push('/explore/scoreboard')
+        zoomGroup.prepend(b)
+      }
+    }
 
     m.on('load', () => {
       // ── Ingress web: Delaunay over all halls ─────────────────────────────
@@ -259,13 +273,21 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
           collapses to 0 height */}
       <div ref={el} className="absolute inset-0 w-full h-full" />
 
-      {/* expand into the game — just above mapbox's ⓘ button */}
-      <button onClick={() => router.push(signedIn ? '/map' : '/play')}
-        title={signedIn ? 'Open your game map' : 'Play as a guest'}
-        aria-label="Expand into the game"
+      {/* COMPASS (Michael, replaced the ⛶ expand button): signed-in players
+          dive to their own town hall; guests get the share-location / search
+          chooser (which now also offers a free account) */}
+      <button onClick={() => {
+          if (signedIn && homeCenter) {
+            map.current?.flyTo({ center: [homeCenter.lng, homeCenter.lat], zoom: 10.5, duration: 2200 })
+            return
+          }
+          setJoinMode(false); setLocErr(''); setQuery(''); setFinder(true)
+        }}
+        title={signedIn ? 'Fly to your town hall' : 'Find your town hall'}
+        aria-label={signedIn ? 'Fly to your town hall' : 'Find your town hall'}
         className="absolute bottom-12 right-2 z-10 w-11 h-11 rounded-full text-lg font-black text-white shadow-xl transition active:scale-95 flex items-center justify-center"
         style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: '1px solid rgba(216,180,254,0.5)' }}>
-        ⛶
+        <Compass size={22} strokeWidth={2.2} />
       </button>
 
 
@@ -312,6 +334,13 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
                 <p className="text-gray-600 text-xs text-center py-2">No hall matches “{query.trim()}”</p>
               )}
             </div>
+            {!signedIn && (
+              <button onClick={() => router.push('/sign-up')}
+                className="w-full mt-3 py-3 rounded-xl font-black text-white text-sm transition active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #dc2626, #2563eb)' }}>
+                🎉 Create a free account
+              </button>
+            )}
             <button onClick={() => { setFinder(false); setJoinMode(false) }} className="w-full mt-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5">
               Close
             </button>
@@ -336,7 +365,8 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       {([
         { label: 'Boards', icon: Newspaper, go: () => router.push('/boards') },
         { label: 'Arcade', icon: Gamepad2, go: () => router.push(signedIn ? '/arcade' : '/play/arcade') },
-        { label: 'Profile', icon: User, go: () => router.push(signedIn ? '/profile' : '/sign-up') },
+        // Profile moved to the header avatar menu (Michael) — Reels takes its slot
+        { label: 'Reels', icon: Clapperboard, go: () => router.push('/p/videos') },
         { label: 'Town Hall', icon: Landmark, go: townHall },
         { label: 'Messages', icon: MessagesSquare, go: () => router.push(signedIn ? '/messages' : '/sign-up') },
       ] as const).map(({ label, icon: Icon, go }) => (

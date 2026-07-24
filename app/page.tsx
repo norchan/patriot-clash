@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { ArrowUpRight } from 'lucide-react'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fetchHalls } from '@/lib/halls'
 import BattleMap from '@/components/BattleMap'
 import HomeMenu from '@/components/HomeMenu'
+import HomeAvatarMenu from '@/components/HomeAvatarMenu'
 
 // THE HOMEPAGE — the live national Battle Map, free for everyone.
 // Under the map: JOIN THE FIGHT (location chooser → into the game) and the
@@ -48,31 +48,29 @@ export default async function HomePage() {
             <img src="/icons/icon-192.png" alt="" className="w-8 h-8 rounded-lg" />
             <span className="font-black text-white text-lg">PoliticsGo</span>
           </div>
-          {!profile && (
-            <nav className="flex items-center gap-2">
-              <Link href="/sign-in" className="px-3 py-2 text-sm font-bold text-gray-400 hover:text-white">Sign in</Link>
-              <Link href="/sign-up" className="px-4 py-2 rounded-xl font-black text-white text-sm"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-                Play free
-              </Link>
-            </nav>
-          )}
+          <div className="flex items-center gap-2.5">
+            {!profile && (
+              <nav className="flex items-center gap-2">
+                <Link href="/sign-in" className="px-3 py-2 text-sm font-bold text-gray-400 hover:text-white">Sign in</Link>
+                <Link href="/sign-up" className="px-4 py-2 rounded-xl font-black text-white text-sm"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+                  Play free
+                </Link>
+              </nav>
+            )}
+            {/* avatar menu (Michael): party-ringed profile pic → Profile /
+                Local Players; guests get the white PGO circle → sign-up →
+                local players */}
+            <HomeAvatarMenu signedIn={!!profile} avatarUrl={profile?.avatar_url ?? null}
+              party={profile?.party ?? null} username={profile?.username ?? null} />
+          </div>
         </div>
       </header>
 
       {/* single column: the map + Join the Fight + icon dock */}
       <main className="max-w-2xl mx-auto px-4 py-5 min-w-0">
-        <div className="relative mb-2 flex items-center justify-center">
-          <h1 className="text-xl sm:text-2xl font-black text-white text-center">Battle Map</h1>
-          {/* national stats: boxed ↗ arrow + "stats" underneath (Michael) */}
-          <Link href="/explore/scoreboard" aria-label="National stats"
-            className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-center text-white hover:opacity-75 transition">
-            <span className="w-8 h-8 rounded-lg border-2 border-white flex items-center justify-center">
-              <ArrowUpRight size={18} strokeWidth={2.5} />
-            </span>
-            <span className="text-[10px] font-bold mt-0.5">stats</span>
-          </Link>
-        </div>
+        {/* stats moved INTO the map's zoom stack (top button) — Michael */}
+        <h1 className="mb-2 text-xl sm:text-2xl font-black text-white text-center">Battle Map</h1>
         {/* map fills the screen downward — the button + icon dock ride just
             above the bottom (where the ad bar will eventually live) */}
         <BattleMap halls={halls} height="max(46vh, calc(100dvh - 350px))" signedIn={!!profile} homeGymId={profile?.home_gym_id ?? null}
