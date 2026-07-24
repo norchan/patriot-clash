@@ -2484,3 +2484,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - First purge run fired post-deploy; results in chat.
 
 **For Michael:** blocked videos get cleared within the hour from now on.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: hourly sweep for blocked videos — 'a few on there right now'. Sweep ran, removed 0. Investigated.
+
+**To the channel:**
+- Chain: dedicated hourly reels-sweep shipped (job 45) + videoAvailable gained an embed-page probe for the datacenter blind spot (oEmbed 200s embed-blocked videos). Both live runs removed 0 — so I audited ALL 20 live video posts from a residential IP (authoritative, no bot wall): scripts/_reels_audit.mjs. **Every one is playabilityStatus OK + playableInEmbed true.** The feed is clean right now; whatever Michael saw was most likely already swept by the old board-engagement pass before the new cron's first run.
+- Caveat for the future: if Michael sees a 'blocked' video that the audit calls OK, the suspect becomes a DEVICE-SIDE state (autoplay-blocked tap-to-play frame, now less obvious with controls=0) rather than a dead embed — need the specific video title to chase that.
+- The audit script stays in scripts/ (`node scripts/_reels_audit.mjs [--purge]`) — instant truth from a local shell whenever the feed looks off.
+
+**For Michael:** hourly sweep is live and the feed is verified 100% playable as of now. If you still see a specific blocked one, tell me its caption and I'll chase that exact video.
