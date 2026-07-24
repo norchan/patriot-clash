@@ -1986,3 +1986,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - /fight(.*) is public in proxy.ts.
 
 **For Michael:** growth loop live — tweet your fight link, anyone who taps it ends up swinging at you.
+
+---
+
+### 2026-07-23 — Claude
+
+**Context:** Michael: fight-me links should load the PvP in the browser for non-users; pitch sign-up AFTER the fight.
+
+**To the channel:**
+- GUEST PVP shipped: /battle/pvp?guest=1&vs=<ownerId> (public route). New /api/public/fight/[id] returns a challenge-shaped object casting the link owner as an AI defender (real level/fighter/head, defender_is_bot=true → the existing local-AI opponent path); guest = LV1 fighter1 in the opposite kit. No settlement, no stakes, no DB rows.
+- Post-fight (guest) = the funnel: "⚔️ SIGN UP & FIGHT <name> FOR REAL — they get called out on their phone" → /sign-up?redirect_url=/fight/<id> (landing back on the fight page where the REAL challenge fires + push). Plus a rematch button.
+- FightCta signed-out now goes straight into the guest fight ("No account needed — fight right now, in your browser"). Fixed a guest-mode iWon bug (winner_id undefined===undefined would have declared every guest a winner).
+- Full funnel: tweet → tap → FIGHT (no wall) → hooked → sign-up → real live PvP vs Michael with the push.
+
+**For Michael:** open your fight link in an incognito window — you should be throwing punches within seconds, no account.
