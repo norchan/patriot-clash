@@ -2216,3 +2216,49 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - /og.jpg refs bumped to ?v=2 in layout + fight pages so X refetches instead of serving its cached old card.
 
 **For Michael:** New card is live. X caches link previews on their side for a while — a fresh tweet should pick up the new image; if an old tweet still shows the tilted one, that's their cache expiring, not the site.
+
+---
+
+### 2026-07-24 — Grok
+
+**Context:** Michael — boards review: no link-without-image, want X-scale media that pops, bots must not repeat articles/comments; every post/comment/reply unique.
+
+**To the channel:**
+- Reviewed BoardsDeck + /p cards, og-image resolve, team/state/topic sameStory, board-engagement + hall-replies.
+- UI: link previews max-h-48/52 — small vs X; cards still render title+domain when `link_image` null (Michael hates this). `image_url` posts cap ~380px.
+- Pipeline holes: `local-news` / `local-events` set `link_image: null`; OG resolve can fail → empty cards; comments generate from headline only with **zero** text uniqueness vs existing comments on the post or recent board comments.
+- Articles: team/state have sameStory (good); not universal; comments/replies do not.
+- Rec: (1) hard rule bot link posts require image or skip, (2) enlarge media like X, hide text-only link shells, (3) shared sameStory + comment dedupe (in-thread + recent global normalize), (4) backfill OG where possible. Brief on request.
+
+**For Michael:** Full boards opinion in chat.
+
+---
+
+### 2026-07-24 — Grok
+
+**Context:** Michael asked for a Claude prompt to complete the boards suggestions.
+
+**To the channel:**
+- Full brief + paste-ready prompt: `docs/BOARDS_POLISH_BRIEF.md`
+- Phases A no-image-skip + fix local OG → B X-scale media UI → C shared sameStory → D comment/reply uniqueness.
+- Claude: wait for Michael to paste/greenlight; implement A→D (or A+B first).
+
+**For Michael:** Prompt is in that file under “Claude prompt (paste this)” — also in chat for easy copy.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael pasted the greenlight prompt for `docs/BOARDS_POLISH_BRIEF.md` — implement Phases A→D.
+
+**To the channel:**
+- All four phases shipped as separate commits (51772fb / a9b72c7 / aac2414 / 65d6c41), build + 40 tests green (8 new pinning the shared detectors):
+  - **A — image-or-skip:** team/state/topic-news now drop any row that resolves without a real https og:image; local-news + local-events were inserting `link_image: null` — they now resolve each UNIQUE link once (state pools are shared across halls) with a 240s budget; town-square resolves missing feed images at pool level and drops the rest. video-reels untouched. All report `skipped_no_image`.
+  - **Backfill:** two passes of `scripts/backfill_link_images.mjs` v3 over the last 7 days of bot link posts: **184 recovered a real image, 1,089 broken title-only cards deleted.** DB check now shows ZERO imageless bot link posts in the window; humans untouched.
+  - **B — X-scale media:** one visual language across BoardsDeck / p/[board] / p/post / HallFeed LinkCard / townhall post page: full-width hero, max-h 540–560px, rounded-2xl + lifted border, muted domain + high-contrast title UNDER the image. No image → minimal `🔗 domain` line, never the gray shell. One hero per card (uploaded image wins, link collapses to domain line). Video thumbs enlarged to match; p/videos players unchanged.
+  - **C — shared uniqueness:** `lib/content-unique.ts` (sameStory/titleTokens ported from team-news + normalizeText/tooSimilar). team/state/topic rewired to the shared import; local-news, local-events, town-square GAINED per-hall same-story gates (3-day headline window, in-run dupes blocked, and town-square won't run the same story from both wings). All report `skipped_dupe`.
+  - **D — no copy-paste comments:** board-engagement, hall-replies, hall-reply-replies (and hall-chatter, though it's deactivated) now: load the thread → prompt the model with "do not repeat or paraphrase these" → tooSimilar gate → one regenerate → skip. Nested replies also can't parrot the comment they answer. All report `skipped_similar`.
+- **Defaults I chose** (brief left open): usable image = strictly `https://`; comment similarity threshold 0.7 token-overlap (near-exact only under 4 tokens); avoid-list capped at the thread's last 8 comments; local/events/town-square title window = 3 days matching the board crons; backfill deletes rather than hides (48h expiry untouched otherwise).
+- Volume will dip slightly (that's the brief's stated trade — quality over quantity). Human text posts and human links without previews still work; they just render as text + a small domain line instead of a broken card.
+
+**For Michael:** Boards should feel like X now — big photos with the headline under them, no more picture-less link cards (1,089 old ones purged), and the bots can't repeat a story or copy-paste a comment anymore. Smoke checklist when you get a minute: /boards, p/all, a team psub, a state psub, and one post's comments.
