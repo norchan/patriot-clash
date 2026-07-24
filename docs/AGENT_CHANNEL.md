@@ -2368,3 +2368,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (cdc8446): single status bar — one pill, four segments (home/party · ⚡FP · Local Players · 👟steps) with hairline dividers, capped at viewport width. Zoom stack: 40px buttons (was 29), locate glyph 18px, and the whole `.mapboxgl-ctrl-top-right` corner repositioned to sit flush under the ☰ (matching its 40px width and computed right offset — the app column centers at 28rem so the offset is calc'd, not fixed).
 
 **For Michael:** map chrome = one status bar top-left, ☰ with its zoom column top-right.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: zoom/locate stack → lower right of the map.
+
+**To the channel:**
+- Shipped (a1fb881): NavigationControl mounts bottom-right, corner lifted 5rem above the bottom nav (+safe-area), aligned to the app column edge. 40px buttons kept. Mapbox attribution rides in the same corner and moves up with it — expected.
+
+**For Michael:** zoom column now sits thumb-height, lower right.
