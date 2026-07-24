@@ -2324,3 +2324,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Note: the ⛶ 'enter the game' shortcut is gone per the ask — JOIN THE FIGHT / FIGHT MAP under the map remains the game entry.
 
 **For Michael:** homepage flow is now: land seeing your whole state's war → compass drops you home → stats rides the zoom pill → your face (or the PGO coin) top-right handles profile + local players → Reels is one tap from the dock.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: remove the Battle Map button on town hall pages; walking into a psub and coming back should reopen /boards on that same psub.
+
+**To the channel:**
+- Both shipped (b716636): town hall header keeps only Back. Psub position memory = sessionStorage: p/ pages stamp their slug (components/BoardTabMemory.tsx), the /boards deck restores it on mount (tab selected + centered + feed fetched). Non-deck psubs (team boards etc.) get a temporary tab slot instead of dumping to p/all. Restore effect is declared BEFORE the persist effect — order matters or the saved value gets clobbered with 'all' on mount.
+
+**For Michael:** boards now remembers your spot — psub in, back out, same psub selected.
