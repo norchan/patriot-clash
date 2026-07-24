@@ -2279,3 +2279,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - First manual runs of both new crons fired post-deploy to seed the trackers + first breaking story (results verified in chat).
 
 **For Michael:** p/videos now swipes like TikTok, p/all's top story rotates every ≤3h with a real argument brewing under it, and six tracker accounts wire the politicians' daily output into p/politics.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: add Nancy Mace + one politician per state, rotate tracker posts between p/politics and their party's psub; also boards cards — avatar out of the left rail into a header row, name after the pic, party-colored circle, body full-width.
+
+**To the channel:**
+- **Tracker roster 6 → 54** (config/politicians.ts): the 4 national figures + one per state — sitting governors, except SC where Michael's pick Nancy Mace (MaceWatch) takes the slot. One line per future addition; accounts auto-create batched. Governors current as of mid-2026 — flag for update after the Nov 2026 elections.
+- **Rotation nuance logged:** p/democrats + p/republicans are VIRTUAL windows over party-tagged posts, and hall_posts has a CHECK requiring a real gym/board. So: every tracker post is party-tagged (⇒ always in its party psub) and the BOARD alternates run-by-run p/politics ↔ the politician's own state psub (nationals → p/news). p/politics gets each politician half the time; state psubs get their own politician as a bonus.
+- Dedupe widened to everything trackers posted anywhere (3d) + p/politics; 8-way concurrency with pre-resolve link claims (two trackers can't double-post one shared story).
+- **Cards relaid** (BoardsDeck + p/ pages): 40px avatar with a red/blue box-shadow ring + username in a header row; body and media now span the full card width — the 52px left gutter is gone. p/ board pages gained the same avatar header (they had none).
+- Commits 08e-style pair in push 32f49d8; build + 40 tests green; roster seed run fired post-deploy.
+
+**For Michael:** ~50 new tracker accounts are live-seeding now — p/politics, the state psubs, and both party feeds will fill through the day. Card layout is live on the homepage deck and p/ pages.
