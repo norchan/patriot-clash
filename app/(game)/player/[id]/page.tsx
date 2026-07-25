@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Share, Swords, MapPin, MessageSquare, BarChart3, UserPlus, UserCheck } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MessageSquare, BarChart3, UserPlus, UserCheck, Info } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import AboutMeText from '@/components/AboutMeText'
 import { VoteButtons } from '@/components/HallFeed'
@@ -287,7 +287,7 @@ export default function PublicProfilePage() {
                     className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${aboutOpen
                       ? 'bg-purple-900/40 border-purple-600 text-purple-300'
                       : 'bg-gray-900 border-gray-800 text-gray-300 hover:text-white'}`}>
-                    <span className="text-lg">ℹ️</span>
+                    <Info size={19} />
                     <span className="text-[10px] font-bold">About</span>
                   </button>
                 </>
@@ -317,6 +317,25 @@ export default function PublicProfilePage() {
                     <p className="text-white font-bold text-xl">{value}</p>
                   </div>
                 ))}
+              </div>
+            )}
+            {aboutOpen && (
+              <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800 overflow-hidden pt-1">
+                {profile.about_me && (
+                  <div className="px-3 py-2">
+                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">💬 About</p>
+                    <AboutMeText text={profile.about_me} />
+                  </div>
+                )}
+                {photos.length > 0 && (
+                  <div className="px-3 py-2">
+                    <button onClick={() => setViewerOpen(true)}
+                      className="flex items-center gap-2 w-full text-left hover:opacity-80">
+                      <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">📸 Photos ({photos.length})</span>
+                      <span className="text-gray-600 text-xs">›</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
