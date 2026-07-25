@@ -22,7 +22,7 @@ interface PublicProfile {
 }
 
 interface Clique { id: string; name: string; party: string; gym_id: string | null }
-interface Post { id: string; content: string; created_at: string; score: number; my_vote: number; media_url?: string | null; media_type?: 'image' | 'video' | null }
+interface Post { id: string; content: string; created_at: string; score: number; my_vote: number; media_url?: string | null; media_type?: 'image' | 'video' | null; comment_count?: number }
 
 function timeAgo(iso: string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -376,6 +376,11 @@ export default function PublicProfilePage() {
                       className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
                       <Share size={14} />
                       <span className="text-[11px] font-bold">{shared === p.id ? 'Copied!' : 'Share'}</span>
+                    </button>
+                    <button onClick={(e) => { e.preventDefault(); }}
+                      className="flex items-center gap-1 text-gray-500 hover:text-purple-400 transition">
+                      <MessageSquare size={14} />
+                      <span className="text-[11px] font-bold">Comment</span>
                     </button>
                     <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
                   </div>
