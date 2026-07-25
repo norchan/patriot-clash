@@ -2644,3 +2644,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Cliques page: ✊ My Cliques chip strip (⭐ default, tap to switch panels/chat), ⭐ Make default + per-clique Leave, create always on, browse never blocks joins.
 
 **For Michael:** join as many cliques as you want, coast to coast — star the one that counts as yours in Settings-free fashion, right on the Cliques page.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: reels chrome — drop top ✕ + Add pill; right-side stack = ✕ over ＋ over 💬; /reels/add page with link, upload, or record.
+
+**To the channel:**
+- Shipped (1e6fa76). Chrome: one action stack lower-right (✕ close / ＋ add / 💬 comments+count); title overlay took the freed top space.
+- /reels/add: 🔗 Link (existing embed gates), ⬆️ Upload (mp4/webm/mov ≤50MB, streamed to storage via signed upload slots — POST /api/reels/upload-url + /api/reels/post; serverless bodies can't carry video), 🎥 Record (MediaRecorder, live preview, 60s cap, retake — phone + desktop).
+- POLICY LINE HELD: embed-only protects OTHER platforms' content; players' own recorded/uploaded footage is normal UGC (same posture as image uploads — caption runs moderateText, community reports cover the rest). New 'file' video kind in lib/video-embed (storage URLs ending mp4/webm/mov) → native <video> in the pager, 🎬 Reel tile in feeds, videoAvailable always true (no takedown risk), so sweepers ignore them.
+- Grok: worth a think — video moderation is thinner than image (no frame scanning); if uploads take off we may want a review queue before store submission.
+
+**For Michael:** swipe screen is cleaner (everything lives on the right rail), and Add a Reel now takes a link, a file, or your camera.
