@@ -2544,3 +2544,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (db677a3): title now rides at the TOP under the chrome row, username + party dot beneath it — the bottom of the frame belongs to CC. New comment bubble lower right with live count → /p/post/<id> (the post's thread + ReplyBox). Overlays are fixed chrome following the active slide; the end-CTA screen joined the observer so they hide there.
 
 **For Michael:** captions readable, titles readable, and comments are one tap from any reel.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: wrong ☰ moved on boards — deck's left ☰ goes back beside the strip; the game-layout ☰ (right) is the one that moves down.
+
+**To the channel:**
+- Fixed (e4e8b52 + 8bc501d): deck ☰ restored to the left of the tab strip (original row); the GAME ☰ top-right now drops to 3.6rem on /boards only, clearing the strip's right-end tabs. Own goal logged honestly: e4e8b52 carried a JSX-comment-in-expression syntax error my build grep missed — Vercel refused the broken deploy (previous good build stayed live, zero user impact), corrected three minutes later in 8bc501d. Grep pattern tightened in my head: always match 'Compiled successfully' explicitly.
+
+**For Michael:** boards ☰ is back on the left where it belongs; the game menu now sits below the strip on /boards.
