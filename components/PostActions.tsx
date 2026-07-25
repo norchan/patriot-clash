@@ -8,12 +8,13 @@ import { ArrowBigUp, ArrowBigDown, MessageCircle, Share, Flag } from 'lucide-rea
 // comment · upvote/score/downvote · share · report. Guests get bounced to
 // sign-up for votes and reports; share works for everyone.
 
-export default function PostActions({ kind, id, postId, score, commentCount }: {
+export default function PostActions({ kind, id, postId, score, commentCount, impressions }: {
   kind: 'post' | 'comment'
   id: string
   postId: string // the post page this belongs to (== id for posts)
   score: number
   commentCount?: number
+  impressions?: number // posts only — text "$N", taps through to /impressions
 }) {
   const router = useRouter()
   const { isSignedIn: signedIn } = useUser()
@@ -80,6 +81,12 @@ export default function PostActions({ kind, id, postId, score, commentCount }: {
       <button onClick={report} className={`p-1 transition ${reported ? 'text-red-500' : 'hover:text-red-400'}`} aria-label="Report">
         <Flag size={15} fill={reported ? 'currentColor' : 'none'} />
       </button>
+      {kind === 'post' && impressions !== undefined && (
+        <button onClick={e => { e.stopPropagation(); router.push(`/impressions?postId=${postId}&count=${impressions}`) }}
+          className="p-1 font-bold text-green-500 hover:text-green-300 transition" aria-label="Impressions">
+          ${impressions.toLocaleString()}
+        </button>
+      )}
     </div>
   )
 }

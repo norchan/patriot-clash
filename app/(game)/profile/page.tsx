@@ -75,24 +75,6 @@ function resizeImage(file: File): Promise<string> {
   })
 }
 
-// Album photos keep their aspect ratio, just downscaled to a sane max
-function resizeAlbumImage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const max = 1200
-      const scale = Math.min(1, max / Math.max(img.width, img.height))
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(img.width * scale)
-      canvas.height = Math.round(img.height * scale)
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-      resolve(canvas.toDataURL('image/webp', 0.85))
-    }
-    img.onerror = reject
-    img.src = URL.createObjectURL(file)
-  })
-}
-
 export default function ProfilePage() {
   const router = useRouter()
   const { profile, loading, refetch } = useProfile()
@@ -169,10 +151,7 @@ export default function ProfilePage() {
     setTimeout(() => setSharedPost(''), 1500)
   }
   const [todaySteps, setTodaySteps] = useState<number | null>(null)
-  const [albumPhotos, setAlbumPhotos] = useState<{ id: string; url: string }[]>([])
-  const [addingPhoto, setAddingPhoto] = useState(false)
   const [viewerStart, setViewerStart] = useState<number | null>(null)
-  const albumInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/posts')
@@ -241,39 +220,11 @@ export default function ProfilePage() {
     setUploading(false)
   }
 
-  // Album: extra photos beyond the avatar
-  useEffect(() => {
-    fetch('/api/profile/photos')
-      .then(r => r.json())
-      .then(d => setAlbumPhotos(d.photos ?? []))
-      .catch(() => {})
-  }, [])
-
-  async function addAlbumPhoto(file: File) {
-    setAddingPhoto(true)
-    try {
-      const dataUrl = await resizeAlbumImage(file)
-      const res = await fetch('/api/profile/photos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl }),
-      })
-      const d = await res.json()
-      if (res.ok) setAlbumPhotos(p => [...p, d.photo])
-    } catch {}
-    setAddingPhoto(false)
-  }
-
-  async function deleteAlbumPhoto(id: string) {
-    const res = await fetch(`/api/profile/photos?id=${id}`, { method: 'DELETE' })
-    if (res.ok) setAlbumPhotos(p => p.filter(x => x.id !== id))
-  }
-
-  // The full album = avatar first, then extra photos
-  const fullAlbum = [
-    ...(profile?.avatar_url ? [{ id: 'avatar', url: profile.avatar_url }] : []),
-    ...albumPhotos,
-  ]
+  // Photos = posted pictures (Michael): the gallery is derived from image
+  // posts — adding a photo means posting it; deleting the post removes it.
+  const photoPosts = posts.filter(p => p.media_type === 'image' && p.media_url)
+  // The avatar keeps its fullscreen viewer
+  const fullAlbum = profile?.avatar_url ? [{ id: 'avatar', url: profile.avatar_url }] : []
 
   // Pic/GIF: GIFs pass through (canvas would freeze them); others shrink to webp
   async function pickPhoto(file: File) {
@@ -505,7 +456,7 @@ export default function ProfilePage() {
       {/* About Me — write something, drop links or photo URLs */}
       <div className="mx-4 mt-2 bg-gray-900 rounded-2xl px-4 py-3.5">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-white text-sm font-bold">💬 About Me</span>
+          <span className="text-white text-sm font-bold">💬 Bio</span>
           {!editingAbout && (
             <button onClick={() => { setAboutDraft(((profile as any)?.about_me as string) ?? ''); setEditingAbout(true) }}
               className="text-purple-400 text-xs font-bold hover:text-purple-300">
@@ -612,7 +563,7 @@ export default function ProfilePage() {
             className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
             <span className="text-sm flex-shrink-0">🔗</span>
             <span className="text-white text-sm font-bold flex-1">Links</span>
-            <span className="text-gray-400 text-sm">Add in About Me ›</span>
+            <span className="text-gray-400 text-sm">Add in Bio ›</span>
           </button>
           <button onClick={() => router.push('/settings')}
             className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
@@ -635,10 +586,10 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Photos menu — the album grid */}
+      {/* Photos menu — posted pictures (tap one → its post; Add → composer) */}
       {openTab === 'photos' && (
         <div className="mx-4 mt-2 bg-gray-900 rounded-2xl border border-gray-800 p-3">
-          <p className="text-white text-sm font-bold mb-2">📸 My Photos <span className="text-gray-500 font-normal">({fullAlbum.length}/13)</span></p>
+          <p className="text-white text-sm font-bold mb-2">📸 My Photos <span className="text-gray-500 font-normal">({photoPosts.length})</span></p>
           <div className="grid grid-cols-3 gap-2">
             {fullAlbum.map((ph, idx) => (
               <div key={ph.id} className="relative aspect-square">
@@ -646,25 +597,23 @@ export default function ProfilePage() {
                   className="w-full h-full rounded-xl overflow-hidden border border-gray-800 active:scale-95 transition">
                   <img src={ph.url} alt="" className="w-full h-full object-cover" />
                 </button>
-                {ph.id === 'avatar'
-                  ? <span className="absolute top-1 left-1 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">Main</span>
-                  : (
-                    <button onClick={() => deleteAlbumPhoto(ph.id)}
-                      className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1"><X size={11} /></button>
-                  )}
+                <span className="absolute top-1 left-1 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">Main</span>
               </div>
             ))}
-            {albumPhotos.length < 12 && (
-              <button onClick={() => albumInputRef.current?.click()} disabled={addingPhoto}
-                className="aspect-square rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center text-gray-500 hover:border-gray-500 hover:text-gray-300 transition disabled:opacity-50">
-                {addingPhoto ? <span className="text-xs">...</span> : <><Plus size={22} /><span className="text-[10px] mt-0.5">Add photo</span></>}
+            {photoPosts.map(p => (
+              <button key={p.id} onClick={() => router.push(`/player/${profile?.id}/post/${p.id}`)}
+                className="aspect-square rounded-xl overflow-hidden border border-gray-800 active:scale-95 transition">
+                <img src={p.media_url!} alt="" className="w-full h-full object-cover" />
               </button>
-            )}
+            ))}
+            <button onClick={() => { setOpenTab(null); photoInputRef.current?.click() }}
+              className="aspect-square rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center text-gray-500 hover:border-gray-500 hover:text-gray-300 transition">
+              <Plus size={22} /><span className="text-[10px] mt-0.5">Add photo</span>
+            </button>
           </div>
+          <p className="text-gray-600 text-[11px] mt-2">Photos are your posted pictures — adding one posts it to your timeline, and deleting the post removes the photo.</p>
         </div>
       )}
-      <input ref={albumInputRef} type="file" accept="image/*" hidden
-        onChange={e => e.target.files?.[0] && addAlbumPhoto(e.target.files[0])} />
 
       {/* Stats menu — every stat except steps, plus leaderboard + recent battles */}
       {openTab === 'stats' && (
@@ -837,12 +786,10 @@ export default function ProfilePage() {
                         <MessageSquare size={14} />
                         <span className="text-[11px] font-bold">Comment</span>
                       </button>
-                      {p.impressions !== undefined && p.impressions > 0 && (
-                        <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions}`); }}
-                          className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
-                          ${p.impressions.toLocaleString()}
-                        </button>
-                      )}
+                      <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`); }}
+                        className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
+                        ${(p.impressions ?? 0).toLocaleString()}
+                      </button>
                     </div>
                   </div>
                 </Link>
@@ -877,15 +824,11 @@ export default function ProfilePage() {
                     <MessageSquare size={14} />
                     <span className="text-[11px] font-bold">Comment</span>
                   </button>
-                  {p.impressions !== undefined && p.impressions > 0 && (
-                    <button onClick={() => router.push(`/impressions?postId=${p.id}&count=${p.impressions}`)}
-                      className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
-                      ${p.impressions.toLocaleString()}
-                    </button>
-                  )}
-                  {(p.impressions === undefined || p.impressions === 0) && (
-                    <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
-                  )}
+                  <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                  <button onClick={() => router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`)}
+                    className="text-green-400 hover:text-green-300 transition text-[11px] font-bold">
+                    ${(p.impressions ?? 0).toLocaleString()}
+                  </button>
                 </div>
               </div>
             ))}

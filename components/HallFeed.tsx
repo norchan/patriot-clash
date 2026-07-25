@@ -25,6 +25,7 @@ export interface HallPost {
   is_mine: boolean
   nsfw?: boolean
   local?: boolean
+  impressions?: number
 }
 
 export function timeAgo(iso: string): string {
@@ -324,6 +325,11 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                         <Trash2 size={13} />
                       </button>
                     )}
+                    <button className="ml-auto text-[11px] font-bold text-green-500 hover:text-green-300 transition"
+                      onClick={e => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`) }}
+                      aria-label="Impressions">
+                      ${(p.impressions ?? 0).toLocaleString()}
+                    </button>
                   </div>
                 </div>
               </div>

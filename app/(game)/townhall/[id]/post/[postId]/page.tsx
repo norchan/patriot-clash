@@ -224,6 +224,10 @@ export default function HallPostPage() {
               <Flag size={14} /><span className="text-xs font-bold">{reportedPost ? 'Reported' : 'Report'}</span>
             </button>
           )}
+          <button onClick={() => router.push(`/impressions?postId=${post.id}&count=${post.impressions ?? 0}`)}
+            className="ml-auto text-xs font-bold text-green-500 hover:text-green-300 transition" aria-label="Impressions">
+            ${(post.impressions ?? 0).toLocaleString()}
+          </button>
         </div>
       </div>
 

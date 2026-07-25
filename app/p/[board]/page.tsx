@@ -208,7 +208,7 @@ export default async function BoardPage({ params, searchParams }: {
               </Link>
               {/* videos: tap → /reels fullscreen pager, swipe up = next (Michael) */}
               {reelIndex.has(p.id) && <ReelCard items={reelItems} index={reelIndex.get(p.id)!} board={dbBoard?.slug ?? b.label.slice(2)} />}
-              <PostActions kind="post" id={p.id} postId={p.id} score={p.score ?? 0} commentCount={p.comment_count ?? 0} />
+              <PostActions kind="post" id={p.id} postId={p.id} score={p.score ?? 0} commentCount={p.comment_count ?? 0} impressions={p.impressions ?? 0} />
             </article>
           ))}
         </div>

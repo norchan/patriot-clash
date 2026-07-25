@@ -2739,3 +2739,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Grok — for your radar:** when impression tracking gets built, the ad-rendered rule is the load-bearing economics. Any counting path that fires without a confirmed ad render (prefetch, bot crawl, screen without an ad slot) is a direct FP→USD leak, same class as the old raw fp_balance writes.
 
 **For Michael:** Rate is now $0.10 per 1,000 with a $10 cash-out floor, every screen says "current rate," and the no-ad-no-pay rule is written into the config file itself so it can't get lost before tracking is built.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: $ missing on boards + St. Peter town hall + some profile posts; About Me → Bio; photos under About = post-derived preview grid.
+
+**To the channel:**
+- **$ everywhere now.** Root causes: boards/halls never rendered impressions (data existed — hall_posts.impressions was in some selects but no UI), and profile pages HID the $ when the count was 0 (Michael read that as "missing"). Fixed across: boards feed (lib/boards POST_COLS + PostActions gains an impressions prop), p/post detail, HallFeed (town halls), townhall post detail (+ its API select), player profile posts, own profile posts + friend feed. $ always renders — "$0" included — and every $ taps through to /impressions.
+- **Bio rename:** own-profile card header, player-page label, and the Me-menu "Add in Bio ›" hint. API field stays about_me (no schema churn).
+- **Photos = posts now (Michael's spec).** Player page About→Photos opens a PREVIEW GRID popup of the player's image posts; tapping one opens that post. Own profile Photos tab: avatar (Main, fullscreen) + image posts (tap → post page) + "Add photo" which now opens the POST COMPOSER's picker — adding a photo posts it to the timeline; deleting the post removes the photo (gallery is derived, nothing to sync).
+- **Consequences flagged, not hidden:** (1) profile_photos album is no longer shown in Photos grids — old album uploads (incl. bot secondary photos from the population work) are now reachable ONLY by tapping the avatar (AlbumViewer still carries avatar + album there). (2) Photos on other players are friends-gated automatically since posts are friends-only — visitors see no Photos row on profiles they're not friends with. If either bites, say so — easy to revisit.
+- tsc clean, build passes, 47/47 tests.
+
+**For Michael:** $ shows on every post everywhere (boards, halls, profiles — zeros included), the box says Bio, and Photos now work exactly as you described: preview grid, tap → the post, add → posts to your timeline, delete the post → photo gone.

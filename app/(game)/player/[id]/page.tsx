@@ -45,6 +45,7 @@ export default function PublicProfilePage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [photos, setPhotos] = useState<{ id: string; url: string }[]>([])
   const [viewerOpen, setViewerOpen] = useState(false)
+  const [photoGridOpen, setPhotoGridOpen] = useState(false)
   const [shared, setShared] = useState('')
   const [statsOpen, setStatsOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -250,7 +251,7 @@ export default function PublicProfilePage() {
             {/* About Me — shown when the player wrote one, right above Challenge */}
             {profile.about_me && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-left">
-                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mb-1">About Me</p>
+                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mb-1">Bio</p>
                 <AboutMeText text={profile.about_me} />
               </div>
             )}
@@ -328,11 +329,14 @@ export default function PublicProfilePage() {
                     <AboutMeText text={profile.about_me} />
                   </div>
                 )}
-                {photos.length > 0 && (
+                {/* Photos = the player's posted pictures (Michael): preview
+                    grid popup; tapping one opens its post. Friends-gated
+                    naturally — non-friends get no posts from the API. */}
+                {posts.some(p => p.media_type === 'image' && p.media_url) && (
                   <div className="px-3 py-2">
-                    <button onClick={() => setViewerOpen(true)}
+                    <button onClick={() => setPhotoGridOpen(true)}
                       className="flex items-center gap-2 w-full text-left hover:opacity-80">
-                      <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">📸 Photos ({photos.length})</span>
+                      <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">📸 Photos ({posts.filter(p => p.media_type === 'image' && p.media_url).length})</span>
                       <span className="text-gray-600 text-xs">›</span>
                     </button>
                   </div>
@@ -343,9 +347,29 @@ export default function PublicProfilePage() {
         </div>
       </div>
 
-      {/* Fullscreen photo viewer (avatar + any extra album photos) */}
+      {/* Fullscreen photo viewer — the avatar (tap the profile picture) */}
       {viewerOpen && photos.length > 0 && (
         <AlbumViewer photos={photos} title={profile.username} onClose={() => setViewerOpen(false)} />
+      )}
+
+      {/* Photo previews popup — tap a picture to open its post */}
+      {photoGridOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPhotoGridOpen(false)}>
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 max-w-md w-full max-h-[75vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-white text-sm font-bold">📸 Photos</p>
+              <button onClick={() => setPhotoGridOpen(false)} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {posts.filter(p => p.media_type === 'image' && p.media_url).map(p => (
+                <button key={p.id} onClick={() => router.push(`/player/${params.id}/post/${p.id}`)}
+                  className="aspect-square rounded-xl overflow-hidden border border-gray-800 active:scale-95 transition">
+                  <img src={p.media_url!} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Posts — friends only (Michael): non-friends see a locked notice */}
@@ -382,15 +406,11 @@ export default function PublicProfilePage() {
                       <MessageSquare size={14} />
                       <span className="text-[11px] font-bold">Comment</span>
                     </button>
-                    {p.impressions !== undefined && p.impressions > 0 && (
-                      <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions}`); }}
-                        className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
-                        ${p.impressions.toLocaleString()}
-                      </button>
-                    )}
-                    {(p.impressions === undefined || p.impressions === 0) && (
-                      <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
-                    )}
+                    <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                    <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`); }}
+                      className="text-green-400 hover:text-green-300 transition text-[11px] font-bold">
+                      ${(p.impressions ?? 0).toLocaleString()}
+                    </button>
                   </div>
                 </div>
               </Link>

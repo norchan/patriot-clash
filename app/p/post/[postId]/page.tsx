@@ -47,7 +47,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
   const admin = createSupabaseAdminClient()
 
   const { data: post } = await admin.from('hall_posts')
-    .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, party, hidden, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(id, city_name, state), boards(slug, name)')
+    .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, party, hidden, impressions, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(id, city_name, state), boards(slug, name)')
     .eq('id', postId)
     .maybeSingle()
 
@@ -136,7 +136,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
             )
           )}
           <div className="mt-2">
-            <PostActions kind="post" id={p.id} postId={p.id} score={p.score} commentCount={p.comment_count} />
+            <PostActions kind="post" id={p.id} postId={p.id} score={p.score} commentCount={p.comment_count} impressions={p.impressions ?? 0} />
           </div>
         </article>
 

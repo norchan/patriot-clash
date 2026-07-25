@@ -15,7 +15,7 @@ export async function GET(
 
     const [{ data: post }, { data: comments }] = await Promise.all([
       admin.from('hall_posts')
-        .select('id, gym_id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, hidden')
+        .select('id, gym_id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, hidden, impressions')
         .eq('id', postId).maybeSingle(),
       admin.from('hall_comments')
         .select('id, parent_id, profile_id, content, score, created_at')
