@@ -58,32 +58,34 @@ export default function PostActions({ kind, id, postId, score, commentCount, imp
   }
 
   return (
-    <div className="mt-1.5 flex items-center justify-between max-w-[320px] text-gray-500 text-[12px]"
+    <div className="mt-1.5 flex items-center text-gray-500 text-[12px]"
       onClick={e => e.stopPropagation()}>
-      <button onClick={() => router.push(`/p/post/${postId}#reply`)}
-        className="flex items-center gap-1.5 hover:text-blue-400 transition p-1" aria-label="Reply">
-        <MessageCircle size={16} /> {typeof commentCount === 'number' && commentCount > 0 && commentCount}
-      </button>
-      <span className="flex items-center">
-        <button onClick={() => vote(1)} aria-label="Upvote"
-          className={`p-1 ${myVote === 1 ? 'text-orange-400' : 'hover:text-orange-300'}`}>
-          <ArrowBigUp size={18} fill={myVote === 1 ? 'currentColor' : 'none'} />
+      <div className="flex items-center justify-between max-w-[320px] flex-1">
+        <button onClick={() => router.push(`/p/post/${postId}#reply`)}
+          className="flex items-center gap-1.5 hover:text-blue-400 transition p-1" aria-label="Reply">
+          <MessageCircle size={16} /> {typeof commentCount === 'number' && commentCount > 0 && commentCount}
         </button>
-        <span className="font-bold tabular-nums min-w-[1.2rem] text-center text-gray-400">{score + myVote}</span>
-        <button onClick={() => vote(-1)} aria-label="Downvote"
-          className={`p-1 ${myVote === -1 ? 'text-blue-400' : 'hover:text-blue-300'}`}>
-          <ArrowBigDown size={18} fill={myVote === -1 ? 'currentColor' : 'none'} />
+        <span className="flex items-center">
+          <button onClick={() => vote(1)} aria-label="Upvote"
+            className={`p-1 ${myVote === 1 ? 'text-orange-400' : 'hover:text-orange-300'}`}>
+            <ArrowBigUp size={18} fill={myVote === 1 ? 'currentColor' : 'none'} />
+          </button>
+          <span className="font-bold tabular-nums min-w-[1.2rem] text-center text-gray-400">{score + myVote}</span>
+          <button onClick={() => vote(-1)} aria-label="Downvote"
+            className={`p-1 ${myVote === -1 ? 'text-blue-400' : 'hover:text-blue-300'}`}>
+            <ArrowBigDown size={18} fill={myVote === -1 ? 'currentColor' : 'none'} />
+          </button>
+        </span>
+        <button onClick={share} className={`p-1 transition ${shared ? 'text-green-400' : 'hover:text-green-300'}`} aria-label="Share">
+          <Share size={15} />
         </button>
-      </span>
-      <button onClick={share} className={`p-1 transition ${shared ? 'text-green-400' : 'hover:text-green-300'}`} aria-label="Share">
-        <Share size={15} />
-      </button>
-      <button onClick={report} className={`p-1 transition ${reported ? 'text-red-500' : 'hover:text-red-400'}`} aria-label="Report">
-        <Flag size={15} fill={reported ? 'currentColor' : 'none'} />
-      </button>
+        <button onClick={report} className={`p-1 transition ${reported ? 'text-red-500' : 'hover:text-red-400'}`} aria-label="Report">
+          <Flag size={15} fill={reported ? 'currentColor' : 'none'} />
+        </button>
+      </div>
       {kind === 'post' && impressions !== undefined && (
         <button onClick={e => { e.stopPropagation(); router.push(`/impressions?postId=${postId}&count=${impressions}`) }}
-          className="p-1 font-bold text-green-500 hover:text-green-300 transition" aria-label="Impressions">
+          className="ml-auto pl-2 py-1 font-bold text-green-500 hover:text-green-300 transition whitespace-nowrap" aria-label="Impressions">
           Impre$$ions {impressions.toLocaleString()}
         </button>
       )}
