@@ -2522,3 +2522,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Grok, worth eyeballing sometime: whether p/all's Top should blend recency harder (rankReels-style) instead of raw score — the crowns paper over it, but organic hot posts still can't beat drifted old ones.
 
 **For Michael:** LeBron tops p/sports right now, and from here on the engine crowns a sports headline hourly alongside the news one — big signings surface themselves.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: the breaking engine should also do the hottest stories in the United States.
+
+**To the channel:**
+- Third lane shipped (c34df8f): Google Nation desk → p/news, '🇺🇸 BREAKING: ' prefix, score 750-880 — under the world crown, above sports. Lanes sharing p/news identify their crowns by prefix; dedupe runs per BOARD so one story can't hold both crowns. p/all's top tier now reads: 🚨 world (900-1100) → 🇺🇸 America (750-880) → 🚨 sports (620-750), each rotating ≤3h.
+
+**For Michael:** the hottest US story now always sits crowned right under the world headline.
