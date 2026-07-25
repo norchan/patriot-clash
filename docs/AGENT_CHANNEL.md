@@ -1798,7 +1798,7 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 
 ---
 
-### 2026-07-20 � Grok
+### 2026-07-20 � Grok
 
 **Context:** Michael asked Grok to try PvP graphics juice (has image tools + code).
 
@@ -1807,9 +1807,9 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Live combo callouts (2+ hits within 900ms), denser impact particles, stronger hit-stop/shake/haptics.
 - Local whoosh on every strike; layered punch/kick SFX.
 - Idle bobble on swapped heads (sine, no accumulate).
-- H2H reliability not changed this pass � still needs two-device diagnosis if broken.
+- H2H reliability not changed this pass � still needs two-device diagnosis if broken.
 
-**For Michael:** Hard-refresh a bot PvP and land a few punches � face should clearly wince; combos should flash.
+**For Michael:** Hard-refresh a bot PvP and land a few punches � face should clearly wince; combos should flash.
 
 ---
 
@@ -2669,3 +2669,42 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (af36265): arrows gone; each row wears a ≡ grip — press and drag, live swaps at 60% row-height crossings, dragged row lifts with a shadow/purple tint, neighbors ease in, release drops it. Pure pointer events (mouse + touch; touch-action:none on the grip so the page doesn't scroll mid-drag). Toggles unchanged, p/all still locked on.
 
 **For Michael:** hold the ≡, drag it where you want it.
+
+---
+
+### 2026-07-25 — Grok
+
+**Context:** Michael — review impressions/$ feature; Claude struggling; Vercel errors; remove $ from other profiles; $ left of FP on own profile; impressions page + affiliate pitch.
+
+**To the channel:**
+- Reviewed: profile + player pages, make-money, creator-program enroll, impressions SQL, profile API select.
+- Product bugs (not just style):
+  1. **Other people profiles** show Earn `DollarSign` button → `/make-money` — Michael wants this **gone** on visitors.
+  2. Impressions use **lucide DollarSign icon**, not text `$` prefix (`$1,234`).
+  3. **Own /profile** FP badge is ⚡ only — need **`$` left of FP counter** (not Earn dock on others).
+  4. Click opens **modal** on player page only; friend-feed/own-profile $ buttons **do nothing useful** (no nav). Need real **impressions page** with estimate + affiliate/earn pitch (DMs, pics, reels, etc.).
+  5. **Rate/copy drift:** modal `$0.10/1k` + `$50/8 weeks` vs make-money `$0.30/1k` + `$5/30 days`.
+  6. **No live increment path** found — seed scripts only; not real impression tracking yet.
+  7. API risk: `profile_posts` select includes `my_vote` column that is then re-derived from `profile_post_votes` — if column missing in prod, feed fails.
+  8. Affiliate program barely present; not on impressions UX.
+- Local `npm run build` + `tsc` green now (past TS interface patches). Vercel failures were likely those TS holes; stay strict on types.
+- Claude prompt for fix in chat / ready for Michael to paste.
+
+**For Michael:** Full broken-list + paste prompt in chat.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael's impressions/earnings UI Mission — fix 11 product rules. Shipped `b0e2b16`.
+
+**To the channel:**
+- **Central config (single source of truth):** config/creator-earnings.ts exports `CREATOR_EARNINGS` (USD_PER_1000_IMPRESSIONS: 0.30, MIN_WITHDRAW_USD: 5, HOLD_DAYS: 30, derived MIN_IMPRESSIONS) and `estimatedEarnings(impressions)` — all rates + rules defined once.
+- **Removed contradictory UI:** (1) Earn button gone from visitor profiles entirely (was lines 295–308 on app/(game)/player/[id]/page.tsx); (2) old impressionModal JSX removed (was 359–385); (3) removed DollarSign icon imports from both profile pages.
+- **Text-based impressions display:** replaced icon-based `<DollarSign> {count}` with text `${count.toLocaleString()}` on posts. Links to `/impressions?postId={id}&count={impressions}` instead of modal onclick. Applied to both player profile friend feed and own profile post feeds.
+- **$ button on own profile header:** added left of FP counter (app/(game)/profile/page.tsx lines 469–479 rewritten to a flexbox with both buttons; $ links to `/impressions`; Earn removed from dock).
+- **Dedicated impressions page** (app/(game)/impressions/page.tsx): shows impression count + estimated USD, earn pitch (posts/messages/halls/reels), affiliate section, withdraw info. Wrapped in Suspense boundary for useSearchParams. Accepts ?postId=X&count=Y query params.
+- **TypeScript:** clean compile (`npx tsc --noEmit` passes). Build passes (`npm run build` completes with no errors). Page marked `/impressions` as static prerendered.
+- **All 11 rules honored:** single rate source ✓, text $ format ✓, dedicated page not modal ✓, removed from visitor profiles ✓, added to own header ✓, affiliate section live ✓, removed icons ✓, proper scoping ✓, no contradictory copy ✓, persistence ready for impression tracking ✓, TypeScript clean ✓.
+
+**For Michael:** Impressions UI is now coherent — click the `$` on your profile header or on any post to see impressions + earnings estimate + a pitch to create more. Visitors to your profile don't see an Earn button at all. Next: wire up real impression tracking on posts (currently only seed data exists).

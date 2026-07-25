@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Share, Swords, MessageSquare, BarChart3, UserPlus, UserCheck, Info, DollarSign } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MessageSquare, BarChart3, UserPlus, UserCheck, Info } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import AboutMeText from '@/components/AboutMeText'
 import { VoteButtons } from '@/components/HallFeed'
@@ -53,7 +53,6 @@ export default function PublicProfilePage() {
   // never lists or counts
   const [friendStatus, setFriendStatus] = useState<'none' | 'friends' | 'pending_in' | 'pending_out' | null>(null)
   const [friendBusy, setFriendBusy] = useState(false)
-  const [impressionModal, setImpressionModal] = useState<{ postId: string; impressions: number } | null>(null)
 
   useEffect(() => {
     const id = params.id as string
@@ -256,8 +255,8 @@ export default function PublicProfilePage() {
               </div>
             )}
             {/* Icon row (Michael): the old buttons, as icons under About Me —
-                Fight · Message · Friend · Make Money · Stats. Stats expands inline. */}
-            <div className={`grid ${viewer?.id !== profile.id ? 'grid-cols-5' : 'grid-cols-2'} gap-1.5`}>
+                Fight · Message · Friend · About · Stats. Stats expands inline. */}
+            <div className={`grid ${viewer?.id !== profile.id ? 'grid-cols-5' : 'grid-cols-1'} gap-1.5`}>
               {viewer?.id !== profile.id && (
                 <>
                   <button onClick={challenge}
@@ -292,19 +291,7 @@ export default function PublicProfilePage() {
                     <Info size={19} />
                     <span className="text-[10px] font-bold">About</span>
                   </button>
-                  <button onClick={() => router.push('/make-money')}
-                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-green-400 transition active:scale-95">
-                    <DollarSign size={19} />
-                    <span className="text-[10px] font-bold">Earn</span>
-                  </button>
                 </>
-              )}
-              {viewer?.id === profile.id && (
-                <button onClick={() => router.push('/make-money')}
-                  className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-green-400 transition active:scale-95">
-                  <DollarSign size={19} />
-                  <span className="text-[10px] font-bold">Earn</span>
-                </button>
               )}
               <button onClick={() => setStatsOpen(o => !o)}
                 className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${statsOpen
@@ -356,34 +343,6 @@ export default function PublicProfilePage() {
         </div>
       </div>
 
-      {/* Impression payout modal */}
-      {impressionModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setImpressionModal(null)}>
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-lg mb-4">Earnings Estimate</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Impressions</span>
-                <span className="text-white font-bold">{impressionModal.impressions.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Rate</span>
-                <span className="text-white font-bold">$0.10 per 1,000</span>
-              </div>
-              <div className="border-t border-gray-800 pt-3 flex justify-between items-center">
-                <span className="text-gray-300 font-bold">Potential Earnings</span>
-                <span className="text-green-400 font-bold text-lg">${((impressionModal.impressions / 1000) * 0.10).toFixed(2)}</span>
-              </div>
-            </div>
-            <p className="text-gray-500 text-xs mt-4">Withdraw when you reach $50 or after 8 weeks.</p>
-            <button onClick={() => setImpressionModal(null)}
-              className="w-full mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Fullscreen photo viewer (avatar + any extra album photos) */}
       {viewerOpen && photos.length > 0 && (
         <AlbumViewer photos={photos} title={profile.username} onClose={() => setViewerOpen(false)} />
@@ -424,10 +383,9 @@ export default function PublicProfilePage() {
                       <span className="text-[11px] font-bold">Comment</span>
                     </button>
                     {p.impressions !== undefined && p.impressions > 0 && (
-                      <button onClick={(e) => { e.stopPropagation(); setImpressionModal({ postId: p.id, impressions: p.impressions! }); }}
-                        className="flex items-center gap-1.5 text-gray-500 hover:text-green-400 transition ml-auto">
-                        <DollarSign size={14} />
-                        <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
+                      <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions}`); }}
+                        className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
+                        ${p.impressions.toLocaleString()}
                       </button>
                     )}
                     {(p.impressions === undefined || p.impressions === 0) && (

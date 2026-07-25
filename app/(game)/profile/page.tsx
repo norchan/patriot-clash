@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import AboutMeText from '@/components/AboutMeText'
-import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, Share2, User, BarChart3, Layers, Home, MessageSquare, Share, DollarSign } from 'lucide-react'
+import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, Share2, User, BarChart3, Layers, Home, MessageSquare, Share } from 'lucide-react'
 import Link from 'next/link'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
@@ -469,14 +469,22 @@ export default function ProfilePage() {
           {/* mt-11 clears the global menu button fixed in this corner.
               FP badge (Michael): the ⚡ with the balance right under it —
               replaces the old notification/message icons; tap → shop */}
-          <button onClick={() => router.push('/shop')}
-            className="flex flex-col items-center self-start mt-11 px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
-            aria-label="Fighting Points — tap for the shop">
-            <Zap size={22} className="text-yellow-400" />
-            <span className="text-yellow-400 font-black text-sm leading-tight mt-0.5">
-              {(profile?.fp_balance ?? 0).toLocaleString()}
-            </span>
-          </button>
+          <div className="flex gap-2 self-start mt-11">
+            <button onClick={() => router.push('/shop')}
+              className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
+              aria-label="Fighting Points — tap for the shop">
+              <Zap size={22} className="text-yellow-400" />
+              <span className="text-yellow-400 font-black text-sm leading-tight mt-0.5">
+                {(profile?.fp_balance ?? 0).toLocaleString()}
+              </span>
+            </button>
+            <button onClick={() => router.push('/impressions')}
+              className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
+              aria-label="Earnings — tap for impressions">
+              <span className="text-green-400 font-black text-lg">$</span>
+              <span className="text-green-400 font-black text-xs leading-tight mt-0.5">Earn</span>
+            </button>
+          </div>
         </div>
 
         {/* Rank progress bar */}
@@ -830,10 +838,9 @@ export default function ProfilePage() {
                         <span className="text-[11px] font-bold">Comment</span>
                       </button>
                       {p.impressions !== undefined && p.impressions > 0 && (
-                        <button onClick={(e) => { e.stopPropagation() }}
-                          className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition ml-auto">
-                          <DollarSign size={14} />
-                          <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
+                        <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions}`); }}
+                          className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
+                          ${p.impressions.toLocaleString()}
                         </button>
                       )}
                     </div>
@@ -871,9 +878,9 @@ export default function ProfilePage() {
                     <span className="text-[11px] font-bold">Comment</span>
                   </button>
                   {p.impressions !== undefined && p.impressions > 0 && (
-                    <button className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition ml-auto">
-                      <DollarSign size={14} />
-                      <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
+                    <button onClick={() => router.push(`/impressions?postId=${p.id}&count=${p.impressions}`)}
+                      className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
+                      ${p.impressions.toLocaleString()}
                     </button>
                   )}
                   {(p.impressions === undefined || p.impressions === 0) && (

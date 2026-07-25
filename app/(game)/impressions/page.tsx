@@ -1,0 +1,78 @@
+'use client'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { ArrowLeft } from 'lucide-react'
+import { CREATOR_EARNINGS, estimatedEarnings } from '@/config/creator-earnings'
+import { Suspense } from 'react'
+
+function ImpressionsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const postId = searchParams.get('postId')
+  const count = parseInt(searchParams.get('count') || '0', 10)
+
+  const earned = estimatedEarnings(count)
+
+  return (
+    <div className="min-h-screen bg-gray-950 pb-6">
+      <div className="max-w-2xl mx-auto px-4 pt-4">
+        <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-400 mb-6 hover:text-white">
+          <ArrowLeft size={16} /> <span className="text-sm">Back</span>
+        </button>
+
+        {/* Earnings card */}
+        <div className="bg-gradient-to-br from-green-900/30 to-green-900/10 border border-green-800 rounded-2xl p-6 mb-6">
+          <div className="text-center">
+            <div className="text-gray-400 text-sm mb-2">Impressions</div>
+            <div className="text-white font-bold text-3xl mb-4">${count.toLocaleString()}</div>
+            <div className="text-gray-400 text-sm mb-4">views on this post</div>
+            <div className="bg-green-900/50 rounded-xl p-4">
+              <div className="text-gray-400 text-xs mb-1">Estimated earnings</div>
+              <div className="text-green-400 font-bold text-2xl">${earned}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Earn pitch */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+          <h2 className="text-white font-bold text-lg mb-3">Anyone can earn money on PoliticsGo</h2>
+          <p className="text-gray-400 text-sm mb-4">
+            Get paid ${CREATOR_EARNINGS.USD_PER_1000_IMPRESSIONS} for every 1,000 people who see your content. Earn money when messaging friends, posting pictures, videos, and more!
+          </p>
+          <ul className="text-gray-400 text-sm space-y-2">
+            <li>✓ <strong>Profile posts</strong> — share photos and thoughts</li>
+            <li>✓ <strong>Messages</strong> — chat with friends</li>
+            <li>✓ <strong>Town hall posts</strong> — engage your community</li>
+            <li>✓ <strong>Reels</strong> — coming soon</li>
+          </ul>
+        </div>
+
+        {/* Affiliate section */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <h2 className="text-white font-bold text-lg mb-2">Want to earn more?</h2>
+          <p className="text-gray-400 text-sm mb-4">
+            Invite friends to PoliticsGo and earn money when they post and message. Join the affiliate program to grow your earnings.
+          </p>
+          <button onClick={() => router.push('/make-money')}
+            className="w-full px-4 py-3 bg-purple-700 text-white font-bold rounded-lg hover:bg-purple-600 transition">
+            Learn about earnings & affiliate
+          </button>
+        </div>
+
+        {/* Withdraw info */}
+        <div className="mt-6 bg-gray-900/50 border border-gray-800 rounded-xl p-4 text-center">
+          <p className="text-gray-500 text-xs">
+            Earnings available after {CREATOR_EARNINGS.HOLD_DAYS} days. Minimum ${CREATOR_EARNINGS.MIN_WITHDRAW_USD} to cash out.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function ImpressionsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="text-gray-400">Loading...</div></div>}>
+      <ImpressionsContent />
+    </Suspense>
+  )
+}
