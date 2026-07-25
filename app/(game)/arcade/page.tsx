@@ -55,6 +55,9 @@ export default function ArcadePage() {
           <Zap size={12} className="text-yellow-400" /> Play to earn FP
         </span>
       </div>
+      <p className="px-4 pt-3 text-center text-xs font-black text-emerald-400">
+        🎉 Free to play — nothing to download
+      </p>
 
       {/* cabinet cards */}
       <div className="px-4 pt-4 space-y-4 max-w-md mx-auto">

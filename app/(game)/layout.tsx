@@ -4,6 +4,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut, Radar, Landmark, Newspaper } from 'lucide-react'
 import AdBanner, { ADS_ENABLED, AD_BAR_HEIGHT } from '@/components/AdBanner'
+import DesktopRails from '@/components/DesktopRails'
+
+// rails skip /boards (it renders its own inline pair at max-w-none width)
+function DesktopRailsGate({ pathname }: { pathname: string }) {
+  if (pathname === '/boards') return null
+  return <DesktopRails />
+}
 
 const navItems = [
   { href: '/map',            label: 'Map',       icon: Map },
@@ -132,18 +139,20 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const showAds = ADS_ENABLED && !immersive && !adFreeSurface
 
   return (
-    // /boards gets desktop rails (Twitter columns) — the phone-width shell
-    // relaxes on lg there; negative-margin breakout inside the overflow-y
-    // main just gets clipped, so the shell itself must widen
-    <div className={`min-h-screen bg-gray-950 flex flex-col mx-auto relative ${pathname === '/boards' ? 'max-w-md xl:max-w-none' : 'max-w-md'}`}>
+    // DESKTOP (xl+): every page gets the boards treatment — the phone shell
+    // widens to the boards feed width (2xl) with pinned rails either side
+    // (DesktopRails); /boards renders its own inline rails at max-w-none.
+    // Immersive battle screens stay full-bleed and rail-free.
+    <div className={`min-h-screen bg-gray-950 flex flex-col mx-auto relative ${pathname === '/boards' ? 'max-w-md xl:max-w-none' : immersive ? 'max-w-md' : 'max-w-md xl:max-w-2xl'}`}>
       {/* ── Global menu — upper right corner of the GAME COLUMN, every page
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
+      {!immersive && <DesktopRailsGate pathname={pathname} />}
       {!immersive && (
       // on /boards the psub tab strip owns the very top — the game ☰ drops
-      // below it (mobile) and HIDES on desktop, where the boards page shows
-      // the same menu as a left sidebar (Michael)
-      <div className={`fixed z-[80] ${pathname === '/boards' ? 'xl:hidden' : ''}`} style={{ top: pathname === '/boards' ? 'calc(3.6rem + env(safe-area-inset-top))' : 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
+      // below it (mobile). On xl the ☰ hides EVERYWHERE: the left rail
+      // carries the same menu on every desktop page (Michael)
+      <div className={`fixed z-[80] xl:hidden`} style={{ top: pathname === '/boards' ? 'calc(3.6rem + env(safe-area-inset-top))' : 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
           className="relative w-10 h-10 rounded-xl bg-gray-900/90 backdrop-blur border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white shadow-lg transition"
