@@ -3,7 +3,7 @@
 // official player is allowed and free — re-hosting downloaded copies is not.
 
 export interface VideoEmbed {
-  kind: 'youtube' | 'tiktok'
+  kind: 'youtube' | 'tiktok' | 'file'
   id: string
   /** iframe src for the official player */
   src: string
@@ -31,6 +31,7 @@ async function fetchWithTimeout(url: string, ms: number, headers?: Record<string
 export async function videoAvailable(url: string | null | undefined): Promise<boolean> {
   const v = videoEmbed(url)
   if (!v) return true
+  if (v.kind === 'file') return true // our own storage — no takedown risk
   try {
     if (v.kind === 'youtube') {
       const r = await fetchWithTimeout(`https://www.youtube.com/watch?v=${v.id}`, 8000, {
@@ -106,6 +107,11 @@ export function videoEmbed(url: string | null | undefined): VideoEmbed | null {
       const m = u.pathname.match(/\/video\/(\d{8,})/)
       if (!m) return null
       return { kind: 'tiktok', id: m[1], vertical: true, src: `https://www.tiktok.com/player/v1/${m[1]}` }
+    }
+    // self-hosted reels (recorded/uploaded originals in our storage) play in
+    // a plain <video> — the embed-only rule is about OTHER platforms' content
+    if (/\/storage\/v1\/object\/public\/.+\.(mp4|webm|mov)$/i.test(url)) {
+      return { kind: 'file', id: url, vertical: true, src: url }
     }
     return null
   } catch {

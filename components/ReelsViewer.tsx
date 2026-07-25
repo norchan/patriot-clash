@@ -12,7 +12,7 @@ import { X, Play, Plus, MessageCircle } from 'lucide-react'
 
 export interface ReelItem {
   id: string
-  kind: 'youtube' | 'tiktok'
+  kind: 'youtube' | 'tiktok' | 'file'
   videoId: string
   vertical?: boolean
   thumb?: string
@@ -28,6 +28,7 @@ export interface ReelItem {
 // be moved, only suppressed; tapping the video still toggles play/pause.
 // iv_load_policy=3 kills annotation cards for the same reason.
 export function reelSrc(it: ReelItem): string {
+  if (it.kind === 'file') return it.videoId // self-hosted original — plays in <video>
   return it.kind === 'youtube'
     ? `https://www.youtube-nocookie.com/embed/${it.videoId}?autoplay=1&playsinline=1&rel=0&controls=0&iv_load_policy=3`
     : `https://www.tiktok.com/player/v1/${it.videoId}?autoplay=1`
@@ -143,12 +144,19 @@ export function ReelsPager({ items, startId, signedIn = false }: { items: ReelIt
                 <img src={it.thumb} alt="" className={`absolute object-cover ${it.vertical ? 'h-full aspect-[9/16] max-w-full' : 'w-full aspect-video'}`} />
               )}
               {i === active && (
-                // plain iframe in normal flow — the exact conditions the feed's
-                // inline players used, which render on every phone
-                <iframe src={reelSrc(it)} title={it.title ?? 'Video'}
-                  className={`relative ${it.vertical ? 'h-full aspect-[9/16] max-w-full' : 'w-full aspect-video max-h-full'}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen />
+                it.kind === 'file' ? (
+                  // player-made reel from our own storage — native <video>
+                  <video src={reelSrc(it)}
+                    className={`relative ${it.vertical ? 'h-full aspect-[9/16] max-w-full object-contain' : 'w-full aspect-video max-h-full'}`}
+                    autoPlay playsInline loop controls />
+                ) : (
+                  // plain iframe in normal flow — the exact conditions the feed's
+                  // inline players used, which render on every phone
+                  <iframe src={reelSrc(it)} title={it.title ?? 'Video'}
+                    className={`relative ${it.vertical ? 'h-full aspect-[9/16] max-w-full' : 'w-full aspect-video max-h-full'}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen />
+                )
               )}
             </>
           )}
@@ -185,23 +193,14 @@ export function ReelsPager({ items, startId, signedIn = false }: { items: ReelIt
         )}
       </section>
 
-      {/* chrome */}
-      <button onClick={() => (history.length > 1 ? router.back() : router.push('/'))} aria-label="Close"
-        className="fixed z-20 w-10 h-10 rounded-full bg-black/60 border border-white/25 flex items-center justify-center text-white active:scale-95"
-        style={{ top: 'calc(0.75rem + env(safe-area-inset-top))', right: '0.75rem' }}>
-        <X size={20} />
-      </button>
-      <Link href="/p/videos" aria-label="Add a reel"
-        className="fixed z-20 h-10 pl-2.5 pr-3.5 rounded-full bg-black/60 border border-white/25 flex items-center gap-1 text-white text-xs font-black active:scale-95"
-        style={{ top: 'calc(0.75rem + env(safe-area-inset-top))', left: '0.75rem' }}>
-        <Plus size={16} /> Add a Reel
-      </Link>
+      {/* chrome — one right-side stack (Michael): ✕ close on top, ＋ add a
+          reel under it, 💬 comments at the bottom. No top-bar buttons. */}
 
       {/* title + username live at the TOP now (Michael) — the old bottom spot
           sat right on YouTube's closed captions and both became unreadable */}
       {ordered[active] && (ordered[active].title || ordered[active].username) && (
         <div className="fixed left-3 right-3 z-20 pointer-events-none"
-          style={{ top: 'calc(3.9rem + env(safe-area-inset-top))' }}>
+          style={{ top: 'calc(1rem + env(safe-area-inset-top))' }}>
           {ordered[active].title && (
             <p className="text-white text-sm font-semibold leading-snug line-clamp-2"
               style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{ordered[active].title}</p>
@@ -216,18 +215,27 @@ export function ReelsPager({ items, startId, signedIn = false }: { items: ReelIt
         </div>
       )}
 
-      {/* comments — lower right, straight into the post's thread (Michael) */}
       {ordered[active] && (
-        <button onClick={() => router.push(`/p/post/${ordered[active].id}`)} aria-label="Comments"
-          className="fixed right-3 z-20 flex flex-col items-center gap-0.5 text-white active:scale-95 transition"
+        <div className="fixed right-3 z-20 flex flex-col items-center gap-3"
           style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}>
-          <span className="w-11 h-11 rounded-full bg-black/60 border border-white/25 flex items-center justify-center">
-            <MessageCircle size={20} />
-          </span>
-          <span className="text-[10px] font-black" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
-            {ordered[active].comments ?? 0}
-          </span>
-        </button>
+          <button onClick={() => (history.length > 1 ? router.back() : router.push('/'))} aria-label="Close"
+            className="w-11 h-11 rounded-full bg-black/60 border border-white/25 flex items-center justify-center text-white active:scale-95 transition">
+            <X size={20} />
+          </button>
+          <button onClick={() => router.push('/reels/add')} aria-label="Add a reel"
+            className="w-11 h-11 rounded-full bg-black/60 border border-white/25 flex items-center justify-center text-white active:scale-95 transition">
+            <Plus size={22} />
+          </button>
+          <button onClick={() => router.push(`/p/post/${ordered[active].id}`)} aria-label="Comments"
+            className="flex flex-col items-center gap-0.5 text-white active:scale-95 transition">
+            <span className="w-11 h-11 rounded-full bg-black/60 border border-white/25 flex items-center justify-center">
+              <MessageCircle size={20} />
+            </span>
+            <span className="text-[10px] font-black" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+              {ordered[active].comments ?? 0}
+            </span>
+          </button>
+        </div>
       )}
       {showHint && ordered.length > 1 && active === startIndex && (
         <p className="fixed bottom-2 left-1/2 -translate-x-1/2 z-20 text-white/40 text-[11px] font-bold pointer-events-none">
@@ -277,7 +285,7 @@ export function ReelCard({ items, index, board = 'videos' }: { items: ReelItem[]
         // eslint-disable-next-line @next/next/no-img-element
         <img src={it.thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
       ) : (
-        <span className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">TikTok</span>
+        <span className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">{it.kind === 'file' ? '🎬 Reel' : 'TikTok'}</span>
       )}
       <span className="absolute inset-0 flex items-center justify-center">
         <span className="w-14 h-14 rounded-full bg-black/70 border border-white/40 flex items-center justify-center">
