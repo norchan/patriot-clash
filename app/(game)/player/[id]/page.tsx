@@ -182,9 +182,6 @@ export default function PublicProfilePage() {
               <img src={profile.avatar_url} alt={profile.username}
                 className="w-44 h-44 rounded-3xl object-cover border-4 shadow-2xl"
                 style={{ borderColor: partyColor, boxShadow: `0 10px 40px ${partyColor}44` }} />
-              <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-                🔍 Tap to view
-              </span>
             </button>
           ) : (
             <div className="w-44 h-44 rounded-3xl flex items-center justify-center text-7xl border-4"
