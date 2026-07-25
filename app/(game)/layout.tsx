@@ -147,6 +147,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       {/* ── Global menu — upper right corner of the GAME COLUMN, every page
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
+      {/* the shell only spans its max-w — keep the WHOLE viewport dark
+          behind it on desktop so the rails never sit on a light body */}
+      <div className="hidden xl:block fixed inset-0 -z-10 bg-gray-950" />
       {!immersive && <DesktopRailsGate pathname={pathname} />}
       {!immersive && (
       // on /boards the psub tab strip owns the very top — the game ☰ drops

@@ -25,7 +25,7 @@ const GAMES = [
 
 function ArcadeQuickList() {
   return (
-    <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900/60 overflow-hidden">
+    <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
       <p className="px-4 pt-3 pb-1 text-[11px] font-black tracking-widest text-gray-500">🕹️ ARCADE</p>
       {GAMES.map(g => (
         <Link key={g.href} href={g.href}
@@ -52,7 +52,7 @@ function LocalPlayersPreview() {
       .catch(() => setPlayers([]))
   }, [location])
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/60 overflow-hidden">
+    <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
       <p className="px-4 pt-3 pb-1 text-[11px] font-black tracking-widest text-gray-500">📍 LOCAL PLAYERS</p>
       {players === null && <p className="px-4 py-3 text-gray-600 text-xs">Finding players near you…</p>}
       {players?.length === 0 && <p className="px-4 py-3 text-gray-600 text-xs">Nobody close right now.</p>}

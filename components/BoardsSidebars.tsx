@@ -27,7 +27,7 @@ export function BoardsLeftNav({ signedIn }: { signedIn: boolean }) {
   const router = useRouter()
   const { signOut } = useClerk()
   return (
-    <nav className="rounded-2xl border border-gray-800 bg-gray-900/60 overflow-hidden">
+    <nav className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
       {(signedIn ? NAV : NAV.filter(n => ['/', '/reels'].includes(n.href))).map(({ href, label, icon: Icon }) => (
         <Link key={href} href={href}
           className="flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:bg-white/5 hover:text-white transition border-b border-gray-800/60 last:border-0">
@@ -58,7 +58,7 @@ export function BoardsProfileCard({ profile }: {
   const color = profile?.party === 'democrat' ? '#2563eb' : profile?.party === 'republican' ? '#dc2626' : '#6b7280'
   if (!profile) {
     return (
-      <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5 text-center">
+      <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 text-center">
         <p className="text-white font-black">Join the fight</p>
         <p className="text-gray-500 text-xs mt-1">Pick a party, claim your town hall, argue on the boards.</p>
         <Link href="/sign-up"
@@ -70,7 +70,7 @@ export function BoardsProfileCard({ profile }: {
     )
   }
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+    <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
       <div className="flex items-center gap-3">
         {profile.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
