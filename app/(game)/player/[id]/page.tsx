@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Share, Swords, MessageSquare, BarChart3, UserPlus, UserCheck, Info } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MessageSquare, BarChart3, UserPlus, UserCheck, Info, DollarSign } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import AboutMeText from '@/components/AboutMeText'
 import { VoteButtons } from '@/components/HallFeed'
@@ -256,8 +256,8 @@ export default function PublicProfilePage() {
               </div>
             )}
             {/* Icon row (Michael): the old buttons, as icons under About Me —
-                Fight · Message · Friend · Map · Stats. Stats expands inline. */}
-            <div className={`grid ${viewer?.id !== profile.id ? 'grid-cols-5' : 'grid-cols-1'} gap-1.5`}>
+                Fight · Message · Friend · Make Money · Stats. Stats expands inline. */}
+            <div className={`grid ${viewer?.id !== profile.id ? 'grid-cols-5' : 'grid-cols-2'} gap-1.5`}>
               {viewer?.id !== profile.id && (
                 <>
                   <button onClick={challenge}
@@ -292,7 +292,19 @@ export default function PublicProfilePage() {
                     <Info size={19} />
                     <span className="text-[10px] font-bold">About</span>
                   </button>
+                  <button onClick={() => router.push('/make-money')}
+                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-green-400 transition active:scale-95">
+                    <DollarSign size={19} />
+                    <span className="text-[10px] font-bold">Earn</span>
+                  </button>
                 </>
+              )}
+              {viewer?.id === profile.id && (
+                <button onClick={() => router.push('/make-money')}
+                  className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-green-400 transition active:scale-95">
+                  <DollarSign size={19} />
+                  <span className="text-[10px] font-bold">Earn</span>
+                </button>
               )}
               <button onClick={() => setStatsOpen(o => !o)}
                 className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${statsOpen
@@ -413,8 +425,9 @@ export default function PublicProfilePage() {
                     </button>
                     {p.impressions !== undefined && (
                       <button onClick={(e) => { e.preventDefault(); setImpressionModal({ postId: p.id, impressions: p.impressions }); }}
-                        className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition ml-auto">
-                        <span className="text-[11px] font-bold">{p.impressions.toLocaleString()} views</span>
+                        className="flex items-center gap-1.5 text-gray-500 hover:text-green-400 transition ml-auto">
+                        <DollarSign size={14} />
+                        <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
                       </button>
                     )}
                     {p.impressions === undefined && (

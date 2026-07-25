@@ -141,6 +141,23 @@ export async function POST(
       .single()
 
     if (error) throw error
+
+    // Cross-post to profile timeline (only original content, not links to elsewhere)
+    if (!link_url || preview?.domain === 'politicsgo.app') {
+      await admin
+        .from('profile_posts')
+        .insert({
+          profile_id: profile.id,
+          content: text || null,
+          media_url: imageUrl,
+          media_type: imageUrl ? 'image' : null,
+          is_cross_post: true,
+          source_gym_id: id,
+          impressions: 0,
+        })
+        .throwOnError()
+    }
+
     return NextResponse.json({
       post: {
         ...post,
