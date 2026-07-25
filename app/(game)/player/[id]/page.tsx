@@ -411,20 +411,20 @@ export default function PublicProfilePage() {
                   {p.media_type === 'video' && p.media_url && (
                     <video src={p.media_url} className="rounded-xl mt-2 w-full max-h-80 border border-gray-800" controls playsInline preload="metadata" />
                   )}
-                  <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-4 mt-2" onClick={(e) => e.stopPropagation()}>
                     <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => votePost(p, v)} />
-                    <button onClick={(e) => { e.preventDefault(); sharePost(p); }}
+                    <button onClick={(e) => { e.stopPropagation(); sharePost(p); }}
                       className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
                       <Share size={14} />
                       <span className="text-[11px] font-bold">{shared === p.id ? 'Copied!' : 'Share'}</span>
                     </button>
-                    <button onClick={(e) => { e.preventDefault(); }}
+                    <button onClick={(e) => { e.stopPropagation(); }}
                       className="flex items-center gap-1 text-gray-500 hover:text-purple-400 transition">
                       <MessageSquare size={14} />
                       <span className="text-[11px] font-bold">Comment</span>
                     </button>
                     {p.impressions !== undefined && p.impressions > 0 && (
-                      <button onClick={(e) => { e.preventDefault(); setImpressionModal({ postId: p.id, impressions: p.impressions! }); }}
+                      <button onClick={(e) => { e.stopPropagation(); setImpressionModal({ postId: p.id, impressions: p.impressions! }); }}
                         className="flex items-center gap-1.5 text-gray-500 hover:text-green-400 transition ml-auto">
                         <DollarSign size={14} />
                         <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
