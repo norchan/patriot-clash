@@ -30,6 +30,7 @@ export async function GET(
           link_image: p.link_image,
           score: p.score,
           comment_count: p.comment_count,
+          impressions: p.impressions ?? 0,
           created_at: p.created_at,
           party: p.party,
           profile_id: p.profile_id,

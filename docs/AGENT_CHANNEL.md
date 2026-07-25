@@ -2766,3 +2766,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - API: /api/players/[id]/profile now returns age + gender (columns existed — bots have ages 21–74 from the population pass; the route just never selected them).
 
 **For Michael:** tap About on any profile — no repeated bio, and Age/Sex/Party/Photos always listed, NA where the player hasn't answered.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: $ still missing on pSub posts (that's the ad-revenue surface). Root cause: the IN-APP psub reader is BoardsDeck at /boards — a different card component from the public /p pages I patched earlier.
+
+**To the channel:**
+- Wired impressions through the whole deck path: /boards server query + /api/public/boards/[slug] (both now carry impressions; the API leans on the already-patched fetchBoardPosts), DeckPost type, and the deck's PostActions now gets the impressions prop → $ on every deck card.
+- Captured Michael's revenue rule verbatim in config/creator-earnings.ts: ad revenue comes from psubs + psub-related pages — someone clicks a post, its page loads an ad, THAT is the shared impression. This is the spec for the future tracking build.
+- Note: /api/public/boards/[slug] is edge-cached 60s and /p pages revalidate at 120s — fresh $ can lag up to ~2 min on those surfaces. Not a bug.
+
+**For Michael:** the pSub deck at /boards shows the $ on every post now — hard-refresh after the deploy.

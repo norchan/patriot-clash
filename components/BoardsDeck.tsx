@@ -18,6 +18,7 @@ interface DeckPost {
   link_title: string | null; link_domain: string | null
   link_url?: string | null; link_image?: string | null
   score: number; comment_count: number; created_at: string
+  impressions?: number
   party: string | null; username: string; avatar_url?: string | null
   profile_id?: string | null
   city: string | null; state: string | null
@@ -373,7 +374,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
                 ) : null
               )}
               <PostActions kind="post" id={p.id} postId={p.id}
-                score={p.score} commentCount={p.comment_count} />
+                score={p.score} commentCount={p.comment_count} impressions={p.impressions ?? 0} />
             </div>
           </article>
         ))}
