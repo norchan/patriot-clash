@@ -10,8 +10,10 @@ import { BoardsLeftNav, BoardsProfileCard } from '@/components/BoardsSidebars'
 // treatment on xl+ — the game menu pinned LEFT (with the arcade cabinet list
 // under it) and the player card pinned RIGHT. On /profile the right rail
 // swaps to a taste of Local Players (the page itself already IS the profile).
-// One geometry EVERYWHERE (boards included): feed max-w-2xl centered at
-// 50vw; rails 16px off its edges (fits exactly at the xl=1280 breakpoint).
+// One geometry EVERYWHERE (boards included): feed max-w-2xl centered; rails
+// 16px off its edges (fits exactly at the xl=1280 breakpoint). Offsets use
+// 50% not 50vw — vw INCLUDES the scrollbar, so vw-based rails sat ~8px right
+// of true center (right gap visibly wider than left, Michael).
 // Mounted by the game layout on every non-immersive page.
 
 const GAMES = [
@@ -85,11 +87,11 @@ export default function DesktopRails() {
   const { profile } = useProfile()
   return (
     <div className="hidden xl:block">
-      <div className="fixed z-[70] w-56" style={{ top: '1.5rem', left: 'calc(50vw - 36rem)' }}>
+      <div className="fixed z-[70] w-56" style={{ top: '1.5rem', left: 'calc(50% - 36rem)' }}>
         <BoardsLeftNav signedIn={!!profile} />
         <ArcadeQuickList />
       </div>
-      <div className="fixed z-[70] w-72" style={{ top: '1.5rem', left: 'calc(50vw + 22rem)' }}>
+      <div className="fixed z-[70] w-72" style={{ top: '1.5rem', left: 'calc(50% + 22rem)' }}>
         {pathname.startsWith('/profile') ? (
           <LocalPlayersPreview />
         ) : (

@@ -19,8 +19,8 @@ export default function ScrollTopButton({ bottomClass = 'bottom-5', wide = false
   }, [])
   if (!show) return null
   const align = wide
-    ? 'right-[max(0.75rem,calc(50vw-20.25rem))]'
-    : 'right-[max(0.75rem,calc(50vw-13.25rem))] xl:right-[max(0.75rem,calc(50vw-20.25rem))]'
+    ? 'right-[max(0.75rem,calc(50%-20.25rem))]'
+    : 'right-[max(0.75rem,calc(50%-13.25rem))] xl:right-[max(0.75rem,calc(50%-20.25rem))]'
   return (
     <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top"
       className={`fixed ${bottomClass} ${align} z-40 h-9 pl-2.5 pr-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-black flex items-center gap-1 shadow-xl active:scale-95 transition`}>
