@@ -57,7 +57,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
         <div className="text-center">
           <p className="text-2xl font-black text-white">This post is gone</p>
           <p className="text-gray-500 text-sm mt-1">Posts live for 48 hours.</p>
-          <Link href="/" className="text-purple-400 hover:text-purple-300 mt-3 inline-block font-bold">← Battle Map</Link>
+          <Link href="/boards" className="text-purple-400 hover:text-purple-300 mt-3 inline-block font-bold">← Boards</Link>
         </div>
       </div>
     )
@@ -80,7 +80,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
       <PsubNav />
       <div className="max-w-xl mx-auto px-4 py-6">
         <nav className="text-sm text-gray-500 mb-4 flex items-center justify-between">
-          <Link href="/" className="hover:text-white">← Battle Map</Link>
+          <Link href="/boards" className="hover:text-white">← Boards</Link>
           {origin && <Link href={originHref} className="text-purple-400 hover:text-purple-300 font-bold">{origin}</Link>}
         </nav>
 
