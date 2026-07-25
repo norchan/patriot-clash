@@ -178,10 +178,15 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
 
   return (
     <div className="rounded-2xl overflow-hidden border border-gray-800 bg-[#1a1f26]">
-      {/* top: the tab strip rides FIRST, full width; the ☰ menu sits in its
-          own thin row BELOW the strip (Michael) */}
-      <div className="bg-[#232930] border-b border-black/40">
-        <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+      {/* top bar: ☰ + tab strip, like the reddit app (the boards ☰ stays LEFT
+          in the strip row — it was the game-layout ☰ on the right that had to
+          move down, Michael) */}
+      <div className="relative flex items-center bg-[#232930] border-b border-black/40">
+        <button onClick={() => setMenuOpen(o => !o)} aria-label="Boards menu"
+          className="shrink-0 px-3.5 py-3 text-gray-300 hover:text-white">
+          <Menu size={20} />
+        </button>
+        <div className="flex-1 flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {tabs.map(name => (
             <button key={name} id={`ptab-${name}`} onClick={() => openTab(name)}
               className={`shrink-0 px-3.5 py-3 text-[13px] font-black transition border-b-2 ${
@@ -192,26 +197,20 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
             </button>
           ))}
         </div>
-        <div className="relative flex items-center border-t border-black/30">
-          <button onClick={() => setMenuOpen(o => !o)} aria-label="Boards menu"
-            className="shrink-0 px-3.5 py-2 text-gray-300 hover:text-white">
-            <Menu size={20} />
-          </button>
 
-          {/* ☰ dropdown */}
-          {menuOpen && (
-            <div className="absolute left-2 top-full mt-1 z-30 w-56 rounded-2xl border border-gray-700 bg-[#232930] shadow-2xl overflow-hidden">
-              <button onClick={() => { setMenuOpen(false); signedIn ? setCreateOpen(true) : router.push('/sign-up') }}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 text-left">
-                <Plus size={16} className="text-purple-400" /> Create a psub
-              </button>
-              <Link href="/p" onClick={() => setMenuOpen(false)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 border-t border-black/30">
-                <LayoutGrid size={16} className="text-purple-400" /> View all psubs
-              </Link>
-            </div>
-          )}
-        </div>
+        {/* ☰ dropdown */}
+        {menuOpen && (
+          <div className="absolute left-2 top-full mt-1 z-30 w-56 rounded-2xl border border-gray-700 bg-[#232930] shadow-2xl overflow-hidden">
+            <button onClick={() => { setMenuOpen(false); signedIn ? setCreateOpen(true) : router.push('/sign-up') }}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 text-left">
+              <Plus size={16} className="text-purple-400" /> Create a psub
+            </button>
+            <Link href="/p" onClick={() => setMenuOpen(false)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 border-t border-black/30">
+              <LayoutGrid size={16} className="text-purple-400" /> View all psubs
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* feed — translates with the finger when swipeNav is on */}
