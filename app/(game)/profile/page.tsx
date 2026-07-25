@@ -49,6 +49,11 @@ interface Post {
   my_vote: number
   media_url?: string | null
   media_type?: 'image' | 'video' | null
+  impressions?: number
+  profile_id?: string
+  username?: string
+  avatar_url?: string | null
+  party?: string | null
 }
 
 // Resize any picked image to a 256px square JPEG data URL before upload
