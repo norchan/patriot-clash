@@ -228,14 +228,13 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
           <>
           <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
           <div className="absolute left-2 top-full mt-1 z-30 w-56 rounded-2xl border border-gray-700 bg-[#232930] shadow-2xl overflow-hidden">
-            {/* Create post rides on TOP (Michael) → the current psub's page,
-                where the composer lives (virtual feeds fall back to politics) */}
+            {/* Create post rides on TOP (Michael) → the full composer page
+                (title + body + pSub picker + link autofill) */}
             <button onClick={() => {
                 setMenuOpen(false)
                 if (!signedIn) { router.push('/sign-up'); return }
-                const virtual = new Set(['all', 'democrats', 'republicans', 'profile'])
                 stampTab(tab)
-                router.push(`/p/${virtual.has(tab) ? 'politics' : tab}`)
+                router.push('/boards/create')
               }}
               className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 text-left border-b border-black/30">
               <PenSquare size={16} className="text-purple-400" /> Create a post

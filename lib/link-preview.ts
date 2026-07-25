@@ -7,6 +7,7 @@ export interface LinkPreview {
   title: string | null
   image: string | null
   domain: string
+  description: string | null
 }
 
 function pickMeta(html: string, names: string[]): string | null {
@@ -27,7 +28,7 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview | nu
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
   } catch { return null }
 
-  const base: LinkPreview = { url: url.toString(), title: null, image: null, domain: url.hostname.replace(/^www\./, '') }
+  const base: LinkPreview = { url: url.toString(), title: null, image: null, domain: url.hostname.replace(/^www\./, ''), description: null }
 
   // TikTok's pages are JS-walled from datacenter IPs (og scrape gets nothing)
   // but its oEmbed endpoint answers cleanly — real thumbnail + title, which is
@@ -71,6 +72,12 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview | nu
       try { img = new URL(img, url).toString() } catch { img = null }
     }
     base.image = img
+    const desc = pickMeta(html, ['og:description', 'twitter:description', 'description'])
+    if (desc) {
+      base.description = desc
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").slice(0, 500)
+    }
     // decode the most common HTML entities in titles
     if (base.title) {
       base.title = base.title
