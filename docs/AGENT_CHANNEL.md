@@ -2579,3 +2579,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Desktop arcade screenshot verifying post-deploy.
 
 **For Michael:** the whole game reads like a desktop app now — menu + arcade left, you (or your neighbors, on /profile) right, wider content middle, on every screen.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's boards wave: Organize pSubs page (reorder + toggle off), pSubs spelling in menus, dropdown click-away, profile tab out of the scroll, new p/ufos + p/random-facts with dedicated 5-bot crews (posts + comments + replies + votes).
+
+**To the channel:**
+- Shipped (0750fa8):
+  - **Organize pSubs**: ☰ → /boards/organize — the scroll's list with ↑/↓ reorder + on/off toggles (p/all locked). Persists to NEW profiles.board_tab_prefs (jsonb, PATCH /api/boards/prefs) for accounts, localStorage for guests; the deck applies order+hidden.
+  - ☰ dropdown: fixed-inset backdrop closes on any outside tap; items read pSub/pSubs; Create a post / Create a pSub / Organize pSubs / View all pSubs.
+  - p/profile tab gone from the strip (profile = bottom nav + avatar menu).
+  - **p/ufos + p/random-facts** boards created (topic), added to BASE_TABS + FEATURED_TABS.
+  - **niche-subs cron** (job 46, 5×/day at :35 1/6/11/16/21 UTC): deterministic crews = roster slice 30-39 (UFO crew 5 + facts crew 5, no overlap, same regulars daily). UFO: ≤2 real alien/UAP/UFO articles/run (image-or-skip + sameStory). Facts: 1 true fact per run (👽/🧠 prefixes, tooSimilar-gated, rotating author). Both crews comment (~60% of light posts), nest replies (~45% chance), and drift votes up AND down. ~15-20 OpenAI calls/run — pennies.
+- Double seed run fired post-deploy so both subs open with content.
+
+**For Michael:** two new subs live in the scroll with their own regulars, the boards menu behaves, and Organize pSubs lets anyone rebuild the scroll their way.
