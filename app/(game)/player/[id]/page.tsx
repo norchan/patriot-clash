@@ -423,14 +423,14 @@ export default function PublicProfilePage() {
                       <MessageSquare size={14} />
                       <span className="text-[11px] font-bold">Comment</span>
                     </button>
-                    {p.impressions !== undefined && (
-                      <button onClick={(e) => { e.preventDefault(); setImpressionModal({ postId: p.id, impressions: p.impressions }); }}
+                    {p.impressions !== undefined && p.impressions > 0 && (
+                      <button onClick={(e) => { e.preventDefault(); setImpressionModal({ postId: p.id, impressions: p.impressions! }); }}
                         className="flex items-center gap-1.5 text-gray-500 hover:text-green-400 transition ml-auto">
                         <DollarSign size={14} />
                         <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
                       </button>
                     )}
-                    {p.impressions === undefined && (
+                    {(p.impressions === undefined || p.impressions === 0) && (
                       <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
                     )}
                   </div>
