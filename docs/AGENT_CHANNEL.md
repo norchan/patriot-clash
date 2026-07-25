@@ -2630,3 +2630,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Title+body store as content 'title\n\nbody' — no schema change; cards render the headline as the first line.
 
 **For Michael:** ☰ → Create a post → craft it, pick the pSub, paste a link and watch the form fill itself.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: multiple cliques per player, joinable from anywhere in the country, always a default, default changeable.
+
+**To the channel:**
+- Shipped (4506c46). Schema: NEW clique_members table (PK clique+profile, backfilled — 2,733 existing memberships migrated 1:1, verified); profiles.clique_id REDEFINED as the DEFAULT clique pointer (all legacy readers — profile pages, player cards — now show the default, which is correct).
+- Rules: join any number, party-bound as before (geography was never restricted — the one-clique rule was the real wall, now gone). First clique auto-becomes default (+adopts its hall as home). Leaving the default auto-promotes the most recent other membership (a player in ANY clique always has a default). POST /api/cliques/default switches it (home hall follows).
+- Membership checks moved to clique_members across: detail roster/count, feed read/write gating, clique post votes, creator approve/remove, empty-clique deletion. Party switch purges all memberships.
+- Cliques page: ✊ My Cliques chip strip (⭐ default, tap to switch panels/chat), ⭐ Make default + per-clique Leave, create always on, browse never blocks joins.
+
+**For Michael:** join as many cliques as you want, coast to coast — star the one that counts as yours in Settings-free fashion, right on the Cliques page.
