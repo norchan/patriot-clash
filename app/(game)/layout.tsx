@@ -135,7 +135,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
     // /boards gets desktop rails (Twitter columns) — the phone-width shell
     // relaxes on lg there; negative-margin breakout inside the overflow-y
     // main just gets clipped, so the shell itself must widen
-    <div className={`min-h-screen bg-gray-950 flex flex-col mx-auto relative ${pathname === '/boards' ? 'max-w-md lg:max-w-none' : 'max-w-md'}`}>
+    <div className={`min-h-screen bg-gray-950 flex flex-col mx-auto relative ${pathname === '/boards' ? 'max-w-md xl:max-w-none' : 'max-w-md'}`}>
       {/* ── Global menu — upper right corner of the GAME COLUMN, every page
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
@@ -143,7 +143,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       // on /boards the psub tab strip owns the very top — the game ☰ drops
       // below it (mobile) and HIDES on desktop, where the boards page shows
       // the same menu as a left sidebar (Michael)
-      <div className={`fixed z-[80] ${pathname === '/boards' ? 'lg:hidden' : ''}`} style={{ top: pathname === '/boards' ? 'calc(3.6rem + env(safe-area-inset-top))' : 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
+      <div className={`fixed z-[80] ${pathname === '/boards' ? 'xl:hidden' : ''}`} style={{ top: pathname === '/boards' ? 'calc(3.6rem + env(safe-area-inset-top))' : 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
           className="relative w-10 h-10 rounded-xl bg-gray-900/90 backdrop-blur border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white shadow-lg transition"

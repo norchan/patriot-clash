@@ -50,10 +50,15 @@ export default async function BoardsPage() {
     // the game shell relaxes its phone width on lg for this page (see
     // layout.tsx) — the three columns center themselves in the open space
     <div className="min-h-screen bg-gray-950">
-      <div className="mx-auto flex justify-center gap-6 lg:px-6">
-        {/* LEFT (desktop): the game menu as a column — the floating ☰ hides on lg */}
-        <aside className="hidden lg:block w-56 shrink-0 pt-6 sticky top-6 self-start">
-          <BoardsLeftNav signedIn={!!profile} />
+      {/* Rails PIN while the feed scrolls (Michael): the game shell's
+          overflow-y main makes CSS sticky a no-op here, so the rail content
+          is FIXED, positioned off the centered 1232px row (224+24+672+24+288)
+          — spacers keep the feed centered. xl+ so the math always fits. */}
+      <div className="mx-auto flex justify-center gap-6 xl:px-6">
+        <aside className="hidden xl:block w-56 shrink-0">
+          <div className="fixed w-56" style={{ top: '1.5rem', left: 'calc(50vw - 38.5rem)' }}>
+            <BoardsLeftNav signedIn={!!profile} />
+          </div>
         </aside>
 
         {/* the feed — Top pill rides the column's own right edge */}
@@ -62,9 +67,10 @@ export default async function BoardsPage() {
           <ScrollTopButton bottomClass="bottom-24" />
         </div>
 
-        {/* RIGHT (desktop): the player card, Twitter-style */}
-        <aside className="hidden lg:block w-72 shrink-0 pt-6 sticky top-6 self-start">
-          <BoardsProfileCard profile={profile ? { username: profile.username, party: profile.party, avatar_url: profile.avatar_url, fp_balance: profile.fp_balance, total_battles_won: profile.total_battles_won } : null} />
+        <aside className="hidden xl:block w-72 shrink-0">
+          <div className="fixed w-72" style={{ top: '1.5rem', left: 'calc(50vw + 20.5rem)' }}>
+            <BoardsProfileCard profile={profile ? { username: profile.username, party: profile.party, avatar_url: profile.avatar_url, fp_balance: profile.fp_balance, total_battles_won: profile.total_battles_won } : null} />
+          </div>
         </aside>
       </div>
     </div>
