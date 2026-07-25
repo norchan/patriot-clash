@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import AboutMeText from '@/components/AboutMeText'
-import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, MessageSquare, Share2, Bell } from 'lucide-react'
+import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, Share2, User, BarChart3, Layers, Home } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
 
@@ -111,21 +111,33 @@ export default function ProfilePage() {
   const photoInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
   const [sharedPost, setSharedPost] = useState('')
-  const [showStats, setShowStats] = useState(false)
-  const [showPhotos, setShowPhotos] = useState(false)
+  // icon dock (Michael): Me / Photos / Stats expand inline; Collection and
+  // House navigate. One open at a time.
+  const [openTab, setOpenTab] = useState<'me' | 'photos' | 'stats' | null>(null)
+  // feed toggles under the composer: my own posts, or my friends' posts
+  const [feedMode, setFeedMode] = useState<'my' | 'friends'>('my')
+  const [friendPosts, setFriendPosts] = useState<any[] | null>(null)
+  useEffect(() => {
+    if (feedMode !== 'friends' || friendPosts !== null) return
+    fetch('/api/posts/friends').then(r => r.json()).then(d => setFriendPosts(d.posts ?? [])).catch(() => setFriendPosts([]))
+  }, [feedMode, friendPosts])
+  // Age (Me menu) inline editor
+  const [ageEditing, setAgeEditing] = useState(false)
+  const [ageDraft, setAgeDraft] = useState('')
+  async function saveAge() {
+    const n = ageDraft.trim() === '' ? null : parseInt(ageDraft, 10)
+    if (n !== null && (isNaN(n) || n < 13 || n > 120)) return
+    await fetch('/api/profile/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ age: n }),
+    }).catch(() => {})
+    await refetch()
+    setAgeEditing(false)
+  }
   // About Me editor
   const [editingAbout, setEditingAbout] = useState(false)
   const [aboutDraft, setAboutDraft] = useState('')
   const [savingAbout, setSavingAbout] = useState(false)
-  const [showRecent, setShowRecent] = useState(false)
-  const [unreadNotifs, setUnreadNotifs] = useState(0)
-
-  useEffect(() => {
-    fetch('/api/notifications')
-      .then(r => r.json())
-      .then(d => setUnreadNotifs(d.unread ?? 0))
-      .catch(() => {})
-  }, [])
 
   async function votePost(post: Post, v: number) {
     setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: (p.score ?? 0) + v - (p.my_vote ?? 0), my_vote: v } : p))
@@ -151,24 +163,6 @@ export default function ProfilePage() {
     setTimeout(() => setSharedPost(''), 1500)
   }
   const [todaySteps, setTodaySteps] = useState<number | null>(null)
-  // Campaign HQ (Print Shop) — production status + claim
-  const [farm, setFarm] = useState<{ ready: number; cap: number; rate_hours: number; next_in_secs: number } | null>(null)
-  const [farmBusy, setFarmBusy] = useState(false)
-  useEffect(() => {
-    fetch('/api/farm').then(r => r.json()).then(d => { if (typeof d.ready === 'number') setFarm(d) }).catch(() => {})
-  }, [])
-  async function claimFarm() {
-    if (farmBusy) return
-    setFarmBusy(true)
-    try {
-      const res = await fetch('/api/farm', { method: 'POST' })
-      const d = await res.json()
-      if (res.ok && d.claimed > 0) {
-        setFarm(f => f ? { ...f, ready: 0, next_in_secs: f.rate_hours * 3600 } : f)
-      }
-    } catch {}
-    setFarmBusy(false)
-  }
   const [albumPhotos, setAlbumPhotos] = useState<{ id: string; url: string }[]>([])
   const [addingPhoto, setAddingPhoto] = useState(false)
   const [viewerStart, setViewerStart] = useState<number | null>(null)
@@ -466,22 +460,17 @@ export default function ProfilePage() {
               </span>
             )}
           </div>
-          {/* mt-11 clears the global menu button fixed in this corner */}
-          <div className="flex flex-col gap-1 self-start mt-11">
-            <button onClick={() => router.push('/notifications')}
-              className="p-2 text-gray-400 hover:text-white relative" aria-label="Notifications">
-              <Bell size={20} />
-              {unreadNotifs > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
-                  {unreadNotifs > 99 ? '99+' : unreadNotifs}
-                </span>
-              )}
-            </button>
-            <button onClick={() => router.push('/messages')}
-              className="p-2 text-gray-400 hover:text-white" aria-label="Messages">
-              <MessageSquare size={20} />
-            </button>
-          </div>
+          {/* mt-11 clears the global menu button fixed in this corner.
+              FP badge (Michael): the ⚡ with the balance right under it —
+              replaces the old notification/message icons; tap → shop */}
+          <button onClick={() => router.push('/shop')}
+            className="flex flex-col items-center self-start mt-11 px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
+            aria-label="Fighting Points — tap for the shop">
+            <Zap size={22} className="text-yellow-400" />
+            <span className="text-yellow-400 font-black text-sm leading-tight mt-0.5">
+              {(profile?.fp_balance ?? 0).toLocaleString()}
+            </span>
+          </button>
         </div>
 
         {/* Rank progress bar */}
@@ -548,204 +537,195 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Photo album — collapsed behind an expandable bar; the big main
-             picture above is the star */}
-      <div className="mx-4 mt-2 bg-gray-900 rounded-2xl overflow-hidden">
-        <button onClick={() => setShowPhotos(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-800 transition">
-          <span className="text-white text-sm font-bold">📸 My Photos <span className="text-gray-500 font-normal">({fullAlbum.length}/13)</span></span>
-          <span className={`text-gray-500 text-xs transition-transform ${showPhotos ? 'rotate-180' : ''}`}>▼</span>
+      {/* ── Icon dock (Michael): Me · Photos · Stats · Collection · House.
+          Me/Photos/Stats expand a menu inline; Collection and House navigate. */}
+      <div className="mx-4 mt-2 grid grid-cols-5 gap-1.5">
+        <button onClick={() => setOpenTab(v => (v === 'me' ? null : 'me'))}
+          className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${openTab === 'me' ? 'bg-purple-900/40 border-purple-600 text-purple-300' : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white'}`}>
+          <User size={20} />
+          <span className="text-[10px] font-bold">Me</span>
         </button>
-        {showPhotos && (
-        <div className="grid grid-cols-3 gap-2 px-3 pb-3">
-          {fullAlbum.map((ph, idx) => (
-            <div key={ph.id} className="relative aspect-square">
-              <button onClick={() => setViewerStart(idx)}
-                className="w-full h-full rounded-xl overflow-hidden border border-gray-800 active:scale-95 transition">
-                <img src={ph.url} alt="" className="w-full h-full object-cover" />
-              </button>
-              {ph.id === 'avatar'
-                ? <span className="absolute top-1 left-1 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">Main</span>
-                : (
-                  <button onClick={() => deleteAlbumPhoto(ph.id)}
-                    className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1"><X size={11} /></button>
-                )}
-            </div>
-          ))}
-          {albumPhotos.length < 12 && (
-            <button onClick={() => albumInputRef.current?.click()} disabled={addingPhoto}
-              className="aspect-square rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center text-gray-500 hover:border-gray-500 hover:text-gray-300 transition disabled:opacity-50">
-              {addingPhoto ? <span className="text-xs">...</span> : <><Plus size={22} /><span className="text-[10px] mt-0.5">Add photo</span></>}
-            </button>
-          )}
-        </div>
-        )}
-        <input ref={albumInputRef} type="file" accept="image/*" hidden
-          onChange={e => e.target.files?.[0] && addAlbumPhoto(e.target.files[0])} />
-      </div>
-
-      {/* Today's steps — tap opens the Step Tracker */}
-      <div className="px-4 mt-3">
-        <button onClick={() => router.push('/steps')}
-          className="w-full bg-gray-900 rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-gray-800 active:scale-[0.99] transition">
-          <div className="w-11 h-11 rounded-full bg-green-500/15 flex items-center justify-center">
-            <Footprints size={20} className="text-green-400" />
-          </div>
-          <div className="flex-1">
-            <p className="text-gray-500 text-xs">Steps today · tap for your Step Tracker</p>
-            <p className="text-green-400 font-black text-2xl leading-tight">{(todaySteps ?? 0).toLocaleString()}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-gray-600 text-[10px]">Streaks · milestones · history</p>
-            <p className="text-gray-400 text-xs">100 FP / 150 steps ›</p>
-          </div>
+        <button onClick={() => setOpenTab(v => (v === 'photos' ? null : 'photos'))}
+          className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${openTab === 'photos' ? 'bg-purple-900/40 border-purple-600 text-purple-300' : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white'}`}>
+          <Camera size={20} />
+          <span className="text-[10px] font-bold">Photos</span>
         </button>
-      </div>
-
-      {/* Campaign HQ — the Print Shop farm (siege rework B4): slowly prints
-          siege firecrackers; claim adds them to the bag */}
-      <div className="px-4 mt-3">
-        <div className="w-full bg-gray-900 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-amber-500/15 flex items-center justify-center text-xl">🖨️</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-gray-500 text-xs">Campaign HQ · Print Shop</p>
-            {farm === null ? (
-              <p className="text-gray-500 text-sm font-bold">Loading…</p>
-            ) : farm.ready > 0 ? (
-              <p className="text-amber-300 font-black text-lg leading-tight">🧨 {farm.ready} firecracker{farm.ready === 1 ? '' : 's'} ready</p>
-            ) : (
-              <p className="text-gray-400 text-sm font-bold">Printing… next 🧨 in {Math.max(1, Math.ceil((farm.next_in_secs ?? 0) / 60))} min</p>
-            )}
-            <p className="text-gray-600 text-[10px]">1 every {farm?.rate_hours ?? 2}h · holds {farm?.cap ?? 10}</p>
-          </div>
-          <button onClick={claimFarm} disabled={!farm || farm.ready <= 0 || farmBusy}
-            className="px-4 py-2.5 rounded-xl font-black text-sm text-black transition active:scale-95 disabled:opacity-35"
-            style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
-            {farmBusy ? '…' : 'CLAIM'}
-          </button>
-        </div>
-      </div>
-
-      {/* My Friends — private list, only you can see it */}
-      <div className="px-4 mt-3">
-        <button onClick={() => router.push('/friends')}
-          className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
-          👥 My Friends
-        </button>
-      </div>
-
-      {/* Stats + battle record — collapsed into an expandable bar */}
-      <div className="mx-4 mt-3 bg-gray-900 rounded-2xl overflow-hidden">
-        <button onClick={() => setShowStats(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-800 transition">
-          <span className="text-white text-sm font-bold">📊 My Stats & Battle Record</span>
-          <span className={`text-gray-500 text-xs transition-transform ${showStats ? 'rotate-180' : ''}`}>▼</span>
-        </button>
-        {showStats && (
-          <div className="px-3 pb-3">
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { icon: <Zap size={18} className="text-yellow-400" />,    label: 'Fighting Points', value: profile?.fp_balance?.toLocaleString() || '0',        color: 'text-yellow-400' },
-                { icon: <Footprints size={18} className="text-green-400" />, label: 'Total Steps',  value: profile?.total_steps?.toLocaleString() || '0',         color: 'text-green-400' },
-                { icon: <Swords size={18} className="text-blue-400" />,   label: 'Battles Won',    value: profile?.total_battles_won?.toLocaleString() || '0',    color: 'text-blue-400' },
-                { icon: <Flag size={18} className="text-purple-400" />,   label: 'Halls Captured', value: profile?.total_gyms_captured?.toLocaleString() || '0', color: 'text-purple-400' },
-              ].map(({ icon, label, value, color }) => (
-                <div key={label} className="bg-gray-800/60 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    {icon}
-                    <span className="text-gray-500 text-xs">{label}</span>
-                  </div>
-                  <div className={`font-bold text-xl ${color}`}>{value}</div>
-                </div>
-              ))}
-            </div>
-            <div className="bg-gray-800/60 rounded-xl p-3 mt-2 flex items-center gap-3">
-              <div className="flex-1 text-center">
-                <div className="text-green-400 font-bold text-xl">{profile?.total_battles_won || 0}</div>
-                <div className="text-gray-500 text-xs">Wins</div>
-              </div>
-              <div className="text-gray-700 font-bold text-xl">/</div>
-              <div className="flex-1 text-center">
-                <div className="text-red-400 font-bold text-xl">{profile?.total_battles_lost || 0}</div>
-                <div className="text-gray-500 text-xs">Losses</div>
-              </div>
-              <div className="text-gray-700 font-bold text-xl">/</div>
-              <div className="flex-1 text-center">
-                <div className="text-gray-400 font-bold text-xl">{winRate}%</div>
-                <div className="text-gray-500 text-xs">Win Rate</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Recent battles — expandable bar */}
-      <div className="mx-4 mt-3 bg-gray-900 rounded-2xl overflow-hidden">
-        <button onClick={() => setShowRecent(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-800 transition">
-          <span className="text-white text-sm font-bold">⚔️ Recent Battles</span>
-          <span className={`text-gray-500 text-xs transition-transform ${showRecent ? 'rotate-180' : ''}`}>▼</span>
-        </button>
-        {showRecent && (
-        <div className="px-4 pb-4">
-        {battlesLoading ? (
-          <p className="text-gray-600 text-sm text-center py-2">Loading...</p>
-        ) : battles.length === 0 ? (
-          <p className="text-gray-600 text-sm text-center py-2">No battles yet — get out there!</p>
-        ) : (
-          <div className="space-y-2">
-            {battles.map(b => {
-              const resultColor = b.result === 'victory' ? '#22c55e'
-                : b.result === 'defeat' ? '#ef4444' : '#6b7280'
-              const resultEmoji = b.result === 'victory' ? '🏆'
-                : b.result === 'defeat' ? '💀' : '🏃'
-              const enemyName = ENEMY_LABELS[b.enemy_type] || b.enemy_type.replace(/_/g, ' ')
-              return (
-                <div key={b.id}
-                  className="flex items-center gap-3 py-2 border-b border-gray-800 last:border-0">
-                  <span className="text-lg w-7 text-center flex-shrink-0">{resultEmoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{enemyName}</p>
-                    <p className="text-gray-500 text-xs">{timeAgo(b.created_at)} · {b.fp_spent} FP spent</p>
-                  </div>
-                  <span className="text-xs font-bold capitalize px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{ color: resultColor, background: `${resultColor}18`, border: `1px solid ${resultColor}44` }}>
-                    {b.result}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-        </div>
-        )}
-      </div>
-
-      {/* Quick links */}
-      <div className="mx-4 mt-3 space-y-2">
-        <button onClick={() => router.push('/fighter')}
-          className="w-full py-3 bg-gray-900 border border-red-900 rounded-xl text-red-400 text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
-          🥊 Design My Fighter
+        <button onClick={() => setOpenTab(v => (v === 'stats' ? null : 'stats'))}
+          className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${openTab === 'stats' ? 'bg-purple-900/40 border-purple-600 text-purple-300' : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white'}`}>
+          <BarChart3 size={20} />
+          <span className="text-[10px] font-bold">Stats</span>
         </button>
         <button onClick={() => router.push('/collection')}
-          className="w-full py-3 bg-gray-900 border border-yellow-900 rounded-xl text-yellow-400 text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
-          🎯 My Collection ({profile?.total_captures || 0} caught)
+          className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-400 hover:text-white transition active:scale-95">
+          <Layers size={20} />
+          <span className="text-[10px] font-bold">Collection</span>
         </button>
-        <button onClick={() => router.push('/leaderboard')}
-          className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
-          🏆 Leaderboard
-        </button>
-        <button onClick={() => router.push('/shop')}
-          className="w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition">
-          ⚡ Buy Fighting Points
+        <button onClick={() => router.push('/hq')}
+          className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-400 hover:text-white transition active:scale-95">
+          <Home size={20} />
+          <span className="text-[10px] font-bold">House</span>
         </button>
       </div>
+
+      {/* Me menu — Steps · Age · Links · Sex · Fighter (+ Friends) */}
+      {openTab === 'me' && (
+        <div className="mx-4 mt-2 bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800 overflow-hidden">
+          <button onClick={() => router.push('/steps')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
+            <Footprints size={17} className="text-green-400 flex-shrink-0" />
+            <span className="text-white text-sm font-bold flex-1">Steps</span>
+            <span className="text-green-400 text-sm font-black">{(todaySteps ?? 0).toLocaleString()} today ›</span>
+          </button>
+          {ageEditing ? (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <span className="text-sm flex-shrink-0">🎂</span>
+              <span className="text-white text-sm font-bold flex-1">Age</span>
+              <input type="number" inputMode="numeric" value={ageDraft} onChange={e => setAgeDraft(e.target.value)}
+                min={13} max={120} autoFocus
+                className="w-20 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-sm text-white outline-none focus:border-purple-500" />
+              <button onClick={saveAge} className="text-purple-400 text-xs font-black">Save</button>
+              <button onClick={() => setAgeEditing(false)} className="text-gray-500 text-xs font-bold">Cancel</button>
+            </div>
+          ) : (
+            <button onClick={() => { setAgeDraft(String((profile as any)?.age ?? '')); setAgeEditing(true) }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
+              <span className="text-sm flex-shrink-0">🎂</span>
+              <span className="text-white text-sm font-bold flex-1">Age</span>
+              <span className="text-gray-400 text-sm">{(profile as any)?.age ?? 'Set ›'}</span>
+            </button>
+          )}
+          <button onClick={() => { setAboutDraft(((profile as any)?.about_me as string) ?? ''); setEditingAbout(true); setOpenTab(null) }}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
+            <span className="text-sm flex-shrink-0">🔗</span>
+            <span className="text-white text-sm font-bold flex-1">Links</span>
+            <span className="text-gray-400 text-sm">Add in About Me ›</span>
+          </button>
+          <button onClick={() => router.push('/settings')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
+            <span className="text-sm flex-shrink-0">⚧️</span>
+            <span className="text-white text-sm font-bold flex-1">Sex</span>
+            <span className="text-gray-400 text-sm capitalize">{(profile as any)?.gender ?? 'Set in Settings'} ›</span>
+          </button>
+          <button onClick={() => router.push('/fighter')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
+            <span className="text-sm flex-shrink-0">🥊</span>
+            <span className="text-white text-sm font-bold flex-1">Fighter</span>
+            <span className="text-gray-400 text-sm">Design ›</span>
+          </button>
+          <button onClick={() => router.push('/friends')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800 transition">
+            <span className="text-sm flex-shrink-0">👥</span>
+            <span className="text-white text-sm font-bold flex-1">Friends</span>
+            <span className="text-gray-400 text-sm">Manage ›</span>
+          </button>
+        </div>
+      )}
+
+      {/* Photos menu — the album grid */}
+      {openTab === 'photos' && (
+        <div className="mx-4 mt-2 bg-gray-900 rounded-2xl border border-gray-800 p-3">
+          <p className="text-white text-sm font-bold mb-2">📸 My Photos <span className="text-gray-500 font-normal">({fullAlbum.length}/13)</span></p>
+          <div className="grid grid-cols-3 gap-2">
+            {fullAlbum.map((ph, idx) => (
+              <div key={ph.id} className="relative aspect-square">
+                <button onClick={() => setViewerStart(idx)}
+                  className="w-full h-full rounded-xl overflow-hidden border border-gray-800 active:scale-95 transition">
+                  <img src={ph.url} alt="" className="w-full h-full object-cover" />
+                </button>
+                {ph.id === 'avatar'
+                  ? <span className="absolute top-1 left-1 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">Main</span>
+                  : (
+                    <button onClick={() => deleteAlbumPhoto(ph.id)}
+                      className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1"><X size={11} /></button>
+                  )}
+              </div>
+            ))}
+            {albumPhotos.length < 12 && (
+              <button onClick={() => albumInputRef.current?.click()} disabled={addingPhoto}
+                className="aspect-square rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center text-gray-500 hover:border-gray-500 hover:text-gray-300 transition disabled:opacity-50">
+                {addingPhoto ? <span className="text-xs">...</span> : <><Plus size={22} /><span className="text-[10px] mt-0.5">Add photo</span></>}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <input ref={albumInputRef} type="file" accept="image/*" hidden
+        onChange={e => e.target.files?.[0] && addAlbumPhoto(e.target.files[0])} />
+
+      {/* Stats menu — every stat except steps, plus leaderboard + recent battles */}
+      {openTab === 'stats' && (
+        <div className="mx-4 mt-2 bg-gray-900 rounded-2xl border border-gray-800 p-3">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { icon: <Zap size={18} className="text-yellow-400" />,    label: 'Fighting Points', value: profile?.fp_balance?.toLocaleString() || '0',           color: 'text-yellow-400' },
+              { icon: <Swords size={18} className="text-blue-400" />,   label: 'Battles Won',     value: profile?.total_battles_won?.toLocaleString() || '0',    color: 'text-blue-400' },
+              { icon: <Flag size={18} className="text-purple-400" />,   label: 'Halls Captured',  value: profile?.total_gyms_captured?.toLocaleString() || '0',  color: 'text-purple-400' },
+              { icon: <Layers size={18} className="text-orange-400" />, label: 'Captures',        value: profile?.total_captures?.toLocaleString() || '0',       color: 'text-orange-400' },
+            ].map(({ icon, label, value, color }) => (
+              <div key={label} className="bg-gray-800/60 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  {icon}
+                  <span className="text-gray-500 text-xs">{label}</span>
+                </div>
+                <div className={`font-bold text-xl ${color}`}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-gray-800/60 rounded-xl p-3 mt-2 flex items-center gap-3">
+            <div className="flex-1 text-center">
+              <div className="text-green-400 font-bold text-xl">{profile?.total_battles_won || 0}</div>
+              <div className="text-gray-500 text-xs">Wins</div>
+            </div>
+            <div className="text-gray-700 font-bold text-xl">/</div>
+            <div className="flex-1 text-center">
+              <div className="text-red-400 font-bold text-xl">{profile?.total_battles_lost || 0}</div>
+              <div className="text-gray-500 text-xs">Losses</div>
+            </div>
+            <div className="text-gray-700 font-bold text-xl">/</div>
+            <div className="flex-1 text-center">
+              <div className="text-gray-400 font-bold text-xl">{winRate}%</div>
+              <div className="text-gray-500 text-xs">Win Rate</div>
+            </div>
+          </div>
+          <button onClick={() => router.push('/leaderboard')}
+            className="w-full mt-2 py-2.5 bg-gray-800/60 rounded-xl text-white text-sm font-bold hover:bg-gray-800 transition">
+            🏆 Leaderboard
+          </button>
+          <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mt-3 mb-1 px-1">⚔️ Recent Battles</p>
+          {battlesLoading ? (
+            <p className="text-gray-600 text-sm text-center py-2">Loading...</p>
+          ) : battles.length === 0 ? (
+            <p className="text-gray-600 text-sm text-center py-2">No battles yet — get out there!</p>
+          ) : (
+            <div className="space-y-2">
+              {battles.map(b => {
+                const resultColor = b.result === 'victory' ? '#22c55e'
+                  : b.result === 'defeat' ? '#ef4444' : '#6b7280'
+                const resultEmoji = b.result === 'victory' ? '🏆'
+                  : b.result === 'defeat' ? '💀' : '🏃'
+                const enemyName = ENEMY_LABELS[b.enemy_type] || b.enemy_type.replace(/_/g, ' ')
+                return (
+                  <div key={b.id}
+                    className="flex items-center gap-3 py-2 border-b border-gray-800 last:border-0">
+                    <span className="text-lg w-7 text-center flex-shrink-0">{resultEmoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{enemyName}</p>
+                      <p className="text-gray-500 text-xs">{timeAgo(b.created_at)} · {b.fp_spent} FP spent</p>
+                    </div>
+                    <span className="text-xs font-bold capitalize px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{ color: resultColor, background: `${resultColor}18`, border: `1px solid ${resultColor}44` }}>
+                      {b.result}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Posts (public feed at the bottom of the profile) ─────────────── */}
       <div className="mx-4 mt-3 mb-6">
-        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Posts</h3>
-
         <div className="bg-gray-900 rounded-2xl border border-gray-800 p-3 mb-3">
           <textarea
             value={postText}
@@ -788,7 +768,53 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {posts.length === 0 ? (
+        {/* feed toggles (Michael): Friend Feed / My Feed under the post box */}
+        <div className="flex gap-2 mb-3">
+          <button onClick={() => setFeedMode('friends')}
+            className={`flex-1 py-2 rounded-xl text-xs font-black transition ${feedMode === 'friends' ? 'bg-purple-700 text-white' : 'bg-gray-900 border border-gray-800 text-gray-400 hover:text-white'}`}>
+            👥 Friend Feed
+          </button>
+          <button onClick={() => setFeedMode('my')}
+            className={`flex-1 py-2 rounded-xl text-xs font-black transition ${feedMode === 'my' ? 'bg-purple-700 text-white' : 'bg-gray-900 border border-gray-800 text-gray-400 hover:text-white'}`}>
+            📝 My Feed
+          </button>
+        </div>
+
+        {feedMode === 'friends' ? (
+          friendPosts === null ? (
+            <p className="text-gray-600 text-sm text-center py-4">Loading friends&apos; posts…</p>
+          ) : friendPosts.length === 0 ? (
+            <p className="text-gray-600 text-sm text-center py-4">
+              No posts from friends yet —{' '}
+              <button onClick={() => router.push('/friends')} className="text-purple-400 font-bold hover:underline">add friends</button>
+              {' '}to fill this feed.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {friendPosts.map(p => (
+                <div key={p.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3">
+                  <button onClick={() => router.push(`/player/${p.profile_id}`)} className="flex items-center gap-2 mb-1.5">
+                    {p.avatar_url
+                      ? <img src={p.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-700" />
+                      : <div className="w-6 h-6 rounded-full bg-gray-700" />}
+                    <span className="text-sm font-bold"
+                      style={{ color: p.party === 'republican' ? '#f87171' : p.party === 'democrat' ? '#60a5fa' : '#d1d5db' }}>
+                      {p.username}
+                    </span>
+                    <span className="text-gray-600 text-xs">{timeAgo(p.created_at)}</span>
+                  </button>
+                  {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
+                  {p.media_type === 'image' && p.media_url && (
+                    <img src={p.media_url} alt="" className="rounded-xl mt-2 w-full max-h-80 object-cover border border-gray-800" />
+                  )}
+                  {p.media_type === 'video' && p.media_url && (
+                    <video src={p.media_url} className="rounded-xl mt-2 w-full max-h-80 border border-gray-800" controls playsInline preload="metadata" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        ) : posts.length === 0 ? (
           <p className="text-gray-600 text-sm text-center py-4">No posts yet — say something!</p>
         ) : (
           <div className="space-y-2">

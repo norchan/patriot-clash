@@ -6,7 +6,7 @@ import OrganizePsubs from '@/components/OrganizePsubs'
 // (Michael). The list mirrors exactly what the deck's strip would show:
 // the featured pSubs plus the player's subscribed boards.
 
-const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts']
+const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts', 'opensecrets']
 
 export default async function OrganizeBoardsPage() {
   const { userId } = await auth()

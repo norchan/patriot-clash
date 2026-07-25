@@ -96,4 +96,4 @@ export async function fetchBoardPosts(admin: any, rb: ResolvedBoard, sort: 'top'
 }
 
 // Featured tab strip, in Michael's order (p/profile is appended by the UI)
-export const FEATURED_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts']
+export const FEATURED_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts', 'opensecrets']

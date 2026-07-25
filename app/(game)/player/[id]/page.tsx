@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Share, Swords, MapPin, MessageSquare, BarChart3, ChevronDown, UserPlus, UserCheck } from 'lucide-react'
+import { ArrowLeft, Share, Swords, MapPin, MessageSquare, BarChart3, UserPlus, UserCheck } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import AboutMeText from '@/components/AboutMeText'
 import { VoteButtons } from '@/components/HallFeed'
@@ -236,63 +236,57 @@ export default function PublicProfilePage() {
                 <AboutMeText text={profile.about_me} />
               </div>
             )}
-            {/* All purple, in order: Challenge, Direct Message, View on Map, Stats */}
-            {viewer?.id !== profile.id && (
-              <>
-                <button
-                  onClick={challenge}
-                  disabled={challenging || (viewer ? viewer.fp_balance < 50 : false)}
-                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-                >
-                  <Swords size={16} /> {challenging ? 'Sending...' : 'Challenge'}
-                </button>
-                <button
-                  onClick={() => router.push(`/messages/${profile.id}`)}
-                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-                >
-                  <MessageSquare size={16} /> Direct Message
-                </button>
-                {/* Add Friend — cross-party welcome; only ever shows YOUR status with them */}
-                <button
-                  onClick={friendStatus === 'none' || friendStatus === 'pending_in' ? addFriend : undefined}
-                  disabled={friendBusy || friendStatus === null || friendStatus === 'friends' || friendStatus === 'pending_out'}
-                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70"
-                  style={{ background: friendStatus === 'friends'
-                    ? 'linear-gradient(135deg, #16a34a, #15803d)'
-                    : 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-                >
-                  {friendStatus === 'friends' ? <><UserCheck size={16} /> Friends ✓</>
-                    : friendStatus === 'pending_out' ? <><UserCheck size={16} /> Request Sent</>
-                    : friendStatus === 'pending_in' ? <><UserPlus size={16} /> Accept Friend Request</>
-                    : <><UserPlus size={16} /> {friendBusy ? 'Sending…' : 'Add Friend'}</>}
-                </button>
-                <button
-                  onClick={() => playerLoc && router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
-                  disabled={!playerLoc}
-                  title={playerLoc ? 'View on map' : "This player's location is hidden"}
-                  className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-                >
-                  <MapPin size={16} /> {playerLoc ? 'View on Map' : 'Location Hidden'}
-                </button>
-                {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
-                {viewer && viewer.fp_balance < 50 && (
-                  <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
-                )}
-              </>
+            {/* Icon row (Michael): the old buttons, as icons under About Me —
+                Fight · Message · Friend · Map · Stats. Stats expands inline. */}
+            <div className={`grid ${viewer?.id !== profile.id ? 'grid-cols-5' : 'grid-cols-1'} gap-1.5`}>
+              {viewer?.id !== profile.id && (
+                <>
+                  <button onClick={challenge}
+                    disabled={challenging || (viewer ? viewer.fp_balance < 50 : false)}
+                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-white transition active:scale-95 disabled:opacity-40">
+                    <Swords size={19} />
+                    <span className="text-[10px] font-bold">{challenging ? '…' : 'Fight'}</span>
+                  </button>
+                  <button onClick={() => router.push(`/messages/${profile.id}`)}
+                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-white transition active:scale-95">
+                    <MessageSquare size={19} />
+                    <span className="text-[10px] font-bold">Message</span>
+                  </button>
+                  {/* Friend — cross-party welcome; only ever shows YOUR status with them */}
+                  <button onClick={friendStatus === 'none' || friendStatus === 'pending_in' ? addFriend : undefined}
+                    disabled={friendBusy || friendStatus === null || friendStatus === 'friends' || friendStatus === 'pending_out'}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${friendStatus === 'friends'
+                      ? 'bg-green-900/30 border-green-800 text-green-400'
+                      : 'bg-gray-900 border-gray-800 text-gray-300 hover:text-white disabled:opacity-40'}`}>
+                    {friendStatus === 'friends' ? <UserCheck size={19} /> : <UserPlus size={19} />}
+                    <span className="text-[10px] font-bold">
+                      {friendStatus === 'friends' ? 'Friends'
+                        : friendStatus === 'pending_out' ? 'Sent'
+                        : friendStatus === 'pending_in' ? 'Accept'
+                        : friendBusy ? '…' : 'Friend'}
+                    </span>
+                  </button>
+                  <button onClick={() => playerLoc && router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
+                    disabled={!playerLoc}
+                    title={playerLoc ? 'View on map' : "This player's location is hidden"}
+                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-white transition active:scale-95 disabled:opacity-40">
+                    <MapPin size={19} />
+                    <span className="text-[10px] font-bold">Map</span>
+                  </button>
+                </>
+              )}
+              <button onClick={() => setStatsOpen(o => !o)}
+                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${statsOpen
+                  ? 'bg-purple-900/40 border-purple-600 text-purple-300'
+                  : 'bg-gray-900 border-gray-800 text-gray-300 hover:text-white'}`}>
+                <BarChart3 size={19} />
+                <span className="text-[10px] font-bold">Stats</span>
+              </button>
+            </div>
+            {challengeMsg && <p className="text-xs text-center text-gray-300">{challengeMsg}</p>}
+            {viewer && viewer.id !== profile.id && viewer.fp_balance < 50 && (
+              <p className="text-red-400 text-[11px] text-center">Need 50 FP to challenge</p>
             )}
-
-            {/* Stats — expandable bubble, same size/color as the buttons above */}
-            <button
-              onClick={() => setStatsOpen(o => !o)}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 flex items-center justify-center gap-2"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-            >
-              <BarChart3 size={16} /> Stats
-              <ChevronDown size={16} className={`transition-transform ${statsOpen ? 'rotate-180' : ''}`} />
-            </button>
             {statsOpen && (
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {[
@@ -317,10 +311,15 @@ export default function PublicProfilePage() {
         <AlbumViewer photos={photos} title={profile.username} onClose={() => setViewerOpen(false)} />
       )}
 
-      {/* Posts */}
+      {/* Posts — friends only (Michael): non-friends see a locked notice */}
       <div className="mx-4 mt-4">
         <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Posts</h3>
-        {posts.length === 0 ? (
+        {viewer?.id !== profile.id && friendStatus !== 'friends' ? (
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-6 text-center">
+            <p className="text-gray-400 text-sm font-bold">🔒 Only friends can see the feed</p>
+            <p className="text-gray-600 text-xs mt-1">Add {profile.username} as a friend to unlock their posts.</p>
+          </div>
+        ) : posts.length === 0 ? (
           <p className="text-gray-600 text-sm text-center py-6">No posts yet.</p>
         ) : (
           <div className="space-y-2">

@@ -74,13 +74,27 @@ export async function GET(
       }
     }
 
+    // The feed is friends-only (Michael): non-friends get no posts, so the
+    // client's locked notice can't be bypassed by hitting the API directly.
+    let isFriend = viewer.id === id
+    if (!isFriend) {
+      const { data: fr } = await admin.from('friendships')
+        .select('id')
+        .eq('status', 'accepted')
+        .or(`and(requester_id.eq.${viewer.id},addressee_id.eq.${id}),and(requester_id.eq.${id},addressee_id.eq.${viewer.id})`)
+        .maybeSingle()
+      isFriend = !!fr
+    }
+
     const [{ data: posts }, { count: hallsHeld }, { data: photos }] = await Promise.all([
-      admin
-        .from('profile_posts')
-        .select('id, content, score, created_at, media_url, media_type')
-        .eq('profile_id', id)
-        .order('created_at', { ascending: false })
-        .limit(20),
+      isFriend
+        ? admin
+            .from('profile_posts')
+            .select('id, content, score, created_at, media_url, media_type')
+            .eq('profile_id', id)
+            .order('created_at', { ascending: false })
+            .limit(20)
+        : Promise.resolve({ data: [] as any[] }),
       // Halls held is computed live — the counter column lags for bots that
       // were garrisoned by seeding rather than by capturing
       admin.from('gyms').select('id', { count: 'exact', head: true }).eq('holder_id', id),

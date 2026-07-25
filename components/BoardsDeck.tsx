@@ -11,7 +11,7 @@ import { ReelCard, type ReelItem } from '@/components/ReelsViewer'
 // ☰ menu + swipeable tab strip (p/all first), active tab underlined; cards
 // carry image, pts, comments, age, author and an up/down/star row.
 
-const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts']
+const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts', 'opensecrets']
 
 interface DeckPost {
   id: string; content: string | null; image_url: string | null

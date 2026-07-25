@@ -22,6 +22,14 @@ export async function PATCH(req: NextRequest) {
       }
       updates.gender = body.gender
     }
+    // Age — shown on the profile's Me menu; null clears it
+    if ('age' in body) {
+      const a = body.age
+      if (a !== null && (!Number.isInteger(a) || a < 13 || a > 120)) {
+        return NextResponse.json({ error: 'Invalid age' }, { status: 400 })
+      }
+      updates.age = a
+    }
     if ('map_visibility' in body) {
       if (!['everyone', 'hide_from_republicans', 'hide_from_democrats', 'nobody'].includes(body.map_visibility)) {
         return NextResponse.json({ error: 'Invalid map visibility' }, { status: 400 })
