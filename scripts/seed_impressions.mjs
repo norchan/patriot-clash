@@ -49,11 +49,14 @@ async function seedImpressions() {
     // Batch update in chunks of 100
     for (let i = 0; i < updates.length; i += 100) {
       const chunk = updates.slice(i, i + 100)
-      const { error: updateError } = await admin
-        .from('profile_posts')
-        .upsert(chunk, { onConflict: 'id' })
-
-      if (updateError) throw updateError
+      // Update only impressions field for each post
+      for (const update of chunk) {
+        const { error: updateError } = await admin
+          .from('profile_posts')
+          .update({ impressions: update.impressions })
+          .eq('id', update.id)
+        if (updateError) throw updateError
+      }
       console.log(`Updated ${Math.min(i + 100, updates.length)}/${updates.length} posts`)
     }
 
