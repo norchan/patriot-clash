@@ -115,7 +115,7 @@ export default function ProfilePage() {
   // House navigate. One open at a time.
   const [openTab, setOpenTab] = useState<'me' | 'photos' | 'stats' | null>(null)
   // feed toggles under the composer: my own posts, or my friends' posts
-  const [feedMode, setFeedMode] = useState<'my' | 'friends'>('my')
+  const [feedMode, setFeedMode] = useState<'my' | 'friends'>('friends')
   const [friendPosts, setFriendPosts] = useState<any[] | null>(null)
   useEffect(() => {
     if (feedMode !== 'friends' || friendPosts !== null) return
