@@ -42,7 +42,7 @@ export default async function ReelsPage({ searchParams }: {
   )
   const items: ReelItem[] = rankedPosts.flatMap((q: any) => {
     const v = videoEmbed(q.link_url)
-    return v ? [{ id: q.id, kind: v.kind, videoId: v.id, vertical: v.vertical, thumb: v.thumb, title: q.link_title ?? q.content, username: q.profiles?.username, party: q.party }] : []
+    return v ? [{ id: q.id, kind: v.kind, videoId: v.id, vertical: v.vertical, thumb: v.thumb, title: q.link_title ?? q.content, username: q.profiles?.username, party: q.party, comments: q.comment_count ?? 0 }] : []
   })
   return <ReelsPager items={items} startId={start} signedIn={!!userId} />
 }

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { X, Play, Plus } from 'lucide-react'
+import { X, Play, Plus, MessageCircle } from 'lucide-react'
 
 // REELS pager (A1 brief Phases 3-5). v2 architecture is load-bearing: slides
 // are plain 100dvh sections in NORMAL document flow with scroll-snap on the
@@ -19,6 +19,7 @@ export interface ReelItem {
   title?: string | null
   username?: string | null
   party?: string | null
+  comments?: number
 }
 
 // Playback params stay the mobile-verified minimal combo; controls=0 hides
@@ -151,23 +152,13 @@ export function ReelsPager({ items, startId, signedIn = false }: { items: ReelIt
               )}
             </>
           )}
-          {(it.title || it.username) && i === active && (
-            <div className="absolute left-3 right-16 bottom-6 pointer-events-none">
-              {it.username && (
-                <p className="flex items-center gap-1.5 text-white/80 text-xs font-black">
-                  <span className="w-2 h-2 rounded-full inline-block" style={{ background: partyColor(it.party) }} />
-                  @{it.username}
-                </p>
-              )}
-              {it.title && <p className="text-white text-sm font-semibold leading-snug line-clamp-2 mt-0.5"
-                style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{it.title}</p>}
-            </div>
-          )}
         </section>
       ))}
 
       {/* end of the batch: retention CTAs, never a dead end (A1 Phase 5) */}
       <section className="relative flex flex-col items-center justify-center gap-3 px-8 text-center"
+        data-idx={ordered.length}
+        ref={el => { slides.current[ordered.length] = el }}
         style={{ height: '100dvh', scrollSnapAlign: 'start' }}>
         <p className="text-3xl">🎬</p>
         <p className="text-white font-black text-lg">You&rsquo;re all caught up</p>
@@ -205,6 +196,39 @@ export function ReelsPager({ items, startId, signedIn = false }: { items: ReelIt
         style={{ top: 'calc(0.75rem + env(safe-area-inset-top))', left: '0.75rem' }}>
         <Plus size={16} /> Add a Reel
       </Link>
+
+      {/* title + username live at the TOP now (Michael) — the old bottom spot
+          sat right on YouTube's closed captions and both became unreadable */}
+      {ordered[active] && (ordered[active].title || ordered[active].username) && (
+        <div className="fixed left-3 right-3 z-20 pointer-events-none"
+          style={{ top: 'calc(3.9rem + env(safe-area-inset-top))' }}>
+          {ordered[active].title && (
+            <p className="text-white text-sm font-semibold leading-snug line-clamp-2"
+              style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{ordered[active].title}</p>
+          )}
+          {ordered[active].username && (
+            <p className="mt-0.5 flex items-center gap-1.5 text-white/80 text-xs font-black"
+              style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
+              <span className="w-2 h-2 rounded-full inline-block" style={{ background: partyColor(ordered[active].party) }} />
+              @{ordered[active].username}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* comments — lower right, straight into the post's thread (Michael) */}
+      {ordered[active] && (
+        <button onClick={() => router.push(`/p/post/${ordered[active].id}`)} aria-label="Comments"
+          className="fixed right-3 z-20 flex flex-col items-center gap-0.5 text-white active:scale-95 transition"
+          style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}>
+          <span className="w-11 h-11 rounded-full bg-black/60 border border-white/25 flex items-center justify-center">
+            <MessageCircle size={20} />
+          </span>
+          <span className="text-[10px] font-black" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+            {ordered[active].comments ?? 0}
+          </span>
+        </button>
+      )}
       {showHint && ordered.length > 1 && active === startIndex && (
         <p className="fixed bottom-2 left-1/2 -translate-x-1/2 z-20 text-white/40 text-[11px] font-bold pointer-events-none">
           swipe up for next ↑
