@@ -51,7 +51,7 @@ export default function MakeMoneyPage() {
             <div className="flex justify-center mb-4">
               <DollarSign size={48} className="text-green-400" />
             </div>
-            <h1 className="text-white font-bold text-3xl mb-2">Make Money with PoliticsGo</h1>
+            <h1 className="text-white font-bold text-3xl mb-2">Anyone Can Make Money with PoliticsGo</h1>
             <p className="text-gray-400">Get paid for your content. Current rate: ${RATE} per 1,000 impressions.</p>
           </div>
 
