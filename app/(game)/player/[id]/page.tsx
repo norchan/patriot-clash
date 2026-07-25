@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import Link from 'next/link'
 import { ArrowLeft, Share, Swords, MessageSquare, BarChart3, UserPlus, UserCheck, Info } from 'lucide-react'
 import AlbumViewer from '@/components/AlbumViewer'
 import AboutMeText from '@/components/AboutMeText'
@@ -360,24 +361,26 @@ export default function PublicProfilePage() {
         ) : (
           <div className="space-y-2">
             {posts.map(p => (
-              <div key={p.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3">
-                {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
-                {p.media_type === 'image' && p.media_url && (
-                  <img src={p.media_url} alt="" className="rounded-xl mt-2 w-full max-h-80 object-cover border border-gray-800" />
-                )}
-                {p.media_type === 'video' && p.media_url && (
-                  <video src={p.media_url} className="rounded-xl mt-2 w-full max-h-80 border border-gray-800" controls playsInline preload="metadata" />
-                )}
-                <div className="flex items-center gap-4 mt-2">
-                  <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => votePost(p, v)} />
-                  <button onClick={() => sharePost(p)}
-                    className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
-                    <Share size={14} />
-                    <span className="text-[11px] font-bold">{shared === p.id ? 'Copied!' : 'Share'}</span>
-                  </button>
-                  <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+              <Link key={p.id} href={`/player/${params.id}/post/${p.id}`}>
+                <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 hover:border-gray-700 hover:bg-gray-800/50 transition cursor-pointer">
+                  {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
+                  {p.media_type === 'image' && p.media_url && (
+                    <img src={p.media_url} alt="" className="rounded-xl mt-2 w-full max-h-80 object-cover border border-gray-800" />
+                  )}
+                  {p.media_type === 'video' && p.media_url && (
+                    <video src={p.media_url} className="rounded-xl mt-2 w-full max-h-80 border border-gray-800" controls playsInline preload="metadata" />
+                  )}
+                  <div className="flex items-center gap-4 mt-2">
+                    <VoteButtons compact score={p.score} myVote={p.my_vote} onVote={v => votePost(p, v)} />
+                    <button onClick={(e) => { e.preventDefault(); sharePost(p); }}
+                      className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
+                      <Share size={14} />
+                      <span className="text-[11px] font-bold">{shared === p.id ? 'Copied!' : 'Share'}</span>
+                    </button>
+                    <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
