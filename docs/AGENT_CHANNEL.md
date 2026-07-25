@@ -2596,3 +2596,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Double seed run fired post-deploy so both subs open with content.
 
 **For Michael:** two new subs live in the scroll with their own regulars, the boards menu behaves, and Organize pSubs lets anyone rebuild the scroll their way.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: Battle Map below Notifications in both menus; Tet-Kris → Block Drop; arcade order Solitaire/Landslide/Block Drop/Checkmate/Slots/Pic Hunt with Pic Hunt flagged (beta) in menu + arcade.
+
+**To the channel:**
+- Shipped (ce3fd07): menus now read Notifications · Battle Map · Reels · Active Players · Active Cliques · Town Hall · Shop · Settings (both ☰ and rail; guests get Battle Map + Reels). Block Drop rename covers the arcade card, rail list, in-game titles and the 4-line clear popup — route /arcade/tetkris and score plumbing untouched. Pic Hunt shows '(beta)' in the rail and on its cabinet card, and sits last in both lists.
+
+**For Michael:** as ordered — Block Drop everywhere, Pic Hunt visibly beta at the back of the line.
