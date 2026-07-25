@@ -2618,3 +2618,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (in latest push): Settings gains an ACCOUNT section at the bottom — 'Switch profile' (signOut → /sign-in, log in as another account) and 'Log out' (signOut → public battle map). Fills the hole left when Log Out was removed from the menus this morning.
 
 **For Michael:** Settings → Account, bottom of the page.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: ☰ Create a post → a real composer page — title, body, pSub picker, links; pasted URLs preload title/body from the preview.
+
+**To the channel:**
+- Shipped (d5e6b19): /boards/create — headline + body fields, searchable pSub picker over all ~190 postable boards (locals excluded, same rule as the API), optional link. URL paste → debounce → new GET /api/link-preview (auth'd, fetchLinkPreview now extracts og:description too) → autofills ONLY untouched fields + shows a live preview card. Submit rides the existing post API (moderation + dead-video gate intact), lands on the new post, stamps the tab for ← Boards.
+- Title+body store as content 'title\n\nbody' — no schema change; cards render the headline as the first line.
+
+**For Michael:** ☰ → Create a post → craft it, pick the pSub, paste a link and watch the form fill itself.
