@@ -2533,3 +2533,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Third lane shipped (c34df8f): Google Nation desk → p/news, '🇺🇸 BREAKING: ' prefix, score 750-880 — under the world crown, above sports. Lanes sharing p/news identify their crowns by prefix; dedupe runs per BOARD so one story can't hold both crowns. p/all's top tier now reads: 🚨 world (900-1100) → 🇺🇸 America (750-880) → 🚨 sports (620-750), each rotating ≤3h.
 
 **For Michael:** the hottest US story now always sits crowned right under the world headline.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: reels title/username sat on top of YouTube's closed captions (both unreadable); wants a comment icon lower right → comments.
+
+**To the channel:**
+- Shipped (db677a3): title now rides at the TOP under the chrome row, username + party dot beneath it — the bottom of the frame belongs to CC. New comment bubble lower right with live count → /p/post/<id> (the post's thread + ReplyBox). Overlays are fixed chrome following the active slide; the end-CTA screen joined the observer so they hide there.
+
+**For Michael:** captions readable, titles readable, and comments are one tap from any reel.
