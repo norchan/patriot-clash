@@ -32,11 +32,11 @@ async function seedImpressions() {
         return { id: post.id, impressions }
       })
 
-      for (let i = 0; i < profileUpdates.length; i += 100) {
-        const chunk = profileUpdates.slice(i, i + 100)
+      for (const update of profileUpdates) {
         await admin
           .from('profile_posts')
-          .upsert(chunk)
+          .update({ impressions: update.impressions })
+          .eq('id', update.id)
           .throwOnError()
       }
       console.log(`✓ Seeded ${profilePosts.length} profile posts`)
@@ -62,11 +62,11 @@ async function seedImpressions() {
         return { id: post.id, impressions }
       })
 
-      for (let i = 0; i < hallUpdates.length; i += 100) {
-        const chunk = hallUpdates.slice(i, i + 100)
+      for (const update of hallUpdates) {
         await admin
           .from('hall_posts')
-          .upsert(chunk)
+          .update({ impressions: update.impressions })
+          .eq('id', update.id)
           .throwOnError()
       }
       console.log(`✓ Seeded ${hallPosts.length} hall posts`)
@@ -93,11 +93,11 @@ async function seedImpressions() {
         return { id: msg.id, impressions }
       })
 
-      for (let i = 0; i < messageUpdates.length; i += 100) {
-        const chunk = messageUpdates.slice(i, i + 100)
+      for (const update of messageUpdates) {
         await admin
           .from('direct_messages')
-          .upsert(chunk)
+          .update({ impressions: update.impressions })
+          .eq('id', update.id)
           .throwOnError()
       }
       console.log(`✓ Seeded ${messages.length} direct messages`)
