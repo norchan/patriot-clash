@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import AboutMeText from '@/components/AboutMeText'
-import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, Share2, User, BarChart3, Layers, Home } from 'lucide-react'
+import { Zap, Footprints, Swords, Flag, Camera, Pencil, Check, X, Plus, Share2, User, BarChart3, Layers, Home, MessageSquare, Share, DollarSign } from 'lucide-react'
+import Link from 'next/link'
 import AlbumViewer from '@/components/AlbumViewer'
 import { VoteButtons } from '@/components/HallFeed'
 
@@ -792,25 +793,47 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-2">
               {friendPosts.map(p => (
-                <div key={p.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3">
-                  <button onClick={() => router.push(`/player/${p.profile_id}`)} className="flex items-center gap-2 mb-1.5">
-                    {p.avatar_url
-                      ? <img src={p.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-700" />
-                      : <div className="w-6 h-6 rounded-full bg-gray-700" />}
-                    <span className="text-sm font-bold"
-                      style={{ color: p.party === 'republican' ? '#f87171' : p.party === 'democrat' ? '#60a5fa' : '#d1d5db' }}>
-                      {p.username}
-                    </span>
-                    <span className="text-gray-600 text-xs">{timeAgo(p.created_at)}</span>
-                  </button>
-                  {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
-                  {p.media_type === 'image' && p.media_url && (
-                    <img src={p.media_url} alt="" className="rounded-xl mt-2 w-full max-h-80 object-cover border border-gray-800" />
-                  )}
-                  {p.media_type === 'video' && p.media_url && (
-                    <video src={p.media_url} className="rounded-xl mt-2 w-full max-h-80 border border-gray-800" controls playsInline preload="metadata" />
-                  )}
-                </div>
+                <Link key={p.id} href={`/player/${p.profile_id}/post/${p.id}`}>
+                  <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 hover:border-gray-700 hover:bg-gray-800/50 transition cursor-pointer">
+                    <button onClick={(e) => { e.preventDefault(); router.push(`/player/${p.profile_id}`) }} className="flex items-center gap-2 mb-1.5">
+                      {p.avatar_url
+                        ? <img src={p.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-700" />
+                        : <div className="w-6 h-6 rounded-full bg-gray-700" />}
+                      <span className="text-sm font-bold"
+                        style={{ color: p.party === 'republican' ? '#f87171' : p.party === 'democrat' ? '#60a5fa' : '#d1d5db' }}>
+                        {p.username}
+                      </span>
+                      <span className="text-gray-600 text-xs">{timeAgo(p.created_at)}</span>
+                    </button>
+                    {p.content && <p className="text-gray-200 text-sm whitespace-pre-wrap break-words mb-2">{p.content}</p>}
+                    {p.media_type === 'image' && p.media_url && (
+                      <img src={p.media_url} alt="" className="rounded-xl w-full max-h-80 object-cover border border-gray-800 mb-2" />
+                    )}
+                    {p.media_type === 'video' && p.media_url && (
+                      <video src={p.media_url} className="rounded-xl w-full max-h-80 border border-gray-800 mb-2" controls playsInline preload="metadata" />
+                    )}
+                    <div className="flex items-center gap-3 mt-2" onClick={(e) => e.stopPropagation()}>
+                      <VoteButtons compact score={p.score ?? 0} myVote={p.my_vote ?? 0} onVote={v => votePost(p, v)} />
+                      <button onClick={(e) => { e.stopPropagation(); sharePost(p) }}
+                        className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition">
+                        <Share2 size={14} />
+                        <span className="text-[11px] font-bold">{sharedPost === p.id ? 'Copied!' : 'Share'}</span>
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation() }}
+                        className="flex items-center gap-1 text-gray-500 hover:text-purple-400 transition">
+                        <MessageSquare size={14} />
+                        <span className="text-[11px] font-bold">Comment</span>
+                      </button>
+                      {p.impressions !== undefined && p.impressions > 0 && (
+                        <button onClick={(e) => { e.stopPropagation() }}
+                          className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition ml-auto">
+                          <DollarSign size={14} />
+                          <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
           )
@@ -838,7 +861,19 @@ export default function ProfilePage() {
                     <Share2 size={14} />
                     <span className="text-[11px] font-bold">{sharedPost === p.id ? 'Copied!' : 'Share'}</span>
                   </button>
-                  <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                  <button className="flex items-center gap-1 text-gray-500 hover:text-purple-400 transition">
+                    <MessageSquare size={14} />
+                    <span className="text-[11px] font-bold">Comment</span>
+                  </button>
+                  {p.impressions !== undefined && p.impressions > 0 && (
+                    <button className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition ml-auto">
+                      <DollarSign size={14} />
+                      <span className="text-[11px] font-bold">{p.impressions.toLocaleString()}</span>
+                    </button>
+                  )}
+                  {(p.impressions === undefined || p.impressions === 0) && (
+                    <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                  )}
                 </div>
               </div>
             ))}
