@@ -1,16 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { useClerk } from '@clerk/nextjs'
-import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, LogOut, Radar, Landmark, Newspaper } from 'lucide-react'
+import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, Radar, Newspaper, Clapperboard } from 'lucide-react'
 import AdBanner, { ADS_ENABLED, AD_BAR_HEIGHT } from '@/components/AdBanner'
 import DesktopRails from '@/components/DesktopRails'
-
-// rails skip /boards (it renders its own inline pair at max-w-none width)
-function DesktopRailsGate({ pathname }: { pathname: string }) {
-  if (pathname === '/boards') return null
-  return <DesktopRails />
-}
 
 const navItems = [
   { href: '/map',            label: 'Map',       icon: Map },
@@ -20,15 +13,15 @@ const navItems = [
   { href: '/boards',         label: 'Boards',    icon: Newspaper },
 ]
 
+// Michael's order (2026-07-24): Profile, Log Out and Active Halls removed;
+// Reels in. Mirrored by components/BoardsSidebars.tsx — keep in sync.
 const menuItems = [
-  { href: '/',              label: 'Battle Map',     icon: Landmark },
-  { href: '/townhall/nearest', label: 'Town Hall',   icon: Building2 },
   { href: '/notifications', label: 'Notifications',  icon: Bell },
-  { href: '/shop',          label: 'Shop',           icon: ShoppingBag },
+  { href: '/reels',         label: 'Reels',          icon: Clapperboard },
   { href: '/active',        label: 'Active Players', icon: Radar },
   { href: '/cliques',       label: 'Active Cliques', icon: Users },
-  { href: '/townhall',      label: 'Active Halls',   icon: Building2 },
-  { href: '/profile',       label: 'Profile',        icon: User },
+  { href: '/townhall/nearest', label: 'Town Hall',   icon: Building2 },
+  { href: '/shop',          label: 'Shop',           icon: ShoppingBag },
   { href: '/settings',      label: 'Settings',       icon: Settings },
 ]
 
@@ -45,7 +38,6 @@ function isActiveGame(path: string): boolean {
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { signOut } = useClerk()
   const [menuOpen, setMenuOpen] = useState(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null) // confirm-before-leave target
   const activeGame = isActiveGame(pathname)
@@ -139,18 +131,17 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const showAds = ADS_ENABLED && !immersive && !adFreeSurface
 
   return (
-    // DESKTOP (xl+): every page gets the boards treatment — the phone shell
-    // widens to the boards feed width (2xl) with pinned rails either side
-    // (DesktopRails); /boards renders its own inline rails at max-w-none.
+    // DESKTOP (xl+): every page — boards included — runs the same geometry:
+    // feed at 2xl centered, pinned rails either side (DesktopRails).
     // Immersive battle screens stay full-bleed and rail-free.
-    <div className={`min-h-screen bg-gray-950 flex flex-col mx-auto relative ${pathname === '/boards' ? 'max-w-md xl:max-w-none' : immersive ? 'max-w-md' : 'max-w-md xl:max-w-2xl'}`}>
+    <div className={`min-h-screen bg-gray-950 flex flex-col mx-auto relative ${immersive ? 'max-w-md' : 'max-w-md xl:max-w-2xl'}`}>
       {/* ── Global menu — upper right corner of the GAME COLUMN, every page
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
       {/* the shell only spans its max-w — keep the WHOLE viewport dark
           behind it on desktop so the rails never sit on a light body */}
       <div className="hidden xl:block fixed inset-0 -z-10 bg-gray-950" />
-      {!immersive && <DesktopRailsGate pathname={pathname} />}
+      {!immersive && <DesktopRails />}
       {!immersive && (
       // on /boards the psub tab strip owns the very top — the game ☰ drops
       // below it (mobile). On xl the ☰ hides EVERYWHERE: the left rail
@@ -187,13 +178,6 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
                   )}
                 </button>
               ))}
-              <button
-                onClick={() => { setMenuOpen(false); signOut(() => router.push('/sign-in')) }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-red-950/40 transition"
-              >
-                <LogOut size={16} />
-                <span className="text-sm font-medium">Log Out</span>
-              </button>
             </div>
           </>
         )}

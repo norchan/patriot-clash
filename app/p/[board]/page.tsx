@@ -221,7 +221,7 @@ export default async function BoardPage({ params, searchParams }: {
           </Link>
         </div>
         {/* Top ↑ pill — sticky at the feed column's own right edge */}
-        <ScrollTopButton />
+        <ScrollTopButton wide />
       </div>
     </div>
   )

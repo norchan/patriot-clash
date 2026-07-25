@@ -2,12 +2,10 @@ import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import BoardsDeck from '@/components/BoardsDeck'
 import ScrollTopButton from '@/components/ScrollTopButton'
-import { BoardsLeftNav, BoardsProfileCard } from '@/components/BoardsSidebars'
 
 // /boards — the boards deck full-page. Mobile: the deck alone (game ☰ rides
-// below the tab strip). DESKTOP (lg+): Twitter-style three columns — the game
-// menu as a static LEFT sidebar (the floating ☰ hides here), the feed center,
-// and the player's profile card on the RIGHT (Michael).
+// below the tab strip). Desktop rails (menu left / profile right) come from
+// the game layout's DesktopRails like every other page — one geometry.
 
 export default async function BoardsPage() {
   const { userId } = await auth()
@@ -47,32 +45,10 @@ export default async function BoardsPage() {
   }))
 
   return (
-    // the game shell relaxes its phone width on lg for this page (see
-    // layout.tsx) — the three columns center themselves in the open space
     <div className="min-h-screen bg-gray-950">
-      {/* Rails PIN while the feed scrolls (Michael): the game shell's
-          overflow-y main makes CSS sticky a no-op here, so the rail content
-          is FIXED, positioned off the centered 1232px row (224+24+672+24+288)
-          — spacers keep the feed centered. xl+ so the math always fits. */}
-      <div className="mx-auto flex justify-center gap-6 xl:px-6">
-        <aside className="hidden xl:block w-56 shrink-0">
-          <div className="fixed w-56" style={{ top: '1.5rem', left: 'calc(50vw - 38.5rem)' }}>
-            <BoardsLeftNav signedIn={!!profile} />
-          </div>
-        </aside>
-
-        {/* the feed — Top pill rides the column's own right edge */}
-        <div className="w-full max-w-2xl min-w-0">
-          <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} swipeNav tall />
-          <ScrollTopButton bottomClass="bottom-24" />
-        </div>
-
-        <aside className="hidden xl:block w-72 shrink-0">
-          <div className="fixed w-72" style={{ top: '1.5rem', left: 'calc(50vw + 20.5rem)' }}>
-            <BoardsProfileCard profile={profile ? { username: profile.username, party: profile.party, avatar_url: profile.avatar_url, fp_balance: profile.fp_balance, total_battles_won: profile.total_battles_won } : null} />
-          </div>
-        </aside>
-      </div>
+      <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} swipeNav tall />
+      {/* blue Top ↑ pill floats over the feed's lower right, all devices */}
+      <ScrollTopButton bottomClass="bottom-24" />
     </div>
   )
 }

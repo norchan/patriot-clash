@@ -1,47 +1,34 @@
 'use client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useClerk } from '@clerk/nextjs'
-import { Landmark, Building2, Bell, ShoppingBag, Radar, Users, User, Settings, LogOut, Clapperboard } from 'lucide-react'
+import { Building2, Bell, ShoppingBag, Radar, Users, Settings, Clapperboard } from 'lucide-react'
 
 // Desktop-only sidebars for /boards (Michael): Twitter-style columns.
 // LEFT — the same destinations as the game ☰ menu (which hides on desktop
 // boards, having moved here). RIGHT — the signed-in player's profile card,
 // or a join card for guests. Both hidden under lg.
 
-// mirrors app/(game)/layout.tsx menuItems — keep in sync when items change
+// mirrors app/(game)/layout.tsx menuItems — Michael's order; keep in sync
 const NAV = [
-  { href: '/', label: 'Battle Map', icon: Landmark },
-  { href: '/townhall/nearest', label: 'Town Hall', icon: Building2 },
-  { href: '/reels', label: 'Reels', icon: Clapperboard },
   { href: '/notifications', label: 'Notifications', icon: Bell },
-  { href: '/shop', label: 'Shop', icon: ShoppingBag },
+  { href: '/reels', label: 'Reels', icon: Clapperboard },
   { href: '/active', label: 'Active Players', icon: Radar },
   { href: '/cliques', label: 'Active Cliques', icon: Users },
-  { href: '/townhall', label: 'Active Halls', icon: Building2 },
-  { href: '/profile', label: 'Profile', icon: User },
+  { href: '/townhall/nearest', label: 'Town Hall', icon: Building2 },
+  { href: '/shop', label: 'Shop', icon: ShoppingBag },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function BoardsLeftNav({ signedIn }: { signedIn: boolean }) {
-  const router = useRouter()
-  const { signOut } = useClerk()
   return (
     <nav className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
-      {(signedIn ? NAV : NAV.filter(n => ['/', '/reels'].includes(n.href))).map(({ href, label, icon: Icon }) => (
+      {(signedIn ? NAV : NAV.filter(n => n.href === '/reels')).map(({ href, label, icon: Icon }) => (
         <Link key={href} href={href}
           className="flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:bg-white/5 hover:text-white transition border-b border-gray-800/60 last:border-0">
           <Icon size={16} className="text-gray-500" />
           <span className="text-sm font-bold">{label}</span>
         </Link>
       ))}
-      {signedIn ? (
-        <button onClick={() => signOut(() => router.push('/sign-in'))}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-red-400 hover:bg-red-950/40 transition">
-          <LogOut size={16} />
-          <span className="text-sm font-bold">Log Out</span>
-        </button>
-      ) : (
+      {!signedIn && (
         <Link href="/sign-up"
           className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-black text-white"
           style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
