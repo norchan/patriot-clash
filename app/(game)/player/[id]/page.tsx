@@ -22,7 +22,7 @@ interface PublicProfile {
 }
 
 interface Clique { id: string; name: string; party: string; gym_id: string | null }
-interface Post { id: string; content: string; created_at: string; score: number; my_vote: number; media_url?: string | null; media_type?: 'image' | 'video' | null; comment_count?: number }
+interface Post { id: string; content: string; created_at: string; score: number; my_vote: number; media_url?: string | null; media_type?: 'image' | 'video' | null; comment_count?: number; impressions?: number }
 
 function timeAgo(iso: string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -53,6 +53,7 @@ export default function PublicProfilePage() {
   // never lists or counts
   const [friendStatus, setFriendStatus] = useState<'none' | 'friends' | 'pending_in' | 'pending_out' | null>(null)
   const [friendBusy, setFriendBusy] = useState(false)
+  const [impressionModal, setImpressionModal] = useState<{ postId: string; impressions: number } | null>(null)
 
   useEffect(() => {
     const id = params.id as string
@@ -343,6 +344,34 @@ export default function PublicProfilePage() {
         </div>
       </div>
 
+      {/* Impression payout modal */}
+      {impressionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setImpressionModal(null)}>
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-lg mb-4">Earnings Estimate</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Impressions</span>
+                <span className="text-white font-bold">{impressionModal.impressions.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Rate</span>
+                <span className="text-white font-bold">$0.10 per 1,000</span>
+              </div>
+              <div className="border-t border-gray-800 pt-3 flex justify-between items-center">
+                <span className="text-gray-300 font-bold">Potential Earnings</span>
+                <span className="text-green-400 font-bold text-lg">${((impressionModal.impressions / 1000) * 0.10).toFixed(2)}</span>
+              </div>
+            </div>
+            <p className="text-gray-500 text-xs mt-4">Withdraw when you reach $50 or after 8 weeks.</p>
+            <button onClick={() => setImpressionModal(null)}
+              className="w-full mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Fullscreen photo viewer (avatar + any extra album photos) */}
       {viewerOpen && photos.length > 0 && (
         <AlbumViewer photos={photos} title={profile.username} onClose={() => setViewerOpen(false)} />
@@ -382,7 +411,15 @@ export default function PublicProfilePage() {
                       <MessageSquare size={14} />
                       <span className="text-[11px] font-bold">Comment</span>
                     </button>
-                    <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                    {p.impressions !== undefined && (
+                      <button onClick={(e) => { e.preventDefault(); setImpressionModal({ postId: p.id, impressions: p.impressions }); }}
+                        className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition ml-auto">
+                        <span className="text-[11px] font-bold">{p.impressions.toLocaleString()} views</span>
+                      </button>
+                    )}
+                    {p.impressions === undefined && (
+                      <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
+                    )}
                   </div>
                 </div>
               </Link>
