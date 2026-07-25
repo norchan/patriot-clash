@@ -137,8 +137,8 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
       {!immersive && (
-      {/* on /boards the psub tab strip owns the very top — the game ☰ drops
-          below it so it never covers the right-end tabs (Michael) */}
+      // on /boards the psub tab strip owns the very top — the game ☰ drops
+      // below it so it never covers the right-end tabs (Michael)
       <div className="fixed z-[80]" style={{ top: pathname === '/boards' ? 'calc(3.6rem + env(safe-area-inset-top))' : 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
