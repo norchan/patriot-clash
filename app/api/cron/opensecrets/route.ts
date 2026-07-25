@@ -16,23 +16,33 @@ export const maxDuration = 300
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36' }
 
+// opensecrets.org Cloudflare-403s ALL datacenter fetches (index, articles,
+// even their RSS) — verified 2026-07-25. Discovery therefore rides Google
+// News RSS (site:opensecrets.org/news), and resolveArticle's batchexecute
+// decode recovers the real article URL without ever fetching their site.
 async function fetchNewsLinks(): Promise<{ url: string; title: string }[]> {
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 10000)
-    const r = await fetch('https://www.opensecrets.org/news/', { headers: UA, cache: 'no-store', signal: ctrl.signal })
+    const feed = `https://news.google.com/rss/search?q=${encodeURIComponent('site:opensecrets.org/news when:30d')}&hl=en-US&gl=US&ceid=US:en`
+    const r = await fetch(feed, { headers: UA, cache: 'no-store', signal: ctrl.signal })
     clearTimeout(t)
     if (!r.ok) return []
-    const html = await r.text()
-    // article links look like /news/2026/07/some-slug/ — grab anchor + text
+    const xml = await r.text()
     const out: { url: string; title: string }[] = []
     const seen = new Set<string>()
-    for (const m of html.matchAll(/<a[^>]+href="(\/news\/\d{4}\/\d{2}\/[^"#?]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
-      const url = `https://www.opensecrets.org${m[1]}`
-      const title = m[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
-      if (!title || title.length < 15 || seen.has(url)) continue
-      seen.add(url)
-      out.push({ url, title: title.slice(0, 280) })
+    for (const chunk of xml.split(/<item[\s>]/).slice(1)) {
+      const body = chunk.split('</item>')[0]
+      let title = /<title[^>]*>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?\s*<\/title>/.exec(body)?.[1]?.trim()
+      const link = /<link[^>]*>\s*(?:<!\[CDATA\[)?\s*(https?:[^<\]\s]+)/.exec(body)?.[1]
+      if (!title || !link || seen.has(link)) continue
+      title = title.replace(/&amp;/g, '&').replace(/&#0?39;/g, "'").replace(/&quot;/g, '"')
+        .replace(/\s+-\s+OpenSecrets\s*$/i, '').trim()
+      // search/archive/profile index pages sneak into the site: query
+      if (/you searched for|^archives\b|donor lookup|organization search|profile: summary/i.test(title)) continue
+      if (title.length < 15) continue
+      seen.add(link)
+      out.push({ url: link, title: title.slice(0, 280) })
       if (out.length >= 15) break
     }
     return out
@@ -40,6 +50,12 @@ async function fetchNewsLinks(): Promise<{ url: string; title: string }[]> {
     return []
   }
 }
+
+// Because their og:images are unreachable from datacenters, posts fall back
+// to a rotating branded card pool (generated locally, avatars bucket).
+const CARD_POOL = [1, 2, 3, 4].map(n =>
+  `https://kwwvvkrooefaoqaggdrl.supabase.co/storage/v1/object/public/avatars/boards/opensecrets/card${n}.png`)
+const hash32 = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h) }
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
 
@@ -71,14 +87,20 @@ export async function GET(req: NextRequest) {
   const links = new Set((recent ?? []).map(p => p.link_url).filter(Boolean))
   const titles = (recent ?? []).map(p => p.link_title ?? p.content ?? '').filter(Boolean)
 
-  const stats = { shift, bot: bot.username, posted: 0, commented: 0, replied: 0, skipped_dupe: 0, skipped_no_image: 0 }
+  const stats = { shift, bot: bot.username, posted: 0, commented: 0, replied: 0, skipped_dupe: 0, skipped_junk: 0 }
 
   // ── post one fresh article (never a double) ──────────────────────────────
   for (const item of await fetchNewsLinks()) {
     if (stats.posted >= 1) break
-    if (links.has(item.url) || titles.some(t => sameStory(t, item.title))) { stats.skipped_dupe++; continue }
+    if (titles.some(t => sameStory(t, item.title))) { stats.skipped_dupe++; continue }
     const a = await resolveArticle(item.url)
-    if (!a.image || !/^https:\/\//.test(a.image)) { stats.skipped_no_image++; continue } // house rule
+    // only real article pages — kills profile/search/index pages the
+    // site: query sneaks in
+    if (!/opensecrets\.org\/news\/\d{4}\/\d{2}\//.test(a.url)) { stats.skipped_junk++; continue }
+    if (links.has(a.url)) { stats.skipped_dupe++; continue }
+    const image = a.image && /^https:\/\//.test(a.image)
+      ? a.image
+      : CARD_POOL[hash32(a.url) % CARD_POOL.length]
     const { error } = await admin.from('hall_posts').insert({
       board_id: board.id,
       profile_id: bot.id,
@@ -87,10 +109,10 @@ export async function GET(req: NextRequest) {
       link_url: a.url,
       link_title: item.title,
       link_domain: a.domain ?? 'opensecrets.org',
-      link_image: a.image,
+      link_image: image,
       score: 2 + Math.floor(Math.random() * 9),
     })
-    if (!error) { stats.posted++; links.add(item.url); titles.push(item.title) }
+    if (!error) { stats.posted++; links.add(a.url); titles.push(item.title) }
   }
 
   // ── the on-duty bot hangs around: comments on arbitrary posts + sometimes
