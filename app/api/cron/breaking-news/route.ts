@@ -5,9 +5,11 @@ import { sameStory } from '@/lib/content-unique'
 
 // BREAKING-NEWS ENGINE (Michael): something goes out hunting for the hot
 // story of the hour and pins it to the top of p/all with artificial upvotes.
-// TWO LANES since 2026-07-24 (the LeBron lesson — a mega sports story sat
-// buried at score 4 while 108 posts covered it):
+// THREE LANES since 2026-07-24 (the LeBron lesson — a mega sports story sat
+// buried at score 4 while 108 posts covered it; US lane added same day):
 //  - NEWS lane: Google Top Stories → p/news at score 900-1100 (top of p/all)
+//  - US lane: Google Nation desk (hottest US stories) → p/news at 750-880,
+//    🇺🇸 prefix — right under the world crown
 //  - SPORTS lane: Google Sports desk → p/sports at score 620-750 — TOP of
 //    p/sports and rides high on p/all without outranking hard news
 // Rules per lane:
@@ -20,13 +22,15 @@ import { sameStory } from '@/lib/content-unique'
 
 export const maxDuration = 120
 
-const BREAKING_PREFIX = '🚨 BREAKING: '
 const REIGN_MS = 3 * 3600 * 1000
 
 interface Lane {
   key: string
   feed: string
   boardSlug: string
+  /** the crown's content prefix — also how a lane recognizes its own crowns
+      when two lanes share a board (news + us both live on p/news) */
+  prefix: string
   /** crown score */
   crown: () => number
   /** freshness window for candidates (breaking means NOW; sports runs longer) */
@@ -37,13 +41,23 @@ const LANES: Lane[] = [
     key: 'news',
     feed: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',
     boardSlug: 'news',
+    prefix: '🚨 BREAKING: ',
     crown: () => 900 + Math.floor(Math.random() * 200),
     freshMs: 6 * 3600 * 1000,
+  },
+  {
+    key: 'us',
+    feed: 'https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en',
+    boardSlug: 'news',
+    prefix: '🇺🇸 BREAKING: ',
+    crown: () => 750 + Math.floor(Math.random() * 130),
+    freshMs: 8 * 3600 * 1000,
   },
   {
     key: 'sports',
     feed: 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en',
     boardSlug: 'sports',
+    prefix: '🚨 BREAKING: ',
     crown: () => 620 + Math.floor(Math.random() * 130),
     freshMs: 12 * 3600 * 1000,
   },
@@ -89,10 +103,10 @@ export async function GET(req: NextRequest) {
   const [{ data: boards }, { data: bots }, { data: reigning }] = await Promise.all([
     admin.from('boards').select('id, slug').in('slug', LANES.map(l => l.boardSlug)),
     admin.from('profiles').select('id').like('clerk_user_id', 'bot%').limit(400),
-    // every crown of the last 3 days, all lanes (dedupe + reign bookkeeping)
+    // every crown of the last 3 days, all lanes/prefixes (dedupe + reigns)
     admin.from('hall_posts')
       .select('id, board_id, content, link_url, link_title, created_at, score')
-      .like('content', `${BREAKING_PREFIX}%`)
+      .like('content', '%BREAKING:%')
       .gte('created_at', new Date(Date.now() - 3 * 86400 * 1000).toISOString())
       .order('created_at', { ascending: false })
       .limit(120),
@@ -104,7 +118,11 @@ export async function GET(req: NextRequest) {
   for (const lane of LANES) {
     const laneBoardId = boardId.get(lane.boardSlug)
     if (!laneBoardId) { result[lane.key] = 'board missing'; continue }
-    const laneCrowns = (reigning ?? []).filter(p => p.board_id === laneBoardId)
+    // all crowns on this board (cross-lane dedupe — the same mega story can
+    // top both Top Stories and the Nation desk); the LANE's own crowns are
+    // the prefix-matched subset (reign bookkeeping)
+    const boardCrowns = (reigning ?? []).filter(p => p.board_id === laneBoardId)
+    const laneCrowns = boardCrowns.filter(p => (p.content ?? '').startsWith(lane.prefix))
 
     // ── 1. End expired reigns: crowns older than 3h fall back into the
     // normal feed (their real conversation keeps them alive or not) ────────
@@ -139,9 +157,11 @@ export async function GET(req: NextRequest) {
     } catch { /* feed hiccup — try again next hour */ }
     if (!pool.length) { result[lane.key] = { demoted, posted: 0, note: 'no fresh stories' }; continue }
 
-    // a story only reigns once per lane
-    const pastTitles = laneCrowns.map(p => (p.link_title ?? p.content ?? '').replace(BREAKING_PREFIX, ''))
-    const pastLinks = new Set(laneCrowns.map(p => p.link_url).filter(Boolean))
+    // a story only reigns once per BOARD (covers the news+us shared board);
+    // link_title is prefix-free, content is the fallback with prefix stripped
+    const stripPrefix = (s: string) => { const i = s.indexOf('BREAKING: '); return i >= 0 ? s.slice(i + 'BREAKING: '.length) : s }
+    const pastTitles = boardCrowns.map(p => p.link_title ?? stripPrefix(p.content ?? ''))
+    const pastLinks = new Set(boardCrowns.map(p => p.link_url).filter(Boolean))
 
     let posted = 0, skippedDupe = 0, skippedNoImage = 0
     for (const item of pool) {
@@ -153,7 +173,7 @@ export async function GET(req: NextRequest) {
         board_id: laneBoardId,
         profile_id: bot.id,
         party: null,
-        content: BREAKING_PREFIX + item.title,
+        content: lane.prefix + item.title,
         link_url: a.url,
         link_title: item.title,
         link_domain: a.domain ?? item.source,
