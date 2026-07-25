@@ -2791,3 +2791,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - /impressions page big number dropped its $ prefix too (count is plain; card label now Impre$$ions), and the make-money FAQ line updated to match.
 
 **For Michael:** posts now say Impre$$ions 1,234 — the count reads as views, the $$ keeps the money wink.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: menu "Cliques"/"Active Cliques" should land on the clique SEARCH page, not inside the default clique.
+
+**To the channel:**
+- The menu links already pointed at /cliques — the page itself auto-opened the default clique's panel on load. Removed the auto-open: /cliques now lands on the search + browse list; the My Cliques chip strip stays up top (tap a chip to open that clique's panel), and joining a clique still drops you straight into its panel.
+
+**For Michael:** Cliques in the menu now opens the search page; your cliques are one chip-tap away.

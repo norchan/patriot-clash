@@ -76,9 +76,10 @@ export default function CliquesPage() {
       const mine = data.my_cliques ?? []
       setMyCliques(mine)
       setMyDefaultId(data.my_default_id ?? null)
-      setMyCliqueId(prev => (prev && mine.some((m: any) => m.id === prev))
-        ? prev
-        : (data.my_default_id ?? mine[0]?.id ?? null))
+      // Land on the SEARCH page, not inside the default clique (Michael):
+      // no panel auto-opens — tap a My Cliques chip to open one. A panel
+      // already open (join / chip tap) survives reloads.
+      setMyCliqueId(prev => (prev && mine.some((m: any) => m.id === prev)) ? prev : null)
       setMyPendingId(data.my_pending_id ?? null)
     } catch {}
     setLoading(false)
