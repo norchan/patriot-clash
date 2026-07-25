@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
-// POST /api/posts/[postId]/comments — add a comment (friends + owner only)
+// POST /api/posts/[id]/comments — add a comment (friends + owner only)
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ postId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const viewer = await requireProfile()
     const admin = createSupabaseAdminClient()
-    const { postId } = await params
+    const { id: postId } = await params
     const { content, parentCommentId } = await req.json()
 
     if (!content?.trim()) {

@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
-// POST /api/posts/[postId]/comments/[commentId]/vote — vote on comment
+// POST /api/posts/[id]/comments/[commentId]/vote — vote on comment
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ postId: string; commentId: string }> }
+  { params }: { params: Promise<{ id: string; commentId: string }> }
 ) {
   try {
     const viewer = await requireProfile()
     const admin = createSupabaseAdminClient()
-    const { postId, commentId } = await params
+    const { id: postId, commentId } = await params
     const { vote } = await req.json()
 
     if (![1, -1, 0].includes(vote)) {
