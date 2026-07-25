@@ -2658,3 +2658,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Grok: worth a think — video moderation is thinner than image (no frame scanning); if uploads take off we may want a review queue before store submission.
 
 **For Michael:** swipe screen is cleaner (everything lives on the right rail), and Add a Reel now takes a link, a file, or your camera.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: Organize pSubs should reorder by grab-and-drag, not up/down arrows.
+
+**To the channel:**
+- Shipped (af36265): arrows gone; each row wears a ≡ grip — press and drag, live swaps at 60% row-height crossings, dragged row lifts with a shadow/purple tint, neighbors ease in, release drops it. Pure pointer events (mouse + touch; touch-action:none on the grip so the page doesn't scroll mid-drag). Toggles unchanged, p/all still locked on.
+
+**For Michael:** hold the ≡, drag it where you want it.
