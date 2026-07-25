@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Menu, Plus, LayoutGrid, X, Play, PenSquare } from 'lucide-react'
+import { Menu, Plus, LayoutGrid, X, Play, PenSquare, ChevronLeft, ChevronRight } from 'lucide-react'
 import PostActions from '@/components/PostActions'
 import { videoEmbed } from '@/lib/video-embed'
 import { ReelCard, type ReelItem } from '@/components/ReelsViewer'
@@ -60,6 +60,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
   const [createErr, setCreateErr] = useState('')
   const [creating, setCreating] = useState(false)
   const cache = useRef<Record<string, DeckPost[]>>({ all: initialPosts })
+  const stripRef = useRef<HTMLDivElement>(null) // the psub tab scroller (desktop arrows nudge it)
 
   // ── back-to-the-same-spot (Michael, refined): the stamp is CONSUMED once.
   // p/ pages (and the deck itself, right before it navigates away) stamp the
@@ -186,7 +187,13 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
           className="shrink-0 px-3.5 py-3 text-gray-300 hover:text-white">
           <Menu size={20} />
         </button>
-        <div className="flex-1 flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+        {/* desktop: arrows nudge the psub strip (no trackpad needed) */}
+        <button onClick={() => stripRef.current?.scrollBy({ left: -260, behavior: 'smooth' })}
+          aria-label="Scroll psubs left"
+          className="hidden xl:flex shrink-0 self-stretch items-center justify-center w-7 text-gray-500 hover:text-white transition">
+          <ChevronLeft size={16} />
+        </button>
+        <div ref={stripRef} className="flex-1 flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {tabs.map(name => (
             <button key={name} id={`ptab-${name}`} onClick={() => openTab(name)}
               className={`shrink-0 px-3.5 py-3 text-[13px] font-black transition border-b-2 ${
@@ -197,6 +204,11 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
             </button>
           ))}
         </div>
+        <button onClick={() => stripRef.current?.scrollBy({ left: 260, behavior: 'smooth' })}
+          aria-label="Scroll psubs right"
+          className="hidden xl:flex shrink-0 self-stretch items-center justify-center w-7 text-gray-500 hover:text-white transition">
+          <ChevronRight size={16} />
+        </button>
 
         {/* ☰ dropdown */}
         {menuOpen && (
