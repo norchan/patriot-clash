@@ -90,7 +90,7 @@ export async function GET(
       isFriend
         ? admin
             .from('profile_posts')
-            .select('id, content, score, created_at, media_url, media_type')
+            .select('id, content, score, created_at, media_url, media_type, impressions, my_vote')
             .eq('profile_id', id)
             .order('created_at', { ascending: false })
             .limit(20)
