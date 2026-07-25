@@ -1,13 +1,13 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowLeft, GripVertical } from 'lucide-react'
 
 // ORGANIZE pSUBS (Michael): the pSubs exactly as the boards scroll shows
-// them — move each up/down to set your order, switch off the ones you don't
-// want. p/all is locked on (it's the landing tab). Saves to the account for
-// signed-in players (follows you across devices) and to this device for
-// guests.
+// them — GRAB the ≡ handle and drag a pSub where you want it (no more
+// up/down arrows), switch off the ones you don't want. p/all is locked on
+// (it's the landing tab). Saves to the account for signed-in players
+// (follows you across devices) and to this device for guests.
 
 interface Row { slug: string; on: boolean }
 
@@ -26,14 +26,49 @@ export default function OrganizePsubs({ initialTabs, prefs, signedIn }: {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  const move = (i: number, dir: -1 | 1) => {
-    const j = i + dir
-    if (j < 0 || j >= rows.length) return
-    const next = [...rows]
-    ;[next[i], next[j]] = [next[j], next[i]]
-    setRows(next)
+  // ── grab-and-drag reordering (Michael: "a grab hold method") ────────────
+  // Pointer-based, no library: grip a row's ≡ handle, drag — crossing 60% of
+  // a row's height swaps positions live; release drops it where it sits.
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOff, setDragOff] = useState(0)
+  const rowsRef = useRef(rows)
+  useEffect(() => { rowsRef.current = rows }, [rows])
+
+  function grip(e: React.PointerEvent, i: number) {
+    e.preventDefault()
+    const rowEl = (e.currentTarget as HTMLElement).closest('[data-row]') as HTMLElement | null
+    const d = { idx: i, startY: e.clientY, rowH: rowEl?.offsetHeight ?? 46 }
+    setDragIdx(i)
+    setDragOff(0)
     setSaved(false)
+    const move = (ev: PointerEvent) => {
+      let off = ev.clientY - d.startY
+      while (off > d.rowH * 0.6 && d.idx < rowsRef.current.length - 1) {
+        const from = d.idx
+        setRows(r => { const n = [...r]; [n[from], n[from + 1]] = [n[from + 1], n[from]]; return n })
+        d.idx += 1; d.startY += d.rowH; off -= d.rowH
+        setDragIdx(d.idx)
+      }
+      while (off < -d.rowH * 0.6 && d.idx > 0) {
+        const from = d.idx
+        setRows(r => { const n = [...r]; [n[from], n[from - 1]] = [n[from - 1], n[from]]; return n })
+        d.idx -= 1; d.startY -= d.rowH; off += d.rowH
+        setDragIdx(d.idx)
+      }
+      setDragOff(off)
+    }
+    const up = () => {
+      setDragIdx(null)
+      setDragOff(0)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
   }
+
   const toggle = (i: number) => {
     if (rows[i].slug === 'all') return
     const next = [...rows]
@@ -63,22 +98,23 @@ export default function OrganizePsubs({ initialTabs, prefs, signedIn }: {
           <h1 className="text-white font-black text-lg">Organize pSubs</h1>
         </div>
         <p className="text-gray-500 text-xs mt-1.5">
-          Set the order of your boards scroll and switch off the pSubs you don&rsquo;t want. p/all always stays on.
+          Hold the ≡ handle and drag a pSub where you want it; switch off the ones you don&rsquo;t want. p/all always stays on.
         </p>
 
         <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
           {rows.map((r, i) => (
-            <div key={r.slug}
-              className={`flex items-center gap-2 px-3 py-2.5 border-b border-gray-800/60 last:border-0 ${r.on ? '' : 'opacity-45'}`}>
-              <span className="flex-1 text-sm font-bold text-gray-200 truncate">p/{r.slug}</span>
-              <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up"
-                className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-30 active:scale-95 transition">
-                <ArrowUp size={14} />
-              </button>
-              <button onClick={() => move(i, 1)} disabled={i === rows.length - 1} aria-label="Move down"
-                className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-30 active:scale-95 transition">
-                <ArrowDown size={14} />
-              </button>
+            <div key={r.slug} data-row
+              className={`flex items-center gap-2 px-3 py-2.5 border-b border-gray-800/60 last:border-0 ${r.on ? '' : 'opacity-45'} ${dragIdx === i ? 'bg-purple-950/40' : ''}`}
+              style={dragIdx === i
+                ? { transform: `translateY(${dragOff}px)`, position: 'relative', zIndex: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }
+                : dragIdx !== null ? { transition: 'transform 120ms ease' } : undefined}>
+              {/* grab handle — hold and drag the pSub where you want it */}
+              <span onPointerDown={e => grip(e, i)}
+                className="shrink-0 w-9 h-9 -ml-1 rounded-lg flex items-center justify-center text-gray-500 hover:text-white cursor-grab active:cursor-grabbing"
+                style={{ touchAction: 'none' }} aria-label="Drag to reorder">
+                <GripVertical size={17} />
+              </span>
+              <span className="flex-1 text-sm font-bold text-gray-200 truncate select-none">p/{r.slug}</span>
               <button onClick={() => toggle(i)} disabled={r.slug === 'all'} aria-label={r.on ? 'Turn off' : 'Turn on'}
                 className={`relative w-12 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${r.on ? 'bg-green-600' : 'bg-gray-700'}`}>
                 <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${r.on ? 'left-6' : 'left-0.5'}`} />
