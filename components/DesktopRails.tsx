@@ -16,13 +16,14 @@ import { BoardsLeftNav, BoardsProfileCard } from '@/components/BoardsSidebars'
 // of true center (right gap visibly wider than left, Michael).
 // Mounted by the game layout on every non-immersive page.
 
+// Michael's order — Pic Hunt last and flagged (beta) until it's finished
 const GAMES = [
-  { href: '/arcade', label: 'Slots', emoji: '🎰' },
-  { href: '/arcade/spotit', label: 'Pic Hunt', emoji: '🔍' },
-  { href: '/arcade/chess', label: 'Checkmate Chamber', emoji: '♟️' },
-  { href: '/arcade/landslide', label: 'Landslide', emoji: '🌀' },
-  { href: '/arcade/tetkris', label: 'TetKris', emoji: '🧱' },
   { href: '/arcade/solitaire', label: 'Solitaire', emoji: '🃏' },
+  { href: '/arcade/landslide', label: 'Landslide', emoji: '🌀' },
+  { href: '/arcade/tetkris', label: 'Block Drop', emoji: '🧱' },
+  { href: '/arcade/chess', label: 'Checkmate Chamber', emoji: '♟️' },
+  { href: '/arcade', label: 'Slots', emoji: '🎰' },
+  { href: '/arcade/spotit', label: 'Pic Hunt (beta)', emoji: '🔍' },
 ]
 
 function ArcadeQuickList() {

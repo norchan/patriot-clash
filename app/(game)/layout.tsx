@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, Radar, Newspaper, Clapperboard } from 'lucide-react'
+import { Map, Building2, MessageSquare, ShoppingBag, Users, Menu, User, Settings, Bell, Radar, Newspaper, Clapperboard, Landmark } from 'lucide-react'
 import AdBanner, { ADS_ENABLED, AD_BAR_HEIGHT } from '@/components/AdBanner'
 import DesktopRails from '@/components/DesktopRails'
 
@@ -17,6 +17,7 @@ const navItems = [
 // Reels in. Mirrored by components/BoardsSidebars.tsx — keep in sync.
 const menuItems = [
   { href: '/notifications', label: 'Notifications',  icon: Bell },
+  { href: '/',              label: 'Battle Map',     icon: Landmark },
   { href: '/reels',         label: 'Reels',          icon: Clapperboard },
   { href: '/active',        label: 'Active Players', icon: Radar },
   { href: '/cliques',       label: 'Active Cliques', icon: Users },

@@ -15,17 +15,19 @@ interface GameEntry {
   badge?: string
 }
 
+// Michael's order: Solitaire · Landslide · Block Drop · Checkmate · Slots ·
+// Pic Hunt last, flagged (beta) until it's finished
 const GAMES: GameEntry[] = [
   {
-    id: 'spotit', name: 'Pic Hunt', art: '/arcade/spotit.jpg', accent: '#38bdf8',
-    tagline: 'Spot the differences before the clock runs out', href: '/arcade/spotit', badge: 'EARN FP',
+    id: 'solitaire', name: 'Solitaire', art: '/arcade/solitaire.jpg', accent: '#4ade80',
+    tagline: 'The classic · tap-to-move · 🔥 streak scoring', href: '/arcade/solitaire', badge: 'EARN FP',
   },
   {
     id: 'landslide', name: 'Landslide', art: '/arcade/landslide.jpg', accent: '#f472b6',
     tagline: 'Match 3 · cascades · win a landslide of FP', href: '/arcade/landslide', badge: 'EARN FP',
   },
   {
-    id: 'tetkris', name: 'Tet-Kris', art: '/arcade/tetkris.jpg', accent: '#c084fc',
+    id: 'tetkris', name: 'Block Drop', art: '/arcade/tetkris.jpg', accent: '#c084fc',
     tagline: 'Stack the blocks · clear rows · earn FP', href: '/arcade/tetkris', badge: 'EARN FP',
   },
   {
@@ -33,12 +35,12 @@ const GAMES: GameEntry[] = [
     tagline: 'Chess puzzles · mate in 1, 2 or 3 · classic board', href: '/arcade/chess', badge: 'EARN FP',
   },
   {
-    id: 'solitaire', name: 'Solitaire', art: '/arcade/solitaire.jpg', accent: '#4ade80',
-    tagline: 'The classic · tap-to-move · 🔥 streak scoring', href: '/arcade/solitaire', badge: 'EARN FP',
-  },
-  {
     id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15',
     tagline: '3 machines · bet FP · match 3 to win big', href: '/arcade/slots', badge: 'BET FP',
+  },
+  {
+    id: 'spotit', name: 'Pic Hunt (beta)', art: '/arcade/spotit.jpg', accent: '#38bdf8',
+    tagline: 'Spot the differences before the clock runs out', href: '/arcade/spotit', badge: 'EARN FP',
   },
 ]
 

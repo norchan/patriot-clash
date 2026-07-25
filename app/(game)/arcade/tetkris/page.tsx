@@ -193,7 +193,7 @@ export default function TetKrisPage() {
       const pts = [0, 100, 300, 500, 800][cleared] * (gg.level + 1)
       gg.score += pts; gg.levelScore += pts
       setScore(gg.score)
-      showPopup(cleared >= 4 ? '★ TET-KRIS! ★' : cleared === 3 ? 'TRIPLE!' : cleared === 2 ? 'DOUBLE!' : `+${pts}`, cleared >= 3)
+      showPopup(cleared >= 4 ? '★ BLOCK DROP! ★' : cleared === 3 ? 'TRIPLE!' : cleared === 2 ? 'DOUBLE!' : `+${pts}`, cleared >= 3)
       reward('lines', { lines: cleared, level: gg.level })
       // level up
       let leveled = false
@@ -416,7 +416,7 @@ export default function TetKrisPage() {
       <div className="px-4 pt-4 pb-1 flex items-center gap-3 relative z-20">
         <button onClick={() => router.push('/arcade')} className="text-purple-300 hover:text-white"><ArrowLeft size={18} /></button>
         <h1 className="font-black tracking-[0.15em] text-xl"
-          style={{ color: '#facc15', textShadow: '0 0 10px #a855f7' }}>TET-KRIS</h1>
+          style={{ color: '#facc15', textShadow: '0 0 10px #a855f7' }}>BLOCK DROP</h1>
         <span className="ml-auto text-yellow-300 text-sm font-black">💰 {(balance ?? 0).toLocaleString()}</span>
         {phase !== 'start' && phase !== 'over' && (
           <button onClick={togglePause} className="text-purple-200 hover:text-white">
@@ -495,7 +495,7 @@ export default function TetKrisPage() {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/75 backdrop-blur-sm px-6 max-w-md mx-auto">
           <div className="text-center w-full">
             {phase === 'start' && <>
-              <h2 className="text-4xl font-black" style={{ color: '#facc15', textShadow: '0 0 14px #a855f7' }}>TET-KRIS</h2>
+              <h2 className="text-4xl font-black" style={{ color: '#facc15', textShadow: '0 0 14px #a855f7' }}>BLOCK DROP</h2>
               <p className="text-white/70 text-sm mt-2">Clear rows to earn FP. Pass levels for big bonuses.</p>
               <p className="text-purple-300 text-xs mt-3">Saved level: <b className="text-white">{savedLevel}</b></p>
               <button onClick={() => start(savedLevel)} className="w-full mt-5 py-3.5 rounded-xl font-black text-lg"
