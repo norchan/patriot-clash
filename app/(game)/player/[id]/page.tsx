@@ -46,6 +46,7 @@ export default function PublicProfilePage() {
   const [viewerOpen, setViewerOpen] = useState(false)
   const [shared, setShared] = useState('')
   const [statsOpen, setStatsOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   // friend status with this player — PRIVATE: only the pair relationship,
   // never lists or counts
@@ -190,10 +191,29 @@ export default function PublicProfilePage() {
             </div>
           )}
           <h1 className="text-white font-bold text-2xl mt-3">{profile.username}</h1>
-          <span className="text-xs px-2.5 py-1 rounded-full font-medium inline-block mt-1.5"
-            style={{ background: `${partyColor}33`, color: partyColor }}>
-            {partyName}
-          </span>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+              style={{ background: `${partyColor}33`, color: partyColor }}>
+              {partyName}
+            </span>
+            {playerLoc && location && (
+              <button onClick={() => router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
+                className="text-xs px-2.5 py-1 rounded-full font-medium"
+                style={{ background: '#10b98133', color: '#10b981' }}>
+                📍 {(() => {
+                  const R = 3959
+                  const φ1 = (location.lat * Math.PI) / 180
+                  const φ2 = (playerLoc.lat * Math.PI) / 180
+                  const Δφ = ((playerLoc.lat - location.lat) * Math.PI) / 180
+                  const Δλ = ((playerLoc.lng - location.lng) * Math.PI) / 180
+                  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                  const distance = R * c
+                  return distance < 0.5 ? 'exact' : `~${Math.round(distance)} mi`
+                })()}
+              </button>
+            )}
+          </div>
           {clique && (
             <div className="mt-2">
               <span className="text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1"
@@ -263,12 +283,12 @@ export default function PublicProfilePage() {
                         : friendBusy ? '…' : 'Friend'}
                     </span>
                   </button>
-                  <button onClick={() => playerLoc && router.push(`/map?flat=${playerLoc.lat}&flng=${playerLoc.lng}`)}
-                    disabled={!playerLoc}
-                    title={playerLoc ? 'View on map' : "This player's location is hidden"}
-                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl border bg-gray-900 border-gray-800 text-gray-300 hover:text-white transition active:scale-95 disabled:opacity-40">
-                    <MapPin size={19} />
-                    <span className="text-[10px] font-bold">Map</span>
+                  <button onClick={() => setAboutOpen(o => !o)}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition active:scale-95 ${aboutOpen
+                      ? 'bg-purple-900/40 border-purple-600 text-purple-300'
+                      : 'bg-gray-900 border-gray-800 text-gray-300 hover:text-white'}`}>
+                    <span className="text-lg">ℹ️</span>
+                    <span className="text-[10px] font-bold">About</span>
                   </button>
                 </>
               )}
