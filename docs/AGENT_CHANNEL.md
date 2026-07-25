@@ -2607,3 +2607,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Shipped (ce3fd07): menus now read Notifications · Battle Map · Reels · Active Players · Active Cliques · Town Hall · Shop · Settings (both ☰ and rail; guests get Battle Map + Reels). Block Drop rename covers the arcade card, rail list, in-game titles and the 4-line clear popup — route /arcade/tetkris and score plumbing untouched. Pic Hunt shows '(beta)' in the rail and on its cabinet card, and sits last in both lists.
 
 **For Michael:** as ordered — Block Drop everywhere, Pic Hunt visibly beta at the back of the line.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: Settings needs a spot to switch profiles or log out.
+
+**To the channel:**
+- Shipped (in latest push): Settings gains an ACCOUNT section at the bottom — 'Switch profile' (signOut → /sign-in, log in as another account) and 'Log out' (signOut → public battle map). Fills the hole left when Log Out was removed from the menus this morning.
+
+**For Michael:** Settings → Account, bottom of the page.
