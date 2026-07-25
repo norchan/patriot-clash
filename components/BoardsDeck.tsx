@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Menu, Plus, LayoutGrid, X, Play, PenSquare, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Menu, Plus, LayoutGrid, X, Play, PenSquare, ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react'
 import PostActions from '@/components/PostActions'
 import { videoEmbed } from '@/lib/video-embed'
 import { ReelCard, type ReelItem } from '@/components/ReelsViewer'
@@ -11,7 +11,7 @@ import { ReelCard, type ReelItem } from '@/components/ReelsViewer'
 // ☰ menu + swipeable tab strip (p/all first), active tab underlined; cards
 // carry image, pts, comments, age, author and an up/down/star row.
 
-const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies']
+const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts']
 
 interface DeckPost {
   id: string; content: string | null; image_url: string | null
@@ -34,22 +34,36 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s / (7 * 86400))}w`
 }
 
-export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swipeNav = false, tall = false }: {
+export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swipeNav = false, tall = false, tabPrefs = null }: {
   signedIn: boolean
   initialPosts: DeckPost[]
-  extraTabs?: string[] // subscribed psubs — slotted in before p/profile
-  swipeNav?: boolean // /boards: swiping the FEED left/right changes psub
+  extraTabs?: string[] // subscribed pSubs — slotted in at the end
+  swipeNav?: boolean // /boards: swiping the FEED left/right changes pSub
   tall?: boolean // /boards: let the feed fill the page
+  tabPrefs?: { order?: string[]; hidden?: string[] } | null // Organize pSubs (server for signed-in)
 }) {
-  // bonusTab: a psub restored from session memory that isn't a regular tab
+  // bonusTab: a pSub restored from session memory that isn't a regular tab
   // (e.g. a team board you walked into) still gets a selectable slot
   const [bonusTab, setBonusTab] = useState<string | null>(null)
-  const tabs = [
+  // Organize pSubs prefs: signed-in prefs arrive via props; guests keep
+  // theirs in localStorage. order reorders, hidden removes (p/all is locked).
+  const [prefs, setPrefs] = useState<{ order?: string[]; hidden?: string[] } | null>(tabPrefs)
+  useEffect(() => {
+    if (tabPrefs) return
+    try { const raw = localStorage.getItem('pg_tab_prefs'); if (raw) setPrefs(JSON.parse(raw)) } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const available = [
     ...BASE_TABS,
     ...extraTabs.filter(t => !BASE_TABS.includes(t)),
     ...(bonusTab && !BASE_TABS.includes(bonusTab) && !extraTabs.includes(bonusTab) ? [bonusTab] : []),
-    'profile',
   ]
+  const orderPref = prefs?.order?.filter(t => available.includes(t)) ?? []
+  const orderedTabs = orderPref.length
+    ? [...orderPref, ...available.filter(t => !orderPref.includes(t))]
+    : available
+  const hiddenSet = new Set((prefs?.hidden ?? []).filter(t => t !== 'all'))
+  const tabs = orderedTabs.filter(t => !hiddenSet.has(t) || t === bonusTab)
   const router = useRouter()
   const [tab, setTab] = useState('all')
   const [posts, setPosts] = useState<DeckPost[]>(initialPosts)
@@ -72,7 +86,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
       saved = sessionStorage.getItem('pg_boards_tab')
       sessionStorage.removeItem('pg_boards_tab')
     } catch {}
-    if (!saved || saved === 'all' || saved === 'profile') return
+    if (!saved || saved === 'all') return
     if (!tabs.includes(saved)) setBonusTab(saved)
     setTab(saved)
     requestAnimationFrame(() =>
@@ -89,8 +103,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
   const stampTab = (name: string) => { try { sessionStorage.setItem('pg_boards_tab', name) } catch {} }
 
   function openTab(name: string) {
-    if (name === 'profile') { router.push(signedIn ? '/profile' : '/sign-up'); return }
-    // tapping the tab that's ALREADY active opens that psub's full page
+    // tapping the tab that's ALREADY active opens that pSub's full page
     if (name === tab) { stampTab(name); router.push(`/p/${name}`); return }
     setTab(name); setMenuOpen(false)
     // the tab strip TRACKS the page — swiping keeps the active tab centered
@@ -112,7 +125,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
   const [dragX, setDragX] = useState(0)
   const [snapping, setSnapping] = useState(false)
   const touch = useRef<{ x: number; y: number; horizontal: boolean | null } | null>(null)
-  const swipeTabs = tabs.filter(t => t !== 'profile')
+  const swipeTabs = tabs
   function onTouchStart(e: React.TouchEvent) {
     if (!swipeNav) return
     touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null }
@@ -197,10 +210,10 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
           {tabs.map(name => (
             <button key={name} id={`ptab-${name}`} onClick={() => openTab(name)}
               className={`shrink-0 px-3.5 py-3 text-[13px] font-black transition border-b-2 ${
-                tab === name && name !== 'profile'
+                tab === name
                   ? 'text-white border-purple-400'
                   : 'text-gray-400 border-transparent hover:text-gray-200'}`}>
-              {name === 'profile' ? '👤 p/profile' : `p/${name}`}
+              p/{name}
             </button>
           ))}
         </div>
@@ -210,8 +223,10 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
           <ChevronRight size={16} />
         </button>
 
-        {/* ☰ dropdown */}
+        {/* ☰ dropdown — the backdrop closes it on any outside click/tap */}
         {menuOpen && (
+          <>
+          <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
           <div className="absolute left-2 top-full mt-1 z-30 w-56 rounded-2xl border border-gray-700 bg-[#232930] shadow-2xl overflow-hidden">
             {/* Create post rides on TOP (Michael) → the current psub's page,
                 where the composer lives (virtual feeds fall back to politics) */}
@@ -227,13 +242,18 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
             </button>
             <button onClick={() => { setMenuOpen(false); signedIn ? setCreateOpen(true) : router.push('/sign-up') }}
               className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 text-left">
-              <Plus size={16} className="text-purple-400" /> Create a psub
+              <Plus size={16} className="text-purple-400" /> Create a pSub
+            </button>
+            <button onClick={() => { setMenuOpen(false); router.push('/boards/organize') }}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 text-left border-t border-black/30">
+              <ListOrdered size={16} className="text-purple-400" /> Organize pSubs
             </button>
             <Link href="/p" onClick={() => setMenuOpen(false)}
               className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/5 border-t border-black/30">
-              <LayoutGrid size={16} className="text-purple-400" /> View all psubs
+              <LayoutGrid size={16} className="text-purple-400" /> View all pSubs
             </Link>
           </div>
+          </>
         )}
       </div>
 
@@ -369,7 +389,7 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
             style={{ background: 'linear-gradient(160deg, #17102b, #0b0716)', border: '1px solid rgba(139,92,246,0.45)' }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-white font-black text-lg">➕ Create a psub</h3>
+              <h3 className="text-white font-black text-lg">➕ Create a pSub</h3>
               <button onClick={() => setCreateOpen(false)} className="text-gray-500 hover:text-white"><X size={18} /></button>
             </div>
             <p className="text-gray-400 text-xs mt-1">Start a board about anything. 3 per day.</p>

@@ -11,11 +11,11 @@ export default async function BoardsPage() {
   const { userId } = await auth()
   const admin = createSupabaseAdminClient()
 
-  let profile: { id: string; username: string; party: string | null; avatar_url: string | null; fp_balance: number; total_battles_won: number } | null = null
+  let profile: any = null
   let subTabs: string[] = []
   if (userId) {
     const { data: prof } = await admin.from('profiles')
-      .select('id, username, party, avatar_url, fp_balance, total_battles_won')
+      .select('id, username, party, avatar_url, fp_balance, total_battles_won, board_tab_prefs')
       .eq('clerk_user_id', userId).maybeSingle()
     profile = prof ?? null
     if (profile) {
@@ -46,7 +46,7 @@ export default async function BoardsPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} swipeNav tall />
+      <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} swipeNav tall tabPrefs={profile?.board_tab_prefs ?? null} />
       {/* blue Top ↑ pill floats over the feed's lower right, all devices */}
       <ScrollTopButton bottomClass="bottom-24" />
     </div>
