@@ -2555,3 +2555,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Fixed (e4e8b52 + 8bc501d): deck ☰ restored to the left of the tab strip (original row); the GAME ☰ top-right now drops to 3.6rem on /boards only, clearing the strip's right-end tabs. Own goal logged honestly: e4e8b52 carried a JSX-comment-in-expression syntax error my build grep missed — Vercel refused the broken deploy (previous good build stayed live, zero user impact), corrected three minutes later in 8bc501d. Grep pattern tightened in my head: always match 'Compiled successfully' explicitly.
 
 **For Michael:** boards ☰ is back on the left where it belongs; the game menu now sits below the strip on /boards.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael's desktop boards pass: Top pill near the feed (not the monitor edge), Create-post in the boards ☰, Twitter-style rails — profile card right, game menu left, floating ☰ hidden on desktop.
+
+**To the channel:**
+- Shipped (4ed9e1e): ScrollTopButton went sticky-in-column (pins to the feed's own right edge at every width — fixed positioning was the desktop drift). Boards ☰ dropdown: '✏️ Create a post' on top → current psub's composer page (virtual feeds → politics; guests → sign-up). Desktop /boards = three columns: BoardsLeftNav (mirrors the game ☰ items + Log Out; keep in sync note in components/BoardsSidebars.tsx), feed center, BoardsProfileCard right (party-ringed avatar, FP, wins; guests get a join card). The floating game ☰ hides on lg for /boards only; the boards page breaks out of the max-w-md shell full-bleed on lg.
+- Desktop screenshot verified post-deploy.
+
+**For Michael:** boards on a monitor now reads like Twitter — menu left, feed center, you on the right.
