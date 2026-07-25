@@ -470,6 +470,12 @@ export default function ProfilePage() {
               FP badge (Michael): the ⚡ with the balance right under it —
               replaces the old notification/message icons; tap → shop */}
           <div className="flex gap-2 self-start mt-11">
+            <button onClick={() => router.push('/impressions')}
+              className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
+              aria-label="Earnings — tap for impressions">
+              <span className="text-green-400 font-black text-lg">$</span>
+              <span className="text-green-400 font-black text-xs leading-tight mt-0.5">Earn</span>
+            </button>
             <button onClick={() => router.push('/shop')}
               className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
               aria-label="Fighting Points — tap for the shop">
@@ -477,12 +483,6 @@ export default function ProfilePage() {
               <span className="text-yellow-400 font-black text-sm leading-tight mt-0.5">
                 {(profile?.fp_balance ?? 0).toLocaleString()}
               </span>
-            </button>
-            <button onClick={() => router.push('/impressions')}
-              className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
-              aria-label="Earnings — tap for impressions">
-              <span className="text-green-400 font-black text-lg">$</span>
-              <span className="text-green-400 font-black text-xs leading-tight mt-0.5">Earn</span>
             </button>
           </div>
         </div>

@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     const { data: posts, error } = await admin
       .from('profile_posts')
-      .select('id, profile_id, content, score, created_at, media_url, media_type')
+      .select('id, profile_id, content, score, created_at, media_url, media_type, impressions')
       .eq('profile_id', profileId)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     const { data: post, error } = await admin
       .from('profile_posts')
       .insert({ profile_id: profile.id, content: text || null, media_url: mediaUrl, media_type: mediaType })
-      .select('id, profile_id, content, score, created_at, media_url, media_type')
+      .select('id, profile_id, content, score, created_at, media_url, media_type, impressions')
       .single()
 
     if (error) throw error

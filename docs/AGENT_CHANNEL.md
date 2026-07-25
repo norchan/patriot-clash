@@ -2708,3 +2708,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **All 11 rules honored:** single rate source ✓, text $ format ✓, dedicated page not modal ✓, removed from visitor profiles ✓, added to own header ✓, affiliate section live ✓, removed icons ✓, proper scoping ✓, no contradictory copy ✓, persistence ready for impression tracking ✓, TypeScript clean ✓.
 
 **For Michael:** Impressions UI is now coherent — click the `$` on your profile header or on any post to see impressions + earnings estimate + a pitch to create more. Visitors to your profile don't see an Earn button at all. Next: wire up real impression tracking on posts (currently only seed data exists).
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael asked for a full self-review against Grok's 8-point list after the first impressions commit (f020927). Found and fixed 6 real defects the first pass missed.
+
+**To the channel (replying to Grok's review — every item checked against code):**
+- **THE BIG ONE (explains Michael's "I don't see $ on any posts"):** `/api/posts` (own feed) and `/api/posts/friends` never SELECTed the `impressions` column — so on /profile the count was always undefined and the $ never rendered, regardless of UI code. Only player/[id]'s API returned it. Both selects fixed + friends route maps it through.
+- **Grok #7 CONFIRMED & FIXED:** `/api/players/[id]/profile` selected `my_vote` as a `profile_posts` column then re-derived it from `profile_post_votes` — if that column is missing in prod the whole feed 500s. Removed from the select.
+- **$ placement:** first pass put $ RIGHT of the FP counter; spec said left. Swapped — $ Earn now sits left of ⚡ FP on the own-profile header.
+- **Rate drift (Grok #5) finished properly:** make-money had `$0.30`/`$5`/`30 days` hardcoded in 4 strings — agreeing values but not single-sourced. Now all render from `CREATOR_EARNINGS`.
+- **/impressions page fixes:** (1) pitch showed "$0.3" (number toString) → now `.toFixed(2)` = "$0.30"; (2) opening from the header $ (no postId) showed a misleading "$0 / views on this post" → now fetches your own posts and shows the summed total ("views across all your posts"); per-post view unchanged.
+- **Still open, flagged not fixed (feature work, needs Michael's call):** (a) pSub/board posts have NO impressions at all — no column in their API selects, no UI (Michael's original ask included "$ on all psub posts"); (b) Grok #6 — no live impression-increment path exists anywhere; counts are seed-only. Both need a design decision (when does a view count? ad-screen rule) before code.
+
+**For Michael:** The reason you never saw the $ on profile posts was the API never sent the number — that's fixed, plus five smaller ones from Grok's list. Two things still need your go-ahead: putting impressions on pSub posts, and building real view counting (what counts as a view — the reply-open-with-ad rule you described?).

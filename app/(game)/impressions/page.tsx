@@ -1,16 +1,29 @@
 'use client'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { CREATOR_EARNINGS, estimatedEarnings } from '@/config/creator-earnings'
-import { Suspense } from 'react'
 
 function ImpressionsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const postId = searchParams.get('postId')
-  const count = parseInt(searchParams.get('count') || '0', 10)
+  const paramCount = parseInt(searchParams.get('count') || '0', 10)
 
+  // Opened from a post → show that post's count. Opened from the profile
+  // header $ → sum impressions across all of the player's own posts.
+  const [totalCount, setTotalCount] = useState<number | null>(postId ? paramCount : null)
+  useEffect(() => {
+    if (postId) return
+    fetch('/api/posts')
+      .then(r => r.json())
+      .then(d => setTotalCount((d.posts ?? []).reduce((s: number, p: any) => s + (p.impressions ?? 0), 0)))
+      .catch(() => setTotalCount(0))
+  }, [postId])
+
+  const count = totalCount ?? 0
   const earned = estimatedEarnings(count)
+  const rate = CREATOR_EARNINGS.USD_PER_1000_IMPRESSIONS.toFixed(2)
 
   return (
     <div className="min-h-screen bg-gray-950 pb-6">
@@ -23,8 +36,12 @@ function ImpressionsContent() {
         <div className="bg-gradient-to-br from-green-900/30 to-green-900/10 border border-green-800 rounded-2xl p-6 mb-6">
           <div className="text-center">
             <div className="text-gray-400 text-sm mb-2">Impressions</div>
-            <div className="text-white font-bold text-3xl mb-4">${count.toLocaleString()}</div>
-            <div className="text-gray-400 text-sm mb-4">views on this post</div>
+            <div className="text-white font-bold text-3xl mb-4">
+              {totalCount === null ? '…' : `$${count.toLocaleString()}`}
+            </div>
+            <div className="text-gray-400 text-sm mb-4">
+              {postId ? 'views on this post' : 'views across all your posts'}
+            </div>
             <div className="bg-green-900/50 rounded-xl p-4">
               <div className="text-gray-400 text-xs mb-1">Estimated earnings</div>
               <div className="text-green-400 font-bold text-2xl">${earned}</div>
@@ -36,7 +53,7 @@ function ImpressionsContent() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
           <h2 className="text-white font-bold text-lg mb-3">Anyone can earn money on PoliticsGo</h2>
           <p className="text-gray-400 text-sm mb-4">
-            Get paid ${CREATOR_EARNINGS.USD_PER_1000_IMPRESSIONS} for every 1,000 people who see your content. Earn money when messaging friends, posting pictures, videos, and more!
+            Get paid ${rate} for every 1,000 people who see your content. Earn money when messaging friends, posting pictures, videos, and more!
           </p>
           <ul className="text-gray-400 text-sm space-y-2">
             <li>✓ <strong>Profile posts</strong> — share photos and thoughts</li>
@@ -61,7 +78,7 @@ function ImpressionsContent() {
         {/* Withdraw info */}
         <div className="mt-6 bg-gray-900/50 border border-gray-800 rounded-xl p-4 text-center">
           <p className="text-gray-500 text-xs">
-            Earnings available after {CREATOR_EARNINGS.HOLD_DAYS} days. Minimum ${CREATOR_EARNINGS.MIN_WITHDRAW_USD} to cash out.
+            Earnings available after {CREATOR_EARNINGS.HOLD_DAYS} days. Minimum ${CREATOR_EARNINGS.MIN_WITHDRAW_USD.toFixed(2)} to cash out.
           </p>
         </div>
       </div>

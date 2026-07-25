@@ -19,7 +19,7 @@ export async function GET() {
     if (!friendIds.length) return NextResponse.json({ posts: [] })
 
     const { data: posts } = await admin.from('profile_posts')
-      .select('id, profile_id, content, media_type, media_url, score, created_at, profiles!profile_posts_profile_id_fkey(username, avatar_url, party)')
+      .select('id, profile_id, content, media_type, media_url, score, created_at, impressions, profiles!profile_posts_profile_id_fkey(username, avatar_url, party)')
       .in('profile_id', friendIds)
       .order('created_at', { ascending: false })
       .limit(40)
@@ -33,6 +33,7 @@ export async function GET() {
         media_url: p.media_url,
         score: p.score,
         created_at: p.created_at,
+        impressions: p.impressions ?? 0,
         username: p.profiles?.username ?? 'Friend',
         avatar_url: p.profiles?.avatar_url ?? null,
         party: p.profiles?.party ?? null,

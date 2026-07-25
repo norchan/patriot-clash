@@ -3,6 +3,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, DollarSign, FileText, TrendingUp } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
+import { CREATOR_EARNINGS } from '@/config/creator-earnings'
+
+const RATE = CREATOR_EARNINGS.USD_PER_1000_IMPRESSIONS.toFixed(2)
+const MIN = CREATOR_EARNINGS.MIN_WITHDRAW_USD.toFixed(2)
+const HOLD = CREATOR_EARNINGS.HOLD_DAYS
 
 export default function MakeMoneyPage() {
   const router = useRouter()
@@ -47,7 +52,7 @@ export default function MakeMoneyPage() {
               <DollarSign size={48} className="text-green-400" />
             </div>
             <h1 className="text-white font-bold text-3xl mb-2">Make Money with PoliticsGo</h1>
-            <p className="text-gray-400">Get paid for your content. Earn $0.30 per 1,000 impressions.</p>
+            <p className="text-gray-400">Get paid for your content. Earn ${RATE} per 1,000 impressions.</p>
           </div>
 
           {/* How it works */}
@@ -72,7 +77,7 @@ export default function MakeMoneyPage() {
                 <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">3</div>
                 <div>
                   <p className="text-white font-bold">Earn Money</p>
-                  <p className="text-gray-400 text-sm">Earn $0.30 per 1,000 impressions. Withdraw after 30 days when you reach $5 minimum.</p>
+                  <p className="text-gray-400 text-sm">Earn ${RATE} per 1,000 impressions. Withdraw after {HOLD} days when you reach ${MIN} minimum.</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -146,7 +151,7 @@ export default function MakeMoneyPage() {
             <div className="space-y-4 text-sm">
               <div>
                 <p className="text-white font-bold mb-1">When can I withdraw?</p>
-                <p className="text-gray-400">After 30 days from the impression date, once you have at least $5 earned.</p>
+                <p className="text-gray-400">After {HOLD} days from the impression date, once you have at least ${MIN} earned.</p>
               </div>
               <div>
                 <p className="text-white font-bold mb-1">What's the fee to withdraw?</p>
@@ -154,7 +159,7 @@ export default function MakeMoneyPage() {
               </div>
               <div>
                 <p className="text-white font-bold mb-1">How do I track my earnings?</p>
-                <p className="text-gray-400">Click the $ icon on any post to see its impressions and potential earnings.</p>
+                <p className="text-gray-400">Tap the $ number on any post to see its impressions and potential earnings.</p>
               </div>
               <div>
                 <p className="text-white font-bold mb-1">Is my content safe?</p>
