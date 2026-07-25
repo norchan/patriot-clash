@@ -788,7 +788,7 @@ export default function ProfilePage() {
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`); }}
                         className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
-                        ${(p.impressions ?? 0).toLocaleString()}
+                        Impre$$ions {(p.impressions ?? 0).toLocaleString()}
                       </button>
                     </div>
                   </div>
@@ -827,7 +827,7 @@ export default function ProfilePage() {
                   <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
                   <button onClick={() => router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`)}
                     className="text-green-400 hover:text-green-300 transition text-[11px] font-bold">
-                    ${(p.impressions ?? 0).toLocaleString()}
+                    Impre$$ions {(p.impressions ?? 0).toLocaleString()}
                   </button>
                 </div>
               </div>

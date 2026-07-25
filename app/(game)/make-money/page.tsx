@@ -160,7 +160,7 @@ export default function MakeMoneyPage() {
               </div>
               <div>
                 <p className="text-white font-bold mb-1">How do I track my earnings?</p>
-                <p className="text-gray-400">Tap the $ number on any post to see its impressions and potential earnings.</p>
+                <p className="text-gray-400">Tap Impre$$ions on any post to see its views and potential earnings.</p>
               </div>
               <div>
                 <p className="text-white font-bold mb-1">Is my content safe?</p>

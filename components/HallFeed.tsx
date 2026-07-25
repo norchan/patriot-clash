@@ -328,7 +328,7 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                     <button className="ml-auto text-[11px] font-bold text-green-500 hover:text-green-300 transition"
                       onClick={e => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`) }}
                       aria-label="Impressions">
-                      ${(p.impressions ?? 0).toLocaleString()}
+                      Impre$$ions {(p.impressions ?? 0).toLocaleString()}
                     </button>
                   </div>
                 </div>

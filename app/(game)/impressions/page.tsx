@@ -35,9 +35,9 @@ function ImpressionsContent() {
         {/* Earnings card */}
         <div className="bg-gradient-to-br from-green-900/30 to-green-900/10 border border-green-800 rounded-2xl p-6 mb-6">
           <div className="text-center">
-            <div className="text-gray-400 text-sm mb-2">Impressions</div>
+            <div className="text-gray-400 text-sm mb-2">Impre$$ions</div>
             <div className="text-white font-bold text-3xl mb-4">
-              {totalCount === null ? '…' : `$${count.toLocaleString()}`}
+              {totalCount === null ? '…' : count.toLocaleString()}
             </div>
             <div className="text-gray-400 text-sm mb-4">
               {postId ? 'views on this post' : 'views across all your posts'}

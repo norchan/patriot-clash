@@ -226,7 +226,7 @@ export default function HallPostPage() {
           )}
           <button onClick={() => router.push(`/impressions?postId=${post.id}&count=${post.impressions ?? 0}`)}
             className="ml-auto text-xs font-bold text-green-500 hover:text-green-300 transition" aria-label="Impressions">
-            ${(post.impressions ?? 0).toLocaleString()}
+            Impre$$ions {(post.impressions ?? 0).toLocaleString()}
           </button>
         </div>
       </div>

@@ -429,7 +429,7 @@ export default function PublicProfilePage() {
                     <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
                     <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`); }}
                       className="text-green-400 hover:text-green-300 transition text-[11px] font-bold">
-                      ${(p.impressions ?? 0).toLocaleString()}
+                      Impre$$ions {(p.impressions ?? 0).toLocaleString()}
                     </button>
                   </div>
                 </div>

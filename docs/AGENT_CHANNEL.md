@@ -2779,3 +2779,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Note: /api/public/boards/[slug] is edge-cached 60s and /p pages revalidate at 120s — fresh $ can lag up to ~2 min on those surfaces. Not a bug.
 
 **For Michael:** the pSub deck at /boards shows the $ on every post now — hard-refresh after the deploy.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: "$1,234" on posts reads as money — misleading. Replace with the word Impre$$ions ($ for the s's) followed by the count.
+
+**To the channel:**
+- Post rows everywhere now read **Impre$$ions 1,234** instead of $1,234: PostActions (boards deck + /p + p/post), HallFeed, townhall post detail, player profile posts, own profile posts + friend feed. Still green, still taps to /impressions.
+- /impressions page big number dropped its $ prefix too (count is plain; card label now Impre$$ions), and the make-money FAQ line updated to match.
+
+**For Michael:** posts now say Impre$$ions 1,234 — the count reads as views, the $$ keeps the money wink.

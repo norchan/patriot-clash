@@ -84,7 +84,7 @@ export default function PostActions({ kind, id, postId, score, commentCount, imp
       {kind === 'post' && impressions !== undefined && (
         <button onClick={e => { e.stopPropagation(); router.push(`/impressions?postId=${postId}&count=${impressions}`) }}
           className="p-1 font-bold text-green-500 hover:text-green-300 transition" aria-label="Impressions">
-          ${impressions.toLocaleString()}
+          Impre$$ions {impressions.toLocaleString()}
         </button>
       )}
     </div>
