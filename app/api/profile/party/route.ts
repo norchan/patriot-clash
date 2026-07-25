@@ -55,8 +55,10 @@ export async function PATCH(req: NextRequest) {
     // denormalized party on the map's location row too.
     const { error } = await admin
       .from('profiles')
-      .update({ party, party_changed_at: new Date().toISOString(), clique_id: null })
+      .update({ party, party_changed_at: new Date().toISOString(), clique_id: null, clique_pending_id: null })
       .eq('id', profile.id)
+    // cliques are party-bound — switching sides exits every membership
+    await admin.from('clique_members').delete().eq('profile_id', profile.id)
     if (error) throw error
 
     await admin.from('player_locations').update({ party }).eq('profile_id', profile.id)

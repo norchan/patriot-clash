@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { isCliqueMember } from '@/lib/cliques'
 
 // GET /api/cliques/[id] — clique details. The member roster is visible to
 // MEMBERS ONLY; pending join requests are visible to the creator only.
@@ -23,25 +24,25 @@ export async function GET(
       return NextResponse.json({ error: 'Clique not found' }, { status: 404 })
     }
 
-    const isMember = (profile as any).clique_id === clique.id
+    const isMember = await isCliqueMember(admin, profile.id, clique.id)
     const isCreator = clique.creator_id === profile.id
 
     const [{ data: gym }, { count: memberCount }] = await Promise.all([
       clique.gym_id
         ? admin.from('gyms').select('id, city_name, state, holder_party, defense_points').eq('id', clique.gym_id).single()
         : Promise.resolve({ data: null }),
-      admin.from('profiles').select('id', { count: 'exact', head: true }).eq('clique_id', id),
+      admin.from('clique_members').select('clique_id', { count: 'exact', head: true }).eq('clique_id', id),
     ])
 
     let members: any[] = []
     if (isMember) {
       const { data } = await admin
-        .from('profiles')
-        .select('id, username, avatar_url, total_battles_won')
+        .from('clique_members')
+        .select('profiles(id, username, avatar_url, total_battles_won)')
         .eq('clique_id', id)
-        .order('total_battles_won', { ascending: false })
         .limit(100)
-      members = data ?? []
+      members = (data ?? []).map((m: any) => m.profiles).filter(Boolean)
+        .sort((a: any, b: any) => (b.total_battles_won ?? 0) - (a.total_battles_won ?? 0))
     }
 
     let pending: any[] = []
@@ -59,6 +60,7 @@ export async function GET(
       gym,
       member_count: memberCount ?? 0,
       is_member: isMember,
+      is_default: (profile as any).clique_id === clique.id,
       is_creator: isCreator,
       members,
       pending,

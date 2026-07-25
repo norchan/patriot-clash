@@ -26,7 +26,11 @@ export async function POST(req: NextRequest) {
       .eq('id', post_id)
       .maybeSingle()
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
-    if (kind === 'clique' && (post as any).clique_id !== (profile as any).clique_id) {
+    const { data: cliqueMembership } = kind === 'clique'
+      ? await admin.from('clique_members').select('clique_id')
+          .eq('clique_id', (post as any).clique_id).eq('profile_id', profile.id).maybeSingle()
+      : { data: null }
+    if (kind === 'clique' && !cliqueMembership) {
       return NextResponse.json({ error: 'Members only' }, { status: 403 })
     }
 

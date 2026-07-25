@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { isCliqueMember, addCliqueMember } from '@/lib/cliques'
 
-// POST /api/cliques/[id]/join — join a clique of your party. Open cliques
-// admit you immediately; request-only cliques queue you for the creator.
+// POST /api/cliques/[id]/join — join a clique of your party, ANYWHERE in the
+// country, and as many as you like (Michael 2026-07-25: multi-clique).
+// Open cliques admit you immediately; request-only cliques queue you for the
+// creator. Your first clique automatically becomes your default.
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -25,24 +28,19 @@ export async function POST(
     if (clique.party !== profile.party) {
       return NextResponse.json({ error: 'You can only join cliques from your own party' }, { status: 403 })
     }
-    if ((profile as any).clique_id === clique.id) {
+    if (await isCliqueMember(admin, profile.id, clique.id)) {
       return NextResponse.json({ status: 'member', clique })
     }
-    if ((profile as any).clique_id) {
-      return NextResponse.json({ error: 'Leave your current clique first' }, { status: 400 })
+
+    if (clique.join_policy === 'open') {
+      await addCliqueMember(admin, profile.id, clique)
+      return NextResponse.json({ status: 'member', clique })
     }
-
-    const openJoin = clique.join_policy === 'open'
-    const { error } = await admin
-      .from('profiles')
-      .update(openJoin
-        // joining a clique adopts its town hall as your assigned home hall
-        ? { clique_id: clique.id, clique_pending_id: null, home_gym_id: (clique as any).gym_id ?? undefined }
-        : { clique_pending_id: clique.id })
+    const { error } = await admin.from('profiles')
+      .update({ clique_pending_id: clique.id })
       .eq('id', profile.id)
-
     if (error) throw error
-    return NextResponse.json({ status: openJoin ? 'member' : 'requested', clique })
+    return NextResponse.json({ status: 'requested', clique })
 
   } catch (err: any) {
     if (err instanceof Response) return err

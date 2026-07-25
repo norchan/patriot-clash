@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { deleteCliqueIfEmpty } from '@/lib/cliques'
+import { deleteCliqueIfEmpty, addCliqueMember, removeCliqueMember } from '@/lib/cliques'
 
 // POST /api/cliques/[id]/members — creator-only member management:
 //   { profile_id, action: 'approve' | 'deny' | 'remove' }
@@ -36,10 +36,11 @@ export async function POST(
     }
 
     if (action === 'approve') {
+      // membership row + first-clique-becomes-default handled by the helper
+      await addCliqueMember(admin, profile_id, { id, gym_id: (clique as any).gym_id })
       const { error } = await admin
         .from('profiles')
-        // joining a clique adopts its town hall as the assigned home hall
-        .update({ clique_id: id, clique_pending_id: null, home_gym_id: (clique as any).gym_id ?? undefined })
+        .update({ clique_pending_id: null })
         .eq('id', profile_id)
         .eq('clique_pending_id', id)
       if (error) throw error
@@ -51,12 +52,7 @@ export async function POST(
         .eq('clique_pending_id', id)
       if (error) throw error
     } else {
-      const { error } = await admin
-        .from('profiles')
-        .update({ clique_id: null })
-        .eq('id', profile_id)
-        .eq('clique_id', id)
-      if (error) throw error
+      await removeCliqueMember(admin, profile_id, id)
       await deleteCliqueIfEmpty(admin, id)
     }
 

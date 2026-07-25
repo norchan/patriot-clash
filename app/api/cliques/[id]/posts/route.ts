@@ -7,7 +7,9 @@ import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation
 // an image (meme), or both.
 
 async function assertMember(admin: any, profile: any, cliqueId: string) {
-  if ((profile as any).clique_id !== cliqueId) {
+  const { data } = await admin.from('clique_members')
+    .select('clique_id').eq('clique_id', cliqueId).eq('profile_id', profile.id).maybeSingle()
+  if (!data) {
     throw NextResponse.json({ error: 'Only clique members can see this feed' }, { status: 403 })
   }
 }

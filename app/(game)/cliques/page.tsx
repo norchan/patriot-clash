@@ -36,6 +36,10 @@ export default function CliquesPage() {
   const router = useRouter()
   const { profile, loading: profileLoading, refetch } = useProfile()
   const [cliques, setCliques] = useState<Clique[]>([])
+  // multi-clique (Michael): myCliques = every membership; myDefaultId = the
+  // starred one; myCliqueId = whichever membership's panel is open right now
+  const [myCliques, setMyCliques] = useState<{ id: string; name: string; gym_id: string | null; join_policy?: string }[]>([])
+  const [myDefaultId, setMyDefaultId] = useState<string | null>(null)
   const [myCliqueId, setMyCliqueId] = useState<string | null>(null)
   const [myPendingId, setMyPendingId] = useState<string | null>(null)
   const [myMembers, setMyMembers] = useState<Member[]>([])
@@ -69,7 +73,12 @@ export default function CliquesPage() {
       const res = await fetch(`/api/cliques${search ? `?q=${encodeURIComponent(search)}` : ''}`)
       const data = await res.json()
       setCliques(data.cliques ?? [])
-      setMyCliqueId(data.my_clique_id ?? null)
+      const mine = data.my_cliques ?? []
+      setMyCliques(mine)
+      setMyDefaultId(data.my_default_id ?? null)
+      setMyCliqueId(prev => (prev && mine.some((m: any) => m.id === prev))
+        ? prev
+        : (data.my_default_id ?? mine[0]?.id ?? null))
       setMyPendingId(data.my_pending_id ?? null)
     } catch {}
     setLoading(false)
@@ -130,11 +139,10 @@ export default function CliquesPage() {
       const data = await res.json()
       if (res.ok) {
         if (data.status === 'member') {
-          // Open clique — you're straight in
+          // Open clique — you're straight in (and keep your other cliques)
           showToastMsg(`🎉 Joined ${c.name}!`)
           setMyCliqueId(c.id)
           await Promise.all([loadCliques(), refetch()])
-          router.push(`/cliques/${c.id}`)
         } else {
           showToastMsg(`📨 Request sent to ${c.name} — waiting for approval`)
           setMyPendingId(c.id)
@@ -148,12 +156,34 @@ export default function CliquesPage() {
   }
 
   async function leaveClique() {
+    if (!myCliqueId) return
     setBusy(true)
     try {
-      await fetch('/api/cliques/leave', { method: 'POST' })
-      showToastMsg('👋 Left your clique')
+      await fetch('/api/cliques/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clique_id: myCliqueId }),
+      })
+      showToastMsg('👋 Left the clique')
       setMyCliqueId(null)
       await Promise.all([loadCliques(), refetch()])
+    } catch {}
+    setBusy(false)
+  }
+
+  async function setDefault(cliqueId: string) {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/cliques/default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clique_id: cliqueId }),
+      })
+      if (res.ok) {
+        setMyDefaultId(cliqueId)
+        showToastMsg('⭐ Default clique updated')
+        await Promise.all([loadCliques(), refetch()])
+      }
     } catch {}
     setBusy(false)
   }
@@ -204,7 +234,24 @@ export default function CliquesPage() {
         </p>
       </div>
 
-      {/* My click */}
+      {/* My cliques — every membership; tap one to open its panel/chat */}
+      {myCliques.length > 0 && (
+        <div className="mx-4 mb-3">
+          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">✊ My Cliques ({myCliques.length})</h3>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {myCliques.map(m => (
+              <button key={m.id} onClick={() => setMyCliqueId(m.id)}
+                className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                  myCliqueId === m.id ? 'text-white' : 'text-gray-400 border-gray-800 bg-gray-900 hover:text-white'}`}
+                style={myCliqueId === m.id ? { borderColor: partyColor, background: `${partyColor}22` } : undefined}>
+                {m.id === myDefaultId ? '⭐ ' : ''}{m.name.split(' — ')[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* The open clique's panel */}
       {myCliqueId && (
         <div className="mx-4 mb-4 bg-gray-900 rounded-2xl border p-4" style={{ borderColor: `${partyColor}66` }}>
           {(() => {
@@ -229,10 +276,20 @@ export default function CliquesPage() {
                       </button>
                     )}
                   </div>
-                  <button onClick={leaveClique} disabled={busy}
-                    className="text-xs text-gray-500 hover:text-red-400 transition disabled:opacity-50 flex-shrink-0 ml-2">
-                    Leave
-                  </button>
+                  <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                    {myCliqueId === myDefaultId ? (
+                      <span className="text-xs font-bold text-yellow-400">⭐ Default</span>
+                    ) : (
+                      <button onClick={() => myCliqueId && setDefault(myCliqueId)} disabled={busy}
+                        className="text-xs text-gray-500 hover:text-yellow-300 transition disabled:opacity-50">
+                        ☆ Make default
+                      </button>
+                    )}
+                    <button onClick={leaveClique} disabled={busy}
+                      className="text-xs text-gray-500 hover:text-red-400 transition disabled:opacity-50">
+                      Leave
+                    </button>
+                  </div>
                 </div>
                 {/* Tap to expand/collapse the member roster */}
                 <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2 flex items-center justify-between">
@@ -300,8 +357,8 @@ export default function CliquesPage() {
         </div>
       )}
 
-      {/* Create — hidden while you're in a clique (leave first) */}
-      {!myCliqueId && (
+      {/* Create — always available (you can be in many cliques now) */}
+      {(
       <div className="mx-4 mb-4">
         {!showCreate ? (
           <button onClick={() => setShowCreate(true)}
@@ -367,7 +424,7 @@ export default function CliquesPage() {
         <div className="mx-4 mb-4">
           <button onClick={() => setShowBrowse(true)}
             className="w-full py-2.5 rounded-xl text-sm font-bold bg-gray-900 text-gray-400 border border-gray-800 hover:text-white transition">
-            🔍 Find other {partyName} cliques
+            🔍 Find more {partyName} cliques — anywhere in the country
           </button>
         </div>
       )}
@@ -423,16 +480,16 @@ export default function CliquesPage() {
                     {c.join_policy === 'open' ? ' · 🚪 Open' : ' · 🔒 Request'}
                   </p>
                 </button>
-                {c.id === myCliqueId ? (
+                {myCliques.some(m => m.id === c.id) ? (
                   <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ color: partyColor, background: `${partyColor}1a` }}>
-                    Joined
+                    {c.id === myDefaultId ? '⭐ Joined' : 'Joined'}
                   </span>
                 ) : c.id === myPendingId ? (
                   <span className="text-xs font-bold px-2 py-1 rounded-full text-yellow-400 bg-yellow-900/30">
                     Requested ⏳
                   </span>
                 ) : (
-                  <button onClick={() => joinClique(c)} disabled={busy || !!myCliqueId}
+                  <button onClick={() => joinClique(c)} disabled={busy}
                     className="text-xs font-bold px-3 py-1.5 rounded-lg text-white transition active:scale-95 disabled:opacity-50"
                     style={{ background: partyColor }}>
                     {c.join_policy === 'open' ? 'Join' : 'Request'}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { addCliqueMember } from '@/lib/cliques'
 
 // GET /api/cliques — clicks of YOUR party only, with member counts.
 // Optional ?q= filters by name.
@@ -28,13 +29,13 @@ export async function GET(req: NextRequest) {
     const { data: cliques, error } = await query
     if (error) throw error
 
-    // Member counts (single pass over profiles' clique_id values)
+    // Member counts (single pass over clique_members)
     const ids = (cliques ?? []).map(c => c.id)
     const counts: Record<string, number> = {}
     if (ids.length > 0) {
       for (let from = 0; ; from += 1000) {
         const { data: members } = await admin
-          .from('profiles')
+          .from('clique_members')
           .select('clique_id')
           .in('clique_id', ids)
           .range(from, from + 999)
@@ -44,9 +45,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // every clique I'm in (multi-clique) — the page's My Cliques list
+    const { data: mine } = await admin
+      .from('clique_members')
+      .select('clique_id, joined_at, cliques(id, name, party, gym_id, join_policy)')
+      .eq('profile_id', profile.id)
+      .order('joined_at', { ascending: false })
+
     return NextResponse.json({
       cliques: (cliques ?? []).map(c => ({ ...c, member_count: counts[c.id] || 0 })),
-      my_clique_id: (profile as any).clique_id ?? null,
+      my_cliques: (mine ?? []).map((m: any) => m.cliques).filter(Boolean),
+      my_clique_ids: (mine ?? []).map((m: any) => m.clique_id),
+      my_default_id: (profile as any).clique_id ?? null,
+      my_clique_id: (profile as any).clique_id ?? null, // legacy name
       my_pending_id: (profile as any).clique_pending_id ?? null,
     })
 
@@ -97,8 +108,10 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
 
-    // Creator joins their new clique immediately (no approval needed)
-    await admin.from('profiles').update({ clique_id: clique.id, clique_pending_id: null }).eq('id', profile.id)
+    // Creator joins their new clique immediately (no approval needed);
+    // becomes their default only if they don't have one yet
+    await addCliqueMember(admin, profile.id, clique)
+    await admin.from('profiles').update({ clique_pending_id: null }).eq('id', profile.id)
 
     return NextResponse.json({ clique })
 
