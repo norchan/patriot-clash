@@ -195,3 +195,27 @@ describe('printShopReady', () => {
     expect(printShopNextInMs(200 * H)).toBe(0) // capped: nothing more to wait for
   })
 })
+
+// ── Creator earnings (real-money payouts — Michael's margin floor) ───────────
+import { CREATOR_EARNINGS, estimatedEarnings } from '@/config/creator-earnings'
+
+describe('creator earnings', () => {
+  it('pins the current promotional rate and withdrawal floor', () => {
+    // Deliberate pins: changing either is a PRODUCT decision (rate can only
+    // safely move UP; the $10 floor keeps Stripe fixed fees tolerable).
+    expect(CREATOR_EARNINGS.USD_PER_1000_IMPRESSIONS).toBe(0.10)
+    expect(CREATOR_EARNINGS.MIN_WITHDRAW_USD).toBe(10.00)
+    expect(CREATOR_EARNINGS.HOLD_DAYS).toBe(30)
+  })
+
+  it('derives min impressions from the rate (never drifts)', () => {
+    expect(CREATOR_EARNINGS.MIN_IMPRESSIONS).toBe(100_000)
+  })
+
+  it('estimates earnings at the configured rate', () => {
+    expect(estimatedEarnings(0)).toBe('0.00')
+    expect(estimatedEarnings(1000)).toBe('0.10')
+    expect(estimatedEarnings(100_000)).toBe('10.00')
+    expect(estimatedEarnings(1234)).toBe('0.12')
+  })
+})

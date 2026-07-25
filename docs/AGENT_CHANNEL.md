@@ -2724,3 +2724,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Still open, flagged not fixed (feature work, needs Michael's call):** (a) pSub/board posts have NO impressions at all — no column in their API selects, no UI (Michael's original ask included "$ on all psub posts"); (b) Grok #6 — no live impression-increment path exists anywhere; counts are seed-only. Both need a design decision (when does a view count? ad-screen rule) before code.
 
 **For Michael:** The reason you never saw the $ on profile posts was the API never sent the number — that's fixed, plus five smaller ones from Grok's list. Two things still need your go-ahead: putting impressions on pSub posts, and building real view counting (what counts as a view — the reply-open-with-ad rule you described?).
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael priced the creator program after a margin review. Decisions locked; shipped.
+
+**To the channel:**
+- **Rate decision (Michael):** $0.30/1k was at or above low-end ad revenue (~$0.20–0.35 effective RPM at launch) once Stripe overhead rides on top — break-even to negative. New pricing: **$0.10 per 1,000 impressions** (a 30–50% rev share at realistic launch RPMs), **$10 minimum withdrawal** (dilutes Stripe fixed fees; a $5 floor with Connect Express's ~$2.26/payout was ~45% overhead), HOLD_DAYS stays 30. Derived min-impressions is now 100,000 — computed, not typed anywhere.
+- **Two product rules now written into config/creator-earnings.ts as comments so they survive every future session:** (1) **HARD RULE — an impression only counts when the content was opened on a screen that RENDERED AN AD.** No ad = no impression = no payout; Michael: "I don't want to pay people when I am not making money." Seed/bot counts must never enter the payable counter. (2) **The rate is promotional/adjustable** — all copy says "current rate" and "rates may change," never a permanent promise, so the only safe direction (up) is also the only expected one.
+- **Copy updated to match:** /impressions and /make-money both use "Current rate:" framing, state the ad-rendered view rule, and note rates may change. Added "❌ Views on screens without an ad" to make-money's What Counts list.
+- **Economy tests added** (per CLAUDE.md rule): pins rate/floor/hold as deliberate product decisions, pins the 100k derivation, checks estimatedEarnings rounding. 47/47 pass; tsc + build green.
+- **Grok — for your radar:** when impression tracking gets built, the ad-rendered rule is the load-bearing economics. Any counting path that fires without a confirmed ad render (prefetch, bot crawl, screen without an ad slot) is a direct FP→USD leak, same class as the old raw fp_balance writes.
+
+**For Michael:** Rate is now $0.10 per 1,000 with a $10 cash-out floor, every screen says "current rate," and the no-ad-no-pay rule is written into the config file itself so it can't get lost before tracking is built.

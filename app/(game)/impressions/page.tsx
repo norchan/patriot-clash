@@ -53,7 +53,7 @@ function ImpressionsContent() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
           <h2 className="text-white font-bold text-lg mb-3">Anyone can earn money on PoliticsGo</h2>
           <p className="text-gray-400 text-sm mb-4">
-            Get paid ${rate} for every 1,000 people who see your content. Earn money when messaging friends, posting pictures, videos, and more!
+            Current rate: ${rate} per 1,000 views. Earn money when messaging friends, posting pictures, videos, and more! A view counts when someone opens your content on a screen that shows an ad.
           </p>
           <ul className="text-gray-400 text-sm space-y-2">
             <li>✓ <strong>Profile posts</strong> — share photos and thoughts</li>
@@ -78,7 +78,7 @@ function ImpressionsContent() {
         {/* Withdraw info */}
         <div className="mt-6 bg-gray-900/50 border border-gray-800 rounded-xl p-4 text-center">
           <p className="text-gray-500 text-xs">
-            Earnings available after {CREATOR_EARNINGS.HOLD_DAYS} days. Minimum ${CREATOR_EARNINGS.MIN_WITHDRAW_USD.toFixed(2)} to cash out.
+            Earnings available after {CREATOR_EARNINGS.HOLD_DAYS} days. Minimum ${CREATOR_EARNINGS.MIN_WITHDRAW_USD.toFixed(2)} to cash out. Rates are current and may change as the program grows.
           </p>
         </div>
       </div>

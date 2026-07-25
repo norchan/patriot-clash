@@ -52,7 +52,7 @@ export default function MakeMoneyPage() {
               <DollarSign size={48} className="text-green-400" />
             </div>
             <h1 className="text-white font-bold text-3xl mb-2">Make Money with PoliticsGo</h1>
-            <p className="text-gray-400">Get paid for your content. Earn ${RATE} per 1,000 impressions.</p>
+            <p className="text-gray-400">Get paid for your content. Current rate: ${RATE} per 1,000 impressions.</p>
           </div>
 
           {/* How it works */}
@@ -70,14 +70,14 @@ export default function MakeMoneyPage() {
                 <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">2</div>
                 <div>
                   <p className="text-white font-bold">Get Impressions</p>
-                  <p className="text-gray-400 text-sm">When people view your posts and messages, you earn impressions. Track them in real-time on each post.</p>
+                  <p className="text-gray-400 text-sm">When people open your posts and messages on a screen that shows an ad, you earn an impression. Track them on each post.</p>
                 </div>
               </div>
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">3</div>
                 <div>
                   <p className="text-white font-bold">Earn Money</p>
-                  <p className="text-gray-400 text-sm">Earn ${RATE} per 1,000 impressions. Withdraw after {HOLD} days when you reach ${MIN} minimum.</p>
+                  <p className="text-gray-400 text-sm">Current rate: ${RATE} per 1,000 impressions. Withdraw after {HOLD} days when you reach ${MIN} minimum. Rates may change as the program grows.</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -103,6 +103,7 @@ export default function MakeMoneyPage() {
               <p className="text-red-400 mt-4">❌ Links to other websites (not eligible)</p>
               <p className="text-red-400">❌ Reposted content from elsewhere</p>
               <p className="text-red-400">❌ Content that violates our terms</p>
+              <p className="text-red-400">❌ Views on screens without an ad (nothing to share)</p>
             </div>
           </div>
 

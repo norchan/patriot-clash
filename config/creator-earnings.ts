@@ -1,7 +1,16 @@
-// Creator earnings configuration — single source of truth for payouts
+// Creator earnings configuration — single source of truth for payouts.
+//
+// RULES (Michael, 2026-07-25):
+// 1. The rate is PROMOTIONAL/ADJUSTABLE — all copy must say "current rate",
+//    never promise it as permanent. Change it here and every screen follows.
+// 2. HARD RULE for impression tracking (when it's built): an impression only
+//    counts when the content is opened on a screen that RENDERED AN AD.
+//    No ad shown = no impression = no payout. We never pay on views that
+//    didn't earn ad revenue. Seed/bot counts must never enter the payable
+//    counter.
 export const CREATOR_EARNINGS = {
-  USD_PER_1000_IMPRESSIONS: 0.30,
-  MIN_WITHDRAW_USD: 5.00,
+  USD_PER_1000_IMPRESSIONS: 0.10,
+  MIN_WITHDRAW_USD: 10.00,
   HOLD_DAYS: 30,
 
   // Derived (calculated, not config)
