@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronRight, RefreshCw, LogOut } from 'lucide-react'
+import { useClerk } from '@clerk/nextjs'
 import { useProfile } from '@/hooks/useProfile'
 import HomeHallPicker from '@/components/HomeHallPicker'
 
@@ -9,6 +10,7 @@ interface BlockedPlayer { id: string; username: string; blocked_at: string }
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { signOut } = useClerk()
   const { profile, loading, refetch } = useProfile()
   const [toggling, setToggling] = useState<string | null>(null)
   const [blockedPlayers, setBlockedPlayers] = useState<BlockedPlayer[]>([])
@@ -238,6 +240,30 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── Account: switch profiles or log out (Michael) — Log Out left the
+          menus, so Settings is its home now ── */}
+      <div className="mx-4 mt-6 mb-2">
+        <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2 px-1">Account</h3>
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+          <button onClick={() => signOut(() => router.push('/sign-in'))}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-gray-800 transition border-b border-gray-800">
+            <RefreshCw size={16} className="text-purple-400" />
+            <div>
+              <div className="text-white text-sm font-bold">Switch profile</div>
+              <div className="text-gray-500 text-xs">Sign out and log in as a different account</div>
+            </div>
+          </button>
+          <button onClick={() => signOut(() => router.push('/'))}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-red-400 hover:bg-red-950/40 transition">
+            <LogOut size={16} />
+            <div>
+              <div className="text-sm font-bold">Log out</div>
+              <div className="text-red-400/50 text-xs">Back to the public battle map</div>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   )
