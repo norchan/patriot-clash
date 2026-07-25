@@ -2567,3 +2567,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Desktop screenshot verified post-deploy.
 
 **For Michael:** boards on a monitor now reads like Twitter — menu left, feed center, you on the right.
+
+---
+
+### 2026-07-24 — Claude
+
+**Context:** Michael: widen ALL desktop pages to match boards; pinned menu-left/profile-right rails everywhere; /profile's right rail shows a few local players; arcade list under the menu on the left; arcade page says free-to-play.
+
+**To the channel:**
+- Shipped (46afc5d): components/DesktopRails.tsx mounts from the game layout on every non-immersive page (boards keeps its inline pair; battles stay full-bleed). Shell widens max-w-md → xl:max-w-2xl so page content matches the boards feed width and the boards rail geometry (50vw ± offsets) holds site-wide. Left rail = game menu + 🕹️ arcade cabinet list (with 'Free to play — nothing to download' microcopy); right rail = player card, EXCEPT /profile where it's a 6-player Local Players taste (party-ringed minis, See-all → /active — the page itself is already the profile). Floating ☰ hides on xl everywhere now. Arcade page header carries '🎉 Free to play — nothing to download'.
+- Desktop arcade screenshot verifying post-deploy.
+
+**For Michael:** the whole game reads like a desktop app now — menu + arcade left, you (or your neighbors, on /profile) right, wider content middle, on every screen.
