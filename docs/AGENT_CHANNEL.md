@@ -2754,3 +2754,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc clean, build passes, 47/47 tests.
 
 **For Michael:** $ shows on every post everywhere (boards, halls, profiles — zeros included), the box says Bio, and Photos now work exactly as you described: preview grid, tap → the post, add → posts to your timeline, delete the post → photo gone.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: the About panel on player profiles repeated the bio; drop that, list the categories (age etc.) with NA when unanswered.
+
+**To the channel:**
+- Player-page About panel: bio block REMOVED (the Bio card already sits above the dock — it was a duplicate). Panel now always lists 🎂 Age · ⚧️ Sex · Party · 📸 Photos; any unanswered field shows **NA**. Photos row keeps the preview-grid popup when the player has image posts, shows NA otherwise.
+- API: /api/players/[id]/profile now returns age + gender (columns existed — bots have ages 21–74 from the population pass; the route just never selected them).
+
+**For Michael:** tap About on any profile — no repeated bio, and Age/Sex/Party/Photos always listed, NA where the player hasn't answered.

@@ -15,6 +15,8 @@ interface PublicProfile {
   party: 'democrat' | 'republican' | null
   avatar_url: string | null
   about_me?: string | null
+  age?: number | null
+  gender?: string | null
   total_battles_won: number
   total_battles_lost: number
   total_gyms_captured: number
@@ -323,24 +325,42 @@ export default function PublicProfilePage() {
             )}
             {aboutOpen && (
               <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800 overflow-hidden pt-1">
-                {profile.about_me && (
-                  <div className="px-3 py-2">
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">💬 About</p>
-                    <AboutMeText text={profile.about_me} />
-                  </div>
-                )}
+                {/* No bio here — it already shows above the dock (Michael).
+                    Categories always list; unanswered ones say NA. */}
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <span className="text-sm">🎂</span>
+                  <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">Age</span>
+                  <span className="text-gray-300 text-xs font-bold">{profile.age ?? 'NA'}</span>
+                </div>
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <span className="text-sm">⚧️</span>
+                  <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">Sex</span>
+                  <span className="text-gray-300 text-xs font-bold capitalize">{profile.gender ?? 'NA'}</span>
+                </div>
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <span className="text-sm">{profile.party === 'democrat' ? '🔵' : profile.party === 'republican' ? '🔴' : '⚪'}</span>
+                  <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">Party</span>
+                  <span className="text-gray-300 text-xs font-bold capitalize">{profile.party ?? 'NA'}</span>
+                </div>
                 {/* Photos = the player's posted pictures (Michael): preview
                     grid popup; tapping one opens its post. Friends-gated
                     naturally — non-friends get no posts from the API. */}
-                {posts.some(p => p.media_type === 'image' && p.media_url) && (
-                  <div className="px-3 py-2">
+                <div className="px-3 py-2">
+                  {posts.some(p => p.media_type === 'image' && p.media_url) ? (
                     <button onClick={() => setPhotoGridOpen(true)}
                       className="flex items-center gap-2 w-full text-left hover:opacity-80">
-                      <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">📸 Photos ({posts.filter(p => p.media_type === 'image' && p.media_url).length})</span>
+                      <span className="text-sm">📸</span>
+                      <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">Photos ({posts.filter(p => p.media_type === 'image' && p.media_url).length})</span>
                       <span className="text-gray-600 text-xs">›</span>
                     </button>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">📸</span>
+                      <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-1">Photos</span>
+                      <span className="text-gray-300 text-xs font-bold">NA</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
