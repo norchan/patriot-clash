@@ -26,7 +26,7 @@ export async function GET(
 
     let q: any = admin
       .from('hall_posts')
-      .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local')
+      .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, nsfw, local, impressions')
       .eq('gym_id', id)
       .eq('hidden', false)
     q = sort === 'new'
