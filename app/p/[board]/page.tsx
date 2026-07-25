@@ -91,8 +91,6 @@ export default async function BoardPage({ params, searchParams }: {
     <div className="min-h-screen bg-gray-950 text-gray-200 pb-24">
       {/* remember this psub so ← Boards / back reopens the deck right here */}
       <BoardTabMemory slug={dbBoard?.slug ?? b.label.slice(2)} />
-      {/* blue Top ↑ pill, lower right (Michael) */}
-      <ScrollTopButton />
       <PsubNav />
       <div className="max-w-2xl mx-auto px-4 py-8">
         <nav className="text-sm text-gray-500 mb-4 flex items-center justify-between">
@@ -222,6 +220,8 @@ export default async function BoardPage({ params, searchParams }: {
             Browse all psubs
           </Link>
         </div>
+        {/* Top ↑ pill — sticky at the feed column's own right edge */}
+        <ScrollTopButton />
       </div>
     </div>
   )

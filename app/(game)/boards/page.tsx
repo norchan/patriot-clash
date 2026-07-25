@@ -2,24 +2,28 @@ import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import BoardsDeck from '@/components/BoardsDeck'
 import ScrollTopButton from '@/components/ScrollTopButton'
+import { BoardsLeftNav, BoardsProfileCard } from '@/components/BoardsSidebars'
 
-// /boards — the boards deck full-page: same ☰ menu and psub tab strip as
-// the homepage, landing on p/all, no map, no icons, no title. Swiping the
-// feed left/right moves between psubs (the tab strip itself just scrolls).
+// /boards — the boards deck full-page. Mobile: the deck alone (game ☰ rides
+// below the tab strip). DESKTOP (lg+): Twitter-style three columns — the game
+// menu as a static LEFT sidebar (the floating ☰ hides here), the feed center,
+// and the player's profile card on the RIGHT (Michael).
 
 export default async function BoardsPage() {
   const { userId } = await auth()
   const admin = createSupabaseAdminClient()
 
-  let profileId: string | null = null
+  let profile: { id: string; username: string; party: string | null; avatar_url: string | null; fp_balance: number; total_battles_won: number } | null = null
   let subTabs: string[] = []
   if (userId) {
-    const { data: prof } = await admin.from('profiles').select('id').eq('clerk_user_id', userId).maybeSingle()
-    profileId = prof?.id ?? null
-    if (profileId) {
+    const { data: prof } = await admin.from('profiles')
+      .select('id, username, party, avatar_url, fp_balance, total_battles_won')
+      .eq('clerk_user_id', userId).maybeSingle()
+    profile = prof ?? null
+    if (profile) {
       const { data: subs } = await admin.from('board_subscriptions')
         .select('boards(slug)')
-        .eq('profile_id', profileId)
+        .eq('profile_id', profile.id)
         .order('created_at')
       subTabs = (subs ?? []).map((s: any) => s.boards?.slug).filter(Boolean)
     }
@@ -43,12 +47,26 @@ export default async function BoardsPage() {
   }))
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <div className="max-w-2xl mx-auto">
-        <BoardsDeck signedIn={!!profileId} initialPosts={deckPosts} extraTabs={subTabs} swipeNav tall />
+    // the game shell is a max-w-md phone column — on desktop this page
+    // breaks out full-bleed so the three-column spread has room
+    <div className="min-h-screen bg-gray-950 lg:w-screen lg:ml-[calc(50%-50vw)]">
+      <div className="mx-auto flex justify-center gap-6 lg:px-6">
+        {/* LEFT (desktop): the game menu as a column — the floating ☰ hides on lg */}
+        <aside className="hidden lg:block w-56 shrink-0 pt-6 sticky top-6 self-start">
+          <BoardsLeftNav signedIn={!!profile} />
+        </aside>
+
+        {/* the feed — Top pill rides the column's own right edge */}
+        <div className="w-full max-w-2xl min-w-0">
+          <BoardsDeck signedIn={!!profile} initialPosts={deckPosts} extraTabs={subTabs} swipeNav tall />
+          <ScrollTopButton bottomClass="bottom-24" />
+        </div>
+
+        {/* RIGHT (desktop): the player card, Twitter-style */}
+        <aside className="hidden lg:block w-72 shrink-0 pt-6 sticky top-6 self-start">
+          <BoardsProfileCard profile={profile ? { username: profile.username, party: profile.party, avatar_url: profile.avatar_url, fp_balance: profile.fp_balance, total_battles_won: profile.total_battles_won } : null} />
+        </aside>
       </div>
-      {/* blue Top ↑ pill, lower right — rides above the bottom nav (Michael) */}
-      <ScrollTopButton bottomClass="bottom-24" />
     </div>
   )
 }
