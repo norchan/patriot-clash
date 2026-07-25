@@ -47,9 +47,9 @@ export default async function BoardsPage() {
   }))
 
   return (
-    // the game shell is a max-w-md phone column — on desktop this page
-    // breaks out full-bleed so the three-column spread has room
-    <div className="min-h-screen bg-gray-950 lg:w-screen lg:ml-[calc(50%-50vw)]">
+    // the game shell relaxes its phone width on lg for this page (see
+    // layout.tsx) — the three columns center themselves in the open space
+    <div className="min-h-screen bg-gray-950">
       <div className="mx-auto flex justify-center gap-6 lg:px-6">
         {/* LEFT (desktop): the game menu as a column — the floating ☰ hides on lg */}
         <aside className="hidden lg:block w-56 shrink-0 pt-6 sticky top-6 self-start">

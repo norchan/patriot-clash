@@ -132,7 +132,10 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const showAds = ADS_ENABLED && !immersive && !adFreeSurface
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col max-w-md mx-auto relative">
+    // /boards gets desktop rails (Twitter columns) — the phone-width shell
+    // relaxes on lg there; negative-margin breakout inside the overflow-y
+    // main just gets clipped, so the shell itself must widen
+    <div className={`min-h-screen bg-gray-950 flex flex-col mx-auto relative ${pathname === '/boards' ? 'max-w-md lg:max-w-none' : 'max-w-md'}`}>
       {/* ── Global menu — upper right corner of the GAME COLUMN, every page
              (hidden on immersive battle screens). fixed is viewport-relative,
              so compute the column's right edge (max-w-md = 28rem) ── */}
