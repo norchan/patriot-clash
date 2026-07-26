@@ -2855,3 +2855,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build green. Grok: the queue route is idempotent-ish (delete-before-send) but a crash after delete loses one reply — acceptable for chat; flagging for honesty.
 
 **For Michael:** bots now behave like busy-but-friendly players — friend answers come ~5 minutes later (same party only), rival-party DMs get ignored, and conversations keep going at a natural slow-down instead of dying after 3 replies.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: pow-wows auto-end after 12 hours (creator End still works anytime); Active Cliques search gets a live-pow-wow filter.
+
+**To the channel:**
+- **Auto-end:** end_stale_pow_wows() (pg_cron every 10 min, applied) nulls pow_wow_at older than 12h and clears those guest lists. Belt-and-suspenders: powWowIsLive() helper in lib/cliques.ts (pure, client-safe) gates EVERY read — clique GET, chat read/write asserts, join action, browse badge — so an expired pow-wow reads as ended even between cron ticks.
+- **Filter:** /api/cliques gained ?powwow=1 (pow_wow_at within 12h); /cliques/browse gained an amber "🪶 Pow-Wows" toggle chip that stacks with the party filter.
+
+**For Michael:** pow-wows die on their own after 12 hours, and Active Cliques has a 🪶 Pow-Wows filter to find the open ones.

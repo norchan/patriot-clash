@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { isCliqueMember } from '@/lib/cliques'
+import { isCliqueMember, powWowIsLive } from '@/lib/cliques'
 
 // GET /api/cliques/[id] — clique details. The member roster is visible to
 // MEMBERS ONLY; pending join requests are visible to the creator only.
@@ -26,7 +26,7 @@ export async function GET(
 
     const isMember = await isCliqueMember(admin, profile.id, clique.id)
     const isCreator = clique.creator_id === profile.id
-    const powWowLive = !!clique.pow_wow_at
+    const powWowLive = powWowIsLive(clique.pow_wow_at)
 
     const [{ data: gym }, { count: memberCount }] = await Promise.all([
       clique.gym_id

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
+import { powWowIsLive } from '@/lib/cliques'
 
 // ACTIVE CLIQUES (Michael): the dedicated search/create page. Search runs
 // across BOTH parties (joining stays party-bound — the other party's
@@ -35,6 +36,7 @@ export default function CliqueBrowsePage() {
   const [myPendingId, setMyPendingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [partyFilter, setPartyFilter] = useState<'all' | 'democrat' | 'republican'>('all')
+  const [powWowOnly, setPowWowOnly] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
@@ -57,6 +59,7 @@ export default function CliqueBrowsePage() {
     try {
       const params = new URLSearchParams({ party: partyFilter })
       if (search) params.set('q', search)
+      if (powWowOnly) params.set('powwow', '1')
       const res = await fetch(`/api/cliques?${params}`)
       const data = await res.json()
       setCliques(data.cliques ?? [])
@@ -65,7 +68,7 @@ export default function CliqueBrowsePage() {
       setMyPendingId(data.my_pending_id ?? null)
     } catch {}
     setLoading(false)
-  }, [search, partyFilter])
+  }, [search, partyFilter, powWowOnly])
 
   useEffect(() => { loadCliques() }, [loadCliques])
 
@@ -229,7 +232,7 @@ export default function CliqueBrowsePage() {
           placeholder="Search cliques..."
           className="w-full bg-gray-900 text-white text-sm rounded-xl px-4 py-3 outline-none placeholder-gray-600 border border-gray-800 focus:border-gray-600 mb-3"
         />
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-2 mb-3 flex-wrap">
           {([['all', 'All'], ['democrat', 'Democrat'], ['republican', 'Republican']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setPartyFilter(key)}
               className={`px-3.5 py-2 rounded-full text-xs font-black border transition ${
@@ -241,6 +244,12 @@ export default function CliqueBrowsePage() {
               {label}
             </button>
           ))}
+          {/* live pow-wows only — stacks with the party filter */}
+          <button onClick={() => setPowWowOnly(v => !v)}
+            className={`px-3.5 py-2 rounded-full text-xs font-black border transition ${
+              powWowOnly ? 'text-amber-300 border-amber-600 bg-amber-900/30' : 'text-gray-400 border-gray-800 bg-gray-900 hover:text-white'}`}>
+            🪶 Pow-Wows
+          </button>
         </div>
 
         {loading ? (
@@ -284,7 +293,7 @@ export default function CliqueBrowsePage() {
                       <span className="font-bold" style={{ color: cColor }}>{c.party === 'democrat' ? 'DEM' : 'REP'}</span>
                       {' · '}{c.member_count} member{c.member_count !== 1 ? 's' : ''}
                       {c.join_policy === 'open' ? ' · 🚪 Open' : ' · 🔒 Request'}
-                      {c.pow_wow_at && <span className="text-amber-400 font-bold"> · 🪶 Pow-Wow LIVE</span>}
+                      {powWowIsLive(c.pow_wow_at) && <span className="text-amber-400 font-bold"> · 🪶 Pow-Wow LIVE</span>}
                     </p>
                   </button>
                   {isMine ? (

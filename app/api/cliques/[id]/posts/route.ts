@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation'
+import { powWowIsLive } from '@/lib/cliques'
 
 // Clique feed — MEMBERS ONLY, both read and write... EXCEPT during a
 // Pow-Wow (Michael): while one is live, ANYONE can read the chat, and
@@ -9,7 +10,7 @@ import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation
 
 async function powWowLive(admin: any, cliqueId: string): Promise<boolean> {
   const { data } = await admin.from('cliques').select('pow_wow_at').eq('id', cliqueId).maybeSingle()
-  return !!data?.pow_wow_at
+  return powWowIsLive(data?.pow_wow_at)
 }
 
 // read access: member, or any signed-in player while a pow-wow is live

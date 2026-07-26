@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     const q = req.nextUrl.searchParams.get('q')?.trim()
     const gymId = req.nextUrl.searchParams.get('gym_id')
     const party = req.nextUrl.searchParams.get('party')
+    const powwow = req.nextUrl.searchParams.get('powwow') === '1'
 
     let query = admin
       .from('cliques')
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
     else query = query.eq('party', profile.party)
 
     if (q) query = query.ilike('name', `%${q}%`)
+    // ?powwow=1 — only cliques with a LIVE pow-wow (12h max, Michael)
+    if (powwow) query = query.gte('pow_wow_at', new Date(Date.now() - 12 * 3600 * 1000).toISOString())
 
     const { data: cliques, error } = await query
     if (error) throw error

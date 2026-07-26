@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { isCliqueMember } from '@/lib/cliques'
+import { isCliqueMember, powWowIsLive } from '@/lib/cliques'
 
 // POST /api/cliques/[id]/powwow { action: 'start' | 'end' | 'join' }
 // Pow-Wow (Michael): the creator opens the clique to EVERYONE — anyone can
@@ -39,7 +39,7 @@ export async function POST(
     }
 
     if (action === 'join') {
-      if (!clique.pow_wow_at) {
+      if (!powWowIsLive(clique.pow_wow_at)) {
         return NextResponse.json({ error: 'No Pow-Wow running right now' }, { status: 400 })
       }
       if (await isCliqueMember(admin, profile.id, id)) {

@@ -4,6 +4,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // clique_members (a player can join many, anywhere in the country);
 // profiles.clique_id is the DEFAULT clique pointer.
 
+// Pow-Wows run at most 12 hours (Michael): a pg_cron sweep nulls stale
+// pow_wow_at every 10 min; this check keeps reads honest between ticks.
+export const POW_WOW_MAX_HOURS = 12
+export function powWowIsLive(powWowAt: string | null | undefined): boolean {
+  if (!powWowAt) return false
+  return Date.now() - new Date(powWowAt).getTime() < POW_WOW_MAX_HOURS * 3600 * 1000
+}
+
 /** Is this profile a member of this clique? */
 export async function isCliqueMember(admin: SupabaseClient, profileId: string, cliqueId: string): Promise<boolean> {
   const { data } = await admin
