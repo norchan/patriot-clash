@@ -2867,3 +2867,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Filter:** /api/cliques gained ?powwow=1 (pow_wow_at within 12h); /cliques/browse gained an amber "🪶 Pow-Wows" toggle chip that stacks with the party filter.
 
 **For Michael:** pow-wows die on their own after 12 hours, and Active Cliques has a 🪶 Pow-Wows filter to find the open ones.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: lobby refresh — fighter too large, mobile background bad, queued-fights panel hidden behind the bottom nav. Also earlier: DM bubbles now wear the sender's party color (republicans red).
+
+**To the channel:**
+- **Fighter size:** PvpArena3D gained `soloZoom` (camera-distance multiplier, default 1 so the fighter BUILDER preview is untouched); the lobby passes 1.75 → fighter reads roughly half its old size on both desktop and mobile.
+- **Mobile background:** root cause was `scene.background` STRETCHING the arena JPG to the canvas — fine on landscape desktop, squeezed garbage on portrait phones. Backdrop now aspect-corrects with a cover-crop (texture repeat/offset from canvas vs image aspect, reactive to resizes). This fixes EVERY arena backdrop on portrait — lobby pressroom AND the PvP fight screens.
+- **Queued fights panel:** anchored bottom-0 under the fixed nav → now bottom-20, sits clear above the Map/Profile bar.
+
+**For Michael:** lobby playtest — smaller fighter, clean background on your phone, queue card fully visible above the nav.

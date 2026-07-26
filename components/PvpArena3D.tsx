@@ -536,13 +536,27 @@ function Ground() {
 // ── Cinematic arena backdrop (fills the canvas behind the fighters) ──────────
 function Backdrop({ url }: { url: string }) {
   const tex = useTexture(url)
-  const { scene } = useThree()
+  const { scene, size } = useThree()
   useEffect(() => {
     tex.colorSpace = THREE.SRGBColorSpace
+    // COVER-crop instead of stretch: scene.background squeezes the JPG to the
+    // canvas, which wrecked portrait phones — crop the wide image instead
+    const img: any = tex.image
+    if (img?.width && img?.height) {
+      const canvasAspect = size.width / size.height
+      const imageAspect = img.width / img.height
+      if (canvasAspect < imageAspect) {
+        tex.repeat.set(canvasAspect / imageAspect, 1)
+        tex.offset.set((1 - tex.repeat.x) / 2, 0)
+      } else {
+        tex.repeat.set(1, imageAspect / canvasAspect)
+        tex.offset.set(0, (1 - tex.repeat.y) / 2)
+      }
+    }
     const prev = scene.background
     scene.background = tex
     return () => { scene.background = prev }
-  }, [tex, scene])
+  }, [tex, scene, size.width, size.height])
   return null
 }
 
@@ -582,11 +596,11 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
   return null
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
-  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
+  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
-      camera={{ position: solo ? [0, 1.2, 4.6] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
+      camera={{ position: solo ? [0, 1.2, 4.6 * soloZoom] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
       dpr={[1, 2]}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
       onCreated={({ camera }) => camera.lookAt(0, solo ? 1.0 : 1.35, 0)}>

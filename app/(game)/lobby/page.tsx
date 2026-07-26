@@ -60,7 +60,7 @@ export default function FightLobbyPage() {
       {/* your fighter at the press-room podium */}
       <div className="absolute inset-0">
         {profile && (
-          <PvpArena3D playerPrefix={myFighter} playerHeadId={myHead} solo arena="pressroom" />
+          <PvpArena3D playerPrefix={myFighter} playerHeadId={myHead} solo soloZoom={1.75} arena="pressroom" />
         )}
       </div>
       <div className="absolute inset-x-0 top-0 h-28 pointer-events-none"
@@ -81,8 +81,8 @@ export default function FightLobbyPage() {
         </div>
       </div>
 
-      {/* queued fights */}
-      <div className="absolute bottom-0 inset-x-0 z-10 px-4 pb-6">
+      {/* queued fights — bottom-20 clears the fixed bottom nav */}
+      <div className="absolute bottom-20 inset-x-0 z-10 px-4 pb-2">
         <p className="text-amber-300 text-[10px] font-black uppercase tracking-[0.2em] mb-2" style={{ textShadow: '0 1px 4px #000' }}>
           ⚔️ Queued fights
         </p>
