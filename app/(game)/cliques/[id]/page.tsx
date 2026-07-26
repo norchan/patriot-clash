@@ -5,8 +5,9 @@ import { ArrowLeft, Settings } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { BANNERS } from '@/config/banners'
 import CliqueFeed from '@/components/CliqueFeed'
+import CliqueLiveRow from '@/components/CliqueLiveRow'
 
-interface Member { id: string; username: string; avatar_url: string | null; total_battles_won: number; pow_wow_guest?: boolean }
+interface Member { id: string; username: string; avatar_url: string | null; total_battles_won: number; pow_wow_guest?: boolean; is_moderator?: boolean }
 interface Pending { id: string; username: string; avatar_url: string | null }
 interface Clique {
   id: string; name: string; party: 'democrat' | 'republican'; gym_id: string | null
@@ -27,6 +28,10 @@ export default function CliquePage() {
   const [memberCount, setMemberCount] = useState(0)
   const [powWow, setPowWow] = useState(false)
   const [isPowWowGuest, setIsPowWowGuest] = useState(false)
+  const [amModerator, setAmModerator] = useState(false)
+  const [bannedMe, setBannedMe] = useState(false)
+  const [guestLiveAllowed, setGuestLiveAllowed] = useState(false)
+  const [guestChatAllowed, setGuestChatAllowed] = useState(true)
   const [loading, setLoading] = useState(true)
 
   const [showSettings, setShowSettings] = useState(false)
@@ -43,6 +48,8 @@ export default function CliquePage() {
     setClique(d.clique); setGym(d.gym); setMembers(d.members ?? []); setPending(d.pending ?? [])
     setIsMember(d.is_member); setIsCreator(d.is_creator); setMemberCount(d.member_count ?? 0)
     setPowWow(!!d.pow_wow); setIsPowWowGuest(!!d.is_pow_wow_guest)
+    setAmModerator(!!d.am_moderator); setBannedMe(!!d.banned)
+    setGuestLiveAllowed(!!d.pow_wow_guest_live); setGuestChatAllowed(d.pow_wow_guest_chat !== false)
     setLoading(false)
   }, [params.id])
 
@@ -67,7 +74,7 @@ export default function CliquePage() {
 
   useEffect(() => { load() }, [load])
 
-  async function saveSettings(updates: { join_policy?: string; banner_url?: string | null }) {
+  async function saveSettings(updates: { join_policy?: string; banner_url?: string | null; pow_wow_guest_live?: boolean; pow_wow_guest_chat?: boolean }) {
     setBusy(true)
     try {
       const res = await fetch(`/api/cliques/${params.id}/settings`, {
@@ -78,8 +85,11 @@ export default function CliquePage() {
       const d = await res.json()
       if (!res.ok) { showToast(`❌ ${d.error || 'Save failed'}`); return }
       setClique(c => c ? { ...c, ...d.clique } : c)
+      if (d.clique?.pow_wow_guest_live !== undefined) setGuestLiveAllowed(!!d.clique.pow_wow_guest_live)
+      if (d.clique?.pow_wow_guest_chat !== undefined) setGuestChatAllowed(d.clique.pow_wow_guest_chat !== false)
       if (updates.join_policy === 'open') { showToast('🚪 Clique is now open — pending requests admitted'); load() }
       else if (updates.join_policy) showToast('🔒 Now request-only')
+      else if ((updates as any).pow_wow_guest_live !== undefined || (updates as any).pow_wow_guest_chat !== undefined) showToast('🪶 Pow-Wow rules updated')
       else showToast('🖼️ Banner updated')
     } catch { showToast('❌ Save failed') }
     finally { setBusy(false) }
@@ -116,6 +126,15 @@ export default function CliquePage() {
   if (!clique) return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-3">
       <p className="text-gray-400">Clique not found.</p>
+      <button onClick={() => router.push('/cliques')} className="text-blue-400 text-sm">← Back to Cliques</button>
+    </div>
+  )
+
+  // banned players get the door, pow-wow or not
+  if (bannedMe) return (
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-3">
+      <div className="text-5xl">🚫</div>
+      <p className="text-gray-300 font-bold">You&apos;re banned from this clique.</p>
       <button onClick={() => router.push('/cliques')} className="text-blue-400 text-sm">← Back to Cliques</button>
     </div>
   )
@@ -172,6 +191,19 @@ export default function CliquePage() {
                   {p === 'open' ? '🚪 Anyone can join' : '🔒 Approve requests'}
                 </button>
               ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs uppercase tracking-wider mb-1.5">Pow-Wow rules — non-member guests</p>
+            <div className="flex gap-2">
+              <button onClick={() => saveSettings({ pow_wow_guest_live: !guestLiveAllowed } as any)} disabled={busy}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${guestLiveAllowed ? 'text-white bg-amber-700' : 'text-gray-400 bg-gray-800'}`}>
+                {guestLiveAllowed ? '🔴 Guests can go live' : '🚫 Guests can\'t go live'}
+              </button>
+              <button onClick={() => saveSettings({ pow_wow_guest_chat: !guestChatAllowed } as any)} disabled={busy}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${guestChatAllowed ? 'text-white bg-amber-700' : 'text-gray-400 bg-gray-800'}`}>
+                {guestChatAllowed ? '💬 Guests can chat' : '👀 Guests read-only'}
+              </button>
             </div>
           </div>
           <div>
@@ -270,35 +302,28 @@ export default function CliquePage() {
         )
       ) : (
         <>
-          {/* Live chat — during a Pow-Wow everyone can read; non-members
-              must tap Join the Pow-Wow (banner above) before posting */}
-          <div className="mx-4 mt-3">
-            <CliqueFeed cliqueId={String(params.id)} partyColor={partyColor} isCreator={isCreator} />
+          {/* Members strip — always visible squares; live feeds swap in.
+              Pow-wow guests ride along tagged as non-members. */}
+          <div className="mx-4 mt-4 bg-gray-900 rounded-2xl p-4">
+            <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">{memberCount} member{memberCount !== 1 ? 's' : ''}</p>
+            <CliqueLiveRow
+              cliqueId={String(params.id)}
+              members={members}
+              myId={profile?.id ?? null}
+              creatorId={clique.creator_id}
+              isCreator={isCreator}
+              amModerator={amModerator}
+              canGoLive={isMember || (powWow && isPowWowGuest && guestLiveAllowed)}
+              partyColor={partyColor}
+              onChanged={load}
+            />
           </div>
 
-          {/* Members — pow-wow guests listed too, flagged as non-members */}
-          <div className="mx-4 mt-4 bg-gray-900 rounded-2xl p-4">
-            <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Members</p>
-            {members.map(m => (
-              <div key={m.id} className="flex items-center gap-2 py-1.5">
-                {m.avatar_url
-                  ? <img src={m.avatar_url} alt="" className={`w-7 h-7 rounded-full object-cover ${m.pow_wow_guest ? 'opacity-80' : ''}`} />
-                  : <div className="w-7 h-7 rounded-full" style={{ background: m.pow_wow_guest ? '#4b5563' : partyColor }} />}
-                <button onClick={() => router.push(`/player/${m.id}`)} className="text-white text-sm flex-1 text-left truncate">
-                  {m.username}{m.id === clique.creator_id ? ' 👑' : ''}
-                  {m.pow_wow_guest && (
-                    <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/50 align-middle">
-                      🪶 guest
-                    </span>
-                  )}
-                </button>
-                <span className="text-gray-600 text-xs">{m.total_battles_won}W</span>
-                {isCreator && !m.pow_wow_guest && m.id !== profile?.id && (
-                  <button onClick={() => manageMember(m.id, 'remove')} disabled={busy}
-                    className="text-gray-600 hover:text-red-400 text-xs">✕</button>
-                )}
-              </div>
-            ))}
+          {/* Live chat — during a Pow-Wow everyone can read; guests post
+              only if they joined AND the owner allows guest chat */}
+          <div className="mx-4 mt-3">
+            <CliqueFeed cliqueId={String(params.id)} partyColor={partyColor} isCreator={isCreator}
+              readOnly={!isMember && (!isPowWowGuest || !guestChatAllowed)} />
           </div>
         </>
       )}

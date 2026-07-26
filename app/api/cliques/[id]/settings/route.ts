@@ -13,7 +13,7 @@ export async function PATCH(
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
-    const { join_policy, banner_url } = await req.json()
+    const { join_policy, banner_url, pow_wow_guest_live, pow_wow_guest_chat } = await req.json()
 
     const { data: clique } = await admin
       .from('cliques')
@@ -51,6 +51,11 @@ export async function PATCH(
       updates.banner_url = banner_url
     }
 
+    // Pow-Wow rules (Michael): may non-member guests go live? may they chat
+    // (false = read-only chat for guests)?
+    if (pow_wow_guest_live !== undefined) updates.pow_wow_guest_live = !!pow_wow_guest_live
+    if (pow_wow_guest_chat !== undefined) updates.pow_wow_guest_chat = !!pow_wow_guest_chat
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
@@ -59,7 +64,7 @@ export async function PATCH(
       .from('cliques')
       .update(updates)
       .eq('id', id)
-      .select('id, join_policy, banner_url')
+      .select('id, join_policy, banner_url, pow_wow_guest_live, pow_wow_guest_chat')
       .single()
 
     if (error) throw error

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation'
-import { powWowIsLive } from '@/lib/cliques'
+import { powWowIsLive, isCliqueBanned } from '@/lib/cliques'
 
 // Clique feed — MEMBERS ONLY, both read and write... EXCEPT during a
 // Pow-Wow (Michael): while one is live, ANYONE can read the chat, and
@@ -13,8 +13,12 @@ async function powWowLive(admin: any, cliqueId: string): Promise<boolean> {
   return powWowIsLive(data?.pow_wow_at)
 }
 
-// read access: member, or any signed-in player while a pow-wow is live
+// read access: member, or any signed-in player while a pow-wow is live.
+// Banned players are out regardless.
 async function assertReader(admin: any, profile: any, cliqueId: string) {
+  if (await isCliqueBanned(admin, profile.id, cliqueId)) {
+    throw NextResponse.json({ error: "You're banned from this clique" }, { status: 403 })
+  }
   const { data } = await admin.from('clique_members')
     .select('clique_id').eq('clique_id', cliqueId).eq('profile_id', profile.id).maybeSingle()
   if (data) return
@@ -22,12 +26,21 @@ async function assertReader(admin: any, profile: any, cliqueId: string) {
   throw NextResponse.json({ error: 'Only clique members can see this feed' }, { status: 403 })
 }
 
-// write access: member, or a joined pow-wow guest while one is live
+// write access: member, or a joined pow-wow guest while one is live — and
+// only if the owner's rules allow guest chat (else guests are read-only)
 async function assertPoster(admin: any, profile: any, cliqueId: string) {
+  if (await isCliqueBanned(admin, profile.id, cliqueId)) {
+    throw NextResponse.json({ error: "You're banned from this clique" }, { status: 403 })
+  }
   const { data } = await admin.from('clique_members')
     .select('clique_id').eq('clique_id', cliqueId).eq('profile_id', profile.id).maybeSingle()
   if (data) return
-  if (await powWowLive(admin, cliqueId)) {
+  const { data: cq } = await admin.from('cliques')
+    .select('pow_wow_at, pow_wow_guest_chat').eq('id', cliqueId).maybeSingle()
+  if (powWowIsLive(cq?.pow_wow_at)) {
+    if (cq?.pow_wow_guest_chat === false) {
+      throw NextResponse.json({ error: 'Chat is read-only for Pow-Wow guests here' }, { status: 403 })
+    }
     const { data: guest } = await admin.from('clique_pow_wow_guests')
       .select('clique_id').eq('clique_id', cliqueId).eq('profile_id', profile.id).maybeSingle()
     if (guest) return

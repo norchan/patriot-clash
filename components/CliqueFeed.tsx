@@ -19,8 +19,10 @@ function nameColor(name: string): string {
 // lines, newest at the bottom, polled every 3s. Replaces the old post feed.
 // stretch (Michael): fill the remaining screen height down to the bottom
 // nav instead of the fixed 460px box — parent must be a flex column.
-export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = false }: {
-  cliqueId: string; partyColor: string; isCreator: boolean; stretch?: boolean
+// readOnly (pow-wow rule): the viewer can watch the chat but not type —
+// composer swaps for a notice.
+export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = false, readOnly = false }: {
+  cliqueId: string; partyColor: string; isCreator: boolean; stretch?: boolean; readOnly?: boolean
 }) {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [draft, setDraft] = useState('')
@@ -135,6 +137,11 @@ export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = 
           </div>
         </div>
       )}
+      {readOnly ? (
+        <div className="p-2.5 border-t border-gray-800 flex-shrink-0 text-center">
+          <p className="text-gray-500 text-xs font-bold">👀 Chat is read-only for Pow-Wow guests here</p>
+        </div>
+      ) : (
       <div className="flex items-center gap-2 p-2 border-t border-gray-800 flex-shrink-0">
         <input ref={fileRef} type="file" accept="image/*" hidden
           onChange={e => { e.target.files?.[0] && pickImage(e.target.files[0]); e.target.value = '' }} />
@@ -157,6 +164,7 @@ export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = 
           <Send size={15} />
         </button>
       </div>
+      )}
     </div>
   )
 }

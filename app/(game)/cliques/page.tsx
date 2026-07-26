@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import CliqueFeed from '@/components/CliqueFeed'
+import CliqueLiveRow from '@/components/CliqueLiveRow'
 
 // MY CLIQUES (Michael): this page is the clique panel only — the dropdown
 // next to the title switches between your cliques ("more cliques" at the
@@ -15,6 +16,7 @@ interface Member {
   avatar_url: string | null
   total_battles_won: number
   pow_wow_guest?: boolean
+  is_moderator?: boolean
 }
 
 interface PendingMember {
@@ -35,8 +37,9 @@ export default function CliquesPage() {
   const [myCliqueInfo, setMyCliqueInfo] = useState<{ name: string; gym_id: string | null; city?: string; state?: string } | null>(null)
   const [pendingRequests, setPendingRequests] = useState<PendingMember[]>([])
   const [isCreator, setIsCreator] = useState(false)
+  const [amModerator, setAmModerator] = useState(false)
+  const [creatorId, setCreatorId] = useState<string | null>(null)
   const [powWow, setPowWow] = useState(false)
-  const [showMembers, setShowMembers] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -76,6 +79,8 @@ export default function CliquesPage() {
         setMyMembers(d.members ?? [])
         setPendingRequests(d.pending ?? [])
         setIsCreator(!!d.is_creator)
+        setAmModerator(!!d.am_moderator)
+        setCreatorId(d.clique?.creator_id ?? null)
         setPowWow(!!d.pow_wow)
         if (d.clique) setMyCliqueInfo({ name: d.clique.name, gym_id: d.clique.gym_id, city: d.gym?.city_name, state: d.gym?.state })
       })
@@ -292,13 +297,22 @@ export default function CliquesPage() {
                   </button>
                 )}
 
-                {/* Tap to expand/collapse the member roster */}
-                <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2 flex items-center justify-between">
-                  <p className="text-gray-500 text-xs">
-                    {myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''} · tap to {showMembers ? 'hide' : 'see'} members
-                  </p>
-                  <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
-                </button>
+                <p className="text-gray-500 text-xs mb-2">
+                  {myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''}
+                </p>
+
+                {/* the live strip — always visible under the member count */}
+                <CliqueLiveRow
+                  cliqueId={myCliqueId!}
+                  members={myMembers}
+                  myId={profile?.id ?? null}
+                  creatorId={creatorId ?? ''}
+                  isCreator={isCreator}
+                  amModerator={amModerator}
+                  canGoLive={true}
+                  partyColor={partyColor}
+                  onChanged={loadMyClique}
+                />
               </>
             )
           })()}
@@ -326,34 +340,6 @@ export default function CliquesPage() {
             </div>
           )}
 
-          {showMembers && (
-            <div className="space-y-1.5">
-              {myMembers.map(m => (
-                <div key={m.id} className="flex items-center gap-2">
-                  {/* Tap a member to open their profile */}
-                  <button onClick={() => router.push(`/player/${m.id}`)}
-                    className="flex items-center gap-2 flex-1 min-w-0 text-left rounded-lg px-1 py-0.5 hover:bg-gray-800 transition">
-                    {m.avatar_url
-                      ? <img src={m.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border" style={{ borderColor: partyColor }} />
-                      : <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ background: `${partyColor}33` }}>👤</div>}
-                    <span className="text-gray-300 text-sm flex-1 truncate">
-                      {m.username}
-                      {m.pow_wow_guest && (
-                        <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/50">
-                          🪶 guest
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-gray-600 text-xs">⚔️ {m.total_battles_won}</span>
-                  </button>
-                  {isCreator && !m.pow_wow_guest && m.id !== profile?.id && (
-                    <button onClick={() => manageMember(m.id, 'remove')} disabled={busy}
-                      className="text-gray-700 hover:text-red-400 text-xs transition disabled:opacity-50" title="Remove from clique">✕</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

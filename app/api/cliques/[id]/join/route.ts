@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { isCliqueMember, addCliqueMember } from '@/lib/cliques'
+import { isCliqueMember, addCliqueMember, isCliqueBanned } from '@/lib/cliques'
 
 // POST /api/cliques/[id]/join — join a clique of your party, ANYWHERE in the
 // country, and as many as you like (Michael 2026-07-25: multi-clique).
@@ -27,6 +27,9 @@ export async function POST(
     }
     if (clique.party !== profile.party) {
       return NextResponse.json({ error: 'You can only join cliques from your own party' }, { status: 403 })
+    }
+    if (await isCliqueBanned(admin, profile.id, clique.id)) {
+      return NextResponse.json({ error: "You're banned from this clique" }, { status: 403 })
     }
     if (await isCliqueMember(admin, profile.id, clique.id)) {
       return NextResponse.json({ status: 'member', clique })

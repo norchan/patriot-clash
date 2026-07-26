@@ -12,6 +12,34 @@ export function powWowIsLive(powWowAt: string | null | undefined): boolean {
   return Date.now() - new Date(powWowAt).getTime() < POW_WOW_MAX_HOURS * 3600 * 1000
 }
 
+/** Is this profile banned from this clique right now? (until null = perma;
+ *  expired bans are lazily deleted on check) */
+export async function isCliqueBanned(admin: SupabaseClient, profileId: string, cliqueId: string): Promise<boolean> {
+  const { data } = await admin
+    .from('clique_bans')
+    .select('until')
+    .eq('clique_id', cliqueId)
+    .eq('profile_id', profileId)
+    .maybeSingle()
+  if (!data) return false
+  if (data.until && new Date(data.until).getTime() < Date.now()) {
+    await admin.from('clique_bans').delete().eq('clique_id', cliqueId).eq('profile_id', profileId)
+    return false
+  }
+  return true
+}
+
+/** Is this profile a moderator of this clique? */
+export async function isCliqueModerator(admin: SupabaseClient, profileId: string, cliqueId: string): Promise<boolean> {
+  const { data } = await admin
+    .from('clique_moderators')
+    .select('clique_id')
+    .eq('clique_id', cliqueId)
+    .eq('profile_id', profileId)
+    .maybeSingle()
+  return !!data
+}
+
 /** Is this profile a member of this clique? */
 export async function isCliqueMember(admin: SupabaseClient, profileId: string, cliqueId: string): Promise<boolean> {
   const { data } = await admin

@@ -2880,3 +2880,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Queued fights panel:** anchored bottom-0 under the fixed nav → now bottom-20, sits clear above the Map/Profile bar.
 
 **For Michael:** lobby playtest — smaller fighter, clean background on your phone, queue card fully visible above the nav.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael's big one: Zoom/Twitch/Kick inside cliques — live member strip, go-live video, pow-wow rules, moderators + bans. Plus solitaire Deck button.
+
+**To the channel:**
+- **Member strip (NEW components/CliqueLiveRow.tsx):** the dropdown roster is gone on /cliques and the list on /cliques/[id] — replaced by an always-visible horizontal swipe of squares under the member count. Avatar in the square, name below (both → profile), online dot upper-left (green = on a clique page now, hollow = not; presence via the Supabase realtime channel). Pow-wow guests ride in the same strip tagged 🪶 non-member. 👑 creator / 🛡️ mod prefixes.
+- **GO LIVE:** own square offers 🔴 GO LIVE (hover on desktop, always-visible bar on mobile) → picker: 🖥️ share screen or 📷 camera. Live feed replaces the avatar in the square (red ring + LIVE chip); hover a feed → ⤢ upper-right → fullscreen theatre mode (✕ closes; row tiles muted for autoplay rules, theatre unmuted). Video is a browser-to-browser WebRTC MESH signaled over the same realtime channel — no media server. Honest limits flagged: clique-sized rooms only (a broadcaster uploads one stream per viewer), STUN-only (no TURN — some strict NATs won't connect), and live permission is enforced in UI (media never touches our servers, so there's nothing server-side to gate).
+- **Pow-wow rules (owner, in the clique page ⚙️):** guests can/can't GO LIVE (default: can't) · guests can chat / read-only (default: can chat). Read-only is enforced server-side in the posts route + the composer swaps for a notice.
+- **Moderators + bans (schema applied to prod: clique_moderators, clique_bans):** creator appoints/removes mods (member squares 🔨 menu). Creator + mods ban — 24h / 1 week / permanent; ban strips membership, mod status, guest slot, re-points their default clique, blocks rejoin/pow-wow/chat while active (lazy-expiring). Nobody bans the creator; only the creator bans mods. Banned viewers get a 🚫 page.
+- **Solitaire:** fixed DECK button lower-right (shows remaining count, ↻ when recycling) — same action as tapping the stock.
+- tsc + build green. Grok: the WebRTC mesh + no-TURN tradeoff is the one to watch — if cliques outgrow ~8 concurrent viewers per broadcaster or NAT failures annoy, the next step is a TURN server or LiveKit, both of which need Michael to provision accounts.
+
+**For Michael:** open your clique — the member squares are right under the count, tap yours to go live (screen or camera), viewers can pop any feed to fullscreen with the ⤢. Set pow-wow guest rules from the ⚙️ on your clique page, make mods with the 🔨 on a member square, and bans are in the same menu. Solitaire's got its DECK button.

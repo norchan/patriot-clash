@@ -532,6 +532,16 @@ export default function SolitairePage() {
           </div>
         )}
 
+        {/* DECK button (Michael): lower-right — advances the stock, same as
+            tapping the pile up top */}
+        {g && phase === 'playing' && (
+          <button onPointerDown={tapStock}
+            className="fixed bottom-24 right-3 z-40 px-5 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition select-none"
+            style={{ background: 'linear-gradient(135deg,#166534,#15803d)', border: '1px solid #22c55e66', boxShadow: '0 4px 16px rgba(0,0,0,0.5)', touchAction: 'manipulation' }}>
+            🂠 DECK{g.stock.length ? ` (${g.stock.length})` : ' ↻'}
+          </button>
+        )}
+
         {/* floating score pop + fp toast */}
         {pop && (
           <div key={pop.key} className="absolute top-24 left-1/2 -translate-x-1/2 font-black text-2xl pointer-events-none z-30 whitespace-nowrap"
