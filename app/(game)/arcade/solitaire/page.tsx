@@ -261,30 +261,52 @@ export default function SolitairePage() {
     setG(next)
   }
 
-  // DOUBLE-TAP → send the card to its foundation if it fits (Michael).
-  // Single taps/holds still drag — this only fires on a quick second tap on
-  // the SAME card, and only the exposed top card of a pile can fly up.
+  // DOUBLE-TAP → auto-play the card ANYWHERE it fits (Michael): a lone top
+  // card tries its foundation first, then any card (plus the stack riding on
+  // it) hunts for a tableau pile that takes it. Drag still works as before.
   const lastTapRef = useRef<{ key: string; at: number }>({ key: '', at: 0 })
-  function tryAutoFound(from: 'waste' | 'tab', pi?: number, ci?: number) {
+  function tryAutoPlay(from: 'waste' | 'tab', pi?: number, ci?: number) {
     const cur = gRef.current
     if (!cur || phase !== 'playing' || finishing) return
-    let card: Card | undefined
+    let cards: Card[]
     if (from === 'waste') {
-      card = cur.waste[cur.waste.length - 1]
+      if (!cur.waste.length) return
+      cards = [cur.waste[cur.waste.length - 1]]
     } else {
       const pile = cur.tab[pi!]
-      if (!pile || ci !== pile.length - 1) return // buried cards can't go up
-      card = pile[ci!]
-      if (card && !card.faceUp) return
+      const c = pile?.[ci!]
+      if (!c || !c.faceUp) return
+      cards = pile.slice(ci!)
     }
-    if (!card) return
-    const fi = canFound(card, cur.found)
-    if (fi < 0) { sfx.invalid(); return } // doesn't fit — soft no
-    pushUndo(cur)
-    const next = deepCopy(cur)
-    next.found[fi].push((from === 'waste' ? next.waste : next.tab[pi!]).pop()!)
-    bumpStreak()
-    afterMove(next)
+    const lead = cards[0]
+
+    // 1) a single exposed card flies to its foundation when it fits
+    if (cards.length === 1) {
+      const fi = canFound(lead, cur.found)
+      if (fi >= 0) {
+        pushUndo(cur)
+        const next = deepCopy(cur)
+        next.found[fi].push((from === 'waste' ? next.waste : next.tab[pi!]).pop()!)
+        bumpStreak()
+        afterMove(next)
+        return
+      }
+    }
+    // 2) otherwise the first tableau pile that legally takes the stack
+    for (let t = 0; t < cur.tab.length; t++) {
+      if (from === 'tab' && t === pi) continue
+      if (canPlaceTab(lead, cur.tab[t])) {
+        pushUndo(cur)
+        const next = deepCopy(cur)
+        if (from === 'waste') next.tab[t].push(next.waste.pop()!)
+        else next.tab[t].push(...next.tab[pi!].splice(ci!))
+        setScore(s => s + 5)
+        sfx.swap()
+        afterMove(next)
+        return
+      }
+    }
+    sfx.invalid() // nowhere to go — soft no
   }
 
   // pick up the top waste card, or a face-up card + everything stacked on it
@@ -297,7 +319,7 @@ export default function SolitairePage() {
       lastTapRef.current = { key: '', at: 0 }
       dragRef.current = null
       setDrag(null)
-      tryAutoFound(from, pi, ci)
+      tryAutoPlay(from, pi, ci)
       return
     }
     lastTapRef.current = { key: tapKey, at: now }
@@ -459,26 +481,11 @@ export default function SolitairePage() {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-3 mt-2 relative">
-        {/* top row: stock · waste · (gap) · foundations */}
+      {/* mt pushes the whole board toward mid-screen (Michael: was too high) */}
+      <div className="max-w-lg mx-auto px-3 mt-12 relative">
+        {/* top row (Michael): foundations · (gap) · waste · DECK on the right */}
         {g && (
           <div className="flex gap-[3px] mb-2">
-            <div style={{ width: CW }} className="aspect-[5/7] relative cursor-pointer" onPointerDown={tapStock}>
-              {g.stock.length ? cardBack : (
-                <div className="w-full h-full rounded-[7px] flex items-center justify-center text-white/40 text-lg"
-                  style={{ border: '2px dashed rgba(255,255,255,0.22)' }}>↻</div>
-              )}
-              {g.stock.length > 0 && <span className="absolute -bottom-4 inset-x-0 text-center text-[9px] text-white/45 font-bold">{g.stock.length}</span>}
-            </div>
-            <div style={{ width: CW, touchAction: 'none' }} className="aspect-[5/7] relative cursor-grab"
-              onPointerDown={(e) => startDrag('waste', e)}>
-              {g.waste.length && drag?.from !== 'waste' ? (
-                <div className="w-full h-full">{cardFace(g.waste[g.waste.length - 1])}</div>
-              ) : (
-                <div className="w-full h-full rounded-[7px]" style={{ border: '2px dashed rgba(255,255,255,0.12)' }} />
-              )}
-            </div>
-            <div style={{ width: CW }} />
             {g.found.map((f, i) => {
               const hov = drag?.hover?.kind === 'found' && drag.hover.idx === i
               return (
@@ -496,6 +503,22 @@ export default function SolitairePage() {
                 </div>
               )
             })}
+            <div style={{ width: CW }} />
+            <div style={{ width: CW, touchAction: 'none' }} className="aspect-[5/7] relative cursor-grab"
+              onPointerDown={(e) => startDrag('waste', e)}>
+              {g.waste.length && drag?.from !== 'waste' ? (
+                <div className="w-full h-full">{cardFace(g.waste[g.waste.length - 1])}</div>
+              ) : (
+                <div className="w-full h-full rounded-[7px]" style={{ border: '2px dashed rgba(255,255,255,0.12)' }} />
+              )}
+            </div>
+            <div style={{ width: CW }} className="aspect-[5/7] relative cursor-pointer" onPointerDown={tapStock}>
+              {g.stock.length ? cardBack : (
+                <div className="w-full h-full rounded-[7px] flex items-center justify-center text-white/40 text-lg"
+                  style={{ border: '2px dashed rgba(255,255,255,0.22)' }}>↻</div>
+              )}
+              {g.stock.length > 0 && <span className="absolute -bottom-4 inset-x-0 text-center text-[9px] text-white/45 font-bold">{g.stock.length}</span>}
+            </div>
           </div>
         )}
 
@@ -530,16 +553,6 @@ export default function SolitairePage() {
               )
             })}
           </div>
-        )}
-
-        {/* DECK button (Michael): lower-right — advances the stock, same as
-            tapping the pile up top */}
-        {g && phase === 'playing' && (
-          <button onPointerDown={tapStock}
-            className="fixed bottom-24 right-3 z-40 px-5 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition select-none"
-            style={{ background: 'linear-gradient(135deg,#166534,#15803d)', border: '1px solid #22c55e66', boxShadow: '0 4px 16px rgba(0,0,0,0.5)', touchAction: 'manipulation' }}>
-            🂠 DECK{g.stock.length ? ` (${g.stock.length})` : ' ↻'}
-          </button>
         )}
 
         {/* floating score pop + fp toast */}
@@ -583,9 +596,20 @@ export default function SolitairePage() {
         )}
       </div>
 
+      {/* DECK — its own row above the other controls (Michael) */}
+      {phase === 'playing' && g && (
+        <div className="max-w-lg mx-auto px-4 mt-3">
+          <button onPointerDown={tapStock}
+            className="w-full py-2.5 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none"
+            style={{ background: 'linear-gradient(135deg,#166534,#15803d)', border: '1px solid #22c55e66', touchAction: 'manipulation' }}>
+            🂠 DECK{g.stock.length ? ` (${g.stock.length})` : ' ↻'}
+          </button>
+        </div>
+      )}
+
       {/* bottom controls */}
       {phase === 'playing' && (
-        <div className="max-w-lg mx-auto px-4 mt-3 flex items-center gap-2">
+        <div className="max-w-lg mx-auto px-4 mt-2 flex items-center gap-2">
           <button onClick={undo} disabled={!undoRef.current.length || finishing}
             className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
             style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>

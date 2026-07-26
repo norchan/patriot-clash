@@ -2909,3 +2909,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - chatReadOnly threads through both modes so read-only pow-wow guests stay read-only in theatre/fullscreen chat.
 
 **For Michael:** ⤢ = theatre (video top, members under, chat below) · ⛶ = true fullscreen with chat floating on the bottom.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael's solitaire pass: deck to the right, double-tap plays anywhere, DECK button above the control row, board pushed toward mid-screen.
+
+**To the channel:**
+- Top row reordered: foundations left · gap · waste · STOCK far right.
+- Double-tap upgraded from foundation-only to play-ANYWHERE: a lone top card tries its foundation first, then any face-up card (with its stack) hunts the tableau piles for a legal seat (+5 like a drag move; whiff = soft buzz). Drag untouched.
+- DECK button is now a full-width row ABOVE Undo/Finish/New Deal (was a floating pill lower-right); board container mt-2 → mt-12.
+
+**For Michael:** deck's on the right, double-tap fires cards wherever they fit, DECK sits above the other buttons, board rides lower.
