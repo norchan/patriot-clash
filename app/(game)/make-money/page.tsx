@@ -63,14 +63,14 @@ export default function MakeMoneyPage() {
                 <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">1</div>
                 <div>
                   <p className="text-white font-bold">Create Original Content</p>
-                  <p className="text-gray-400 text-sm">Post pictures, messages, and content to your profile and town halls. Only original content you upload counts.</p>
+                  <p className="text-gray-400 text-sm">Post pictures, videos, and content to your profile, the boards, and town halls. Only original content you upload counts.</p>
                 </div>
               </div>
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">2</div>
                 <div>
                   <p className="text-white font-bold">Get Impressions</p>
-                  <p className="text-gray-400 text-sm">When people open your posts and messages on a screen that shows an ad, you earn an impression. Track them on each post.</p>
+                  <p className="text-gray-400 text-sm">When people open your posts on a screen that shows an ad, you earn an impression. Track them on each post.</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -98,7 +98,7 @@ export default function MakeMoneyPage() {
             <div className="space-y-2 text-sm">
               <p className="text-gray-300">✅ Posts on your profile</p>
               <p className="text-gray-300">✅ Pictures and videos you upload</p>
-              <p className="text-gray-300">✅ Messages you send</p>
+              <p className="text-gray-300">✅ Posts on the boards (pSubs)</p>
               <p className="text-gray-300">✅ Posts on town halls</p>
               <p className="text-red-400 mt-4">❌ Links to other websites (not eligible)</p>
               <p className="text-red-400">❌ Reposted content from elsewhere</p>

@@ -53,11 +53,11 @@ function ImpressionsContent() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
           <h2 className="text-white font-bold text-lg mb-3">Anyone can earn money on PoliticsGo</h2>
           <p className="text-gray-400 text-sm mb-4">
-            Current rate: ${rate} per 1,000 views. Earn money when messaging friends, posting pictures, videos, and more! A view counts when someone opens your content on a screen that shows an ad.
+            Current rate: ${rate} per 1,000 views. Earn money posting pictures, videos, and more! A view counts when someone opens your content on a screen that shows an ad.
           </p>
           <ul className="text-gray-400 text-sm space-y-2">
             <li>✓ <strong>Profile posts</strong> — share photos and thoughts</li>
-            <li>✓ <strong>Messages</strong> — chat with friends</li>
+            <li>✓ <strong>Board posts</strong> — the pSubs, where the ads live</li>
             <li>✓ <strong>Town hall posts</strong> — engage your community</li>
             <li>✓ <strong>Reels</strong> — coming soon</li>
           </ul>
@@ -67,7 +67,7 @@ function ImpressionsContent() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
           <h2 className="text-white font-bold text-lg mb-2">Want to earn more?</h2>
           <p className="text-gray-400 text-sm mb-4">
-            Invite friends to PoliticsGo and earn money when they post and message. Join the affiliate program to grow your earnings.
+            Invite friends to PoliticsGo and earn money when they post. Join the affiliate program to grow your earnings.
           </p>
           <button onClick={() => router.push('/make-money')}
             className="w-full px-4 py-3 bg-purple-700 text-white font-bold rounded-lg hover:bg-purple-600 transition">
