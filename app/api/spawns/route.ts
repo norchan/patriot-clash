@@ -5,12 +5,31 @@ import { republicanEnemies, democratEnemies } from '@/config/enemies'
 
 // GET /api/spawns?lat=&lng= — the SHARED sprite spawns near the player.
 // Server-owned: everyone sees the same enemies in the same places. Halls
-// regenerate their drop every 10 minutes (spawns live 15). Two of every
-// enemy per hall circle — except each party's two legendaries, which get a
-// single spot. Spawns vanish for a player once they catch them, and for
-// everyone after 5 players have caught them.
+// regenerate their drop every 10 minutes (spawns live 15). Spawns vanish
+// for a player once they catch them, and for everyone after 5 catches.
+//
+// SCARCITY (Michael 2026-07-26): way fewer sprites per circle —
+// - commons: always around, ONE copy each (the usual catch)
+// - rares: one copy, ~35% of hall cycles (a treat, not a given)
+// - the 3 RAREST per party (ELITES): only ~4 times a day, 15-min windows
 
-const ROSTER = [...republicanEnemies, ...democratEnemies].map(e => ({ id: e.id, copies: e.tier === 'legendary' ? 1 : 2 }))
+// per party: both legendaries + the beefiest rare
+const ELITES = new Set(['politician', 'billionaire', 'ice_agent', 'dem_politician', 'senator', 'protestor'])
+// 4 daily windows, 15 min each (UTC 2/14/18/22 ≈ 9pm/9am/1pm/5pm ET)
+const ELITE_HOURS_UTC = [2, 14, 18, 22]
+function eliteWindowNow(): boolean {
+  const now = new Date()
+  return ELITE_HOURS_UTC.includes(now.getUTCHours()) && now.getUTCMinutes() < 15
+}
+
+function buildRoster() {
+  const elite = eliteWindowNow()
+  return [...republicanEnemies, ...democratEnemies].flatMap(e => {
+    if (ELITES.has(e.id)) return elite ? [{ id: e.id, copies: 1, tier: e.tier }] : []
+    if (e.tier !== 'common') return Math.random() < 0.35 ? [{ id: e.id, copies: 1, tier: e.tier }] : []
+    return [{ id: e.id, copies: 1, tier: e.tier }]
+  })
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,7 +45,8 @@ export async function GET(req: NextRequest) {
     if (!gymIds.length) return NextResponse.json({ spawns: [] })
 
     // regenerate any hall whose drop is stale (10-min cadence, advisory-locked)
-    await Promise.all(gymIds.map(id => admin.rpc('ensure_gym_spawns', { p_gym_id: id, p_roster: ROSTER })))
+    const roster = buildRoster()
+    await Promise.all(gymIds.map(id => admin.rpc('ensure_gym_spawns', { p_gym_id: id, p_roster: roster })))
 
     const [{ data: rows }, { data: mine }] = await Promise.all([
       admin.from('enemy_spawns')

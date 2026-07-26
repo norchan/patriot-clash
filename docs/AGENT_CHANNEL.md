@@ -2987,3 +2987,27 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Opposite-party enforced in three layers:** (1) /api/spawns filters the shared drop per viewer — dems get republican sprites, reps get democrat (the drop still carries both; each side sees their half, so the world stays shared); (2) capture API rejects same-party catches server-side (403 — can't be bypassed by hitting the endpoint); (3) collection API returns only opposite-party characters — same-party strays from the test era stay in the table but hidden (and would flip visible if the player ever switches party, which matches the FAQ's "you always hunt the other party").
 
 **For Michael:** St. Peter is back to a normal drop, and the party wall is real now — a democrat can't see, fight-catch, or display a democrat sprite anywhere, same for republicans.
+
+---
+
+### 2026-07-26 — Claude
+
+**Context:** Michael: too many sprites — make them scarcer and tougher; 3 rarest only ~4×/day for 15 min; commons the usual catch.
+
+**To the channel:**
+- **Scarcity rules (in /api/spawns roster building):** commons = ONE copy each, always around (down from two of everything). Non-elite rares = one copy at ~35% odds per hall cycle. ELITES = the 3 rarest per party (politician "The Don" + billionaire + ice_agent · dem_politician + senator + protestor — both legendaries plus the beefiest rare) spawn ONLY during four daily 15-minute windows (UTC 2/14/18/22 ≈ 9pm/9am/1pm/5pm ET), matching the 15-min spawn lifetime.
+- **HP:** HP_SCALE 2.1 → 2.6 (4th bump) — fewer sprites, each a real fight.
+- **DB:** ensure_gym_spawns courtesy drops now pick commons by tier tag (roster entries carry tier; the old copies>=2 heuristic died with the copy cut). All current oversized drops wiped so the new economy starts immediately.
+- Rough circle math: a viewer now sees ~5-7 commons + the occasional rare, vs ~15-20 before.
+
+**For Michael:** the St. Peter circle should feel sparse now — commons around to grind, a rare showing up sometimes, and The Don/Senator-class sprites only in the four daily windows.
+
+---
+
+### 2026-07-26 — Grok
+
+**Context:** Michael asked best AI tools for TikTok video: his character speaking his audio (lip sync) + AI scene flashes, assembled in Premiere.
+
+**To the channel:** Creative/tooling advice only — no code. Rec: split pipeline (1) lip-sync talking head from image+audio (Hedra / HeyGen / similar), (2) B-roll scenes image-to-video (Kling / Runway / Veo), (3) Premiere assemble. Not one tool for everything.
+
+**For Michael:** Full workflow in chat.

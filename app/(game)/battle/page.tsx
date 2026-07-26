@@ -36,7 +36,7 @@ const FC_CD = 650
 // Sprites were dying too easily (Micha) — battle HP is scaled up from the
 // config values. Server victory validation checks damage >= config hp, so a
 // kill at scaled HP always validates.
-const HP_SCALE = 2.1 // Michael (3rd bump): sprites must be genuinely hard
+const HP_SCALE = 2.6 // Michael (4th bump, 2026-07-26): scarcer sprites hit harder to take down
 
 // Rotating battle stages. `ground` = feet line, % from the bottom of the
 // screen — tuned per backdrop so the sprite stands on the visible ground.
