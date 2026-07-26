@@ -20,9 +20,10 @@ function nameColor(name: string): string {
 // stretch (Michael): fill the remaining screen height down to the bottom
 // nav instead of the fixed 460px box — parent must be a flex column.
 // readOnly (pow-wow rule): the viewer can watch the chat but not type —
-// composer swaps for a notice.
-export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = false, readOnly = false }: {
-  cliqueId: string; partyColor: string; isCreator: boolean; stretch?: boolean; readOnly?: boolean
+// composer swaps for a notice. transparent: see-through glass look for the
+// fullscreen-video chat overlay.
+export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = false, readOnly = false, transparent = false }: {
+  cliqueId: string; partyColor: string; isCreator: boolean; stretch?: boolean; readOnly?: boolean; transparent?: boolean
 }) {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [draft, setDraft] = useState('')
@@ -85,8 +86,8 @@ export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = 
   }
 
   return (
-    <div className={`bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden flex flex-col ${stretch ? 'flex-1' : ''}`}
-      style={stretch ? { minHeight: 380 } : { height: 460 }}>
+    <div className={`${transparent ? 'bg-gray-950/60 border-white/10' : 'bg-gray-900 border-gray-800'} rounded-2xl border overflow-hidden flex flex-col ${stretch ? 'flex-1' : ''}`}
+      style={{ ...(stretch ? { minHeight: 200 } : { height: 460 }), ...(transparent ? { backdropFilter: 'blur(4px)' } : {}) }}>
       {/* header */}
       <div className="px-3 py-2 border-b border-gray-800 flex items-center gap-2 flex-shrink-0">
         <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />

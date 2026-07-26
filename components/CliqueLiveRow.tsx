@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-client'
+import CliqueFeed from '@/components/CliqueFeed'
 
 // CLIQUE LIVE ROW (Michael 2026-07-25): the Zoom/Twitch/Kick strip.
 // Always-visible horizontal scroll of member squares (avatar, name below,
@@ -23,7 +24,7 @@ export interface RowMember {
 
 const RTC_CONFIG: RTCConfiguration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
 
-export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCreator, amModerator, canGoLive, partyColor, onChanged }: {
+export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCreator, amModerator, canGoLive, partyColor, chatReadOnly = false, onChanged }: {
   cliqueId: string
   members: RowMember[]
   myId: string | null
@@ -32,6 +33,7 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
   amModerator: boolean
   canGoLive: boolean
   partyColor: string
+  chatReadOnly?: boolean
   onChanged?: () => void
 }) {
   const router = useRouter()
@@ -41,6 +43,7 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
   const [goLiveOpen, setGoLiveOpen] = useState(false)
   const [theatreId, setTheatreId] = useState<string | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
   const [modMenuId, setModMenuId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -211,9 +214,22 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
   const theatreMember = theatreId ? members.find(m => m.id === theatreId) : null
   const theatreStream = theatreId ? streamFor(theatreId) : null
 
-  return (
-    <div>
-      {/* the strip */}
+  // leaving theatre always clears fullscreen too
+  useEffect(() => { if (!theatreId) setFullscreen(false) }, [theatreId])
+
+  // Esc backs out one level: fullscreen → theatre → closed
+  useEffect(() => {
+    if (!theatreId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setFullscreen(f => { if (f) return false; setTheatreId(null); return f })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [theatreId])
+
+  // THE STRIP — rendered inline on the page AND inside theatre mode
+  const strip = (
       <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
         {members.map(m => {
           const isMe = m.id === myId
@@ -312,6 +328,11 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
           )
         })}
       </div>
+  )
+
+  return (
+    <div>
+      {strip}
 
       {/* go-live picker */}
       {goLiveOpen && (
@@ -333,17 +354,45 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
         </div>
       )}
 
-      {/* theatre mode */}
-      {theatreId && theatreStream && (
-        <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
+      {/* THEATRE MODE (Michael): feed fills the top, member strip under it,
+          chat below that. ⛶ from here goes true fullscreen. */}
+      {theatreId && theatreStream && !fullscreen && (
+        <div className="fixed inset-0 z-[100] bg-gray-950 flex flex-col">
+          <div className="flex items-center gap-2 px-4 py-2.5 shrink-0">
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-600 text-white">LIVE</span>
+            <span className="text-white text-sm font-bold truncate">{theatreMember?.username}</span>
+            <button onClick={() => setFullscreen(true)}
+              className="ml-auto text-white/80 hover:text-white text-lg leading-none px-1" aria-label="Fullscreen" title="Fullscreen">⛶</button>
+            <button onClick={() => setTheatreId(null)}
+              className="text-white/80 hover:text-white text-2xl leading-none px-1" aria-label="Close">✕</button>
+          </div>
+          <div className="bg-black shrink-0" style={{ height: '42vh' }}>
+            <video ref={attach(theatreStream)} autoPlay playsInline muted={theatreId === myId}
+              className="w-full h-full object-contain" />
+          </div>
+          <div className="px-4 pt-3 shrink-0">{strip}</div>
+          <div className="px-4 pt-2 pb-3 flex-1 flex flex-col min-h-0">
+            <CliqueFeed cliqueId={cliqueId} partyColor={partyColor} isCreator={isCreator} readOnly={chatReadOnly} stretch />
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN: the feed edge to edge, chat overlaid along the bottom */}
+      {theatreId && theatreStream && fullscreen && (
+        <div className="fixed inset-0 z-[100] bg-black">
           <video ref={attach(theatreStream)} autoPlay playsInline muted={theatreId === myId}
-            className="w-full h-full object-contain" />
+            className="absolute inset-0 w-full h-full object-contain" />
           <div className="absolute top-3 left-4 flex items-center gap-2">
             <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-600 text-white">LIVE</span>
-            <span className="text-white text-sm font-bold">{theatreMember?.username}</span>
+            <span className="text-white text-sm font-bold" style={{ textShadow: '0 1px 4px #000' }}>{theatreMember?.username}</span>
           </div>
-          <button onClick={() => setTheatreId(null)}
-            className="absolute top-3 right-4 text-white/80 hover:text-white text-2xl leading-none" aria-label="Close">✕</button>
+          <button onClick={() => setFullscreen(false)}
+            className="absolute top-3 right-4 text-white/80 hover:text-white text-2xl leading-none" aria-label="Exit fullscreen" title="Exit fullscreen">✕</button>
+          <div className="absolute inset-x-0 bottom-0 p-3" style={{ height: '34vh' }}>
+            <div className="h-full flex flex-col max-w-2xl mx-auto">
+              <CliqueFeed cliqueId={cliqueId} partyColor={partyColor} isCreator={isCreator} readOnly={chatReadOnly} stretch transparent />
+            </div>
+          </div>
         </div>
       )}
     </div>

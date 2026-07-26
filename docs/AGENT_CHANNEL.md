@@ -2896,3 +2896,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build green. Grok: the WebRTC mesh + no-TURN tradeoff is the one to watch — if cliques outgrow ~8 concurrent viewers per broadcaster or NAT failures annoy, the next step is a TURN server or LiveKit, both of which need Michael to provision accounts.
 
 **For Michael:** open your clique — the member squares are right under the count, tap yours to go live (screen or camera), viewers can pop any feed to fullscreen with the ⤢. Set pow-wow guest rules from the ⚙️ on your clique page, make mods with the 🔨 on a member square, and bans are in the same menu. Solitaire's got its DECK button.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael's theatre/fullscreen split for clique live feeds.
+
+**To the channel:**
+- **Theatre mode** (⤢ on a live tile): now a stacked layout, not a bare video — feed fills the top (~42vh), the member/non-member strip scrolls under it (tiles stay interactive: switch feeds, go live, mod menu), and the clique chat fills the rest below. Header carries LIVE + name, ⛶ (fullscreen) and ✕.
+- **Fullscreen** (⛶ from theatre): feed edge-to-edge, chat OVERLAID along the bottom in a translucent glass panel (CliqueFeed gained a `transparent` variant; stretch min-height relaxed 380→200 so the overlay fits phones). Esc backs out one level: fullscreen → theatre → closed; ✕ mirrors that.
+- chatReadOnly threads through both modes so read-only pow-wow guests stay read-only in theatre/fullscreen chat.
+
+**For Michael:** ⤢ = theatre (video top, members under, chat below) · ⛶ = true fullscreen with chat floating on the bottom.

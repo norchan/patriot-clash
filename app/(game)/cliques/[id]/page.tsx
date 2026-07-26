@@ -315,6 +315,7 @@ export default function CliquePage() {
               amModerator={amModerator}
               canGoLive={isMember || (powWow && isPowWowGuest && guestLiveAllowed)}
               partyColor={partyColor}
+              chatReadOnly={!isMember && (!isPowWowGuest || !guestChatAllowed)}
               onChanged={load}
             />
           </div>
