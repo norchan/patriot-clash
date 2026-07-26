@@ -3,12 +3,11 @@ import { requireProfile } from '@/lib/auth'
 import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { SIEGE_ATTACKS, type SiegeAttackId } from '@/config/siege-attacks'
+import { applyHallDamageAndMaybeCapture } from '@/lib/gym-combat'
 
-// POST /api/gyms/[id]/strike { attack, latitude, longitude } — fire a party
-// special attack at an enemy hall. Spends FP directly (no inventory) and
-// rolls damage server-side. Same range rules as an assault; like boosts,
-// strikes can NEVER capture — defense floors at 1 and the kill shot must be
-// a real assault.
+// POST /api/gyms/[id]/strike { attack, latitude, longitude }
+// Party special — spends FP, rolls damage. Can reduce DEF to 0 and CAPTURE
+// (Michael 2026-07-26: no more floor-at-1 limbo).
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -36,16 +35,28 @@ export async function POST(
     const { data: nearbyGyms } = await admin.rpc('gyms_near', {
       p_lat: latitude, p_lng: longitude, p_miles: ATTACK_RANGE_MILES,
     })
-    const gym = nearbyGyms?.find((g: any) => g.id === gymId)
-    const distMiles = gym?.dist_meters ? gym.dist_meters / 1609.34 : Infinity
-    if (!gym || distMiles > ATTACK_RANGE_MILES) {
+    const near = nearbyGyms?.find((g: any) => g.id === gymId)
+    const distMiles = near?.dist_meters ? near.dist_meters / 1609.34 : Infinity
+    if (!near || distMiles > ATTACK_RANGE_MILES) {
       return NextResponse.json(
         { error: 'OUT_OF_RANGE', message: `You must be within ${ATTACK_RANGE_MILES} miles of this Town Hall` },
         { status: 400 }
       )
     }
+
+    const { data: gym, error: gymErr } = await admin
+      .from('gyms')
+      .select('id, city_name, holder_id, holder_party, defense_points')
+      .eq('id', gymId)
+      .single()
+    if (gymErr || !gym) {
+      return NextResponse.json({ error: 'Town Hall not found' }, { status: 404 })
+    }
     if (gym.holder_party && gym.holder_party === profile.party) {
       return NextResponse.json({ error: "You can't strike your own party's hall" }, { status: 400 })
+    }
+    if (!gym.holder_id) {
+      return NextResponse.json({ error: 'Hall is unclaimed — use a full assault to take it' }, { status: 400 })
     }
 
     const { error: spendErr } = await admin.rpc('spend_fp', {
@@ -60,17 +71,39 @@ export async function POST(
       return NextResponse.json({ error: 'Could not spend FP' }, { status: 500 })
     }
 
-    // Roll damage and hit the hall — floor at 1 defense (no capture via strikes)
     const rolled = Math.round(def.minDamage + Math.random() * (def.maxDamage - def.minDamage))
-    const remaining = Math.max(1, (gym.defense_points ?? 0) - rolled)
-    const dealt = (gym.defense_points ?? 0) - remaining
-    await admin.from('gyms').update({ defense_points: remaining }).eq('id', gymId)
+    const result = await applyHallDamageAndMaybeCapture(admin, {
+      gymId,
+      cityName: gym.city_name ?? 'Town Hall',
+      holderId: gym.holder_id,
+      defensePoints: gym.defense_points ?? 0,
+      damage: rolled,
+      attacker: {
+        id: profile.id,
+        username: profile.username,
+        party: profile.party as 'democrat' | 'republican',
+      },
+      latitude,
+      longitude,
+    })
+
+    if (result.captured) {
+      await admin.rpc('grant_fp', {
+        p_profile_id: profile.id,
+        p_amount: 50,
+        p_type: 'gym_defense',
+        p_reference_type: 'gym',
+        p_description: `Captured ${gym.city_name} Town Hall (strike)`,
+      })
+    }
 
     return NextResponse.json({
       attack: def.id,
-      damage: dealt,
-      defense_remaining: remaining,
+      damage: result.damage,
+      defense_remaining: result.remaining,
+      captured: result.captured,
       fp_spent: def.fp,
+      capture_bonus: result.captured ? 50 : 0,
     })
 
   } catch (err: any) {

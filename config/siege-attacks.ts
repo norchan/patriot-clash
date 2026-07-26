@@ -16,16 +16,18 @@ export interface SiegeAttack {
   desc: string
 }
 
-// Three tiers per party — each button costs more and hits harder
+// Three tiers per party — each button costs more and hits harder.
+// Tuned DOWN (Michael 2026-07-26): halls should take real work, not one special.
+// Strikes CAN finish a hall (DEF → 0 = capture); no floor-at-1.
 export const SIEGE_ATTACKS: Record<SiegeAttackId, SiegeAttack> = {
   // ── Democrats: "Give me your tired, your poor, your huddled masses…" ────
-  tired:    { id: 'tired',    party: 'democrat',   name: 'The Tired',           emoji: '🔱', fp: 50,  minDamage: 250,  maxDamage: 450,  desc: 'A volley of pitchforks rains on the hall' },
-  poor:     { id: 'poor',     party: 'democrat',   name: 'The Poor',            emoji: '✊', fp: 150, minDamage: 900,  maxDamage: 1500, desc: 'A furious mob storms the gates' },
-  free:     { id: 'free',     party: 'democrat',   name: 'Yearning to Be Free', emoji: '💨', fp: 400, minDamage: 2800, maxDamage: 4200, desc: 'The huddled masses charge in a cloud of smoke' },
+  tired:    { id: 'tired',    party: 'democrat',   name: 'The Tired',           emoji: '🔱', fp: 50,  minDamage: 35,  maxDamage: 70,  desc: 'A volley of pitchforks rains on the hall' },
+  poor:     { id: 'poor',     party: 'democrat',   name: 'The Poor',            emoji: '✊', fp: 150, minDamage: 90,  maxDamage: 160, desc: 'A furious mob storms the gates' },
+  free:     { id: 'free',     party: 'democrat',   name: 'Yearning to Be Free', emoji: '💨', fp: 400, minDamage: 220, maxDamage: 320, desc: 'The huddled masses charge in a cloud of smoke' },
   // ── Republicans ──────────────────────────────────────────────────────────
-  peace:    { id: 'peace',    party: 'republican', name: 'Peace',    emoji: '🦅', fp: 50,  minDamage: 250,  maxDamage: 450,  desc: 'Screaming eagles dive on the hall' },
-  strength: { id: 'strength', party: 'republican', name: 'Strength', emoji: '🚀', fp: 150, minDamage: 900,  maxDamage: 1500, desc: 'A missile barrage levels the walls' },
-  liberty:  { id: 'liberty',  party: 'republican', name: 'Liberty',  emoji: '🗽', fp: 400, minDamage: 2800, maxDamage: 4200, desc: 'Lady Liberty herself drops on the hall' },
+  peace:    { id: 'peace',    party: 'republican', name: 'Peace',    emoji: '🦅', fp: 50,  minDamage: 35,  maxDamage: 70,  desc: 'Screaming eagles dive on the hall' },
+  strength: { id: 'strength', party: 'republican', name: 'Strength', emoji: '🚀', fp: 150, minDamage: 90,  maxDamage: 160, desc: 'A missile barrage levels the walls' },
+  liberty:  { id: 'liberty',  party: 'republican', name: 'Liberty',  emoji: '🗽', fp: 400, minDamage: 220, maxDamage: 320, desc: 'Lady Liberty herself drops on the hall' },
 }
 
 export const ATTACKS_FOR_PARTY = (party: 'democrat' | 'republican'): SiegeAttack[] =>

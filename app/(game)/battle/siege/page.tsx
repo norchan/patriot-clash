@@ -12,9 +12,8 @@ import { SIEGE_ATTACKS, ATTACKS_FOR_PARTY, type SiegeAttackId } from '@/config/s
 //  - /api/gyms/[id]/challenge is called ONCE per 100 FP assault and rolls
 //    total damage + capture; swipes (rocks) and taps (troops) spend that
 //    damage budget interactively.
-//  - the three party special buttons call /api/gyms/[id]/strike, which
-//    spends FP and rolls bonus damage server-side; the animations here
-//    just dramatize the number it returns.
+//  - party specials (/strike) and bag gear (/boost) also hit the server;
+//    if DEF hits 0 they CAPTURE (no floor-at-1). Client dramatizes the roll.
 
 interface SiegeGym {
   id: string
@@ -288,6 +287,7 @@ function SiegePage() {
     const d = Math.round(Math.min(chunk, pool.pending))
     if (d <= 0) return
     pool.pending -= d
+    // target can be 0 — lethal specials are allowed to finish the hall
     setDefense(prev => Math.max(pool.target, prev - d))
     addSpark(xPct, yPct, `-${d.toLocaleString()}`, '#fbbf24')
     shakeScreen()
@@ -300,7 +300,8 @@ function SiegePage() {
     if (st.ended) return
     st.ended = true
     siegeMusic.stop()
-    setDefense(st.captured ? 0 : Math.max(1, st.remaining))
+    // DEF can be 0 when captured; otherwise show real remaining (no fake floor at 1)
+    setDefense(st.captured ? 0 : Math.max(0, st.remaining))
     schedule(500, () => {
       setBanner(st.captured ? 'CAPTURED!' : 'DEFENSE HOLDS')
       if (st.captured) sfx.capture()
@@ -387,12 +388,22 @@ function SiegePage() {
         return
       }
       refetch()
-      st.remaining = data.defense_remaining
+      st.remaining = data.defense_remaining ?? 0
+      if (data.captured) {
+        st.captured = true
+        st.damage = (st.damage || 0) + (data.damage ?? 0)
+      }
       const total = playStrike(attackId, data.damage)
       schedule(total, () => {
         strikePool.current.pending = 0
-        setDefense(prev => Math.min(prev, Math.max(1, data.defense_remaining)))
+        setDefense(prev => Math.min(prev, Math.max(0, data.defense_remaining ?? 0)))
         setStrikeBusy(false)
+        // Lethal special finishes the hall mid-assault
+        if (data.captured && !S.current.ended) {
+          S.current.captured = true
+          S.current.remaining = 0
+          finishAssault()
+        }
       })
     } catch {
       showToast('❌ Strike failed')
@@ -427,22 +438,22 @@ function SiegePage() {
         return
       }
       setInv(v => ({ ...v, [item]: Math.max(0, (v[item] ?? 0) - 1) }))
-      st.remaining = data.defense_remaining
-      // gear damage is REAL hall damage on top of the assault budget —
-      // dramatize the server's number
+      st.remaining = data.defense_remaining ?? 0
+      // gear damage is REAL hall damage; lethal gear can capture (DEF → 0)
       const x = HALL_X - 6 + Math.random() * 12, y = HALL_Y - 4 + Math.random() * 8
       addFx({ boom: true, emoji: item === 'rocket' ? '🚀💥' : item === 'dynamite' ? '💣💥' : '🧨💥', x0: x, y0: y, x1: x, y1: y, size: item === 'rocket' ? 64 : 48, dur: 750 }, 800)
       addSpark(x, y - 6, `-${data.damage.toLocaleString()}`, '#fbbf24')
       const id = ++idRef.current
       setShockwaves(w => [...w, { id, x, y }])
       schedule(900, () => setShockwaves(w => w.filter(s => s.id !== id)))
-      setDefense(data.defense_remaining)
+      setDefense(Math.max(0, data.defense_remaining ?? 0))
       sfx.siegeBlow()
       buzz(40)
-      // Option 1 capture rule (brief non-goal preserved): gear can NEVER
-      // finish a hall — be honest about the floor
-      if (data.defense_remaining <= 1) {
-        showToast('🛡️ Defenses can\'t fall below 1 — win an assault to capture!')
+      if (data.captured) {
+        st.captured = true
+        st.remaining = 0
+        st.damage = (st.damage || 0) + (data.damage ?? 0)
+        schedule(600, () => { if (!S.current.ended) finishAssault() })
       }
     } catch {
       showToast('❌ Gear failed')
@@ -454,7 +465,7 @@ function SiegePage() {
   function playStrike(attackId: SiegeAttackId, damage: number): number {
     const pool = strikePool.current
     pool.pending = damage
-    pool.target = Math.max(1, defense - damage)
+    pool.target = Math.max(0, defense - damage)
     sfx.bell(false)
 
     if (attackId === 'tired') {
