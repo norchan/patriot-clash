@@ -454,9 +454,10 @@ export default function SolitairePage() {
   const CW = 'calc((100% - 18px) / 7)' // 7 columns, 3px gaps
 
   return (
-    <div className="min-h-screen text-white relative select-none pb-10"
-      style={{ background: 'radial-gradient(circle at 50% 0%, #14532d, #0c2919 55%, #071711)', fontFamily: 'ui-monospace, monospace' }}>
-      <div className="px-4 pt-4 pb-2 flex items-center gap-3">
+    // fixed-height, no vertical scroll (Michael): everything fits the screen
+    <div className="text-white relative select-none overflow-hidden flex flex-col"
+      style={{ height: '100dvh', background: 'radial-gradient(circle at 50% 0%, #14532d, #0c2919 55%, #071711)', fontFamily: 'ui-monospace, monospace' }}>
+      <div className="px-4 pt-3 pb-1.5 flex items-center gap-3 shrink-0">
         <button onClick={() => router.push('/arcade')} className="text-white/70 hover:text-white"><ArrowLeft size={18} /></button>
         <h1 className="font-black tracking-[0.12em] text-lg" style={{ color: '#4ade80', textShadow: '0 0 12px #16a34a, 0 2px 0 #000' }}>SOLITAIRE</h1>
         {/* left of center — the fixed ☰ menu button owns the top-right corner */}
@@ -482,8 +483,7 @@ export default function SolitairePage() {
         </div>
       </div>
 
-      {/* mt pushes the whole board toward mid-screen (Michael: was too high) */}
-      <div className="max-w-lg mx-auto px-3 mt-20 relative">
+      <div className="max-w-lg mx-auto px-3 mt-2 relative w-full shrink-0">
         {/* top row (Michael): foundations · (gap) · waste · DECK on the right */}
         {g && (
           <div className="flex gap-[3px] mb-2">
@@ -525,13 +525,13 @@ export default function SolitairePage() {
 
         {/* tableau */}
         {g && (
-          <div className="flex gap-[3px] items-start" style={{ minHeight: 460 }}>
+          <div className="flex gap-[3px] items-start" style={{ minHeight: 380 }}>
             {g.tab.map((pile, pi) => {
               const hov = drag?.hover?.kind === 'tab' && drag.hover.idx === pi
               // cards being carried are hidden from their source pile
               const hideFrom = drag?.from === 'tab' && drag.pi === pi ? drag.ci! : Infinity
               return (
-                <div key={pi} ref={el => { colRefs.current[pi] = el }} style={{ width: CW, minHeight: 440 }} className="relative">
+                <div key={pi} ref={el => { colRefs.current[pi] = el }} style={{ width: CW, minHeight: 360 }} className="relative">
                   {!pile.length && <div className="aspect-[5/7] rounded-[7px]" style={{ border: '2px dashed rgba(255,255,255,0.12)' }} />}
                   {pile.map((c, ci) => {
                     if (ci >= hideFrom) return null
@@ -597,32 +597,25 @@ export default function SolitairePage() {
         )}
       </div>
 
-      {/* PLAY DECK — fires the showing deck card to its best spot (Michael):
-          foundation first, then the first tableau pile that takes it */}
+      {/* PLAY + DECK — right under the board (Michael) */}
       {phase === 'playing' && g && (
-        <div className="max-w-lg mx-auto px-4 mt-1">
+        <div className="max-w-lg mx-auto px-4 mt-1 w-full shrink-0 space-y-1.5">
           <button onPointerDown={() => tryAutoPlay('waste')} disabled={!g.waste.length}
-            className="w-full py-2.5 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none disabled:opacity-35"
+            className="w-full py-2 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none disabled:opacity-35"
             style={{ background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', border: '1px solid #60a5fa66', touchAction: 'manipulation' }}>
             ▶ PLAY {g.waste.length ? `${RANK_TXT[g.waste[g.waste.length - 1].rank]}${g.waste[g.waste.length - 1].suit}` : 'DECK'}
           </button>
-        </div>
-      )}
-
-      {/* DECK — tight under the board; Undo/New Deal ride lower (Michael) */}
-      {phase === 'playing' && g && (
-        <div className="max-w-lg mx-auto px-4 mt-2">
           <button onPointerDown={tapStock}
-            className="w-full py-2.5 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none"
+            className="w-full py-2 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none"
             style={{ background: 'linear-gradient(135deg,#166534,#15803d)', border: '1px solid #22c55e66', touchAction: 'manipulation' }}>
             🂠 DECK{g.stock.length ? ` (${g.stock.length})` : ' ↻'}
           </button>
         </div>
       )}
 
-      {/* bottom controls */}
+      {/* Undo/New Deal — pinned just above the bottom bar, no scrolling */}
       {phase === 'playing' && (
-        <div className="max-w-lg mx-auto px-4 mt-8 flex items-center gap-2">
+        <div className="max-w-lg mx-auto px-4 w-full shrink-0 mt-auto mb-20 flex items-center gap-2">
           <button onClick={undo} disabled={!undoRef.current.length || finishing}
             className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
             style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>
