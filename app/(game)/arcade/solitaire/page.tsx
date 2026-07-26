@@ -75,6 +75,13 @@ export default function SolitairePage() {
   const [fpGame, setFpGame] = useState(0)
   const [pop, setPop] = useState<{ txt: string; key: number; color: string } | null>(null)
   const [finishing, setFinishing] = useState(false)
+  // NEW DEAL is easy to fat-finger (Michael) — arm a yes/no first
+  const [confirmDeal, setConfirmDeal] = useState(false)
+  useEffect(() => {
+    if (!confirmDeal) return
+    const t = setTimeout(() => setConfirmDeal(false), 4000)
+    return () => clearTimeout(t)
+  }, [confirmDeal])
 
   const undoRef = useRef<GameState[]>([])
   const lastFoundAtRef = useRef(0)
@@ -613,26 +620,44 @@ export default function SolitairePage() {
         </div>
       )}
 
-      {/* Undo/New Deal — pinned just above the bottom bar, no scrolling */}
+      {/* Undo/New Deal — just above the bottom bar; NEW DEAL asks first */}
       {phase === 'playing' && (
-        <div className="max-w-lg mx-auto px-4 w-full shrink-0 mt-2 mb-20 flex items-center gap-2">
-          <button onClick={undo} disabled={!undoRef.current.length || finishing}
-            className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
-            style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>
-            ↶ UNDO (−40 pts)
-          </button>
-          {canFinish && (
-            <button onClick={autoFinish}
-              className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95"
-              style={{ background: 'radial-gradient(circle at 50% 30%,#fbbf24,#b45309)', color: '#111', animation: 'meterPulse 0.8s ease-in-out infinite' }}>
-              ⚡ FINISH
-            </button>
+        <div className="max-w-lg mx-auto px-4 w-full shrink-0 mt-2 mb-28 flex items-center gap-2">
+          {confirmDeal ? (
+            <>
+              <span className="flex-1 text-center font-black text-[13px] text-amber-300">New deal — are you sure?</span>
+              <button onClick={() => { setConfirmDeal(false); start() }}
+                className="flex-1 py-2.5 rounded-full font-black text-[13px] text-white transition active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)' }}>
+                ✔ YES
+              </button>
+              <button onClick={() => setConfirmDeal(false)}
+                className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>
+                ✕ NO
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={undo} disabled={!undoRef.current.length || finishing}
+                className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>
+                ↶ UNDO (−40 pts)
+              </button>
+              {canFinish && (
+                <button onClick={autoFinish}
+                  className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95"
+                  style={{ background: 'radial-gradient(circle at 50% 30%,#fbbf24,#b45309)', color: '#111', animation: 'meterPulse 0.8s ease-in-out infinite' }}>
+                  ⚡ FINISH
+                </button>
+              )}
+              <button onClick={() => setConfirmDeal(true)} disabled={finishing}
+                className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
+                style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.35)' }}>
+                ↻ NEW DEAL
+              </button>
+            </>
           )}
-          <button onClick={start} disabled={finishing}
-            className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
-            style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.35)' }}>
-            ↻ NEW DEAL
-          </button>
         </div>
       )}
 
