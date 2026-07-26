@@ -11,17 +11,21 @@ export async function GET(req: NextRequest) {
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('id')
+      .select('id, party')
       .eq('clerk_user_id', userId)
       .single()
 
     if (!profile) return NextResponse.json({ collection: [] })
 
-    const { data: collection } = await admin
+    // Collection shows only the OTHER party's characters (Michael) — any
+    // same-party strays from the old test data stay hidden.
+    let q = admin
       .from('captured_characters')
       .select('*')
       .eq('profile_id', profile.id)
       .order('captured_at', { ascending: false })
+    if (profile.party) q = q.neq('enemy_party', profile.party)
+    const { data: collection } = await q
 
     return NextResponse.json({ collection: collection || [] })
 

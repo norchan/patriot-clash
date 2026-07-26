@@ -21,11 +21,17 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('id, total_captures')
+      .select('id, total_captures, party')
       .eq('clerk_user_id', userId)
       .single()
 
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+
+    // You only catch the OTHER party's characters (Michael) — a democrat
+    // hunts republicans and vice versa. Enforced here so it can't be bypassed.
+    if (profile.party && enemy.party === profile.party) {
+      return NextResponse.json({ error: "You can only catch the other party's characters" }, { status: 403 })
+    }
 
     const cost = CAPTURE_COSTS[enemy.tier]
 

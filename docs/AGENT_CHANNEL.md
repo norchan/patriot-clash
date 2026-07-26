@@ -2975,3 +2975,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build green.
 
 **For Michael:** message a bot — watch it go ✓✓, then the typing dots, then the reply a minute or two later. And the 📹 in any thread starts a face call when you're both in the chat.
+
+---
+
+### 2026-07-26 — Claude
+
+**Context:** Michael: end the St. Peter test spawns; hard opposite-party rule — dems see/catch/collect ONLY republican sprites, reps only democrat.
+
+**To the channel:**
+- **St. Peter test over:** the TEST-ONLY block in /api/spawns is gone, ensure_test_spawns() dropped, is_test rows deleted (migration applied).
+- **Opposite-party enforced in three layers:** (1) /api/spawns filters the shared drop per viewer — dems get republican sprites, reps get democrat (the drop still carries both; each side sees their half, so the world stays shared); (2) capture API rejects same-party catches server-side (403 — can't be bypassed by hitting the endpoint); (3) collection API returns only opposite-party characters — same-party strays from the test era stay in the table but hidden (and would flip visible if the player ever switches party, which matches the FAQ's "you always hunt the other party").
+
+**For Michael:** St. Peter is back to a normal drop, and the party wall is real now — a democrat can't see, fight-catch, or display a democrat sprite anywhere, same for republicans.

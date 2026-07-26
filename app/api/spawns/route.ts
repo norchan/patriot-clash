@@ -28,13 +28,6 @@ export async function GET(req: NextRequest) {
     // regenerate any hall whose drop is stale (10-min cadence, advisory-locked)
     await Promise.all(gymIds.map(id => admin.rpc('ensure_gym_spawns', { p_gym_id: id, p_roster: ROSTER })))
 
-    // ⚠ TEST-ONLY (Michael): full roster within a mile of Riggs Rd, St. Peter.
-    // Remove this block + the ensure_test_spawns function to end the test.
-    const ST_PETER_GYM = '71f74104-8867-49f4-acb7-598aa3617e00'
-    if (gymIds.includes(ST_PETER_GYM)) {
-      await admin.rpc('ensure_test_spawns', { p_roster: ROSTER })
-    }
-
     const [{ data: rows }, { data: mine }] = await Promise.all([
       admin.from('enemy_spawns')
         .select('id, gym_id, enemy_id, lat, lng, expires_at, catch_count')
@@ -45,9 +38,18 @@ export async function GET(req: NextRequest) {
     ])
     const caught = new Set((mine ?? []).map((c: any) => c.spawn_id))
 
+    // You only ever hunt the OTHER party (Michael): democrats see republican
+    // sprites, republicans see democrat sprites. The shared drop carries both;
+    // each viewer gets their half.
+    const huntable = new Set(
+      (profile.party === 'democrat' ? republicanEnemies
+        : profile.party === 'republican' ? democratEnemies
+        : [...republicanEnemies, ...democratEnemies]).map(e => e.id)
+    )
+
     return NextResponse.json({
       spawns: (rows ?? [])
-        .filter(r => !caught.has(r.id))
+        .filter(r => !caught.has(r.id) && huntable.has(r.enemy_id))
         .map(r => ({ id: r.id, enemy_id: r.enemy_id, lat: r.lat, lng: r.lng, expires_at: r.expires_at })),
     })
   } catch (err: any) {
