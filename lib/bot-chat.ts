@@ -16,8 +16,12 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 // 2026-07-22 (Michael: bots should reply to direct messages again).
 const BOT_REPLIES_PAUSED = false
 
-const FAST_WINDOW_MS = 3 * 60 * 1000   // replies are instant for this long
-const SLOW_DELAY_MS = 20 * 60 * 1000   // then each reply waits this long
+const FAST_WINDOW_MS = 3 * 60 * 1000   // conversation counts as "fresh" this long
+// Michael 2026-07-26: even fresh replies take 1–2 minutes — instant replies
+// screamed BOT. The thread shows read receipts + a typing indicator while
+// the reply is queued (delivered by the every-minute bot-dms cron).
+const FAST_DELAY_MS = () => 60_000 + Math.floor(Math.random() * 60_000)
+const SLOW_DELAY_MS = 20 * 60 * 1000   // later replies wait this long
 
 const PERSONA_RULES = `Reply SHORT and natural, like a quick text — a few words to one sentence, lowercase is fine, an emoji sometimes. You're nice, easygoing, and semi-interested: actually answer what they asked, keep it RELEVANT to their message, react naturally ("oh nice", "haha no way"), and now and then ask a simple friendly question back. You're a regular person, not very smart or technical, and that's fine — you CANNOT write code, do homework, or explain technical stuff; if asked, laugh it off ("lol i'm useless at that stuff") and change the subject. Do NOT talk about politics. NEVER be sexual or flirty — if the conversation turns sexual or inappropriate, do not engage: steer away and change the subject with a light, appropriate question (what they're up to today, favorite team, food, weekend plans). Never share contact info, never arrange to meet up, don't reveal you're an AI.
 IMPORTANT: if the user is hostile, abusive, or hateful, or keeps pushing sexual stuff after you've changed the subject, reply with exactly the single word BLOCK and nothing else.`
@@ -107,8 +111,15 @@ export async function generateBotReply(admin: any, botId: string, humanId: strin
     // Cross-party: bots snooze those DMs entirely — never reply (Michael)
     if (!human || human.party !== bot.party) return
 
-    // Pacing: instant inside the first 3 minutes of the conversation;
-    // after that every reply is queued ~20 minutes out
+    // the bot "reads" the message right away → read receipt for the human
+    await admin.from('direct_messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', convId)
+      .eq('receiver_id', botId)
+      .is('read_at', null)
+
+    // Pacing: fresh conversations get a 1–2 min "typing" delay; after the
+    // first 3 minutes every reply is queued ~20 minutes out
     const { data: firstMsg } = await admin
       .from('direct_messages')
       .select('created_at')
@@ -117,22 +128,18 @@ export async function generateBotReply(admin: any, botId: string, humanId: strin
       .limit(1)
       .maybeSingle()
     const convAge = firstMsg ? Date.now() - new Date(firstMsg.created_at).getTime() : 0
+    const delay = convAge > FAST_WINDOW_MS ? SLOW_DELAY_MS : FAST_DELAY_MS()
 
-    if (convAge > FAST_WINDOW_MS) {
-      // one pending reply per conversation — an earlier due time sticks
-      await admin.from('bot_dm_queue').upsert(
-        {
-          conversation_id: convId,
-          bot_id: botId,
-          human_id: humanId,
-          due_at: new Date(Date.now() + SLOW_DELAY_MS).toISOString(),
-        },
-        { onConflict: 'conversation_id', ignoreDuplicates: true },
-      )
-      return
-    }
-
-    await sendBotReplyNow(admin, bot, humanId, convId)
+    // one pending reply per conversation — an earlier due time sticks
+    await admin.from('bot_dm_queue').upsert(
+      {
+        conversation_id: convId,
+        bot_id: botId,
+        human_id: humanId,
+        due_at: new Date(Date.now() + delay).toISOString(),
+      },
+      { onConflict: 'conversation_id', ignoreDuplicates: true },
+    )
   } catch (err) {
     console.error('generateBotReply failed:', err)
   }

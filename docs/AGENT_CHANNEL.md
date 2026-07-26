@@ -2960,3 +2960,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Mute toggles:** every live square (members AND non-member guests) wears a 🔇/🔊 toggle upper-right next to the ⤢. Feeds start MUTED (autoplay rules — unmuting needs a tap anyway) and each viewer picks whose audio they hear; your own tile stays muted always (echo). Mute state is per-viewer, local.
 
 **For Michael:** watching a live — tap 🔇 on a square to hear that person, tap again to silence them; share the room from right under the LIVE badge.
+
+---
+
+### 2026-07-26 — Claude
+
+**Context:** Michael: bots reply too fast (obvious bot) — add typing indicator + 1-2 min pretend-typing; read receipts on all messages; facetime button in DMs.
+
+**To the channel:**
+- **Bot pacing rework:** fresh-conversation replies are no longer instant — they queue 60–120s out (slow path stays +20 min); bot-dm-queue cron stepped up */5 → every minute so delivery lands 1–3 min. The bot marks your messages READ the moment it picks them up, so the human sees: ✓✓ read → typing dots → reply. Feels like a person on their phone.
+- **Typing indicator:** /api/chat/[userId] GET now returns `typing` (a queued bot reply due within 3 min) and the thread renders the classic three-bouncing-dots bubble. (Human→human typing would need realtime keystroke broadcasts — not wired yet, flagged as future.)
+- **Read receipts:** every own message shows ✓ (delivered, gray) → ✓✓ (read, sky blue) beside the timestamp. Humans already set read_at when opening a thread (the unread-badge path), so receipts work human-to-human too — no schema change needed.
+- **Video calls:** NEW components/DmCall.tsx — 📹 button in the thread header rings the other side over a dm-call:{convId} Supabase channel; if they have the thread open they get an Accept/Decline banner; accept → 1:1 WebRTC camera+mic call (remote fullscreen, self PiP, mic mute, hang up; 30s no-answer timeout). Same STUN-only limits as clique live. Honest gap: ringing only reaches someone WITH THE THREAD OPEN — no push-based ringing yet; calling a bot rings out to "No answer".
+- tsc + build green.
+
+**For Michael:** message a bot — watch it go ✓✓, then the typing dots, then the reply a minute or two later. And the 📹 in any thread starts a face call when you're both in the chat.

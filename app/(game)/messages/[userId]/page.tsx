@@ -1,11 +1,13 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Camera, Image as ImageIcon, X, MapPin, Trash2 } from 'lucide-react'
+import { ArrowLeft, Camera, Image as ImageIcon, X, MapPin, Trash2, Video } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
 import AlbumViewer from '@/components/AlbumViewer'
 import Linkify from '@/components/Linkify'
+import DmCall from '@/components/DmCall'
+import { createSupabaseBrowserClient } from '@/lib/supabase-client'
 
 function milesBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 3958.8
@@ -15,7 +17,7 @@ function milesBetween(lat1: number, lng1: number, lat2: number, lng2: number): n
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
-interface Msg { id: string; sender_id: string; content: string | null; image_url: string | null; created_at: string }
+interface Msg { id: string; sender_id: string; content: string | null; image_url: string | null; created_at: string; read_at?: string | null }
 
 // Shrink photos for sending; GIFs pass through untouched (canvas would
 // freeze the animation) as long as they fit the size cap.
@@ -72,6 +74,34 @@ export default function MessageThreadPage() {
   const stickBottom = useRef(true)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  // typing indicator + video calls (Michael)
+  const [typing, setTyping] = useState(false)
+  const [call, setCall] = useState<null | 'caller' | 'callee'>(null)
+  const [incoming, setIncoming] = useState(false)
+  const callRef = useRef<typeof call>(null)
+  callRef.current = call
+  const pageChRef = useRef<any>(null)
+  const convId = profile ? [profile.id, String(userId)].sort().join('_') : null
+
+  // listen for incoming call rings while the thread is open
+  useEffect(() => {
+    if (!convId || !profile?.id) return
+    const supabase = createSupabaseBrowserClient()
+    const ch = supabase.channel(`dm-call:${convId}`, { config: { broadcast: { self: false } } })
+    pageChRef.current = ch
+    let clearT: ReturnType<typeof setTimeout> | null = null
+    ch.on('broadcast', { event: 'ring' }, ({ payload }: any) => {
+      if (payload?.from === profile.id || callRef.current) return
+      setIncoming(true)
+      if (clearT) clearTimeout(clearT)
+      clearT = setTimeout(() => setIncoming(false), 7000) // rings stopped → caller gave up
+    })
+    ch.on('broadcast', { event: 'hangup' }, ({ payload }: any) => {
+      if (payload?.from !== profile.id) setIncoming(false)
+    })
+    ch.subscribe()
+    return () => { if (clearT) clearTimeout(clearT); supabase.removeChannel(ch); pageChRef.current = null }
+  }, [convId, profile?.id])
 
   // Who am I talking to
   useEffect(() => {
@@ -89,7 +119,7 @@ export default function MessageThreadPage() {
     const poll = () => {
       fetch(`/api/chat/${userId}`)
         .then(r => r.json())
-        .then(d => { if (d.messages) setMessages(d.messages) })
+        .then(d => { if (d.messages) setMessages(d.messages); setTyping(!!d.typing) })
         .catch(() => {})
     }
     poll()
@@ -100,7 +130,7 @@ export default function MessageThreadPage() {
   // Stay pinned to the newest message unless the user scrolled up
   useEffect(() => {
     if (stickBottom.current) boxRef.current?.scrollTo({ top: boxRef.current.scrollHeight })
-  }, [messages])
+  }, [messages, typing])
 
   async function pickFile(file: File) {
     const dataUrl = await prepareImage(file)
@@ -158,14 +188,21 @@ export default function MessageThreadPage() {
           )}
           <span className="text-white font-bold text-sm truncate">{other?.username ?? '...'}</span>
         </button>
-        {otherLoc && (
-          <button onClick={() => router.push(`/map?flat=${otherLoc.lat}&flng=${otherLoc.lng}`)}
-            className="ml-auto flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 transition flex-shrink-0"
-            title="View on map">
-            <MapPin size={14} />
-            {location ? (() => { const d = milesBetween(location.lat, location.lng, otherLoc.lat, otherLoc.lng); return d < 0.1 ? 'here' : `${d.toFixed(1)} mi` })() : 'View on map'}
+        <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+          {/* facetime (Michael): start a video call in this thread */}
+          <button onClick={() => setCall('caller')}
+            className="text-green-400 hover:text-green-300 transition" title="Video call" aria-label="Video call">
+            <Video size={18} />
           </button>
-        )}
+          {otherLoc && (
+            <button onClick={() => router.push(`/map?flat=${otherLoc.lat}&flng=${otherLoc.lng}`)}
+              className="flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 transition"
+              title="View on map">
+              <MapPin size={14} />
+              {location ? (() => { const d = milesBetween(location.lat, location.lng, otherLoc.lat, otherLoc.lng); return d < 0.1 ? 'here' : `${d.toFixed(1)} mi` })() : 'View on map'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Thread */}
@@ -211,12 +248,31 @@ export default function MessageThreadPage() {
                   {m.content && <Linkify text={m.content} />}
                   <div className={`text-[9px] mt-0.5 ${isMe ? 'text-white/60 text-right' : 'text-gray-500'}`}>
                     {new Date(m.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    {/* read receipts: ✓ delivered · ✓✓ read */}
+                    {isMe && (
+                      <span className={`ml-1 text-[10px] font-bold ${m.read_at ? 'text-sky-300' : 'text-white/45'}`}>
+                        {m.read_at ? '✓✓' : '✓'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           )
         })}
+
+        {/* typing… — three bouncing dots while their reply is coming */}
+        {typing && (
+          <div className="flex justify-start">
+            <div className="rounded-2xl px-4 py-3 bg-gray-800" style={{ borderBottomLeftRadius: 6 }}>
+              <span className="inline-flex gap-1 items-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '140ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '280ms' }} />
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Composer */}
@@ -265,6 +321,31 @@ export default function MessageThreadPage() {
       {/* Fullscreen image viewer */}
       {viewer && (
         <AlbumViewer photos={[{ id: 'img', url: viewer }]} title={other?.username} onClose={() => setViewer(null)} />
+      )}
+
+      {/* incoming call banner */}
+      {incoming && !call && (
+        <div className="fixed top-3 inset-x-3 z-[110] max-w-md mx-auto rounded-2xl bg-gray-900 border border-green-700 shadow-2xl px-4 py-3 flex items-center gap-3">
+          <span className="text-2xl animate-pulse">📹</span>
+          <span className="flex-1 min-w-0 text-white text-sm font-bold truncate">{other?.username ?? 'Someone'} is calling…</span>
+          <button onClick={() => { setIncoming(false); setCall('callee') }}
+            className="px-3.5 py-2 rounded-xl font-black text-xs text-white bg-green-600 hover:bg-green-500 transition">
+            Accept
+          </button>
+          <button onClick={() => {
+            setIncoming(false)
+            pageChRef.current?.send({ type: 'broadcast', event: 'decline', payload: { from: profile?.id } })
+          }}
+            className="px-3.5 py-2 rounded-xl font-black text-xs text-gray-300 bg-gray-800 border border-gray-700 hover:text-white transition">
+            Decline
+          </button>
+        </div>
+      )}
+
+      {/* the call itself */}
+      {call && convId && profile && (
+        <DmCall convId={convId} myId={profile.id} otherName={other?.username ?? 'Player'}
+          role={call} onClose={() => setCall(null)} />
       )}
     </div>
   )

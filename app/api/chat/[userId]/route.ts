@@ -24,12 +24,16 @@ export async function GET(
 
     const convId = conversationId(profile.id, userId)
 
-    const { data: messages } = await admin
-      .from('direct_messages')
-      .select('id, sender_id, content, image_url, created_at')
-      .eq('conversation_id', convId)
-      .order('created_at', { ascending: true })
-      .limit(100)
+    const [{ data: messages }, { data: queued }] = await Promise.all([
+      admin
+        .from('direct_messages')
+        .select('id, sender_id, content, image_url, created_at, read_at')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: true })
+        .limit(100),
+      // bot typing indicator: a queued bot reply landing within ~3 minutes
+      admin.from('bot_dm_queue').select('due_at').eq('conversation_id', convId).maybeSingle(),
+    ])
 
     // opening the thread reads everything they sent you (feeds the nav badge)
     await admin.from('direct_messages')
@@ -38,7 +42,9 @@ export async function GET(
       .eq('receiver_id', profile.id)
       .is('read_at', null)
 
-    return NextResponse.json({ messages: messages ?? [] })
+    const typing = !!queued && new Date(queued.due_at).getTime() - Date.now() < 3 * 60 * 1000
+
+    return NextResponse.json({ messages: messages ?? [], typing })
 
   } catch (err: any) {
     if (err instanceof Response) return err
