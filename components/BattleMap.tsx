@@ -67,7 +67,8 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
     ;(window as any).__bmap = m
     m.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
     // NATIONAL STATS lives as the TOP button of the zoom stack (Michael) —
-    // prepended into mapbox's own control group so all three share one pill
+    // prepended into mapbox's own control group so all three share one pill,
+    // with the word "stats" written just above the button (Michael 2026-07-26)
     {
       const zoomGroup = el.current.querySelector('.mapboxgl-ctrl-zoom-in')?.parentElement
       if (zoomGroup) {
@@ -78,6 +79,11 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
         b.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>'
         b.onclick = () => router.push('/explore/scoreboard')
         zoomGroup.prepend(b)
+        const label = document.createElement('div')
+        label.textContent = 'stats'
+        label.style.cssText = 'font:700 9px/1.1 -apple-system,sans-serif;color:#333;text-align:center;padding:4px 2px 1px;cursor:pointer;user-select:none;'
+        label.onclick = () => router.push('/explore/scoreboard')
+        zoomGroup.prepend(label)
       }
     }
 
