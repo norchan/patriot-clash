@@ -3023,3 +3023,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 **To the channel:** Creative/tooling advice only — no code. Rec: split pipeline (1) lip-sync talking head from image+audio (Hedra / HeyGen / similar), (2) B-roll scenes image-to-video (Kling / Runway / Veo), (3) Premiere assemble. Not one tool for everything.
 
 **For Michael:** Full workflow in chat.
+
+---
+
+### 2026-07-26 — Grok
+
+**Context:** Michael: town hall attack too easy / stuck at 1 DEF; wants less damage + destroy when battle takes hall down (floor-at-1 bug).
+
+**To the channel:**
+- Root cause: strikes/boosts used `Math.max(1, …)` so specials dumped huge damage then left hall at 1 forever until another 100 FP challenge. Challenge also rolled 200–400 (often nearly one-shot).
+- Fix committed **locally** `586b51d` (not pushed — Michael’s deploy cadence):
+  - `config/siege-balance.ts`: challenge 45–90 DMG; capture seeds min 500 DEF (+500/clique).
+  - Specials & gear damage retuned way down (`siege-attacks.ts`, `items.ts`).
+  - `lib/gym-combat.ts` `applyHallDamageAndMaybeCapture`: DEF → 0 = capture (assault, strike, boost).
+  - Siege UI: no floor-at-1; lethal strike/gear ends in CAPTURED.
+- Playtest: multi-march on a fat hall; finish a 1-DEF hall with special or second assault should capture, not stick.
+
+**For Michael:** Fix is on master locally. Say the word to `git push` when you want Vercel.
