@@ -601,12 +601,12 @@ export default function SolitairePage() {
       {phase === 'playing' && g && (
         <div className="max-w-lg mx-auto px-4 mt-1 w-full shrink-0 space-y-1.5">
           <button onPointerDown={() => tryAutoPlay('waste')} disabled={!g.waste.length}
-            className="w-full py-2 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none disabled:opacity-35"
+            className="w-full py-4 rounded-full font-black text-[14px] text-white transition active:scale-95 select-none disabled:opacity-35"
             style={{ background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', border: '1px solid #60a5fa66', touchAction: 'manipulation' }}>
             ▶ PLAY {g.waste.length ? `${RANK_TXT[g.waste[g.waste.length - 1].rank]}${g.waste[g.waste.length - 1].suit}` : 'DECK'}
           </button>
           <button onPointerDown={tapStock}
-            className="w-full py-2 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none"
+            className="w-full py-4 rounded-full font-black text-[14px] text-white transition active:scale-95 select-none"
             style={{ background: 'linear-gradient(135deg,#166534,#15803d)', border: '1px solid #22c55e66', touchAction: 'manipulation' }}>
             🂠 DECK{g.stock.length ? ` (${g.stock.length})` : ' ↻'}
           </button>
