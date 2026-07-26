@@ -20,7 +20,7 @@ const menuItems = [
   { href: '/',              label: 'Battle Map',     icon: Landmark },
   { href: '/reels',         label: 'Reels',          icon: Clapperboard },
   { href: '/active',        label: 'Active Players', icon: Radar },
-  { href: '/cliques',       label: 'Active Cliques', icon: Users },
+  { href: '/cliques/browse', label: 'Active Cliques', icon: Users },
   { href: '/townhall/nearest', label: 'Town Hall',   icon: Building2 },
   { href: '/shop',          label: 'Shop',           icon: ShoppingBag },
   { href: '/settings',      label: 'Settings',       icon: Settings },

@@ -3,8 +3,10 @@ import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { addCliqueMember } from '@/lib/cliques'
 
-// GET /api/cliques — clicks of YOUR party only, with member counts.
-// Optional ?q= filters by name.
+// GET /api/cliques — cliques with member counts. Optional ?q= filters by
+// name; ?party=all|democrat|republican widens/filters the browse list
+// (Michael: the Active Cliques page searches BOTH parties). Default stays
+// your own party for legacy callers.
 export async function GET(req: NextRequest) {
   try {
     const profile = await requireProfile()
@@ -12,6 +14,7 @@ export async function GET(req: NextRequest) {
 
     const q = req.nextUrl.searchParams.get('q')?.trim()
     const gymId = req.nextUrl.searchParams.get('gym_id')
+    const party = req.nextUrl.searchParams.get('party')
 
     let query = admin
       .from('cliques')
@@ -19,9 +22,10 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(50)
 
-    // Hall view shows local cliques of BOTH parties; the browse list stays
-    // scoped to your own party
+    // Hall view shows local cliques of BOTH parties
     if (gymId) query = query.eq('gym_id', gymId)
+    else if (party === 'all') { /* both parties */ }
+    else if (party === 'democrat' || party === 'republican') query = query.eq('party', party)
     else query = query.eq('party', profile.party)
 
     if (q) query = query.ilike('name', `%${q}%`)

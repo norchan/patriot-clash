@@ -4,14 +4,10 @@ import { useRouter } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
 import CliqueFeed from '@/components/CliqueFeed'
 
-interface Clique {
-  id: string
-  name: string
-  party: 'democrat' | 'republican'
-  gym_id: string | null
-  member_count: number
-  join_policy?: 'open' | 'request'
-}
+// MY CLIQUES (Michael): this page is the clique panel only — the dropdown
+// next to the title switches between your cliques ("more cliques" at the
+// bottom opens /cliques/browse). Search + create + leave-anything live on
+// the browse page, not here.
 
 interface Member {
   id: string
@@ -26,39 +22,23 @@ interface PendingMember {
   avatar_url: string | null
 }
 
-interface GymHit {
-  id: string
-  city_name: string
-  state: string
-}
-
 export default function CliquesPage() {
   const router = useRouter()
   const { profile, loading: profileLoading, refetch } = useProfile()
-  const [cliques, setCliques] = useState<Clique[]>([])
-  // multi-clique (Michael): myCliques = every membership; myDefaultId = the
-  // starred one; myCliqueId = whichever membership's panel is open right now
+  // myCliques = every membership; myDefaultId = the starred one;
+  // myCliqueId = whichever membership's panel is open right now
   const [myCliques, setMyCliques] = useState<{ id: string; name: string; gym_id: string | null; join_policy?: string }[]>([])
   const [myDefaultId, setMyDefaultId] = useState<string | null>(null)
   const [myCliqueId, setMyCliqueId] = useState<string | null>(null)
-  const [myPendingId, setMyPendingId] = useState<string | null>(null)
   const [myMembers, setMyMembers] = useState<Member[]>([])
   const [myCliqueInfo, setMyCliqueInfo] = useState<{ name: string; gym_id: string | null; city?: string; state?: string } | null>(null)
   const [pendingRequests, setPendingRequests] = useState<PendingMember[]>([])
   const [isCreator, setIsCreator] = useState(false)
-  const [search, setSearch] = useState('')
-  const [showBrowse, setShowBrowse] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
-
-  // Create form
-  const [showCreate, setShowCreate] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [gymQuery, setGymQuery] = useState('')
-  const [gymHits, setGymHits] = useState<GymHit[]>([])
-  const [pickedGym, setPickedGym] = useState<GymHit | null>(null)
 
   const partyColor = profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
   const partyName = profile?.party === 'democrat' ? 'Democrat' : 'Republican'
@@ -70,20 +50,18 @@ export default function CliquesPage() {
 
   const loadCliques = useCallback(async () => {
     try {
-      const res = await fetch(`/api/cliques${search ? `?q=${encodeURIComponent(search)}` : ''}`)
+      const res = await fetch('/api/cliques')
       const data = await res.json()
-      setCliques(data.cliques ?? [])
       const mine = data.my_cliques ?? []
       setMyCliques(mine)
       setMyDefaultId(data.my_default_id ?? null)
-      // Land on the SEARCH page, not inside the default clique (Michael):
-      // no panel auto-opens — tap a My Cliques chip to open one. A panel
-      // already open (join / chip tap) survives reloads.
-      setMyCliqueId(prev => (prev && mine.some((m: any) => m.id === prev)) ? prev : null)
-      setMyPendingId(data.my_pending_id ?? null)
+      // The dropdown shows the default clique — its panel opens by default
+      setMyCliqueId(prev => (prev && mine.some((m: any) => m.id === prev))
+        ? prev
+        : (data.my_default_id ?? mine[0]?.id ?? null))
     } catch {}
     setLoading(false)
-  }, [search])
+  }, [])
 
   useEffect(() => { loadCliques() }, [loadCliques])
 
@@ -121,41 +99,6 @@ export default function CliquesPage() {
     setBusy(false)
   }
 
-  // Town hall search for the create form
-  useEffect(() => {
-    if (gymQuery.length < 2) { setGymHits([]); return }
-    const t = setTimeout(() => {
-      fetch(`/api/gyms/search?q=${encodeURIComponent(gymQuery)}`)
-        .then(r => r.json())
-        .then(d => setGymHits(d.gyms ?? []))
-        .catch(() => {})
-    }, 300)
-    return () => clearTimeout(t)
-  }, [gymQuery])
-
-  async function joinClique(c: Clique) {
-    setBusy(true)
-    try {
-      const res = await fetch(`/api/cliques/${c.id}/join`, { method: 'POST' })
-      const data = await res.json()
-      if (res.ok) {
-        if (data.status === 'member') {
-          // Open clique — you're straight in (and keep your other cliques)
-          showToastMsg(`🎉 Joined ${c.name}!`)
-          setMyCliqueId(c.id)
-          await Promise.all([loadCliques(), refetch()])
-        } else {
-          showToastMsg(`📨 Request sent to ${c.name} — waiting for approval`)
-          setMyPendingId(c.id)
-          await Promise.all([loadCliques(), refetch()])
-        }
-      } else {
-        showToastMsg(`❌ ${data.error || 'Could not join'}`)
-      }
-    } catch { showToastMsg('❌ Could not join') }
-    setBusy(false)
-  }
-
   async function leaveClique() {
     if (!myCliqueId) return
     setBusy(true)
@@ -189,31 +132,6 @@ export default function CliquesPage() {
     setBusy(false)
   }
 
-  async function createClique() {
-    if (!newName.trim() || !pickedGym) return
-    setBusy(true)
-    try {
-      const res = await fetch('/api/cliques', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), gym_id: pickedGym.id }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        showToastMsg(`🎉 ${data.clique.name} created!`)
-        setShowCreate(false)
-        setNewName('')
-        setGymQuery('')
-        setPickedGym(null)
-        setMyCliqueId(data.clique.id)
-        await Promise.all([loadCliques(), refetch()])
-      } else {
-        showToastMsg(`❌ ${data.error || 'Could not create'}`)
-      }
-    } catch { showToastMsg('❌ Could not create') }
-    setBusy(false)
-  }
-
   if (profileLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -222,33 +140,69 @@ export default function CliquesPage() {
     )
   }
 
-  const myClique = cliques.find(c => c.id === myCliqueId)
+  // dropdown list: default clique first, then the rest
+  const orderedCliques = [
+    ...myCliques.filter(m => m.id === myDefaultId),
+    ...myCliques.filter(m => m.id !== myDefaultId),
+  ]
+  const openClique = myCliques.find(m => m.id === myCliqueId)
 
   return (
     <div className="min-h-screen bg-gray-950 pb-6">
-      {/* Header */}
+      {/* Header — title + the clique dropdown right next to it */}
       <div className="px-4 pt-8 pb-4"
         style={{ background: `linear-gradient(180deg, ${partyColor}26 0%, transparent 100%)` }}>
-        <h1 className="text-white font-black text-2xl">✊ Cliques</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-white font-black text-2xl">✊ Cliques</h1>
+          {myCliques.length > 0 && (
+            <div className="relative">
+              <button onClick={() => setMenuOpen(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition text-white"
+                style={{ borderColor: `${partyColor}88`, background: `${partyColor}22` }}>
+                <span className="max-w-[140px] truncate">
+                  {(openClique ?? orderedCliques[0])?.name.split(' — ')[0] ?? 'My cliques'}
+                </span>
+                <span className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`}>▾</span>
+              </button>
+              {menuOpen && (
+                <>
+                  {/* click-away layer */}
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
+                    {orderedCliques.map(m => (
+                      <button key={m.id}
+                        onClick={() => { setMyCliqueId(m.id); setMenuOpen(false) }}
+                        className={`w-full text-left px-3.5 py-2.5 text-sm font-bold transition hover:bg-gray-800 ${
+                          m.id === myCliqueId ? 'text-white' : 'text-gray-300'}`}
+                        style={m.id === myCliqueId ? { background: `${partyColor}22` } : undefined}>
+                        {m.id === myDefaultId ? '⭐ ' : ''}{m.name.split(' — ')[0]}
+                      </button>
+                    ))}
+                    <button onClick={() => { setMenuOpen(false); router.push('/cliques/browse') }}
+                      className="w-full text-left px-3.5 py-2.5 text-sm font-bold text-purple-400 hover:bg-gray-800 border-t border-gray-800 transition">
+                      🔍 More cliques
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         <p className="text-gray-400 text-sm mt-1">
           {partyName} cliques — band together around a town hall
         </p>
       </div>
 
-      {/* My cliques — every membership; tap one to open its panel/chat */}
-      {myCliques.length > 0 && (
-        <div className="mx-4 mb-3">
-          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">✊ My Cliques ({myCliques.length})</h3>
-          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {myCliques.map(m => (
-              <button key={m.id} onClick={() => setMyCliqueId(m.id)}
-                className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border transition ${
-                  myCliqueId === m.id ? 'text-white' : 'text-gray-400 border-gray-800 bg-gray-900 hover:text-white'}`}
-                style={myCliqueId === m.id ? { borderColor: partyColor, background: `${partyColor}22` } : undefined}>
-                {m.id === myDefaultId ? '⭐ ' : ''}{m.name.split(' — ')[0]}
-              </button>
-            ))}
-          </div>
+      {/* Not in any clique yet → send them to the Active Cliques page */}
+      {!loading && myCliques.length === 0 && (
+        <div className="mx-4 bg-gray-900 rounded-2xl border border-gray-800 p-6 text-center">
+          <p className="text-white font-bold">You&apos;re not in a clique yet</p>
+          <p className="text-gray-500 text-sm mt-1">Find one anywhere in the country — or start your own.</p>
+          <button onClick={() => router.push('/cliques/browse')}
+            className="mt-4 px-6 py-2.5 rounded-xl font-bold text-white transition active:scale-95"
+            style={{ background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)` }}>
+            🔍 Find a clique
+          </button>
         </div>
       )}
 
@@ -263,8 +217,7 @@ export default function CliquesPage() {
             const gymId = myCliqueInfo?.gym_id
             return (
               <>
-                {/* In place of a "Your Clique" label: the clique name, with
-                    its town hall as a tappable link */}
+                {/* the clique name, with its town hall as a tappable link */}
                 <div className="flex items-start justify-between mb-2">
                   <div className="min-w-0">
                     <h2 className="text-white font-black text-lg truncate">{cliqueName}</h2>
@@ -356,151 +309,6 @@ export default function CliquesPage() {
           <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">💬 Clique Chat</h3>
           <CliqueFeed cliqueId={myCliqueId} partyColor={partyColor} isCreator={isCreator} />
         </div>
-      )}
-
-      {/* Create — always available (you can be in many cliques now) */}
-      {(
-      <div className="mx-4 mb-4">
-        {!showCreate ? (
-          <button onClick={() => setShowCreate(true)}
-            className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95"
-            style={{ background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)` }}>
-            + Create A Clique
-          </button>
-        ) : (
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400 text-xs uppercase tracking-wider">Create A Clique</span>
-              <button onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-white">✕</button>
-            </div>
-            <input
-              type="text" value={newName} maxLength={30}
-              onChange={e => setNewName(e.target.value)}
-              placeholder="Clique name (e.g. Red Storm)"
-              className="w-full bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 outline-none placeholder-gray-600 border border-gray-700 focus:border-gray-500"
-            />
-            {!pickedGym ? (
-              <>
-                <input
-                  type="text" value={gymQuery}
-                  onChange={e => setGymQuery(e.target.value)}
-                  placeholder="Search a town hall (e.g. St. Peter)"
-                  className="w-full bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 outline-none placeholder-gray-600 border border-gray-700 focus:border-gray-500"
-                />
-                {gymHits.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto space-y-1">
-                    {gymHits.map(g => (
-                      <button key={g.id} onClick={() => setPickedGym(g)}
-                        className="w-full text-left px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-200 transition">
-                        🏛️ {g.city_name}, {g.state}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center justify-between bg-gray-800 rounded-xl px-3 py-2.5">
-                <span className="text-white text-sm">🏛️ {pickedGym.city_name}, {pickedGym.state}</span>
-                <button onClick={() => setPickedGym(null)} className="text-gray-500 hover:text-white text-xs">change</button>
-              </div>
-            )}
-            {newName.trim() && pickedGym && (
-              <p className="text-gray-500 text-xs">
-                Will be named: <span className="text-white font-medium">{newName.trim()} — {pickedGym.city_name}</span>
-              </p>
-            )}
-            <button onClick={createClique} disabled={busy || !newName.trim() || !pickedGym}
-              className="w-full py-3 rounded-xl font-bold text-white transition active:scale-95 disabled:opacity-40"
-              style={{ background: `linear-gradient(135deg, ${partyColor}, ${partyColor}bb)` }}>
-              {busy ? '⏳ Creating...' : 'Create Clique'}
-            </button>
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Members: collapse the browse list into a "find other cliques" toggle
-          below the chat — no need to shop for cliques while you're in one */}
-      {myCliqueId && !showBrowse && (
-        <div className="mx-4 mb-4">
-          <button onClick={() => setShowBrowse(true)}
-            className="w-full py-2.5 rounded-xl text-sm font-bold bg-gray-900 text-gray-400 border border-gray-800 hover:text-white transition">
-            🔍 Find more {partyName} cliques — anywhere in the country
-          </button>
-        </div>
-      )}
-
-      {/* Search + list */}
-      {(!myCliqueId || showBrowse) && (
-      <div className="mx-4">
-        {myCliqueId && (
-          <button onClick={() => setShowBrowse(false)} className="text-gray-500 text-xs mb-2">← Hide</button>
-        )}
-        <input
-          type="text" value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder={`Search ${partyName} cliques...`}
-          className="w-full bg-gray-900 text-white text-sm rounded-xl px-4 py-3 outline-none placeholder-gray-600 border border-gray-800 focus:border-gray-600 mb-3"
-        />
-
-        {loading ? (
-          <p className="text-gray-600 text-sm text-center py-6">Loading cliques...</p>
-        ) : cliques.length === 0 ? (
-          <p className="text-gray-600 text-sm text-center py-6">
-            No {partyName} cliques yet — create the first one!
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {cliques.map(c => (
-              <div key={c.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                  style={{ background: `${partyColor}22`, border: `1px solid ${partyColor}44` }}>
-                  ✊
-                </div>
-                <button onClick={() => router.push(`/cliques/${c.id}`)} className="flex-1 min-w-0 text-left">
-                  <p className="text-white text-sm font-bold truncate">
-                    {(() => {
-                      const i = c.name.lastIndexOf(' — ')
-                      if (i < 0 || !c.gym_id) return c.name
-                      return (
-                        <>
-                          {c.name.slice(0, i + 3)}
-                          <span
-                            role="link"
-                            onClick={e => { e.stopPropagation(); router.push(`/townhall/${c.gym_id}`) }}
-                            className="underline decoration-dotted underline-offset-2 hover:text-blue-300 transition"
-                          >
-                            {c.name.slice(i + 3)}
-                          </span>
-                        </>
-                      )
-                    })()}
-                  </p>
-                  <p className="text-gray-500 text-xs">
-                    {c.member_count} member{c.member_count !== 1 ? 's' : ''}
-                    {c.join_policy === 'open' ? ' · 🚪 Open' : ' · 🔒 Request'}
-                  </p>
-                </button>
-                {myCliques.some(m => m.id === c.id) ? (
-                  <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ color: partyColor, background: `${partyColor}1a` }}>
-                    {c.id === myDefaultId ? '⭐ Joined' : 'Joined'}
-                  </span>
-                ) : c.id === myPendingId ? (
-                  <span className="text-xs font-bold px-2 py-1 rounded-full text-yellow-400 bg-yellow-900/30">
-                    Requested ⏳
-                  </span>
-                ) : (
-                  <button onClick={() => joinClique(c)} disabled={busy}
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg text-white transition active:scale-95 disabled:opacity-50"
-                    style={{ background: partyColor }}>
-                    {c.join_policy === 'open' ? 'Join' : 'Request'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       )}
 
       {toast && (

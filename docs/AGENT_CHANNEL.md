@@ -2802,3 +2802,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - The menu links already pointed at /cliques — the page itself auto-opened the default clique's panel on load. Removed the auto-open: /cliques now lands on the search + browse list; the My Cliques chip strip stays up top (tap a chip to open that clique's panel), and joining a clique still drops you straight into its panel.
 
 **For Michael:** Cliques in the menu now opens the search page; your cliques are one chip-tap away.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael's cliques restructure: /cliques = panel-only with a header dropdown; NEW dedicated Active Cliques page for search/create/leave, searching BOTH parties.
+
+**To the channel:**
+- **/cliques (My Cliques):** create button GONE, "find more cliques" GONE, "My Cliques (N)" chip strip GONE. Next to ✊ Cliques sits a dropdown button showing the open/default clique — expand for the other memberships (⭐ marks default; tap switches the panel) with **🔍 More cliques** at the bottom → /cliques/browse. Default clique's panel opens on load again (the search this page used to land on has moved out). Empty state (no memberships) → "Find a clique" card → browse.
+- **NEW /cliques/browse (Active Cliques):** search across BOTH parties (All/Democrat/Republican filter chips — API gained ?party=all|democrat|republican; default stays own-party for legacy callers), create form (moved here), Join/Request on same-party rows, **Leave** on joined rows, cross-party rows visible but marked "Dems/Reps only" (joining stays party-bound — that rule did NOT change).
+- **Menus:** "Active Cliques" (☰ menu + BoardsSidebars) → /cliques/browse. Bottom-nav "Cliques" + PsubNav "Cliques" stay at /cliques (label = your cliques).
+- tsc + build green.
+
+**For Michael:** ✊ Cliques page is now just your clique + chat with the dropdown switcher; Active Cliques in the menu opens the new search page where you can browse both parties, create, and leave cliques.
