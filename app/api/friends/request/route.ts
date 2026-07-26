@@ -6,7 +6,10 @@ import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { notify } from '@/lib/notify'
 
 // POST /api/friends/request { profile_id } — send a friend request.
-// Anyone can friend anyone (cross-party by design). Bots accept instantly.
+// Anyone can send to anyone. Bots (Michael 2026-07-25): the request goes in
+// as PENDING like a real person's — a pg_cron sweep 5 minutes later accepts
+// same-party requests and denies (deletes) cross-party ones
+// (process_bot_friend_requests, every minute).
 export async function POST(req: NextRequest) {
   try {
     const profile = await requireProfile()
@@ -47,8 +50,8 @@ export async function POST(req: NextRequest) {
     const { data: row, error } = await admin.from('friendships').insert({
       requester_id: profile.id,
       addressee_id: profile_id,
-      status: isBot ? 'accepted' : 'pending',
-      responded_at: isBot ? new Date().toISOString() : null,
+      status: 'pending',
+      responded_at: null,
     }).select('id').single()
     if (error) throw error
 
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
         dedupeUnreadLink: true,
       })
     }
-    return NextResponse.json({ status: isBot ? 'friends' : 'pending_out', id: row.id })
+    return NextResponse.json({ status: 'pending_out', id: row.id })
   } catch (err: any) {
     if (err instanceof Response) return err
     console.error('friend request error:', err)

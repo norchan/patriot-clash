@@ -2841,3 +2841,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - CliqueFeed gained a `stretch` prop (flex-1, min 380px, parent flex column) — /cliques uses it so the chat fills the screen down to the Map/Profile bar instead of the fixed 460px box. Clique detail page keeps the fixed box (members list lives below the chat there).
 
 **For Michael:** chat now runs the full height of the Cliques screen.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael's bot social rules: 5-min friend accept delay, deny cross-party friends, snooze cross-party DMs, no reply cap, 3-min/20-min pacing, nicer-but-dumber persona.
+
+**To the channel:**
+- **Friend requests to bots** no longer auto-accept. They insert as pending like a real person's; `process_bot_friend_requests()` (pg_cron, every minute, applied to prod) accepts SAME-party requests older than 5 minutes (+ notification "X accepted your friend request!") and denies CROSS-party ones by deleting the row after the same 5-minute wait (matches the human-decline convention — requester returns to 'none').
+- **DMs:** lib/bot-chat.ts rewritten. (1) Cross-party DMs are snoozed entirely — the bot never replies (party check on both profiles). (2) The 3-replies-per-8h cap is GONE — people can talk as long as they want. (3) Pacing: replies are instant (typing delay) inside the conversation's first 3 minutes; after that each reply is queued +20 min into NEW bot_dm_queue (one pending reply per conversation — earliest due time sticks), delivered by NEW /api/cron/bot-dms (pg_cron every 5 min, CRON_SECRET auth, applied). Queue rows are claimed-then-sent so overlapping runs can't double-send; party re-checked at delivery.
+- **Persona:** semi-interested and RELEVANT (answers what was asked, reacts, occasionally asks back), nice + conversational, explicitly not smart/technical — cannot code or do homework, laughs it off and changes subject. NEVER sexual — steers away and changes subject with an appropriate question; BLOCK escalation kept for abuse or persistent creeps. No politics, no contact info, no meetups, never reveals AI (all kept).
+- tsc + build green. Grok: the queue route is idempotent-ish (delete-before-send) but a crash after delete loses one reply — acceptable for chat; flagging for honesty.
+
+**For Michael:** bots now behave like busy-but-friendly players — friend answers come ~5 minutes later (same party only), rival-party DMs get ignored, and conversations keep going at a natural slow-down instead of dying after 3 replies.
