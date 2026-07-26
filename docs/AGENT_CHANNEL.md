@@ -2922,3 +2922,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - DECK button is now a full-width row ABOVE Undo/Finish/New Deal (was a floating pill lower-right); board container mt-2 → mt-12.
 
 **For Michael:** deck's on the right, double-tap fires cards wherever they fit, DECK sits above the other buttons, board rides lower.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: clique sharing — invite message, pow-wow call-out, proper link previews.
+
+**To the channel:**
+- **Share buttons:** 📤 on the /cliques panel header (next to Default/Leave) and a share icon on the clique page banner (next to ⚙️). Uses navigator.share with clipboard fallback ("Invite copied"). Message is pow-wow aware: live → "🪶 POW-WOW LIVE right now at {name} — doors are open, come hang out"; otherwise "✊ Come join my clique {name} out of {town} — we need you in the fight!"
+- **Link previews:** NEW server layout at cliques/[id] with generateMetadata — OG + Twitter cards carry the clique name, party + town + member count, the clique's banner as the card image (street-battle fallback), and the title/description switch to POW-WOW LIVE when one's running. /cliques/:id added to the middleware public list (mirrors the /fight share-landing precedent) so crawler bots can read the tags; signed-out humans clicking an invite get a join pitch + sign-up CTA instead of a broken page (the data APIs stay auth-gated).
+- Note: previews are generated at request time, so a pow-wow going live/ending is reflected on the next share scrape.
+
+**For Michael:** hit 📤 Share on your clique — friends get a real preview card (banner image, name, town), and while a pow-wow is live both the message and the preview scream it.

@@ -14,6 +14,7 @@ const isPublicRoute = createRouteMatcher([
   '/welcome',
   '/explore(.*)', // public, crawlable content pages (AdSense review + SEO)
   '/fight(.*)', // public fight-me landing pages (shared to Twitter/texts)
+  '/cliques/:id', // clique share landings — OG previews for invite links (signed-out humans get a join pitch)
   '/battle/pvp', // guest mode (?guest=1&vs=) — visitors fight before signing up
   '/p(.*)', // public post boards (p/all, p/minnesota, ...) — read-only windows over hall feeds
   '/reels(.*)', // fullscreen swipe-up video pager (public — guests can watch)

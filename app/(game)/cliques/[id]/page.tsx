@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { useUser } from '@clerk/nextjs'
+import { ArrowLeft, Settings, Share2 } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { BANNERS } from '@/config/banners'
 import CliqueFeed from '@/components/CliqueFeed'
@@ -17,6 +18,7 @@ interface Clique {
 export default function CliquePage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
+  const { isSignedIn, isLoaded } = useUser()
   const { profile } = useProfile()
 
   const [clique, setClique] = useState<Clique | null>(null)
@@ -40,6 +42,20 @@ export default function CliquePage() {
   const [toast, setToast] = useState('')
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  // Share the clique — the message calls out a live pow-wow (Michael)
+  async function shareClique() {
+    if (!clique) return
+    const url = `${window.location.origin}/cliques/${params.id}`
+    const town = gym ? ` out of ${gym.city_name}, ${gym.state}` : ''
+    const msg = powWow
+      ? `🪶 POW-WOW LIVE right now at ${clique.name} on PoliticsGo — the doors are open, come hang out, watch the live feeds, and chat!`
+      : `✊ Come join my clique ${clique.name} on PoliticsGo${town} — we need you in the fight!`
+    try {
+      if (navigator.share) await navigator.share({ title: 'PoliticsGo', text: msg, url })
+      else { await navigator.clipboard.writeText(`${msg} ${url}`); showToast('📋 Invite copied — paste it anywhere!') }
+    } catch { /* share sheet closed */ }
+  }
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/cliques/${params.id}`)
@@ -122,6 +138,23 @@ export default function CliquePage() {
     finally { setBusy(false) }
   }
 
+  // Signed-out visitor from a shared invite link: the OG preview did its job,
+  // now pitch the signup (the API is members-gated so there's nothing to show)
+  if (isLoaded && !isSignedIn) return (
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-3 px-6 text-center">
+      <div className="text-6xl">✊</div>
+      <h1 className="text-white font-black text-2xl">You&apos;ve been invited to a clique!</h1>
+      <p className="text-gray-400 text-sm max-w-sm">
+        Cliques are PoliticsGo crews that band together around a town hall — chat, go live, and fight for the map. Sign up free to join them.
+      </p>
+      <button onClick={() => router.push('/sign-up')}
+        className="mt-3 px-8 py-3 rounded-xl font-black text-white"
+        style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}>
+        Join PoliticsGo →
+      </button>
+    </div>
+  )
+
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><p className="text-gray-400">Loading clique...</p></div>
   if (!clique) return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-3">
@@ -160,6 +193,12 @@ export default function CliquePage() {
             <Settings size={16} />
           </button>
         )}
+        {/* share the clique — invite message flags a live pow-wow */}
+        <button onClick={shareClique}
+          className={`absolute top-4 ${isCreator ? 'right-14' : 'right-4'} bg-black/50 rounded-full p-2 text-white hover:text-green-300 transition`}
+          aria-label="Share this clique" title="Share this clique">
+          <Share2 size={16} />
+        </button>
         <div className="absolute bottom-3 left-4 right-4">
           <h1 className="text-white font-black text-xl drop-shadow">{clique.name}</h1>
           <p className="text-gray-300 text-xs">

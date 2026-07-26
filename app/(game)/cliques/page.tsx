@@ -87,6 +87,21 @@ export default function CliquesPage() {
       .catch(() => {})
   }, [myCliqueId])
 
+  // Share the open clique — invite message flags a live pow-wow (Michael)
+  async function shareClique() {
+    if (!myCliqueId || !myCliqueInfo) return
+    const url = `${window.location.origin}/cliques/${myCliqueId}`
+    const nm = myCliqueInfo.name.split(' — ')[0]
+    const town = myCliqueInfo.city ? ` out of ${myCliqueInfo.city}${myCliqueInfo.state ? `, ${myCliqueInfo.state}` : ''}` : ''
+    const msg = powWow
+      ? `🪶 POW-WOW LIVE right now at ${nm} on PoliticsGo — the doors are open, come hang out, watch the live feeds, and chat!`
+      : `✊ Come join my clique ${nm} on PoliticsGo${town} — we need you in the fight!`
+    try {
+      if (navigator.share) await navigator.share({ title: 'PoliticsGo', text: msg, url })
+      else { await navigator.clipboard.writeText(`${msg} ${url}`); showToastMsg('📋 Invite copied — paste it anywhere!') }
+    } catch { /* share sheet closed */ }
+  }
+
   // Pow-Wow: creator opens the clique to everyone (start) / closes it (end)
   async function powWowAction(action: 'start' | 'end') {
     if (!myCliqueId) return
@@ -260,6 +275,11 @@ export default function CliquesPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                    <button onClick={shareClique}
+                      className="text-xs font-bold text-gray-400 hover:text-green-300 transition"
+                      title="Share this clique">
+                      📤 Share
+                    </button>
                     {myCliqueId === myDefaultId ? (
                       <span className="text-xs font-bold text-yellow-400">⭐ Default</span>
                     ) : (
