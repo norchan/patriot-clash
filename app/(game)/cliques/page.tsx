@@ -172,7 +172,7 @@ export default function CliquesPage() {
   const openClique = myCliques.find(m => m.id === myCliqueId)
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-6 flex flex-col">
+    <div className="min-h-screen bg-gray-950 pb-24 flex flex-col">
       {/* Header — title + the clique dropdown right next to it */}
       <div className="px-4 pt-8 pb-4"
         style={{ background: `linear-gradient(180deg, ${partyColor}26 0%, transparent 100%)` }}>
@@ -269,17 +269,10 @@ export default function CliquesPage() {
                     </button>
                   </div>
                 </div>
-                {/* Tap to expand/collapse the member roster */}
-                <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2 flex items-center justify-between">
-                  <p className="text-gray-500 text-xs">
-                    {myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''} · tap to {showMembers ? 'hide' : 'see'} members
-                  </p>
-                  <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-
-                {/* Pow-Wow — creator opens the doors; banner shows while live */}
+                {/* Pow-Wow — creator opens the doors; banner shows while live.
+                    Sits right under the clique name so it can't be missed. */}
                 {powWow && (
-                  <div className="mb-3 rounded-xl border border-amber-600/60 bg-amber-900/20 px-3 py-2.5 flex items-center gap-2.5">
+                  <div className="mb-2 rounded-xl border border-amber-600/60 bg-amber-900/20 px-3 py-2.5 flex items-center gap-2.5">
                     <span className="text-xl">🪶</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-amber-300 text-xs font-bold">Pow-Wow LIVE — the clique is open to everyone</p>
@@ -294,10 +287,18 @@ export default function CliquesPage() {
                 )}
                 {isCreator && !powWow && (
                   <button onClick={() => powWowAction('start')} disabled={busy}
-                    className="w-full mb-3 py-2 rounded-xl text-xs font-bold border border-amber-700/60 bg-amber-900/15 text-amber-300 hover:bg-amber-900/30 transition disabled:opacity-50">
+                    className="w-full mb-2 py-2.5 rounded-xl text-xs font-bold border border-amber-700/60 bg-amber-900/15 text-amber-300 hover:bg-amber-900/30 transition disabled:opacity-50">
                     🪶 Start a Pow-Wow — open the clique to everyone
                   </button>
                 )}
+
+                {/* Tap to expand/collapse the member roster */}
+                <button onClick={() => setShowMembers(v => !v)} className="text-left w-full mb-2 flex items-center justify-between">
+                  <p className="text-gray-500 text-xs">
+                    {myMembers.length} member{myMembers.length !== 1 ? 's' : ''}{isCreator ? ' · you are the creator' : ''} · tap to {showMembers ? 'hide' : 'see'} members
+                  </p>
+                  <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
+                </button>
               </>
             )
           })()}
@@ -356,10 +357,10 @@ export default function CliquesPage() {
         </div>
       )}
 
-      {/* Clique chat — stretches down to the bottom nav (Michael) */}
+      {/* Clique chat — fills the space down to just above the bottom nav.
+          No heading here: the chat box carries its own "Clique Chat" header. */}
       {myCliqueId && (
-        <div className="mx-4 mb-2 flex-1 flex flex-col">
-          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">💬 Clique Chat</h3>
+        <div className="mx-4 flex-1 flex flex-col">
           <CliqueFeed cliqueId={myCliqueId} partyColor={partyColor} isCreator={isCreator} stretch />
         </div>
       )}
