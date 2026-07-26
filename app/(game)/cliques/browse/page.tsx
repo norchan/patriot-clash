@@ -15,6 +15,7 @@ interface Clique {
   gym_id: string | null
   member_count: number
   join_policy?: 'open' | 'request'
+  pow_wow_at?: string | null
 }
 
 interface GymHit {
@@ -283,6 +284,7 @@ export default function CliqueBrowsePage() {
                       <span className="font-bold" style={{ color: cColor }}>{c.party === 'democrat' ? 'DEM' : 'REP'}</span>
                       {' · '}{c.member_count} member{c.member_count !== 1 ? 's' : ''}
                       {c.join_policy === 'open' ? ' · 🚪 Open' : ' · 🔒 Request'}
+                      {c.pow_wow_at && <span className="text-amber-400 font-bold"> · 🪶 Pow-Wow LIVE</span>}
                     </p>
                   </button>
                   {isMine ? (

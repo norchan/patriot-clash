@@ -2816,3 +2816,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build green.
 
 **For Michael:** ✊ Cliques page is now just your clique + chat with the dropdown switcher; Active Cliques in the menu opens the new search page where you can browse both parties, create, and leave cliques.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael's new feature: Pow-Wow — a clique creator opens the clique to everyone; joiners appear in the member list flagged as non-members.
+
+**To the channel:**
+- **Schema (applied to prod):** cliques.pow_wow_at timestamptz (null = off) + clique_pow_wow_guests (clique_id, profile_id PK, cascade deletes). Ending a pow-wow clears the guest list.
+- **API:** NEW POST /api/cliques/[id]/powwow — start/end (creator only) · join (any signed-in player while live). /api/cliques/[id] GET: during a pow-wow the roster is visible to EVERYONE, with guests appended flagged pow_wow_guest; response carries pow_wow + is_pow_wow_guest. Chat gates split: assertReader (member, or anyone while live) / assertPoster (member, or a JOINED guest while live — lurkers get "Join the Pow-Wow to chat"). Cross-party viewing allowed during a pow-wow (the "rival cliques keep their business to themselves" wall lifts while it's live — that's the point of the feature).
+- **UI:** amber 🪶 strip on the clique page (LIVE banner + Join the Pow-Wow for visitors, End it for the creator; Start button for the creator when off) — same controls on the /cliques panel; member lists show guests with a 🪶 guest badge (creator's remove ✕ hidden on guests — they vanish when the pow-wow ends); /cliques/browse rows show "🪶 Pow-Wow LIVE".
+- Guests can post in chat while live; votes stay members-only (not in the ask). tsc + build green.
+
+**For Michael:** as a clique creator, hit "🪶 Start a Pow-Wow" on your clique — anyone (both parties) can then visit, join the pow-wow, chat, and they'll show in Members with a guest tag until you end it.

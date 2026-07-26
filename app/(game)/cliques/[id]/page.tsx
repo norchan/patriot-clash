@@ -6,7 +6,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { BANNERS } from '@/config/banners'
 import CliqueFeed from '@/components/CliqueFeed'
 
-interface Member { id: string; username: string; avatar_url: string | null; total_battles_won: number }
+interface Member { id: string; username: string; avatar_url: string | null; total_battles_won: number; pow_wow_guest?: boolean }
 interface Pending { id: string; username: string; avatar_url: string | null }
 interface Clique {
   id: string; name: string; party: 'democrat' | 'republican'; gym_id: string | null
@@ -25,6 +25,8 @@ export default function CliquePage() {
   const [isMember, setIsMember] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
   const [memberCount, setMemberCount] = useState(0)
+  const [powWow, setPowWow] = useState(false)
+  const [isPowWowGuest, setIsPowWowGuest] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const [showSettings, setShowSettings] = useState(false)
@@ -40,8 +42,28 @@ export default function CliquePage() {
     if (!res.ok) { showToast(`❌ ${d.error || 'Not found'}`); setLoading(false); return }
     setClique(d.clique); setGym(d.gym); setMembers(d.members ?? []); setPending(d.pending ?? [])
     setIsMember(d.is_member); setIsCreator(d.is_creator); setMemberCount(d.member_count ?? 0)
+    setPowWow(!!d.pow_wow); setIsPowWowGuest(!!d.is_pow_wow_guest)
     setLoading(false)
   }, [params.id])
+
+  // Pow-Wow controls: creator starts/ends; anyone joins while it's live
+  async function powWowAction(action: 'start' | 'end' | 'join') {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/cliques/${params.id}/powwow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const d = await res.json()
+      if (!res.ok) { showToast(`❌ ${d.error || 'Failed'}`); return }
+      if (action === 'start') showToast('🪶 Pow-Wow started — the clique is open to everyone!')
+      else if (action === 'end') showToast('🪶 Pow-Wow ended')
+      else showToast('🪶 You joined the Pow-Wow — say hi in the chat!')
+      await load()
+    } catch { showToast('❌ Failed') }
+    finally { setBusy(false) }
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -188,7 +210,37 @@ export default function CliquePage() {
         </div>
       )}
 
-      {!isMember ? (
+      {/* Pow-Wow strip — live banner for everyone; start/end for the creator */}
+      {powWow && (
+        <div className="mx-4 mt-3 rounded-2xl border border-amber-600/60 bg-amber-900/20 px-4 py-3 flex items-center gap-3">
+          <span className="text-2xl">🪶</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-amber-300 text-sm font-bold">Pow-Wow LIVE</p>
+            <p className="text-amber-200/70 text-xs">The clique is open — anyone can hang out and chat.</p>
+          </div>
+          {isCreator ? (
+            <button onClick={() => powWowAction('end')} disabled={busy}
+              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-700 text-white hover:bg-amber-600 transition disabled:opacity-50">
+              End it
+            </button>
+          ) : (!isMember && !isPowWowGuest) ? (
+            <button onClick={() => powWowAction('join')} disabled={busy}
+              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-500 transition disabled:opacity-50">
+              Join the Pow-Wow
+            </button>
+          ) : null}
+        </div>
+      )}
+      {isCreator && !powWow && (
+        <div className="mx-4 mt-3">
+          <button onClick={() => powWowAction('start')} disabled={busy}
+            className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-700/60 bg-amber-900/15 text-amber-300 hover:bg-amber-900/30 transition disabled:opacity-50">
+            🪶 Start a Pow-Wow — open the clique to everyone
+          </button>
+        </div>
+      )}
+
+      {(!isMember && !powWow) ? (
         sameParty ? (
           // Same party: they can join (or request) right here
           <div className="mx-4 mt-6 text-center">
@@ -218,24 +270,30 @@ export default function CliquePage() {
         )
       ) : (
         <>
-          {/* Live chat */}
+          {/* Live chat — during a Pow-Wow everyone can read; non-members
+              must tap Join the Pow-Wow (banner above) before posting */}
           <div className="mx-4 mt-3">
             <CliqueFeed cliqueId={String(params.id)} partyColor={partyColor} isCreator={isCreator} />
           </div>
 
-          {/* Members */}
+          {/* Members — pow-wow guests listed too, flagged as non-members */}
           <div className="mx-4 mt-4 bg-gray-900 rounded-2xl p-4">
             <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Members</p>
             {members.map(m => (
               <div key={m.id} className="flex items-center gap-2 py-1.5">
                 {m.avatar_url
-                  ? <img src={m.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-                  : <div className="w-7 h-7 rounded-full" style={{ background: partyColor }} />}
+                  ? <img src={m.avatar_url} alt="" className={`w-7 h-7 rounded-full object-cover ${m.pow_wow_guest ? 'opacity-80' : ''}`} />
+                  : <div className="w-7 h-7 rounded-full" style={{ background: m.pow_wow_guest ? '#4b5563' : partyColor }} />}
                 <button onClick={() => router.push(`/player/${m.id}`)} className="text-white text-sm flex-1 text-left truncate">
                   {m.username}{m.id === clique.creator_id ? ' 👑' : ''}
+                  {m.pow_wow_guest && (
+                    <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/50 align-middle">
+                      🪶 guest
+                    </span>
+                  )}
                 </button>
                 <span className="text-gray-600 text-xs">{m.total_battles_won}W</span>
-                {isCreator && m.id !== profile?.id && (
+                {isCreator && !m.pow_wow_guest && m.id !== profile?.id && (
                   <button onClick={() => manageMember(m.id, 'remove')} disabled={busy}
                     className="text-gray-600 hover:text-red-400 text-xs">✕</button>
                 )}

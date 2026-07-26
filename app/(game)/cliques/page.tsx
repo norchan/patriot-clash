@@ -14,6 +14,7 @@ interface Member {
   username: string
   avatar_url: string | null
   total_battles_won: number
+  pow_wow_guest?: boolean
 }
 
 interface PendingMember {
@@ -34,6 +35,7 @@ export default function CliquesPage() {
   const [myCliqueInfo, setMyCliqueInfo] = useState<{ name: string; gym_id: string | null; city?: string; state?: string } | null>(null)
   const [pendingRequests, setPendingRequests] = useState<PendingMember[]>([])
   const [isCreator, setIsCreator] = useState(false)
+  const [powWow, setPowWow] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -74,10 +76,32 @@ export default function CliquesPage() {
         setMyMembers(d.members ?? [])
         setPendingRequests(d.pending ?? [])
         setIsCreator(!!d.is_creator)
+        setPowWow(!!d.pow_wow)
         if (d.clique) setMyCliqueInfo({ name: d.clique.name, gym_id: d.clique.gym_id, city: d.gym?.city_name, state: d.gym?.state })
       })
       .catch(() => {})
   }, [myCliqueId])
+
+  // Pow-Wow: creator opens the clique to everyone (start) / closes it (end)
+  async function powWowAction(action: 'start' | 'end') {
+    if (!myCliqueId) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/cliques/${myCliqueId}/powwow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (res.ok) {
+        showToastMsg(action === 'start' ? '🪶 Pow-Wow started — everyone can join!' : '🪶 Pow-Wow ended')
+        loadMyClique()
+      } else {
+        const d = await res.json()
+        showToastMsg(`❌ ${d.error || 'Failed'}`)
+      }
+    } catch {}
+    setBusy(false)
+  }
 
   useEffect(() => { loadMyClique() }, [loadMyClique])
 
@@ -252,6 +276,28 @@ export default function CliquesPage() {
                   </p>
                   <span className={`text-gray-500 text-xs transition-transform ${showMembers ? 'rotate-180' : ''}`}>▼</span>
                 </button>
+
+                {/* Pow-Wow — creator opens the doors; banner shows while live */}
+                {powWow && (
+                  <div className="mb-3 rounded-xl border border-amber-600/60 bg-amber-900/20 px-3 py-2.5 flex items-center gap-2.5">
+                    <span className="text-xl">🪶</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-amber-300 text-xs font-bold">Pow-Wow LIVE — the clique is open to everyone</p>
+                    </div>
+                    {isCreator && (
+                      <button onClick={() => powWowAction('end')} disabled={busy}
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-700 text-white hover:bg-amber-600 transition disabled:opacity-50">
+                        End it
+                      </button>
+                    )}
+                  </div>
+                )}
+                {isCreator && !powWow && (
+                  <button onClick={() => powWowAction('start')} disabled={busy}
+                    className="w-full mb-3 py-2 rounded-xl text-xs font-bold border border-amber-700/60 bg-amber-900/15 text-amber-300 hover:bg-amber-900/30 transition disabled:opacity-50">
+                    🪶 Start a Pow-Wow — open the clique to everyone
+                  </button>
+                )}
               </>
             )
           })()}
@@ -289,10 +335,17 @@ export default function CliquesPage() {
                     {m.avatar_url
                       ? <img src={m.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border" style={{ borderColor: partyColor }} />
                       : <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ background: `${partyColor}33` }}>👤</div>}
-                    <span className="text-gray-300 text-sm flex-1 truncate">{m.username}</span>
+                    <span className="text-gray-300 text-sm flex-1 truncate">
+                      {m.username}
+                      {m.pow_wow_guest && (
+                        <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/50">
+                          🪶 guest
+                        </span>
+                      )}
+                    </span>
                     <span className="text-gray-600 text-xs">⚔️ {m.total_battles_won}</span>
                   </button>
-                  {isCreator && m.id !== profile?.id && (
+                  {isCreator && !m.pow_wow_guest && m.id !== profile?.id && (
                     <button onClick={() => manageMember(m.id, 'remove')} disabled={busy}
                       className="text-gray-700 hover:text-red-400 text-xs transition disabled:opacity-50" title="Remove from clique">✕</button>
                   )}

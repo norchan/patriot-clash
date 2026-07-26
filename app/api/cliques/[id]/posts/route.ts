@@ -3,15 +3,36 @@ import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation'
 
-// Clique feed — MEMBERS ONLY, both read and write. Posts can carry text,
-// an image (meme), or both.
+// Clique feed — MEMBERS ONLY, both read and write... EXCEPT during a
+// Pow-Wow (Michael): while one is live, ANYONE can read the chat, and
+// pow-wow guests (non-members who tapped Join) can post too.
 
-async function assertMember(admin: any, profile: any, cliqueId: string) {
+async function powWowLive(admin: any, cliqueId: string): Promise<boolean> {
+  const { data } = await admin.from('cliques').select('pow_wow_at').eq('id', cliqueId).maybeSingle()
+  return !!data?.pow_wow_at
+}
+
+// read access: member, or any signed-in player while a pow-wow is live
+async function assertReader(admin: any, profile: any, cliqueId: string) {
   const { data } = await admin.from('clique_members')
     .select('clique_id').eq('clique_id', cliqueId).eq('profile_id', profile.id).maybeSingle()
-  if (!data) {
-    throw NextResponse.json({ error: 'Only clique members can see this feed' }, { status: 403 })
+  if (data) return
+  if (await powWowLive(admin, cliqueId)) return
+  throw NextResponse.json({ error: 'Only clique members can see this feed' }, { status: 403 })
+}
+
+// write access: member, or a joined pow-wow guest while one is live
+async function assertPoster(admin: any, profile: any, cliqueId: string) {
+  const { data } = await admin.from('clique_members')
+    .select('clique_id').eq('clique_id', cliqueId).eq('profile_id', profile.id).maybeSingle()
+  if (data) return
+  if (await powWowLive(admin, cliqueId)) {
+    const { data: guest } = await admin.from('clique_pow_wow_guests')
+      .select('clique_id').eq('clique_id', cliqueId).eq('profile_id', profile.id).maybeSingle()
+    if (guest) return
+    throw NextResponse.json({ error: 'Join the Pow-Wow to chat' }, { status: 403 })
   }
+  throw NextResponse.json({ error: 'Only clique members can post here' }, { status: 403 })
 }
 
 export async function GET(
@@ -22,7 +43,7 @@ export async function GET(
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
-    await assertMember(admin, profile, id)
+    await assertReader(admin, profile, id)
 
     const { data: posts } = await admin
       .from('clique_posts')
@@ -69,7 +90,7 @@ export async function POST(
     const profile = await requireProfile()
     const admin = createSupabaseAdminClient()
     const { id } = await params
-    await assertMember(admin, profile, id)
+    await assertPoster(admin, profile, id)
 
     const { content, image } = await req.json()
     const text = (content ?? '').trim()
