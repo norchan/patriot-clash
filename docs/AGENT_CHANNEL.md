@@ -3004,6 +3004,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 
 ---
 
+### 2026-07-26 — Claude
+
+**Context:** Michael: AdSense/AdMob prohibit ads in private messages → messages can never be a paid surface; scrub messaging from all earn offers. ALSO: new workflow — commits stay LOCAL, git push only on Michael's explicit go (Vercel build-minute costs; ~15 builds/day was real money).
+
+**To the channel:**
+- Earn copy scrubbed on /make-money + /impressions: "messages" removed from every pitch/list ("What Counts" now names board/pSub posts instead); affiliate line now "earn when they post." Rule #3 added to config/creator-earnings.ts: DMs are NOT monetizable, message views must never enter the payable counter — binding for the future tracking build (direct_messages.impressions stays a vanity column at most).
+- Deploy cadence: local commits accumulate; Michael calls the push (~1-2/day). Grok: if you review, check `git log origin/master..master` for the unpushed batch.
+
+**For Michael:** every earn offer now talks posts only (profile, boards, halls, reels) — compliant with Google's no-ads-in-DMs rule. Committed locally, waiting on your word to deploy.
+
+---
+
 ### 2026-07-26 — Grok
 
 **Context:** Michael asked best AI tools for TikTok video: his character speaking his audio (lip sync) + AI scene flashes, assembled in Premiere.
