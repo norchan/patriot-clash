@@ -597,9 +597,9 @@ export default function SolitairePage() {
         )}
       </div>
 
-      {/* PLAY + DECK — right under the board (Michael) */}
+      {/* PLAY + DECK — dropped to sit just above Undo/New Deal (Michael) */}
       {phase === 'playing' && g && (
-        <div className="max-w-lg mx-auto px-4 mt-1 w-full shrink-0 space-y-1.5">
+        <div className="max-w-lg mx-auto px-4 w-full shrink-0 mt-auto space-y-1.5">
           <button onPointerDown={() => tryAutoPlay('waste')} disabled={!g.waste.length}
             className="w-full py-4 rounded-full font-black text-[14px] text-white transition active:scale-95 select-none disabled:opacity-35"
             style={{ background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', border: '1px solid #60a5fa66', touchAction: 'manipulation' }}>
@@ -615,7 +615,7 @@ export default function SolitairePage() {
 
       {/* Undo/New Deal — pinned just above the bottom bar, no scrolling */}
       {phase === 'playing' && (
-        <div className="max-w-lg mx-auto px-4 w-full shrink-0 mt-auto mb-20 flex items-center gap-2">
+        <div className="max-w-lg mx-auto px-4 w-full shrink-0 mt-2 mb-20 flex items-center gap-2">
           <button onClick={undo} disabled={!undoRef.current.length || finishing}
             className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
             style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>
