@@ -459,7 +459,8 @@ export default function SolitairePage() {
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
         <button onClick={() => router.push('/arcade')} className="text-white/70 hover:text-white"><ArrowLeft size={18} /></button>
         <h1 className="font-black tracking-[0.12em] text-lg" style={{ color: '#4ade80', textShadow: '0 0 12px #16a34a, 0 2px 0 #000' }}>SOLITAIRE</h1>
-        <span className="ml-auto text-yellow-300 text-sm font-black">💰 {(balance ?? 0).toLocaleString()}</span>
+        {/* left of center — the fixed ☰ menu button owns the top-right corner */}
+        <span className="text-yellow-300 text-sm font-black">💰 {(balance ?? 0).toLocaleString()}</span>
       </div>
 
       <div className="max-w-lg mx-auto px-4 flex items-center justify-between text-[13px] font-black">
@@ -482,7 +483,7 @@ export default function SolitairePage() {
       </div>
 
       {/* mt pushes the whole board toward mid-screen (Michael: was too high) */}
-      <div className="max-w-lg mx-auto px-3 mt-12 relative">
+      <div className="max-w-lg mx-auto px-3 mt-20 relative">
         {/* top row (Michael): foundations · (gap) · waste · DECK on the right */}
         {g && (
           <div className="flex gap-[3px] mb-2">
@@ -596,9 +597,9 @@ export default function SolitairePage() {
         )}
       </div>
 
-      {/* DECK — its own row above the other controls (Michael) */}
+      {/* DECK — tight under the board; Undo/New Deal ride lower (Michael) */}
       {phase === 'playing' && g && (
-        <div className="max-w-lg mx-auto px-4 mt-3">
+        <div className="max-w-lg mx-auto px-4 mt-1">
           <button onPointerDown={tapStock}
             className="w-full py-2.5 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none"
             style={{ background: 'linear-gradient(135deg,#166534,#15803d)', border: '1px solid #22c55e66', touchAction: 'manipulation' }}>
@@ -609,7 +610,7 @@ export default function SolitairePage() {
 
       {/* bottom controls */}
       {phase === 'playing' && (
-        <div className="max-w-lg mx-auto px-4 mt-2 flex items-center gap-2">
+        <div className="max-w-lg mx-auto px-4 mt-8 flex items-center gap-2">
           <button onClick={undo} disabled={!undoRef.current.length || finishing}
             className="flex-1 py-2.5 rounded-full font-black text-[13px] transition active:scale-95 disabled:opacity-35"
             style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.18)' }}>
