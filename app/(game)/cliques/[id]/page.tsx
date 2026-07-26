@@ -32,7 +32,7 @@ export default function CliquePage() {
   const [isPowWowGuest, setIsPowWowGuest] = useState(false)
   const [amModerator, setAmModerator] = useState(false)
   const [bannedMe, setBannedMe] = useState(false)
-  const [guestLiveAllowed, setGuestLiveAllowed] = useState(false)
+  const [guestLiveAllowed, setGuestLiveAllowed] = useState(true)
   const [guestChatAllowed, setGuestChatAllowed] = useState(true)
   const [loading, setLoading] = useState(true)
 

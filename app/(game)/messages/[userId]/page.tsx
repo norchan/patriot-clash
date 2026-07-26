@@ -5,6 +5,7 @@ import { ArrowLeft, Camera, Image as ImageIcon, X, MapPin, Trash2 } from 'lucide
 import { useProfile } from '@/hooks/useProfile'
 import { useLocation } from '@/hooks/useLocation'
 import AlbumViewer from '@/components/AlbumViewer'
+import Linkify from '@/components/Linkify'
 
 function milesBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 3958.8
@@ -54,6 +55,19 @@ export default function MessageThreadPage() {
   const [draftImage, setDraftImage] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [viewer, setViewer] = useState<string | null>(null)
+  // delete is hidden until a press-and-hold on your own bubble (Michael)
+  const [armedDelete, setArmedDelete] = useState<string | null>(null)
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startPress = (id: string) => {
+    pressTimer.current = setTimeout(() => setArmedDelete(id), 500)
+  }
+  const endPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null } }
+  // the armed trash re-hides on its own if unused
+  useEffect(() => {
+    if (!armedDelete) return
+    const t = setTimeout(() => setArmedDelete(null), 4000)
+    return () => clearTimeout(t)
+  }, [armedDelete])
   const boxRef = useRef<HTMLDivElement>(null)
   const stickBottom = useRef(true)
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -169,25 +183,32 @@ export default function MessageThreadPage() {
           const isMe = m.sender_id === profile?.id
           return (
             <div key={m.id} className={`flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-              {isMe && (
-                <button onClick={() => deleteMessage(m.id)}
-                  className="text-gray-600 hover:text-red-400 p-1 flex-shrink-0 transition" title="Delete message">
-                  <Trash2 size={13} />
+              {isMe && armedDelete === m.id && (
+                <button onClick={() => { deleteMessage(m.id); setArmedDelete(null) }}
+                  className="text-red-400 hover:text-red-300 p-1 flex-shrink-0 transition" title="Delete message">
+                  <Trash2 size={15} />
                 </button>
               )}
-              <div className="max-w-[78%] rounded-2xl text-sm text-white break-words overflow-hidden"
+              <div className={`max-w-[78%] rounded-2xl text-sm text-white break-words overflow-hidden ${isMe ? 'select-none' : ''}`}
                 style={{
                   background: isMe ? myColor : '#1f2937',
                   borderBottomRightRadius: isMe ? 6 : undefined,
                   borderBottomLeftRadius: isMe ? undefined : 6,
-                }}>
+                }}
+                // press-and-hold your own bubble to reveal delete
+                onPointerDown={isMe ? () => startPress(m.id) : undefined}
+                onPointerUp={isMe ? endPress : undefined}
+                onPointerLeave={isMe ? endPress : undefined}
+                onPointerCancel={isMe ? endPress : undefined}
+                onContextMenu={isMe ? (e) => e.preventDefault() : undefined}
+                onClick={isMe && armedDelete && armedDelete !== m.id ? () => setArmedDelete(null) : undefined}>
                 {m.image_url && (
                   <img src={m.image_url} alt="" loading="lazy"
                     onClick={() => setViewer(m.image_url)}
                     className="w-full max-h-72 object-cover cursor-pointer" />
                 )}
                 <div className={m.image_url && !m.content ? 'px-2 pb-1' : 'px-3 py-2'}>
-                  {m.content}
+                  {m.content && <Linkify text={m.content} />}
                   <div className={`text-[9px] mt-0.5 ${isMe ? 'text-white/60 text-right' : 'text-gray-500'}`}>
                     {new Date(m.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </div>

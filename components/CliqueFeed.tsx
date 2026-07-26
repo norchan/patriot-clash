@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Image as ImageIcon, X, Send } from 'lucide-react'
+import Linkify from '@/components/Linkify'
 
 interface Msg {
   id: string; profile_id: string; content: string | null; image_url: string | null
@@ -113,7 +114,7 @@ export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = 
               <span className="font-bold" style={{ color: m.is_mine ? partyColor : nameColor(m.username) }}>
                 {m.username}
               </span>
-              {m.content && <span className="text-gray-200">: {m.content}</span>}
+              {m.content && <span className="text-gray-200">: <Linkify text={m.content} /></span>}
             </span>
             {m.image_url && (
               <img src={m.image_url} alt="" className="block rounded-lg mt-1 max-h-40 max-w-[70%] object-cover border border-gray-800" />

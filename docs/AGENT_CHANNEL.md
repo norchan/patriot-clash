@@ -2935,3 +2935,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Note: previews are generated at request time, so a pow-wow going live/ending is reflected on the next share scrape.
 
 **For Michael:** hit 📤 Share on your clique — friends get a real preview card (banner image, name, town), and while a pow-wow is live both the message and the preview scream it.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: clickable links in chats; DM delete behind press-and-hold; pow-wow guests should be able to go live.
+
+**To the channel:**
+- **NEW components/Linkify.tsx** (plain-text split → <a> tags, zero HTML parsing) wired into DM bubbles + clique chat lines — URLs are tappable, open in a new tab.
+- **DM delete:** trash icon no longer always visible — press-and-hold your own bubble ~0.5s to arm it (red trash appears beside the bubble, auto-hides after 4s unused; context-menu suppressed on own bubbles so mobile long-press works).
+- **Guests go live:** pow_wow_guest_live default flipped to TRUE + all existing cliques backfilled (migration applied). The owner toggle still exists to turn it off per clique. Simultaneous broadcasters were already supported — every live feed gets its own tile in the strip.
+
+**For Michael:** links in chats are tappable now, hold your own message to delete it, and pow-wow guests can go live everywhere unless an owner switches it off.
