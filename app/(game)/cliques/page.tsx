@@ -172,7 +172,7 @@ export default function CliquesPage() {
   const openClique = myCliques.find(m => m.id === myCliqueId)
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-6">
+    <div className="min-h-screen bg-gray-950 pb-6 flex flex-col">
       {/* Header — title + the clique dropdown right next to it */}
       <div className="px-4 pt-8 pb-4"
         style={{ background: `linear-gradient(180deg, ${partyColor}26 0%, transparent 100%)` }}>
@@ -356,11 +356,11 @@ export default function CliquesPage() {
         </div>
       )}
 
-      {/* Clique chat — shown inline for members right under their clique info */}
+      {/* Clique chat — stretches down to the bottom nav (Michael) */}
       {myCliqueId && (
-        <div className="mx-4 mb-4">
+        <div className="mx-4 mb-2 flex-1 flex flex-col">
           <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">💬 Clique Chat</h3>
-          <CliqueFeed cliqueId={myCliqueId} partyColor={partyColor} isCreator={isCreator} />
+          <CliqueFeed cliqueId={myCliqueId} partyColor={partyColor} isCreator={isCreator} stretch />
         </div>
       )}
 

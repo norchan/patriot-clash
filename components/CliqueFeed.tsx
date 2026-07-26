@@ -17,8 +17,10 @@ function nameColor(name: string): string {
 
 // Members-only LIVE CHAT (Kick/Twitch style): a streaming feed of compact
 // lines, newest at the bottom, polled every 3s. Replaces the old post feed.
-export default function CliqueFeed({ cliqueId, partyColor, isCreator }: {
-  cliqueId: string; partyColor: string; isCreator: boolean
+// stretch (Michael): fill the remaining screen height down to the bottom
+// nav instead of the fixed 460px box — parent must be a flex column.
+export default function CliqueFeed({ cliqueId, partyColor, isCreator, stretch = false }: {
+  cliqueId: string; partyColor: string; isCreator: boolean; stretch?: boolean
 }) {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [draft, setDraft] = useState('')
@@ -81,7 +83,8 @@ export default function CliqueFeed({ cliqueId, partyColor, isCreator }: {
   }
 
   return (
-    <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden flex flex-col" style={{ height: 460 }}>
+    <div className={`bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden flex flex-col ${stretch ? 'flex-1' : ''}`}
+      style={stretch ? { minHeight: 380 } : { height: 460 }}>
       {/* header */}
       <div className="px-3 py-2 border-b border-gray-800 flex items-center gap-2 flex-shrink-0">
         <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
