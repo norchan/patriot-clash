@@ -123,6 +123,8 @@ export default function MessageThreadPage() {
   }
 
   const color = other?.party === 'democrat' ? '#2563eb' : other?.party === 'republican' ? '#dc2626' : '#6b7280'
+  // MY bubbles/send button wear MY party's color (Michael: republicans get red)
+  const myColor = profile?.party === 'republican' ? '#b91c1c' : '#1d4ed8'
 
   return (
     <div className="bg-gray-950 flex flex-col" style={{ height: 'calc(100dvh - 5rem)' }}>
@@ -175,7 +177,7 @@ export default function MessageThreadPage() {
               )}
               <div className="max-w-[78%] rounded-2xl text-sm text-white break-words overflow-hidden"
                 style={{
-                  background: isMe ? '#1d4ed8' : '#1f2937',
+                  background: isMe ? myColor : '#1f2937',
                   borderBottomRightRadius: isMe ? 6 : undefined,
                   borderBottomLeftRadius: isMe ? undefined : 6,
                 }}>
@@ -186,7 +188,7 @@ export default function MessageThreadPage() {
                 )}
                 <div className={m.image_url && !m.content ? 'px-2 pb-1' : 'px-3 py-2'}>
                   {m.content}
-                  <div className={`text-[9px] mt-0.5 ${isMe ? 'text-blue-300/70 text-right' : 'text-gray-500'}`}>
+                  <div className={`text-[9px] mt-0.5 ${isMe ? 'text-white/60 text-right' : 'text-gray-500'}`}>
                     {new Date(m.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </div>
                 </div>
@@ -229,10 +231,11 @@ export default function MessageThreadPage() {
             onKeyDown={e => e.key === 'Enter' && send()}
             placeholder={draftImage ? 'Add a caption...' : 'Type a message...'}
             maxLength={500}
-            className="flex-1 min-w-0 bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 outline-none placeholder-gray-600 border border-transparent focus:border-blue-700 transition"
+            className="flex-1 min-w-0 bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 outline-none placeholder-gray-600 border border-transparent focus:border-gray-500 transition"
           />
           <button onClick={send} disabled={sending || (!input.trim() && !draftImage)}
-            className="px-4 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm rounded-xl font-bold transition flex-shrink-0">
+            className="px-4 py-2 hover:opacity-90 disabled:opacity-40 text-white text-sm rounded-xl font-bold transition flex-shrink-0"
+            style={{ background: myColor }}>
             Send
           </button>
         </div>
