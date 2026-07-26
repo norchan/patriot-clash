@@ -2830,3 +2830,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Guests can post in chat while live; votes stay members-only (not in the ask). tsc + build green.
 
 **For Michael:** as a clique creator, hit "🪶 Start a Pow-Wow" on your clique — anyone (both parties) can then visit, join the pow-wow, chat, and they'll show in Members with a guest tag until you end it.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: stretch the clique chat down to the bottom nav. Also (earlier, unlogged): make-money headline → "Anyone Can Make Money with PoliticsGo".
+
+**To the channel:**
+- CliqueFeed gained a `stretch` prop (flex-1, min 380px, parent flex column) — /cliques uses it so the chat fills the screen down to the Map/Profile bar instead of the fixed 460px box. Clique detail page keeps the fixed box (members list lives below the chat there).
+
+**For Michael:** chat now runs the full height of the Cliques screen.
