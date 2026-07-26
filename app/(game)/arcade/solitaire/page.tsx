@@ -597,9 +597,21 @@ export default function SolitairePage() {
         )}
       </div>
 
-      {/* DECK — tight under the board; Undo/New Deal ride lower (Michael) */}
+      {/* PLAY DECK — fires the showing deck card to its best spot (Michael):
+          foundation first, then the first tableau pile that takes it */}
       {phase === 'playing' && g && (
         <div className="max-w-lg mx-auto px-4 mt-1">
+          <button onPointerDown={() => tryAutoPlay('waste')} disabled={!g.waste.length}
+            className="w-full py-2.5 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none disabled:opacity-35"
+            style={{ background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', border: '1px solid #60a5fa66', touchAction: 'manipulation' }}>
+            ▶ PLAY {g.waste.length ? `${RANK_TXT[g.waste[g.waste.length - 1].rank]}${g.waste[g.waste.length - 1].suit}` : 'DECK'}
+          </button>
+        </div>
+      )}
+
+      {/* DECK — tight under the board; Undo/New Deal ride lower (Michael) */}
+      {phase === 'playing' && g && (
+        <div className="max-w-lg mx-auto px-4 mt-2">
           <button onPointerDown={tapStock}
             className="w-full py-2.5 rounded-full font-black text-[13px] text-white transition active:scale-95 select-none"
             style={{ background: 'linear-gradient(135deg,#166534,#15803d)', border: '1px solid #22c55e66', touchAction: 'manipulation' }}>
