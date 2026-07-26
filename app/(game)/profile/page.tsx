@@ -786,9 +786,9 @@ export default function ProfilePage() {
                         <MessageSquare size={14} />
                         <span className="text-[11px] font-bold">Comment</span>
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`); }}
-                        className="text-green-400 hover:text-green-300 transition ml-auto text-[11px] font-bold">
-                        Impre$$ions {(p.impressions ?? 0).toLocaleString()}
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`); }}
+                        className="text-gray-500 hover:text-green-400 transition ml-auto text-[11px] font-bold">
+                        $$
                       </button>
                     </div>
                   </div>
@@ -825,9 +825,9 @@ export default function ProfilePage() {
                     <span className="text-[11px] font-bold">Comment</span>
                   </button>
                   <span className="text-gray-600 text-xs ml-auto">{timeAgo(p.created_at)}</span>
-                  <button onClick={() => router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`)}
-                    className="text-green-400 hover:text-green-300 transition text-[11px] font-bold">
-                    Impre$$ions {(p.impressions ?? 0).toLocaleString()}
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`) }}
+                    className="text-gray-500 hover:text-green-400 transition text-[11px] font-bold">
+                    $$
                   </button>
                 </div>
               </div>

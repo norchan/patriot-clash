@@ -325,10 +325,10 @@ export default function HallFeed({ gymId }: { gymId: string }) {
                         <Trash2 size={13} />
                       </button>
                     )}
-                    <button className="ml-auto text-[11px] font-bold text-green-500 hover:text-green-300 transition"
-                      onClick={e => { e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`) }}
-                      aria-label="Impressions">
-                      Impre$$ions {(p.impressions ?? 0).toLocaleString()}
+                    <button className="ml-auto text-[11px] font-bold text-gray-500 hover:text-green-400 transition"
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/impressions?postId=${p.id}&count=${p.impressions ?? 0}`) }}
+                      aria-label="Earnings">
+                      $$
                     </button>
                   </div>
                 </div>

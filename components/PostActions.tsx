@@ -84,9 +84,11 @@ export default function PostActions({ kind, id, postId, score, commentCount, imp
         </button>
       </div>
       {kind === 'post' && impressions !== undefined && (
-        <button onClick={e => { e.stopPropagation(); router.push(`/impressions?postId=${postId}&count=${impressions}`) }}
-          className="ml-auto pl-2 py-1 font-bold text-green-500 hover:text-green-300 transition whitespace-nowrap" aria-label="Impressions">
-          Impre$$ions {impressions.toLocaleString()}
+        // $$ — plain like its sibling buttons; preventDefault so a wrapping
+        // post link can't ALSO fire (was launching post + impressions)
+        <button onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/impressions?postId=${postId}&count=${impressions}`) }}
+          className="ml-auto p-1 font-bold hover:text-green-300 transition" aria-label="Earnings">
+          $$
         </button>
       )}
     </div>
