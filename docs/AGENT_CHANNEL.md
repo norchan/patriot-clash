@@ -2948,3 +2948,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Guests go live:** pow_wow_guest_live default flipped to TRUE + all existing cliques backfilled (migration applied). The owner toggle still exists to turn it off per clique. Simultaneous broadcasters were already supported — every live feed gets its own tile in the strip.
 
 **For Michael:** links in chats are tappable now, hold your own message to delete it, and pow-wow guests can go live everywhere unless an owner switches it off.
+
+---
+
+### 2026-07-25 — Claude
+
+**Context:** Michael: share button under the red LIVE badge; mute toggle on the upper right of live squares.
+
+**To the channel:**
+- **Share under LIVE:** theatre + fullscreen headers gained "📤 Share this live" right under the LIVE badge — message names the broadcaster + clique ("🔴 X is LIVE at Y on PoliticsGo — come watch!"), native share sheet with clipboard fallback ("Copied!"). CliqueLiveRow takes a cliqueName prop from both pages.
+- **Mute toggles:** every live square (members AND non-member guests) wears a 🔇/🔊 toggle upper-right next to the ⤢. Feeds start MUTED (autoplay rules — unmuting needs a tap anyway) and each viewer picks whose audio they hear; your own tile stays muted always (echo). Mute state is per-viewer, local.
+
+**For Michael:** watching a live — tap 🔇 on a square to hear that person, tap again to silence them; share the room from right under the LIVE badge.

@@ -24,8 +24,9 @@ export interface RowMember {
 
 const RTC_CONFIG: RTCConfiguration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
 
-export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCreator, amModerator, canGoLive, partyColor, chatReadOnly = false, onChanged }: {
+export default function CliqueLiveRow({ cliqueId, cliqueName, members, myId, creatorId, isCreator, amModerator, canGoLive, partyColor, chatReadOnly = false, onChanged }: {
   cliqueId: string
+  cliqueName?: string
   members: RowMember[]
   myId: string | null
   creatorId: string
@@ -46,6 +47,9 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
   const [fullscreen, setFullscreen] = useState(false)
   const [modMenuId, setModMenuId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // per-viewer audio: feeds start muted; the 🔇 toggle unmutes who you want
+  const [unmuted, setUnmuted] = useState<Set<string>>(new Set())
+  const [shared, setShared] = useState(false)
 
   const channelRef = useRef<any>(null)
   const localRef = useRef<MediaStream | null>(null)
@@ -207,6 +211,24 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
   const streamFor = (id: string): MediaStream | null =>
     id === myId ? localStream : (remoteStreams[id] ?? null)
 
+  function toggleMute(id: string) {
+    setUnmuted(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  // share the live room — pow-wow-style invite naming the broadcaster
+  async function shareLive(username?: string) {
+    const url = `${window.location.origin}/cliques/${cliqueId}`
+    const msg = `🔴 ${username ?? 'Someone'} is LIVE at ${cliqueName ?? 'our clique'} on PoliticsGo — come watch!`
+    try {
+      if (navigator.share) await navigator.share({ title: 'PoliticsGo', text: msg, url })
+      else { await navigator.clipboard.writeText(`${msg} ${url}`); setShared(true); setTimeout(() => setShared(false), 1800) }
+    } catch { /* share sheet closed */ }
+  }
+
   const attach = (stream: MediaStream | null) => (el: HTMLVideoElement | null) => {
     if (el && stream && el.srcObject !== stream) el.srcObject = stream
   }
@@ -240,7 +262,8 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
               <div className="relative w-20 h-20 rounded-xl overflow-hidden border bg-gray-800 group"
                 style={{ borderColor: live ? '#ef4444' : '#374151' }}>
                 {live ? (
-                  <video ref={attach(streamFor(m.id))} autoPlay playsInline muted
+                  <video ref={attach(streamFor(m.id))} autoPlay playsInline
+                    muted={isMe || !unmuted.has(m.id)}
                     className="w-full h-full object-cover" />
                 ) : m.avatar_url ? (
                   <button onClick={() => router.push(`/player/${m.id}`)} className="w-full h-full">
@@ -263,11 +286,22 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
                   <span className="absolute bottom-1 left-1 z-10 text-[8px] font-black px-1 py-px rounded bg-red-600 text-white">LIVE</span>
                 )}
 
-                {/* expand → theatre (hover on a live feed) */}
+                {/* upper-right controls: mute toggle (members + non-members
+                    alike) and the theatre expand on hover */}
                 {live && (
-                  <button onClick={() => setTheatreId(m.id)}
-                    className="absolute top-1 right-1 z-10 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition"
-                    aria-label="Theatre mode">⤢</button>
+                  <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
+                    {!isMe && (
+                      <button onClick={() => toggleMute(m.id)}
+                        className="p-1 rounded bg-black/60 text-white text-[11px] leading-none"
+                        aria-label={unmuted.has(m.id) ? 'Mute' : 'Unmute'}
+                        title={unmuted.has(m.id) ? 'Mute' : 'Unmute'}>
+                        {unmuted.has(m.id) ? '🔊' : '🔇'}
+                      </button>
+                    )}
+                    <button onClick={() => setTheatreId(m.id)}
+                      className="p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition"
+                      aria-label="Theatre mode">⤢</button>
+                  </div>
                 )}
 
                 {/* my square: GO LIVE / STOP */}
@@ -358,13 +392,20 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
           chat below that. ⛶ from here goes true fullscreen. */}
       {theatreId && theatreStream && !fullscreen && (
         <div className="fixed inset-0 z-[100] bg-gray-950 flex flex-col">
-          <div className="flex items-center gap-2 px-4 py-2.5 shrink-0">
-            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-600 text-white">LIVE</span>
-            <span className="text-white text-sm font-bold truncate">{theatreMember?.username}</span>
-            <button onClick={() => setFullscreen(true)}
-              className="ml-auto text-white/80 hover:text-white text-lg leading-none px-1" aria-label="Fullscreen" title="Fullscreen">⛶</button>
-            <button onClick={() => setTheatreId(null)}
-              className="text-white/80 hover:text-white text-2xl leading-none px-1" aria-label="Close">✕</button>
+          <div className="px-4 py-2.5 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-600 text-white">LIVE</span>
+              <span className="text-white text-sm font-bold truncate">{theatreMember?.username}</span>
+              <button onClick={() => setFullscreen(true)}
+                className="ml-auto text-white/80 hover:text-white text-lg leading-none px-1" aria-label="Fullscreen" title="Fullscreen">⛶</button>
+              <button onClick={() => setTheatreId(null)}
+                className="text-white/80 hover:text-white text-2xl leading-none px-1" aria-label="Close">✕</button>
+            </div>
+            {/* share sits right under the LIVE badge (Michael) */}
+            <button onClick={() => shareLive(theatreMember?.username)}
+              className="mt-1 text-[11px] font-bold text-green-400 hover:text-green-300 transition">
+              {shared ? '📋 Copied!' : '📤 Share this live'}
+            </button>
           </div>
           <div className="bg-black shrink-0" style={{ height: '42vh' }}>
             <video ref={attach(theatreStream)} autoPlay playsInline muted={theatreId === myId}
@@ -382,9 +423,15 @@ export default function CliqueLiveRow({ cliqueId, members, myId, creatorId, isCr
         <div className="fixed inset-0 z-[100] bg-black">
           <video ref={attach(theatreStream)} autoPlay playsInline muted={theatreId === myId}
             className="absolute inset-0 w-full h-full object-contain" />
-          <div className="absolute top-3 left-4 flex items-center gap-2">
-            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-600 text-white">LIVE</span>
-            <span className="text-white text-sm font-bold" style={{ textShadow: '0 1px 4px #000' }}>{theatreMember?.username}</span>
+          <div className="absolute top-3 left-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-600 text-white">LIVE</span>
+              <span className="text-white text-sm font-bold" style={{ textShadow: '0 1px 4px #000' }}>{theatreMember?.username}</span>
+            </div>
+            <button onClick={() => shareLive(theatreMember?.username)}
+              className="mt-1 text-[11px] font-bold text-green-400 hover:text-green-300 transition" style={{ textShadow: '0 1px 4px #000' }}>
+              {shared ? '📋 Copied!' : '📤 Share this live'}
+            </button>
           </div>
           <button onClick={() => setFullscreen(false)}
             className="absolute top-3 right-4 text-white/80 hover:text-white text-2xl leading-none" aria-label="Exit fullscreen" title="Exit fullscreen">✕</button>

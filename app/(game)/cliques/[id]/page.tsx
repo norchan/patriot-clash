@@ -347,6 +347,7 @@ export default function CliquePage() {
             <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">{memberCount} member{memberCount !== 1 ? 's' : ''}</p>
             <CliqueLiveRow
               cliqueId={String(params.id)}
+              cliqueName={clique.name.split(' — ')[0]}
               members={members}
               myId={profile?.id ?? null}
               creatorId={clique.creator_id}

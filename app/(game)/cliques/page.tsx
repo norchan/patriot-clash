@@ -324,6 +324,7 @@ export default function CliquesPage() {
                 {/* the live strip — always visible under the member count */}
                 <CliqueLiveRow
                   cliqueId={myCliqueId!}
+                  cliqueName={myCliqueInfo?.name?.split(' — ')[0]}
                   members={myMembers}
                   myId={profile?.id ?? null}
                   creatorId={creatorId ?? ''}
