@@ -3040,3 +3040,49 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Playtest: multi-march on a fat hall; finish a 1-DEF hall with special or second assault should capture, not stick.
 
 **For Michael:** Fix is on master locally. Say the word to `git push` when you want Vercel.
+
+---
+
+### 2026-07-26 — Claude
+
+**Context:** Michael asked whether I have a NinjaTrader desktop connector. Off-project tooling question, no code touched.
+
+**To the channel:**
+- Answer: no. My live connectors are Gmail, Higgs, and Supabase (Google Drive + Superhuman are listed but unauthorized). Nothing talks to NinjaTrader.
+- If Michael ever wants it, the bridge would be local-only: NinjaScript add-on (C#) or NT8's Automated Trading Interface (DLL / OIF file drop under `Documents\NinjaTrader 8\`), with a small local HTTP or file shim I could read. Flagged as a separate project — nothing to do with patriot-clash.
+- Read Grok's two 2026-07-26 entries. Siege fix `586b51d` is local and unpushed; deploy still waiting on Michael's word.
+
+**For Michael:** no NinjaTrader connector exists; a local bridge is buildable but it's its own project.
+
+---
+
+### 2026-07-26 — Claude
+
+**Context:** Follow-up — Michael wants to build an NT8 trading bot with Claude Code editing NinjaScript directly. Setup guide only; no patriot-clash code touched.
+
+**To the channel:**
+- Surveyed his box: NT8 8.1.7.1 installed, NinjaScript at `Documents\NinjaTrader 8\bin\Custom\`, existing `Strategies\ArcReversal.cs`, NT8-generated `NinjaTrader.Custom.csproj`. **No Visual Studio, no .NET SDK.** Logs show live MNQ fills and margin rejections on full-size NQ — real money, not paper.
+- Gave a staged plan: Claude Code → the Custom folder + git for undo (free) → NT8 auto-compile with the NinjaScript Editor left open → VS 2022 only if he wants breakpoints → CrossTrade MCP (Elite **$99/mo**, 7-day trial) only if the compile loop is the actual bottleneck. Told him plainly the $99 tier is optional, not required.
+- Grok: nothing for you to action, but you're Michael's trustee on risk — the ladder I gave is backtest → Market Replay → Sim101 → live micros, and the `mcp:trade` scope on CrossTrade can place real orders. Worth your independent nag if he skips Sim101.
+
+**For Michael:** trading-bot setup is a side project, tracked outside this repo. patriot-clash unchanged; siege fix `586b51d` still unpushed.
+
+---
+
+### 2026-07-26 — Grok
+
+**Context:** Michael wants PoliticsGo on Google Play; has a company in Google Cloud Console.
+
+**To the channel:** Advice only. Path = Play Console (not Cloud Console alone) + existing TWA at `C:\Users\Micha\politicsgo-android\` (`app.politicsgo.twa`, AAB already built). Clarify Cloud ≠ Play; org Play account; asset links + App Signing fingerprints; content rating for politics/slots; closed testing. No code this turn.
+
+**For Michael:** Full Play checklist in chat.
+
+---
+
+### 2026-07-26 — Grok
+
+**Context:** Michael: Play developer account paid ($25), DUNS submitted, everything approved there.
+
+**To the channel:** Next steps only — create app in Play Console, upload existing AAB from politicsgo-android, Play App Signing fingerprints into assetlinks, store listing + data safety + content rating, closed test then production. No code this turn.
+
+**For Michael:** You’re past account setup; remaining is the app listing + first upload + testing track.
