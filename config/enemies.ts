@@ -203,6 +203,22 @@ export const republicanEnemies: Enemy[] = [
     ]
   },
   {
+    id: 'dan_dankas',
+    name: 'Dan Dankas',
+    description: 'Open-mic warrior — crowd work so brutal it counts as assault',
+    image: '/enemies/republican/dan_dankas.png',
+    party: 'republican',
+    tier: 'rare',
+    hp: 115,
+    power: 74,
+    fpReward: 38,
+    moves: [
+      { name: 'Crowd Work', damage: 30, emoji: '🗣️' },
+      { name: 'Heckler Check', damage: 46, emoji: '😤' },
+      { name: 'Mic Drop', damage: 60, emoji: '🎤' },
+    ]
+  },
+  {
     id: 'megachurch_pastor',
     name: 'The Prosperity Pastor',
     description: 'The Lord blessed him with a private jet and a very persuasive collection plate',
@@ -332,22 +348,6 @@ export const democratEnemies: Enemy[] = [
       { name: 'Hot Take', damage: 26, emoji: '🔥' },
       { name: 'Cold Brew Splash', damage: 40, emoji: '🧋' },
       { name: 'Ratio’d', damage: 52, emoji: '📉' },
-    ]
-  },
-  {
-    id: 'dan_dankas',
-    name: 'Dan Dankas',
-    description: 'Open-mic warrior — crowd work so brutal it counts as assault',
-    image: '/enemies/democrat/dan_dankas.png',
-    party: 'democrat',
-    tier: 'rare',
-    hp: 115,
-    power: 74,
-    fpReward: 38,
-    moves: [
-      { name: 'Crowd Work', damage: 30, emoji: '🗣️' },
-      { name: 'Heckler Check', damage: 46, emoji: '😤' },
-      { name: 'Mic Drop', damage: 60, emoji: '🎤' },
     ]
   },
   {
