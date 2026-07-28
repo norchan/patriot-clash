@@ -133,8 +133,10 @@ function StreetFightPage() {
   const [oppJabLKey, setOppJabLKey] = useState(0)
   const [playerKickHiKey, setPlayerKickHiKey] = useState(0)
   const [playerKickLoKey, setPlayerKickLoKey] = useState(0)
+  const [playerKickLoSpin, setPlayerKickLoSpin] = useState(false)
   const [oppKickHiKey, setOppKickHiKey] = useState(0)
   const [oppKickLoKey, setOppKickLoKey] = useState(0)
+  const [oppKickLoSpin, setOppKickLoSpin] = useState(false)
   const [playerHitKey, setPlayerHitKey] = useState(0)
   const [oppHitKey, setOppHitKey] = useState(0)
   // 3D contact stamp (presentation brief Phase B): fired at every resolved
@@ -149,9 +151,17 @@ function StreetFightPage() {
     setTimeout(() => setSpecialFlash(null), 450)
   }
   const myJab = (right: boolean) => right ? setPlayerJabRKey(k => k + 1) : setPlayerJabLKey(k => k + 1)
-  const myKick = (high: boolean) => high ? setPlayerKickHiKey(k => k + 1) : setPlayerKickLoKey(k => k + 1)
-  const foeKick = (high: boolean) => high ? setOppKickHiKey(k => k + 1) : setOppKickLoKey(k => k + 1)
+  const myKick = (high: boolean, spin = false) => {
+    if (high) setPlayerKickHiKey(k => k + 1)
+    else { setPlayerKickLoSpin(spin); setPlayerKickLoKey(k => k + 1) }
+  }
+  const foeKick = (high: boolean, spin = false) => {
+    if (high) setOppKickHiKey(k => k + 1)
+    else { setOppKickLoSpin(spin); setOppKickLoKey(k => k + 1) }
+  }
   const foeJab = (right: boolean) => right ? setOppJabRKey(k => k + 1) : setOppJabLKey(k => k + 1)
+  // Jump window: press ▲ then kick within JUMP_KICK_MS → jump kick
+  const jumpArmedUntil = useRef(0)
   // D-pad movement for the 3D player fighter
   const [playerX, setPlayerX] = useState(-ANCHOR) // position along the fight line
   const [playerY, setPlayerY] = useState(0)       // jump height
@@ -160,14 +170,15 @@ function StreetFightPage() {
   const [oppBlocking, setOppBlocking] = useState(false) // opponent's live block pose
   const [oppX, setOppX] = useState(ANCHOR)         // opponent position (AI-driven)
   const jumpingRef = useRef(false)
-  const doJump = useCallback(() => {
+  const doJump = useCallback((height = 0.9, ms = 520) => {
     if (jumpingRef.current) return
     jumpingRef.current = true
+    jumpArmedUntil.current = performance.now() + 480 // window for jump-kick after hop
     const start = performance.now()
     const tick = () => {
-      const p = (performance.now() - start) / 520
+      const p = (performance.now() - start) / ms
       if (p >= 1) { setPlayerY(0); jumpingRef.current = false; return }
-      setPlayerY(Math.sin(p * Math.PI) * 0.9)
+      setPlayerY(Math.sin(p * Math.PI) * height)
       requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -695,7 +706,10 @@ function StreetFightPage() {
       const heavy = def.mult > 1
       const now = Date.now()
       setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
-      if (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') foeKick(p.move !== 'hook') // 3D: aimed kick
+      if (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') {
+        // high / jumpkick = hi clip; hook = leg kick + body turn (spin when peer says so)
+        foeKick(p.move !== 'hook', p.move === 'hook' && !!(p as any).spin)
+      }
       else foeJab(!!p.right) // 3D: right or left jab
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
@@ -1025,10 +1039,22 @@ function StreetFightPage() {
     return true
   }
 
+  // Combo chain (presentation + damage identity): last few moves in a short
+  // window unlock jump kicks / spinning low kicks without new Meshy clips.
+  const COMBO_WINDOW_MS = 850
+  function pushCombo(move: Move) {
+    const S = L.current as any
+    const now = Date.now()
+    if (!S.comboChain || now - (S.comboAt ?? 0) > COMBO_WINDOW_MS) S.comboChain = [] as Move[]
+    S.comboAt = now
+    S.comboChain.push(move)
+    if (S.comboChain.length > 5) S.comboChain.shift()
+    return S.comboChain as Move[]
+  }
   // Core: play the 3D move, then resolve damage + spark + SFX ON THE STRIKE
   // FRAME (impactMs = when the clip's punch/kick visually lands), so what you
   // see, hear, and score are one moment — not a disconnected timeout.
-  function strikeCore(move: Move, right: boolean, label: string, impactMs: number) {
+  function strikeCore(move: Move, right: boolean, label: string, impactMs: number, opts?: { spin?: boolean; jump?: boolean }) {
     const S = L.current
     S.lastHit = Date.now()
     S.counts.taps++
@@ -1037,14 +1063,24 @@ function StreetFightPage() {
     buzz(8) // immediate tactile press feedback; the visual pose changes this frame
     sfx.whoosh() // local swing SFX (H2H confirm thud lands on result)
     setMyPose(MOVE_POSE['jab']); setMyAttacking(true)
-    if (kicky) myKick(move === 'kick') // 3D: real kick clip, aimed high (head) or low (legs)
-    else myJab(right)   // 3D: right = power straight clip, left = jab clip
-    setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, 280)
+    if (opts?.jump) doJump(1.05, 560)
+    if (kicky) {
+      // high = head kick clip; low/spin = leg kick clip + body turn (spin = full 360)
+      if (move === 'kick' || move === 'jumpkick') myKick(true)
+      else myKick(false, !!opts?.spin)
+    } else myJab(right)   // 3D: right = power straight clip, left = jab clip
+    setTimeout(() => { if (!L.current.over) { setMyPose('idle'); setMyAttacking(false) } }, opts?.spin ? 420 : 300)
     setMoveText(`YOU: ${label}`)
+    pushCombo(move)
 
     if (realtime && !S.ghost) {
       const seq = ++S.attackSeq
-      const payload = { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined }
+      const payload = {
+        seq, move, right,
+        boost: S.powerArmed ? POWER_MULT : undefined,
+        spin: !!opts?.spin,
+        jump: !!opts?.jump,
+      }
       S.pendingMove = { seq, payload, at: Date.now(), resent: false }
       S.dbg.sent++
       channelRef.current?.send({ type: 'broadcast', event: 'move', payload })
@@ -1126,12 +1162,32 @@ function StreetFightPage() {
   function playerHighKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('kick', false, 'HEAD KICK', 260) // Step_in_High_Kick peak lands ~260ms after trigger
+    // Jump window (▲ then 🦵) or already airborne → JUMP KICK
+    const airborne = jumpingRef.current || playerY > 0.15 || performance.now() < jumpArmedUntil.current
+    if (airborne) {
+      L.current.counts.jumpkicks++
+      strikeCore('jumpkick', false, 'JUMP KICK', 300, { jump: !jumpingRef.current })
+      return
+    }
+    strikeCore('kick', false, 'HEAD KICK', 260)
   }
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    strikeCore('hook', false, 'LEG KICK', 205) // faster clip (2.3x) — extension lands ~205ms after trigger
+    // SPIN LEG KICK when chained off punches / another kick (combo ender).
+    // Standalone 🦶 = body-turn LEG KICK into their lead leg (ref silhouette).
+    const c: Move[] = ((L.current as any).comboChain ?? []) as Move[]
+    const recent = c.slice(-3)
+    const doSpin =
+      recent.filter(m => m === 'cross').length >= 2 ||
+      recent[recent.length - 1] === 'hook' ||
+      recent[recent.length - 1] === 'kick'
+    if (doSpin) {
+      L.current.counts.combos++
+      strikeCore('hook', false, 'SPIN LEG KICK', 280, { spin: true })
+      return
+    }
+    strikeCore('hook', false, 'LEG KICK', 240, { spin: false })
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
@@ -1602,8 +1658,10 @@ function StreetFightPage() {
             oppJabLKey={oppJabLKey}
             playerKickHiKey={playerKickHiKey}
             playerKickLoKey={playerKickLoKey}
+            playerKickLoSpin={playerKickLoSpin}
             oppKickHiKey={oppKickHiKey}
             oppKickLoKey={oppKickLoKey}
+            oppKickLoSpin={oppKickLoSpin}
             playerHitKey={playerHitKey}
             oppHitKey={oppHitKey}
             playerX={playerX}
@@ -1775,8 +1833,8 @@ function StreetFightPage() {
         ) : phase === 'live' ? (
           layout === 'portrait' ? null : (
             <div className="text-center space-y-1">
-              <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ★ special</p>
-              <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — land hits to fill the ⚡ bar</p>
+              <p className="text-white/80 text-xs font-bold">Right: 🦵 head · 🦶 leg · 👊 punches · ★ special</p>
+              <p className="text-gray-400 text-[11px]">Combos: punch-punch-🦶 = spin leg · ▲ then 🦵 = jump kick · block with 🛡</p>
             </div>
           )
         ) : phase !== 'done' ? (
