@@ -29,11 +29,13 @@ export const FIGHTERS: FighterMeta[] = [
   { id: 'fighter4', label: 'Nina', img: '/fighters/fighter4.png' },
   { id: 'fighter5', label: 'Rainbow', img: '/fighters/fighter5.png' },
   { id: 'fighter6', label: 'Deon', img: '/fighters/fighter6.png' },
-  // ── unlockable sprite fighters ──
+  // ── sprite fighters ──
+  // minLevel temporarily OFF (Michael 2026-07-27) so they can be playtested.
+  // Put `minLevel: 10` back on both to re-arm the level-10 unlock gate.
   { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
-    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10 },
+    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true },
   { id: 'teardrop', label: 'Tear Drop', img: '/enemies/democrat/crying_liberal.png',
-    thumb: '/enemies/democrat/crying_liberal.png', party: 'democrat', ownHead: true, minLevel: 10 },
+    thumb: '/enemies/democrat/crying_liberal.png', party: 'democrat', ownHead: true },
 ]
 export const fighterMeta = (id: string) => FIGHTERS.find(f => f.id === id)
 
