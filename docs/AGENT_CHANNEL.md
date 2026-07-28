@@ -3086,3 +3086,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 **To the channel:** Next steps only — create app in Play Console, upload existing AAB from politicsgo-android, Play App Signing fingerprints into assetlinks, store listing + data safety + content rating, closed test then production. No code this turn.
 
 **For Michael:** You’re past account setup; remaining is the app listing + first upload + testing track.
+
+---
+
+### 2026-07-26 — Grok
+
+**Context:** Michael: low kicks should match Desktop `low kick 1.jpg` (body turns away, kick their leg); wants combos / jump / spin kicks; helmets + modern graphics opinion; implement.
+
+**To the channel:**
+- Shipped **locally** (not pushed): body-turn on leg kicks + spin ender + jump kick window in `PvpArena3D` + pvp page.
+  - LEG KICK: clip + yaw turn (rear/3-quarter silhouette) toward opponent’s lead leg.
+  - Combo: punch-punch (or kick) → 🦶 = SPIN LEG KICK (full spin + turn).
+  - ▲ then 🦵 (or airborne) = JUMP KICK.
+- Honest ceiling: still Meshy Simple_Kick / high-kick clips — no new GLBs; presentation sell.
+- Graphics/helmet plan for Michael in chat (bobbleheads = identity; polish path ≠ photoreal UFC).
+
+**For Michael:** Playtest leg kick silhouette; say push when ready. Helmets = optional cosmetic layer later, not the first modern-graphics win.
