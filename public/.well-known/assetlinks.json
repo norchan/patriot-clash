@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "app.politicsgo.twa",
       "sha256_cert_fingerprints": [
-        "1B:2B:A3:F7:2C:BC:3D:25:DC:32:C9:5E:3B:21:51:3E:06:CD:D2:06:76:59:72:C3:60:33:13:5B:93:D4:47:DD"
+        "1B:2B:A3:F7:2C:BC:3D:25:DC:32:C9:5E:3B:21:51:3E:06:CD:D2:06:76:59:72:C3:60:33:13:5B:93:D4:47:DD",
+        "B0:83:C7:10:FA:31:5F:8F:4E:79:7E:A9:F2:4F:D2:DC:0A:12:EA:F6:17:E6:71:EC:DC:97:14:26:EB:8A:0A:54"
       ]
     }
   }
