@@ -25,13 +25,34 @@ export const FIGHTERS: FighterMeta[] = [
   { id: 'fighter4', label: 'Nina', img: '/fighters/fighter4.png' },
   { id: 'fighter5', label: 'Rainbow', img: '/fighters/fighter5.png' },
   { id: 'fighter6', label: 'Deon', img: '/fighters/fighter6.png' },
-  // ── sprite fighters ──
-  // minLevel temporarily OFF (Michael 2026-07-27) so they can be playtested.
-  // Put `minLevel: 10` back on both to re-arm the level-10 unlock gate.
+  // ── SPRITE FIGHTERS ──
+  // Roster characters with the full six-clip fighter set. minLevel is OFF on
+  // all of them (Michael 2026-07-27) for playtesting — add `minLevel: N` per
+  // entry to re-arm unlock gates. Model files: <id>_<rep|dem>_<clip>.glb
   { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
     thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true },
+  { id: 'oil_baron', label: 'Oil Baron', img: '/enemies/republican/oil_baron.png',
+    thumb: '/enemies/republican/oil_baron.png', party: 'republican', ownHead: true },
+  { id: 'cowboy', label: 'Lone Star', img: '/enemies/republican/cowboy.png',
+    thumb: '/enemies/republican/cowboy.png', party: 'republican', ownHead: true },
+  { id: 'ice_agent', label: 'The Ice Man', img: '/enemies/republican/ice_agent.png',
+    thumb: '/enemies/republican/ice_agent.png', party: 'republican', ownHead: true },
+  { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
+    thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true },
+  { id: 'prepper', label: 'The Prepper', img: '/enemies/republican/prepper.png',
+    thumb: '/enemies/republican/prepper.png', party: 'republican', ownHead: true },
   { id: 'teardrop', label: 'Tear Drop', img: '/enemies/democrat/crying_liberal.png',
     thumb: '/enemies/democrat/crying_liberal.png', party: 'democrat', ownHead: true },
+  { id: 'purple_hair', label: 'Purple Fury', img: '/enemies/democrat/purple_hair.png',
+    thumb: '/enemies/democrat/purple_hair.png', party: 'democrat', ownHead: true },
+  { id: 'comrade', label: 'The Comrade', img: '/enemies/democrat/comrade.png',
+    thumb: '/enemies/democrat/comrade.png', party: 'democrat', ownHead: true },
+  { id: 'protestor', label: 'Antifa Kid', img: '/enemies/democrat/protestor.png',
+    thumb: '/enemies/democrat/protestor.png', party: 'democrat', ownHead: true },
+  { id: 'crazy_liberal', label: 'HR', img: '/enemies/democrat/crazy_liberal.png',
+    thumb: '/enemies/democrat/crazy_liberal.png', party: 'democrat', ownHead: true },
+  { id: 'climate_kid', label: 'The Climate Kid', img: '/enemies/democrat/climate_kid.png',
+    thumb: '/enemies/democrat/climate_kid.png', party: 'democrat', ownHead: true },
 ]
 
 export const fighterMeta = (id: string): FighterMeta | undefined =>
