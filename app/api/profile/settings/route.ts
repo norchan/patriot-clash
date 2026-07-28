@@ -3,6 +3,7 @@ import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { sanitizeFighter } from '@/lib/fighter'
 import { isValidHead, headMeta } from '@/config/heads'
+import { isValidFighter, fighterAllowedForParty } from '@/config/fighters'
 
 // PATCH /api/profile/settings — update player preferences
 export async function PATCH(req: NextRequest) {
@@ -51,9 +52,13 @@ export async function PATCH(req: NextRequest) {
     }
     // Chosen 3D PvP fighter BODY (party blue/red kit applied automatically)
     if ('pvp_fighter' in body) {
-      const valid = ['fighter1', 'fighter2', 'fighter3', 'fighter4', 'fighter5', 'fighter6']
-      if (!valid.includes(body.pvp_fighter)) {
+      // Validated against the shared catalog (config/fighters.ts) so sprite
+      // fighters work, and party-locked ones stay locked server-side.
+      if (!isValidFighter(body.pvp_fighter)) {
         return NextResponse.json({ error: 'Invalid fighter' }, { status: 400 })
+      }
+      if (!fighterAllowedForParty(body.pvp_fighter, profile.party)) {
+        return NextResponse.json({ error: 'That fighter belongs to the other party' }, { status: 400 })
       }
       updates.pvp_fighter = body.pvp_fighter
     }

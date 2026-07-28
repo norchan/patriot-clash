@@ -39,6 +39,7 @@ function MyFighterInner() {
   const [head, setHead] = useState<string | null>(null) // null = the body's own head
   const [attackKey, setAttackKey] = useState(0)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [loadedProfile, setLoadedProfile] = useState(false)
 
   // restore last saved choice (localStorage first, then the profile wins once)
@@ -58,16 +59,35 @@ function MyFighterInner() {
     setLoadedProfile(true)
   }, [profile, loadedProfile])
 
-  function save(nextBody: string, nextHead: string | null) {
+  // Saves immediately on tap. A rejected save used to be swallowed silently,
+  // which made the pick "stick" in the UI then snap back on reload (Michael) —
+  // now a failure surfaces and the picker reverts to what the server has.
+  async function save(nextBody: string, nextHead: string | null) {
+    const prevBody = body, prevHead = head
     setBody(nextBody); setHead(nextHead)
     try {
       localStorage.setItem(BODY_KEY, nextBody)
       if (nextHead) localStorage.setItem(HEAD_KEY, nextHead); else localStorage.removeItem(HEAD_KEY)
     } catch {}
-    fetch('/api/profile/settings', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pvp_fighter: nextBody, head_id: nextHead }),
-    }).catch(() => {})
+    try {
+      const res = await fetch('/api/profile/settings', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pvp_fighter: nextBody, head_id: nextHead }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setSaveError(d.error || 'Could not save that fighter')
+        setTimeout(() => setSaveError(''), 3000)
+        setBody(prevBody); setHead(prevHead)
+        try { localStorage.setItem(BODY_KEY, prevBody) } catch {}
+        return
+      }
+    } catch {
+      setSaveError('Network error — not saved')
+      setTimeout(() => setSaveError(''), 3000)
+      setBody(prevBody); setHead(prevHead)
+      return
+    }
     setSaved(true); setTimeout(() => setSaved(false), 1200)
   }
 
@@ -83,6 +103,7 @@ function MyFighterInner() {
         {!welcome && <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>}
         <h1 className="text-white font-bold text-lg">{welcome ? 'Build your fighter' : 'My Fighter'}</h1>
         {saved && <span className="ml-auto text-green-400 text-xs font-bold">Saved ✓</span>}
+        {saveError && <span className="ml-auto text-red-400 text-xs font-bold">{saveError}</span>}
       </div>
 
       {welcome && (
