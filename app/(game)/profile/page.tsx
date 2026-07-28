@@ -420,17 +420,21 @@ export default function ProfilePage() {
           {/* mt-11 clears the global menu button fixed in this corner.
               FP badge (Michael): the ⚡ with the balance right under it —
               replaces the old notification/message icons; tap → shop */}
+          {/* Both badges share a fixed 24px icon row and the same label size so
+              the ⚡/number column lines up with the $/Earn column (Michael) */}
           <div className="flex gap-2 self-start mt-11">
             <button onClick={() => router.push('/impressions')}
               className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
               aria-label="Earnings — tap for impressions">
-              <span className="text-green-400 font-black text-lg">$</span>
-              <span className="text-green-400 font-black text-xs leading-tight mt-0.5">Earn</span>
+              <span className="h-6 flex items-center justify-center text-green-400 font-black text-xl leading-none">$</span>
+              <span className="text-green-400 font-black text-sm leading-tight mt-0.5">Earn</span>
             </button>
             <button onClick={() => router.push('/shop')}
               className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
               aria-label="Fighting Points — tap for the shop">
-              <Zap size={22} className="text-yellow-400" />
+              <span className="h-6 flex items-center justify-center">
+                <Zap size={22} className="text-yellow-400" />
+              </span>
               <span className="text-yellow-400 font-black text-sm leading-tight mt-0.5">
                 {(profile?.fp_balance ?? 0).toLocaleString()}
               </span>
