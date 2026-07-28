@@ -15,7 +15,9 @@ const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
 const ENEMY_3D: Record<string, string> = Object.fromEntries(
   ['comrade', 'oil_baron', 'cowboy', 'politician', 'hick', 'ice_agent', 'soldier_boy', 'preppy', 'influencer',
    'billionaire', 'crazy_liberal', 'crying_liberal', 'dem_politician', 'purple_hair', 'protestor', 'anchor',
-   'palestine', 'drag', 'senator', 'tampon_tim', 'dan_dankas', 'maine', 'firebrand', 'social_bean'].map(id => [id, id]),
+   'palestine', 'drag', 'senator', 'tampon_tim', 'dan_dankas', 'maine', 'firebrand', 'social_bean',
+   'prepper', 'yard_sign_lady', 'megachurch_pastor', 'crypto_bro', 'sheriff',
+   'union_barista', 'adjunct_professor', 'climate_kid'].map(id => [id, id]),
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -86,6 +88,14 @@ const FOE_THROWS: Record<string, { emoji: string; label: string; img?: string }>
   maine:           { emoji: '🦞', label: 'Boiled Lobster' },
   firebrand:       { emoji: '📢', label: 'Bullhorn' },
   social_bean:     { emoji: '🧋', label: 'Cold Brew' },
+  prepper:         { emoji: '🥫', label: 'Canned Beans' },
+  yard_sign_lady:  { emoji: '🪧', label: 'Yard Sign' },
+  megachurch_pastor: { emoji: '🪙', label: 'Collection Plate' },
+  crypto_bro:      { emoji: '🪙', label: 'Worthless Coin' },
+  sheriff:         { emoji: '🎫', label: 'Speeding Ticket' },
+  union_barista:   { emoji: '☕', label: 'Hot Latte' },
+  adjunct_professor: { emoji: '📚', label: 'Textbook' },
+  climate_kid:     { emoji: '🪧', label: 'Protest Sign' },
 }
 const DEFAULT_FOE_THROW = { emoji: '🥾', label: 'Old Boot' }
 // Tampon Tim is the only PACER: constant back-and-forth with a mirror flip at

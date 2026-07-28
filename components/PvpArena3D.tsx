@@ -10,7 +10,18 @@ import { headSideImage, headMeta } from '@/config/heads'
 // street, ringed by a cheering crowd. Solo mode (one fighter facing camera) is
 // used by the fighter picker.
 
-export interface FighterMeta { id: string; label: string; img: string; demOnly?: boolean }
+// SPRITE FIGHTERS (Michael 2026-07-27): roster characters promoted to
+// playable fighters, unlocked by level. They ship with their own head (no
+// bobblehead swap) and are locked to their own party — a Democrat can never
+// fight as The Don. `thumb` overrides the /fighters/<id>_<party>.png convention.
+export interface FighterMeta {
+  id: string; label: string; img: string
+  demOnly?: boolean
+  party?: 'democrat' | 'republican'  // locked to one side
+  ownHead?: boolean                  // sprite fighter — never head-swapped
+  minLevel?: number                  // level unlock gate
+  thumb?: string                     // picker art override
+}
 export const FIGHTERS: FighterMeta[] = [
   { id: 'fighter1', label: 'Alex', img: '/fighters/fighter1.png' },
   { id: 'fighter2', label: 'Maya', img: '/fighters/fighter2.png' },
@@ -18,7 +29,13 @@ export const FIGHTERS: FighterMeta[] = [
   { id: 'fighter4', label: 'Nina', img: '/fighters/fighter4.png' },
   { id: 'fighter5', label: 'Rainbow', img: '/fighters/fighter5.png' },
   { id: 'fighter6', label: 'Deon', img: '/fighters/fighter6.png' },
+  // ── unlockable sprite fighters ──
+  { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
+    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10 },
+  { id: 'teardrop', label: 'Tear Drop', img: '/enemies/democrat/crying_liberal.png',
+    thumb: '/enemies/democrat/crying_liberal.png', party: 'democrat', ownHead: true, minLevel: 10 },
 ]
+export const fighterMeta = (id: string) => FIGHTERS.find(f => f.id === id)
 
 const HEAD_SCALE = 1.0 // natural proportions — match the reference guard stills
 // Bump when the GLBs are regenerated at the same path, to bust browser/CDN cache

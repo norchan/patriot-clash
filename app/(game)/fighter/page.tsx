@@ -31,6 +31,10 @@ function MyFighterInner() {
 
   const myParty = profile?.party === 'democrat' ? 'democrat' : 'republican'
   const partyHeads = HEADS.filter(h => h.party === myParty)
+  // Sprite fighters are party-locked and level-gated (Michael): show only
+  // yours, and lock the ones you haven't earned yet.
+  const myLevel = Math.floor(((profile as any)?.total_battles_won ?? 0) / 5) + 1
+  const myFighters = FIGHTERS.filter(f => !f.party || f.party === myParty)
   const [body, setBody] = useState('fighter1')
   const [head, setHead] = useState<string | null>(null) // null = the body's own head
   const [attackKey, setAttackKey] = useState(0)
@@ -109,16 +113,27 @@ function MyFighterInner() {
           Body <span className={`normal-case ${isDem ? 'text-blue-400' : 'text-red-400'}`}>· {isDem ? '🔵 Democrat blue kit' : '🔴 Republican red kit'}</span>
         </p>
         <div className="grid grid-cols-3 gap-2">
-          {FIGHTERS.map(f => (
-            <button key={f.id} onClick={() => save(f.id, head)}
-              className={`relative rounded-xl overflow-hidden border-2 transition ${body === f.id ? 'border-purple-500' : 'border-gray-800'}`}>
-              <img src={`/fighters/${f.id}_${partySuffix}.png`} alt={f.label} className="w-full aspect-[3/4] object-cover bg-gray-900" />
+          {myFighters.map(f => {
+            const locked = !!f.minLevel && myLevel < f.minLevel
+            return (
+            <button key={f.id} disabled={locked}
+              onClick={() => save(f.id, f.ownHead ? null : head)}
+              className={`relative rounded-xl overflow-hidden border-2 transition ${body === f.id ? 'border-purple-500' : 'border-gray-800'} ${locked ? 'opacity-60' : ''}`}>
+              <img src={f.thumb ?? `/fighters/${f.id}_${partySuffix}.png`} alt={f.label}
+                className={`w-full aspect-[3/4] object-cover bg-gray-900 ${locked ? 'grayscale' : ''}`} />
               <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[11px] font-bold py-1 text-center">{f.label}</div>
-              {body === f.id && (
+              {locked && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55">
+                  <span className="text-xl">🔒</span>
+                  <span className="text-white text-[10px] font-black mt-0.5">LEVEL {f.minLevel}</span>
+                </div>
+              )}
+              {body === f.id && !locked && (
                 <div className="absolute top-1 right-1 bg-purple-600 rounded-full p-0.5"><Check size={12} className="text-white" /></div>
               )}
             </button>
-          ))}
+            )
+          })}
         </div>
       </div>
 

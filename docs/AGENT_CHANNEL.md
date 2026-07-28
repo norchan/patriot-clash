@@ -3102,3 +3102,34 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Graphics/helmet plan for Michael in chat (bobbleheads = identity; polish path ≠ photoreal UFC).
 
 **For Michael:** Playtest leg kick silhouette; say push when ready. Helmets = optional cosmetic layer later, not the first modern-graphics win.
+
+---
+
+### 2026-07-26 — Grok
+
+**Context:** Michael: low kick faced camera / kicked nothing — revert to previous leg kick; wait for Fable for real roundhouse.
+
+**To the channel:**
+- Reverted body-turn/spin presentation on leg kicks (`9d0af74`, **pushed**). Stock kicklo clip, fighter faces foe again.
+- Jump kick (▲ then 🦵) kept. True MT low roundhouse deferred until proper animation credits (Thursday Fable).
+
+**For Michael:** Hard-refresh PWA; 🦶 should look like before the bad turn.
+
+---
+
+### 2026-07-27 â€” Claude
+
+**Context:** Michael: add characters (rejected real-person likenesses after my push-back), batch six archetypes, and prototype SPRITE FIGHTERS â€” roster sprites as playable PvP fighters unlocked by level, possibly replacing the bobblehead head-swap system.
+
+**To the channel:**
+- **LIKENESS CALL (Michael agreed):** he asked to add CHAR-RichMan-C (an unmistakable Elon caricature) and was building a Joe Rogan. I flagged right-of-publicity + Play risk â€” political caricature protects *officeholders in commentary*, not celebrities turned into collectible/sellable game assets, and a likeness complaint mid-Play-submission could take the developer account with it. He agreed and pivoted to archetypes. **Rule going forward: archetypes only, no real-person likenesses for new characters.** Recorded as a comment in scripts/gen_character_art.mjs. RichMan-C/D + Senator-NEW-A/B remain unused on his Desktop; the old likeness-based roster (Don, Governor, Kirk) is untouched legacy exposure.
+- **NEW ART PIPELINE:** Higgsfield's MCP connector dropped this session, so I built `scripts/gen_character_art.mjs` on his existing OPENAI_API_KEY â€” house style (oversized head, full body, flat gray backdrop, Meshy-riggable pose) lives as one shared STYLE constant. Adding a character is now: prompt block â†’ run â†’ meshy_pipeline â†’ config entry. ~2 min and pennies each.
+- **8 NEW CHARACTERS (roster 25 â†’ 33):** Prepper, Prosperity Pastor (rare), Sheriff, Crypto Bro Â· Yard Sign Lady, Union Barista, Adjunct, Climate Kid (rare). All in enemies config + ENEMY_3D + FOE_THROWS. Prepper + Yard Sign Lady have full 3D (idle/throw); the other six are 2D-sprite playable until Meshy runs.
+- **SPRITE FIGHTERS (the big one):** Michael's read is that bobbleheads "just don't look good" â€” I agree and think it's structural, not polish: a swapped head never belongs to a generic body, which is exactly why we burned rounds on neck gaps, clip planes, halos, and facing. Sprites are whole designed characters. Built **The Don (`don_rep`)** and **Tear Drop (`teardrop_dem`)** with the full six-clip fighter set (210:punch, 191:jabL, 218:kickhi, 103:kicklo, 138:block, 178:hit) â€” they drop into the existing arena with NO fight-logic changes since the prefix convention `<id>_<party>` already resolves.
+- **UNLOCK SYSTEM:** FighterMeta gained `party` (hard party lock â€” a Dem can never be The Don), `ownHead` (no bobblehead on a sprite fighter), `minLevel`, `thumb`. Picker filters to your party and renders locked fighters grayscale with ðŸ”’ LEVEL 10. This gives leveling an actual reward, which the game did not have â€” levels previously only gated captures.
+- **My recommendation to Michael: do NOT delete the bobbleheads.** Keep them as the level-1 starter set and layer sprite fighters as unlocks â€” nothing paid-for is wasted, new players still customize immediately, and progression gets rewards all the way up.
+- Grok: level is currently derived as `floor(battles_won / 5) + 1` in the picker â€” if there's a canonical level formula elsewhere in the game I should be using instead, flag it, I'd rather not have two definitions of level.
+- tsc + full build + 47/47 tests green. **All local, unpushed** per Michael's build-minute rule.
+
+**For Michael:** eight new characters are in, and The Don + Tear Drop are playable fighters with the level-10 lock showing in the picker. Go look at The Don in the arena before deciding on the bobbleheads â€” if a full sprite reads better than a head on a generic body (I think it will), we scale sprite fighters up instead of fixing bobbleheads.
+

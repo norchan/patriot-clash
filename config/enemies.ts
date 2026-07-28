@@ -187,6 +187,70 @@ export const republicanEnemies: Enemy[] = [
     ]
   },
   {
+    id: 'prepper',
+    name: 'The Prepper',
+    description: 'Been ready since \'99 — the bunker is stocked and the cans are loaded',
+    image: '/enemies/republican/prepper.png',
+    party: 'republican',
+    tier: 'common',
+    hp: 92,
+    power: 60,
+    fpReward: 25,
+    moves: [
+      { name: 'Canned Goods', damage: 25, emoji: '🥫' },
+      { name: 'Bug-Out Bag', damage: 39, emoji: '🎒' },
+      { name: 'Bunker Door', damage: 53, emoji: '🚪' },
+    ]
+  },
+  {
+    id: 'megachurch_pastor',
+    name: 'The Prosperity Pastor',
+    description: 'The Lord blessed him with a private jet and a very persuasive collection plate',
+    image: '/enemies/republican/megachurch_pastor.png',
+    party: 'republican',
+    tier: 'rare',
+    hp: 118,
+    power: 78,
+    fpReward: 38,
+    moves: [
+      { name: 'Passing the Plate', damage: 32, emoji: '🪙' },
+      { name: 'Altar Call', damage: 48, emoji: '🙌' },
+      { name: 'Seed Offering', damage: 62, emoji: '✨' },
+    ]
+  },
+  {
+    id: 'crypto_bro',
+    name: 'The Crypto Bro',
+    description: 'Down 90% but still telling you to have fun staying poor',
+    image: '/enemies/republican/crypto_bro.png',
+    party: 'republican',
+    tier: 'common',
+    hp: 78,
+    power: 56,
+    fpReward: 23,
+    moves: [
+      { name: 'Diamond Hands', damage: 24, emoji: '💎' },
+      { name: 'Rug Pull', damage: 37, emoji: '🪤' },
+      { name: 'To The Moon', damage: 51, emoji: '🌕' },
+    ]
+  },
+  {
+    id: 'sheriff',
+    name: 'The Sheriff',
+    description: 'Been the law around here for thirty years and the buckle proves it',
+    image: '/enemies/republican/sheriff.png',
+    party: 'republican',
+    tier: 'common',
+    hp: 95,
+    power: 64,
+    fpReward: 27,
+    moves: [
+      { name: 'Buckle Bash', damage: 26, emoji: '🤠' },
+      { name: 'Aviator Glare', damage: 40, emoji: '🕶️' },
+      { name: 'Long Arm of the Law', damage: 54, emoji: '⭐' },
+    ]
+  },
+  {
     id: 'influencer',
     name: 'Kirk El Captain',
     description: 'Campus-debate champion — the jaw arrives before the facts do',
@@ -392,6 +456,70 @@ export const democratEnemies: Enemy[] = [
       { name: 'Spray Tag', damage: 32, emoji: '🎨' },
       { name: 'Soup Toss', damage: 50, emoji: '🥫' },
       { name: 'Dumpster Slam', damage: 70, emoji: '🗑️' },
+    ]
+  },
+  {
+    id: 'yard_sign_lady',
+    name: 'The Yard Sign Lady',
+    description: 'In this house we believe — and the sign doubles as a shield',
+    image: '/enemies/democrat/yard_sign_lady.png',
+    party: 'democrat',
+    tier: 'common',
+    hp: 88,
+    power: 58,
+    fpReward: 24,
+    moves: [
+      { name: 'Sign Slam', damage: 24, emoji: '🪧' },
+      { name: 'HOA Complaint', damage: 38, emoji: '📋' },
+      { name: 'Neighborhood Watch', damage: 52, emoji: '👀' },
+    ]
+  },
+  {
+    id: 'union_barista',
+    name: 'The Union Barista',
+    description: 'Your oat milk latte comes with a pamphlet and a shift you can sign up for',
+    image: '/enemies/democrat/union_barista.png',
+    party: 'democrat',
+    tier: 'common',
+    hp: 82,
+    power: 57,
+    fpReward: 24,
+    moves: [
+      { name: 'Scalding Pour', damage: 25, emoji: '☕' },
+      { name: 'Pamphlet Drop', damage: 38, emoji: '📰' },
+      { name: 'Walkout', damage: 52, emoji: '✊' },
+    ]
+  },
+  {
+    id: 'adjunct_professor',
+    name: 'The Adjunct',
+    description: 'Four classes, three campuses, one health plan he cannot afford',
+    image: '/enemies/democrat/adjunct_professor.png',
+    party: 'democrat',
+    tier: 'common',
+    hp: 76,
+    power: 54,
+    fpReward: 22,
+    moves: [
+      { name: 'Pop Quiz', damage: 23, emoji: '📝' },
+      { name: 'Cite Your Source', damage: 36, emoji: '📚' },
+      { name: 'Failing Grade', damage: 50, emoji: '🅵' },
+    ]
+  },
+  {
+    id: 'climate_kid',
+    name: 'The Climate Kid',
+    description: 'Skipped fourth period to explain exactly how you ruined everything',
+    image: '/enemies/democrat/climate_kid.png',
+    party: 'democrat',
+    tier: 'rare',
+    hp: 112,
+    power: 76,
+    fpReward: 36,
+    moves: [
+      { name: 'Placard Swing', damage: 31, emoji: '🪧' },
+      { name: 'How Dare You', damage: 47, emoji: '😤' },
+      { name: 'School Strike', damage: 61, emoji: '🌍' },
     ]
   },
   {
