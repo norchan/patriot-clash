@@ -172,15 +172,14 @@ function ProfileHead({ headId, faceY, duck = false, mirror = false, hitKey = 0, 
   )
 }
 
-function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId, blocking = false, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, kickLoSpin = false, hitKey = 0 }:
-  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; headId?: string | null; blocking?: boolean; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; kickLoSpin?: boolean; hitKey?: number }) {
+function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId, blocking = false, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, hitKey = 0 }:
+  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; headId?: string | null; blocking?: boolean; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; hitKey?: number }) {
   // Real boxing kit. The Left_Jab clip starts AND ends in a proper fists-up
   // boxing guard, so its frame 0 doubles as the held GUARD (fists at the face).
   // One-shots: straight punch (right), the jab (left), a straight KICK
   // (Boxing_Guard_Right_Straight_Kick), and a hit reaction.
-  // LEG KICKS: we layer a BODY TURN on top of the clip so the silhouette
-  // matches a real low roundhouse (torso turns away, back/3-quarter to camera,
-  // shin into the opponent's lead leg) — Michael's "low kick 1" reference.
+  // LEG KICK: play the clip as-authored (no extra body yaw — runtime turns
+  // faced the wrong way on phone; real roundhouse needs a proper clip later).
   const punchGltf = useGLTF(`/models/${prefix}_punch.glb?v=${MODEL_VER}`)
   const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb?v=${MODEL_VER}`)
   const kickHiGltf = useGLTF(`/models/${prefix}_kickhi.glb?v=${MODEL_VER}`)
@@ -189,7 +188,6 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   const hitGltf = useGLTF(`/models/${prefix}_hit.glb?v=${MODEL_VER}`)
   const scene = jabLGltf.scene
   const fit = useRef<THREE.Group>(null!)
-  const root = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
   // These Meshy meshes have OPEN flat hands baked in (no finger bones — the
@@ -201,13 +199,6 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   const handL = useMemo(() => scene.getObjectByName('LeftHand') ?? null, [scene])
   const handR = useMemo(() => scene.getObjectByName('RightHand') ?? null, [scene])
   const hips0 = useRef<THREE.Vector3 | null>(null)
-  // Kick presentation: extra yaw (turn away) + optional full spin, eased back to 0
-  const kickYaw = useRef(0)       // current extra Y rotation (radians)
-  const kickYawTarget = useRef(0)
-  const kickYawUntil = useRef(0)  // performance.now deadline for hold
-  const kickSpinLeft = useRef(0)  // residual spin radians to unwind this frame
-  const kickLoSpinRef = useRef(kickLoSpin)
-  kickLoSpinRef.current = kickLoSpin
 
   const { mixer, guard, guardHold, block, shots } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
@@ -236,9 +227,8 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
         jabL: oneShot(jabLGltf, 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
         // HEAD KICK: Step_in_High_Kick (218) — leg extended head-height at ~0.56s
         kickHi: oneShot(kickHiGltf, 0.2, 1.4),
-        // LEG KICK: Simple_Kick (103) — clip is a thrust; we ADD body-turn in useFrame
-        // so it reads as a roundhouse into the opponent's lead leg (ref: low kick 1).
-        kickLo: oneShot(kickLoGltf, 0.48, 2.05),
+        // LEG KICK: Simple_Kick (103) — thrust kick extends at ~1.0s raw
+        kickLo: oneShot(kickLoGltf, 0.62, 2.3), // skip deeper into the wind-up + faster = a snapping leg kick
         hit: oneShot(hitGltf, 0.12, 1.6),
       },
     }
@@ -307,28 +297,10 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     }
   }, [blocking]) // eslint-disable-line react-hooks/exhaustive-deps
   const pR = useRef(0), pL = useRef(0), pKH = useRef(0), pKL = useRef(0), pH = useRef(0)
-  // Start a low-kick BODY TURN: rear/3-quarter to camera, hips open toward foe
-  // (matches Krav Maga / MT low roundhouse silhouette in Michael's ref photo).
-  // Spin variant adds a full 360 so combo enders read as "spinning low kick".
-  const startLegKickTurn = (spin: boolean) => {
-    // Sign: non-mirror player faces +X; negative yaw opens the back to the camera.
-    // Mirror foe is scaleX(-1) so the same local sign still reads as "turn away".
-    const sign = -1
-    kickYawTarget.current = sign * (spin ? 0.55 : 0.95)
-    kickYawUntil.current = performance.now() + (spin ? 420 : 320)
-    if (spin) kickSpinLeft.current = sign * Math.PI * 2
-  }
-
   useEffect(() => { if (jabRKey > pR.current) { pR.current = jabRKey; playShot(shots.jabR) } }, [jabRKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (jabLKey > pL.current) { pL.current = jabLKey; playShot(shots.jabL) } }, [jabLKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (kickHiKey > pKH.current) { pKH.current = kickHiKey; playShot(shots.kickHi) } }, [kickHiKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (kickLoKey > pKL.current) {
-      pKL.current = kickLoKey
-      playShot(shots.kickLo)
-      startLegKickTurn(kickLoSpinRef.current)
-    }
-  }, [kickLoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (kickLoKey > pKL.current) { pKL.current = kickLoKey; playShot(shots.kickLo) } }, [kickLoKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (hitKey > pH.current) { pH.current = hitKey; playShot(shots.hit) } }, [hitKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // BOBBLE: clamped oscillation layered on the head bone. Anti-accumulation
@@ -363,33 +335,12 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     // (short along the fingers, chunkier across) — render-verified at game distance
     if (handL) handL.scale.set(1.2, 0.45, 1.2)
     if (handR) handR.scale.set(1.2, 0.45, 1.2)
-
-    // ── Leg-kick body turn (and optional spin) ────────────────────────────
-    const now = performance.now()
-    if (now > kickYawUntil.current) kickYawTarget.current = 0
-    // Ease toward target (snappy into the kick, softer return to guard face)
-    const k = Math.min(1, dt * (kickYawTarget.current !== 0 ? 14 : 8))
-    kickYaw.current += (kickYawTarget.current - kickYaw.current) * k
-    // Drain residual spin for "spinning low kick" combos
-    if (Math.abs(kickSpinLeft.current) > 0.01) {
-      const step = Math.sign(kickSpinLeft.current) * Math.min(Math.abs(kickSpinLeft.current), dt * 14)
-      kickSpinLeft.current -= step
-      kickYaw.current += step
-    }
-    if (root.current) {
-      root.current.rotation.y = faceY + kickYaw.current
-      // Slight forward lean into the shin check while turned
-      const lean = Math.min(1, Math.abs(kickYaw.current) / 0.95) * 0.12
-      root.current.rotation.z = (mirror ? 1 : -1) * lean * (mirror ? -1 : 1) * 0 // keep level; lean was too messy with mirror
-      root.current.rotation.x = -lean * 0.35
-    }
   })
 
   // Opponent (player 2) is MIRRORED across X — like every fighting game — so its
   // asymmetric boxing guard reads correctly instead of turning into an arms-up pose.
-  // faceY lives on `root` so kick turns can layer on top without fighting the prop.
   return (
-    <group ref={root} position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.82 : 1, 1]}>
+    <group position={[x, y, 0.6]} rotation={[0, faceY, 0]} scale={[mirror ? -1 : 1, duck ? 0.82 : 1, 1]}>
       <group ref={fit}><primitive object={scene} /></group>
       {headId && <ProfileHead headId={headId} faceY={faceY} duck={duck} mirror={mirror} hitKey={hitKey} getHeadBone={() => head} />}
     </group>
@@ -647,8 +598,8 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
   return null
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, playerKickLoSpin = false, oppKickHiKey = 0, oppKickLoKey = 0, oppKickLoSpin = false, playerHitKey = 0, oppHitKey = 0, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
-  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; playerKickLoSpin?: boolean; oppKickHiKey?: number; oppKickLoKey?: number; oppKickLoSpin?: boolean; playerHitKey?: number; oppHitKey?: number; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
+  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6 * soloZoom] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
@@ -678,11 +629,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
           // rotation.y = +PI/2 points the fighter down the +X axis.)
           <>
             <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={Math.PI / 2} headId={playerHeadId} blocking={playerBlocking}
-              jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickHiKey={playerKickHiKey} kickLoKey={playerKickLoKey} kickLoSpin={playerKickLoSpin}
-              hitKey={playerHitKey} />
+              jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickHiKey={playerKickHiKey} kickLoKey={playerKickLoKey} hitKey={playerHitKey} />
             {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-Math.PI / 2} mirror headId={oppHeadId} blocking={oppBlocking}
-              jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} kickLoSpin={oppKickLoSpin}
-              hitKey={oppHitKey} />}
+              jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} hitKey={oppHitKey} />}
           </>
         )}
         {!solo && <Ground />}
