@@ -71,8 +71,9 @@ const g2 = await load(`/public/models/${prefix}.glb`)
 const kicker = new THREE.Group(); kicker.position.x = -ANCHOR; kicker.rotation.y = FRONT_FIX
 const kf = new THREE.Group(); kf.add(g1.scene); kicker.add(kf); scene.add(kicker)
 const mixer = new THREE.AnimationMixer(g1.scene)
-const clip = g1.animations.find(a => a.name === clipName)
-if (!clip) { document.title = 'NO CLIP'; throw new Error('clip not found: ' + clipName) }
+// fall back to the first animation so single-clip TEST files can be inspected
+const clip = g1.animations.find(a => a.name === clipName) ?? g1.animations[0]
+if (!clip) { document.title = 'NO CLIP'; throw new Error('no animations in ' + prefix) }
 const act = mixer.clipAction(clip); act.play(); act.paused = true; act.time = t
 mixer.update(0.0001)
 fitInto(kf, g1.scene)

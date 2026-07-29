@@ -43,8 +43,12 @@ export const FIGHTERS: FighterMeta[] = [
     thumb: '/enemies/republican/prepper.png', party: 'republican', ownHead: true, minLevel: 5 },
   { id: 'ice_agent', label: 'The Ice Man', img: '/enemies/republican/ice_agent.png',
     thumb: '/enemies/republican/ice_agent.png', party: 'republican', ownHead: true, minLevel: 8 },
+  // The Don's head+hair eat most of the height budget, so fitting him to the
+  // standard 2.2 left his BODY looking stunted next to everyone else — give him
+  // a taller overall fit so he reads full-size (Michael 2026-07-28).
   { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
-    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10 },
+    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10,
+    fitHeight: 2.6 },
   { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
     thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true, minLevel: 12 },
   // ── democrat ──
