@@ -601,6 +601,8 @@ function StreetFightPage() {
   const L = useRef({
     startAt: 0, liveAt: 0, over: false, myCd: 0, tapAlt: false,
     comboN: 0, lastHit: 0,
+    // recent strikes, for combo-sequence detection (see COMBOS / detectCombo)
+    comboHist: [] as { move: Move; at: number }[],
     blockHeld: false,
     dodgeUntil: 0, dodgeCd: 0,
     foeNextAt: 0, foeWindupAt: 0, foeMove: 'jab' as Move,
@@ -1031,10 +1033,48 @@ function StreetFightPage() {
   // Core: play the 3D move, then resolve damage + spark + SFX ON THE STRIKE
   // FRAME (impactMs = when the clip's punch/kick visually lands), so what you
   // see, hear, and score are one moment — not a disconnected timeout.
+  // ── COMBOS (Michael 2026-07-28) ────────────────────────────────────────────
+  // Real depth without new animation credits: we watch the last few strikes and
+  // reward known sequences with bonus damage + a callout. Each link must land
+  // within COMBO_WINDOW of the previous one, so combos take timing, not mashing.
+  const COMBO_WINDOW = 1100 // ms between links
+  const COMBOS: { name: string; seq: Move[]; mult: number; color: string }[] = [
+    // classic boxing → head kick finisher
+    { name: 'COMBINATION!', seq: ['cross', 'cross', 'kick'], mult: 1.55, color: '#f97316' },
+    // high–low: punch upstairs, kick the leg out
+    { name: 'HIGH-LOW!', seq: ['cross', 'hook'], mult: 1.3, color: '#38bdf8' },
+    // chop the same leg twice
+    { name: 'LEG DESTROYER!', seq: ['hook', 'hook'], mult: 1.45, color: '#ef4444' },
+    // set up the jump kick off a punch
+    { name: 'AIR RAID!', seq: ['cross', 'jumpkick'], mult: 1.5, color: '#a78bfa' },
+    // three kicks in sequence
+    { name: 'KICK RUSH!', seq: ['kick', 'hook', 'kick'], mult: 1.6, color: '#fbbf24' },
+  ]
+  /** Longest combo whose tail matches the recent strike history. */
+  function detectCombo(): { name: string; mult: number; color: string } | null {
+    const hist = L.current.comboHist ?? []
+    const now = Date.now()
+    let best: { name: string; mult: number; color: string } | null = null
+    for (const c of COMBOS) {
+      if (hist.length < c.seq.length) continue
+      const tail = hist.slice(-c.seq.length)
+      // every link must match AND be inside the window from the one before it
+      const ok = tail.every((h, i) => h.move === c.seq[i]
+        && (i === 0 || h.at - tail[i - 1].at <= COMBO_WINDOW))
+        && now - tail[tail.length - 1].at <= COMBO_WINDOW
+      if (ok && (!best || c.seq.length > COMBOS.find(x => x.name === best!.name)!.seq.length)) {
+        best = { name: c.name, mult: c.mult, color: c.color }
+      }
+    }
+    return best
+  }
+
   function strikeCore(move: Move, right: boolean, label: string, impactMs: number, opts?: { jump?: boolean }) {
     const S = L.current
     S.lastHit = Date.now()
     S.counts.taps++
+    // record this strike for combo detection (keep the tail short)
+    S.comboHist = [...(S.comboHist ?? []), { move, at: Date.now() }].slice(-6)
     const heavy = (MOVES.find(m => m.move === move)?.mult ?? 0.6) > 1.0
     const kicky = move === 'kick' || move === 'hook' || move === 'jumpkick'
     buzz(8) // immediate tactile press feedback; the visual pose changes this frame
@@ -1079,6 +1119,18 @@ function StreetFightPage() {
         dmg = Math.floor(dmg * POWER_MULT)
         S.powerArmed = false; setPowerArmed(false)
         addSpark(true, '⚡ POWER!', '#fde047')
+      }
+      // COMBO: a recognised sequence that CONNECTS pays a bonus + callout
+      if (result === 'hit') {
+        const combo = detectCombo()
+        if (combo) {
+          dmg = Math.floor(dmg * combo.mult)
+          addSpark(true, combo.name, combo.color)
+          flashHint(`🔥 ${combo.name}`)
+          triggerHitStop(160)
+          buzz(40)
+          S.comboHist = [] // banked — start the next chain fresh
+        }
       }
       const t = (Date.now() - S.startAt) / 1000
       if (dmg >= S.foeHp && t < 14) dmg = Math.max(0, S.foeHp - 1) // no KO before 14s
@@ -1291,13 +1343,33 @@ function StreetFightPage() {
   // ── Live inputs: on-screen pads handle touch; keyboard is the desktop path ──
   useEffect(() => {
     if (phase !== 'live') return
+    // DESKTOP LAYOUT (Michael 2026-07-28) — mirrors the two on-screen pads:
+    //   LEFT pad  = W A S D + SPACE   move/jump/duck + hold SPACE to block
+    //   RIGHT pad = arrow keys        ↑ head kick · ↓ leg kick · → punch · ← special
+    //   CTRL      = ⚡ power
+    const isBlockKey = (e: KeyboardEvent) => e.code === 'Space'
     const down = (e: KeyboardEvent) => {
       if (e.repeat) return
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); playerStrike() }
-      if (e.key === 'ArrowDown' || e.key === 's') { L.current.blockHeld = true; setBlocking(true); setMyPose('block') }
+      const k = e.key.toLowerCase()
+      // ── left pad: movement ──
+      if (k === 'a') { e.preventDefault(); setPlayerX(x => Math.max(-2.6, x - 0.4)) }
+      if (k === 'd') { e.preventDefault(); setPlayerX(x => Math.min((L.current.oppX ?? ANCHOR) - 0.5, x + 0.4)) }
+      if (k === 'w') { e.preventDefault(); doJump() }
+      if (k === 's') { e.preventDefault(); setPlayerDuck(true) }
+      // ── hold SPACE to block ──
+      if (isBlockKey(e)) { e.preventDefault(); L.current.blockHeld = true; setBlocking(true); setMyPose('block') }
+      // ── right pad: attacks ──
+      if (e.key === 'ArrowUp') { e.preventDefault(); playerHighKick() }
+      if (e.key === 'ArrowDown') { e.preventDefault(); playerLowKick() }
+      if (e.key === 'ArrowRight') { e.preventDefault(); playerPunch() }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); playerSpecial() }
+      if (e.key === 'Control') { e.preventDefault(); playerPower() }
+      if (e.key === 'Enter') { e.preventDefault(); playerStrike() }
     }
     const up = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown' || e.key === 's') {
+      const k = e.key.toLowerCase()
+      if (k === 's') setPlayerDuck(false)
+      if (isBlockKey(e)) {
         L.current.blockHeld = false
         setBlocking(false)
         if (!L.current.over) setMyPose('idle')
@@ -1792,6 +1864,17 @@ function StreetFightPage() {
             <div className="text-center space-y-1">
               <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ★ special</p>
               <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — ▲ then 🦵 = jump kick</p>
+              {/* desktop keyboard map (Michael): pads mirrored onto WASD + arrows */}
+              <p className="text-gray-500 text-[11px]">
+                ⌨️ <span className="text-gray-300 font-bold">W A S D</span> move/jump/duck ·
+                <span className="text-gray-300 font-bold"> SPACE</span> block ·
+                <span className="text-gray-300 font-bold"> ↑↓→</span> kicks/punch ·
+                <span className="text-gray-300 font-bold"> ←</span> special ·
+                <span className="text-gray-300 font-bold"> CTRL</span> power
+              </p>
+              <p className="text-amber-300/80 text-[11px] font-bold">
+                🔥 Combos: punch→punch→head kick · punch→leg kick · leg kick×2 · punch→jump kick
+              </p>
             </div>
           )
         ) : phase !== 'done' ? (
