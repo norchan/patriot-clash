@@ -72,7 +72,7 @@ function getWinceTexture(): THREE.CanvasTexture {
   return winceTex
 }
 
-const MODEL_VER = 3 // v3: kicklo swapped to Simple_Kick (103)
+const MODEL_VER = 4 // v4: six per-clip GLBs merged into one <prefix>.glb (named clips)
 
 // Correction for the model's front axis (these Meshy models' front is local -X).
 // Fighters always aim at their target; change by ±PI/2 if they don't face it.
@@ -175,13 +175,12 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   // (Boxing_Guard_Right_Straight_Kick), and a hit reaction.
   // LEG KICK: play the clip as-authored (no extra body yaw — runtime turns
   // faced the wrong way on phone; real roundhouse needs a proper clip later).
-  const punchGltf = useGLTF(`/models/${prefix}_punch.glb?v=${MODEL_VER}`)
-  const jabLGltf = useGLTF(`/models/${prefix}_jabL.glb?v=${MODEL_VER}`)
-  const kickHiGltf = useGLTF(`/models/${prefix}_kickhi.glb?v=${MODEL_VER}`)
-  const kickLoGltf = useGLTF(`/models/${prefix}_kicklo.glb?v=${MODEL_VER}`)
-  const blockGltf = useGLTF(`/models/${prefix}_block.glb?v=${MODEL_VER}`)
-  const hitGltf = useGLTF(`/models/${prefix}_hit.glb?v=${MODEL_VER}`)
-  const scene = jabLGltf.scene
+  // ONE file per fighter, six NAMED clips inside (scripts/merge_fighter_clips.mjs).
+  // Was six separate GLBs, each carrying a duplicate copy of the same mesh +
+  // texture — 7.8 MB per fighter vs ~1.5 MB now, and one fetch instead of six.
+  const gltf = useGLTF(`/models/${prefix}.glb?v=${MODEL_VER}`)
+  const scene = gltf.scene
+  const clip = (name: string) => gltf.animations.find(a => a.name === name) ?? null
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
   const hips = useMemo(() => scene.getObjectByName('Hips') ?? null, [scene])
@@ -198,7 +197,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   const { mixer, guard, guardHold, block, shots } = useMemo(() => {
     const m = new THREE.AnimationMixer(scene)
     // guard = a CLONE of the jab clip frozen at its guard frame (fists up at face)
-    const guardClip = jabLGltf.animations[0]?.clone()
+    const guardClip = clip('jabL')?.clone()
     const gd = guardClip ? m.clipAction(guardClip) : null
     const guardHold = 0.03
     if (gd) { gd.play(); gd.paused = true; gd.time = guardHold; gd.setEffectiveWeight(1) }
@@ -207,27 +206,30 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     // one-shot from `skipIn` at `speed` so the strike is VISIBLE within ~150-250ms
     // of the button press — otherwise rapid taps reset the clip before the punch
     // ever shows and the fighter looks frozen in guard.
-    const oneShot = (g: { animations: THREE.AnimationClip[] }, skipIn: number, speed: number) => {
-      const a = g.animations[0] ? m.clipAction(g.animations[0]) : null
+    const oneShot = (name: string, skipIn: number, speed: number) => {
+      const c = clip(name)
+      const a = c ? m.clipAction(c) : null
       if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true }
       return a ? { a, skipIn, speed } : null
     }
     // BLOCK = a held forearms-up cover pose (Block1 clip frozen mid-cover)
-    const blk = blockGltf.animations[0] ? m.clipAction(blockGltf.animations[0]) : null
+    const blockClip = clip('block')
+    const blk = blockClip ? m.clipAction(blockClip) : null
     if (blk) { blk.play(); blk.paused = true; blk.time = 1.2; blk.setEffectiveWeight(0) }
     return {
       mixer: m, guard: gd, guardHold, block: blk,
       shots: {
-        jabR: oneShot(punchGltf, 1.45, 2.4), // straight: strike at ~2.0s in the raw clip
-        jabL: oneShot(jabLGltf, 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
+        jabR: oneShot('punch', 1.45, 2.4), // straight: strike at ~2.0s in the raw clip
+        jabL: oneShot('jabL', 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
         // HEAD KICK: Step_in_High_Kick (218) — leg extended head-height at ~0.56s
-        kickHi: oneShot(kickHiGltf, 0.2, 1.4),
+        kickHi: oneShot('kickhi', 0.2, 1.4),
         // LEG KICK: Simple_Kick (103) — thrust kick extends at ~1.0s raw
-        kickLo: oneShot(kickLoGltf, 0.62, 2.3), // skip deeper into the wind-up + faster = a snapping leg kick
-        hit: oneShot(hitGltf, 0.12, 1.6),
+        kickLo: oneShot('kicklo', 0.62, 2.3), // skip deeper into the wind-up + faster = a snapping leg kick
+        hit: oneShot('hit', 0.12, 1.6),
       },
     }
-  }, [scene, punchGltf.animations, jabLGltf.animations, kickHiGltf.animations, kickLoGltf.animations, blockGltf.animations, hitGltf.animations])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene, gltf.animations])
 
   useLayoutEffect(() => {
     // The GLTF scene is CACHED across mounts — reset every mutation we may have
