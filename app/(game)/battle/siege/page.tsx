@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
@@ -53,7 +53,7 @@ interface Spark { id: number; x: number; y: number; text: string; color: string 
 interface Fx {
   id: number
   src?: string          // image sprite
-  src2?: string         // second frame — flaps between src/src2
+  src2?: string         // second frame â€” flaps between src/src2
   emoji?: string
   boom?: boolean        // static pop-in explosion instead of flight
   x0: number; y0: number
@@ -69,16 +69,16 @@ const MARCH_MS = 1100          // soldier travel time to the walls
 const SOLDIER_HIT_MS = 850     // time between soldier strikes
 const THROW_MS = 420           // projectile flight time
 const THROW_COOLDOWN_MS = 320
-const ASSAULT_MAX_MS = 12000   // hard cap: an assault lasts at most 12 seconds
+const ASSAULT_MAX_MS = 15000   // hard cap: an assault lasts at most 15 seconds (Michael 2026-07-28)
 
 // The hall sits dead center of the base map; attacks aim here
 const HALL_X = 50
 const HALL_Y = 47
 
-// Corner defense turrets (screen %). Every tick they may pick off a troop —
+// Corner defense turrets (screen %). Every tick they may pick off a troop â€”
 // the closer he is to a turret, the deadlier. The free troops are capped, and the
 // defenses terminate some of them: WHERE you drop them is the skill.
-// Ring of towers around the central keep (matches the base art) — troops
+// Ring of towers around the central keep (matches the base art) â€” troops
 // charging the center must run this gauntlet
 const DEFENSE_GUNS = [
   { x: 50, y: 33 },
@@ -90,7 +90,7 @@ const KILL_BASE = { march: 0.022, fight: 0.028 } // per 200ms tick
 
 const TROOP_RUN = ['/halls/soldier_run1.png', '/halls/soldier_run3.png', '/halls/soldier_run2.png']
 const TROOP_ATK = ['/halls/soldier_atk1.png', '/halls/soldier_atk3.png', '/halls/soldier_atk2.png']
-// Free ground game per 100 FP assault (siege rework A2) — no unlimited spam;
+// Free ground game per 100 FP assault (siege rework A2) â€” no unlimited spam;
 // pressure beyond this comes from owned gear and party specials
 const FREE_TROOPS = 5
 const POOR_RUN = ['/siege/poor_run1.png', '/siege/poor_run2.png']
@@ -120,7 +120,7 @@ function FxItem({ f }: { f: Fx }) {
     return () => cancelAnimationFrame(raf)
   }, [])
   const inner = f.boom ? (
-    <span style={{ fontSize: f.size, animation: 'sgBoom 0.75s ease-out forwards' }}>{f.emoji ?? '💥'}</span>
+    <span style={{ fontSize: f.size, animation: 'sgBoom 0.75s ease-out forwards' }}>{f.emoji ?? 'ðŸ’¥'}</span>
   ) : f.src ? (
     <span className="block relative" style={{ height: f.size, width: f.size * 1.2 }}>
       {f.src2 ? (
@@ -177,7 +177,7 @@ function SiegePage() {
   const [powerFlash, setPowerFlash] = useState<number | null>(null)
 
   // Party ground game (siege rework A1): Democrats field Canvassers,
-  // Republicans field Marshals — same troops, party-true names
+  // Republicans field Marshals â€” same troops, party-true names
   const troopName = profile?.party === 'republican' ? 'Marshals' : 'Canvassers'
 
   // Higher-level attackers field deadlier, hardier troops
@@ -193,7 +193,7 @@ function SiegePage() {
   // Special-strike damage pool: server-approved damage that the animation
   // chips off the bar in pieces
   const strikePool = useRef({ pending: 0, target: 0, chunk: 0 })
-  // Assault bookkeeping lives in refs — pointer handlers and intervals
+  // Assault bookkeeping lives in refs â€” pointer handlers and intervals
   // must read live values, not render-time snapshots
   const S = useRef({
     budget: 0,         // total defense points this assault removes
@@ -260,7 +260,7 @@ function SiegePage() {
     }
   }
 
-  // ── Assault damage: every hit spends part of the challenge's budget ──────
+  // â”€â”€ Assault damage: every hit spends part of the challenge's budget â”€â”€â”€â”€â”€â”€
   function applyDamage(chunk: number, xPct: number, yPct: number) {
     const st = S.current
     if (st.ended || phase !== 'assault') return
@@ -269,7 +269,7 @@ function SiegePage() {
     st.dealt += applied
     setDefense(prev => {
       const next = Math.max(0, prev - applied)
-      // Captured hall drained to zero → end the fight immediately
+      // Captured hall drained to zero â†’ end the fight immediately
       if (next <= 0 && st.captured && !st.ended) finishAssault()
       return next
     })
@@ -280,14 +280,14 @@ function SiegePage() {
     if (st.dealt >= st.budget - 0.5) finishAssault()
   }
 
-  // ── Strike damage: chips the server-approved special-attack roll ─────────
+  // â”€â”€ Strike damage: chips the server-approved special-attack roll â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function chipStrike(chunk: number, xPct: number, yPct: number) {
     const pool = strikePool.current
     if (pool.pending <= 0) return
     const d = Math.round(Math.min(chunk, pool.pending))
     if (d <= 0) return
     pool.pending -= d
-    // target can be 0 — lethal specials are allowed to finish the hall
+    // target can be 0 â€” lethal specials are allowed to finish the hall
     setDefense(prev => Math.max(pool.target, prev - d))
     addSpark(xPct, yPct, `-${d.toLocaleString()}`, '#fbbf24')
     shakeScreen()
@@ -319,11 +319,11 @@ function SiegePage() {
     })
   }
 
-  // ── Begin: one authoritative API call, then the interactive assault ──────
+  // â”€â”€ Begin: one authoritative API call, then the interactive assault â”€â”€â”€â”€â”€â”€
   async function beginAssault() {
     if (!gym || busy) return
     if (!location) {
-      showToast('📍 Still finding your location — make sure location access is allowed')
+      showToast('ðŸ“ Still finding your location â€” make sure location access is allowed')
       return
     }
     setBusy(true)
@@ -335,7 +335,7 @@ function SiegePage() {
       })
       const data = await res.json()
       if (!res.ok || data.error) {
-        showToast(`❌ ${data.message || data.error || 'Attack failed'}`)
+        showToast(`âŒ ${data.message || data.error || 'Attack failed'}`)
         setBusy(false)
         return
       }
@@ -359,21 +359,21 @@ function SiegePage() {
       sfx.bell(true)
       siegeMusic.start()
       schedule(800, () => setBanner(''))
-      // Hard 12s cap — whatever's left of the budget lands and the fight ends
+      // Hard 12s cap â€” whatever's left of the budget lands and the fight ends
       schedule(ASSAULT_MAX_MS, () => { if (!S.current.ended) finishAssault() })
     } catch {
-      showToast('❌ Attack failed')
+      showToast('âŒ Attack failed')
       setBusy(false)
     }
   }
 
-  // ── Party special strikes: server spends FP + rolls damage, we perform ───
+  // â”€â”€ Party special strikes: server spends FP + rolls damage, we perform â”€â”€â”€
   async function strike(attackId: SiegeAttackId) {
     const st = S.current
     if (!gym || strikeBusy || st.ended || st.captured) return
-    if (!location) { showToast('📍 Still finding your location...'); return }
+    if (!location) { showToast('ðŸ“ Still finding your location...'); return }
     const def = SIEGE_ATTACKS[attackId]
-    if ((profile?.fp_balance ?? 0) < def.fp) { showToast(`❌ Need ${def.fp} FP for ${def.name}`); return }
+    if ((profile?.fp_balance ?? 0) < def.fp) { showToast(`âŒ Need ${def.fp} FP for ${def.name}`); return }
     setStrikeBusy(true)
     try {
       const res = await fetch(`/api/gyms/${gym.id}/strike`, {
@@ -383,7 +383,7 @@ function SiegePage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        showToast(`❌ ${data.message || data.error || 'Strike failed'}`)
+        showToast(`âŒ ${data.message || data.error || 'Strike failed'}`)
         setStrikeBusy(false)
         return
       }
@@ -393,11 +393,16 @@ function SiegePage() {
         st.captured = true
         st.damage = (st.damage || 0) + (data.damage ?? 0)
       }
+      // SPAMMABLE (Michael 2026-07-28): the lock used to be held for the whole
+      // choreography â€” up to 5.6s for the mob â€” so one attack ate half the
+      // assault and you could only watch. It now releases the moment the
+      // server answers, so strikes OVERLAP and read as a barrage. FP cost is
+      // the real limiter, and the server still rolls every strike.
+      setStrikeBusy(false)
       const total = playStrike(attackId, data.damage)
       schedule(total, () => {
-        strikePool.current.pending = 0
+        // never wipe `pending` here â€” other strikes may still be draining it
         setDefense(prev => Math.min(prev, Math.max(0, data.defense_remaining ?? 0)))
-        setStrikeBusy(false)
         // Lethal special finishes the hall mid-assault
         if (data.captured && !S.current.ended) {
           S.current.captured = true
@@ -406,12 +411,12 @@ function SiegePage() {
         }
       })
     } catch {
-      showToast('❌ Strike failed')
+      showToast('âŒ Strike failed')
       setStrikeBusy(false)
     }
   }
 
-  // ── Siege gear (rework B1-B3): owned consumables, spent server-side ──────
+  // â”€â”€ Siege gear (rework B1-B3): owned consumables, spent server-side â”€â”€â”€â”€â”€â”€
   // Load the bag when the screen opens (GET also claims the daily freebie)
   useEffect(() => {
     fetch('/api/items').then(r => r.json())
@@ -422,7 +427,7 @@ function SiegePage() {
   async function useGear(item: 'firecracker' | 'dynamite' | 'rocket') {
     const st = S.current
     if (!gym || boostBusy || st.ended || st.captured) return
-    if (!location) { showToast('📍 Still finding your location...'); return }
+    if (!location) { showToast('ðŸ“ Still finding your location...'); return }
     if ((inv[item] ?? 0) <= 0) return
     setBoostBusy(true)
     try {
@@ -433,15 +438,15 @@ function SiegePage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        showToast(`❌ ${data.message || data.error || 'Gear failed'}`)
+        showToast(`âŒ ${data.message || data.error || 'Gear failed'}`)
         setBoostBusy(false)
         return
       }
       setInv(v => ({ ...v, [item]: Math.max(0, (v[item] ?? 0) - 1) }))
       st.remaining = data.defense_remaining ?? 0
-      // gear damage is REAL hall damage; lethal gear can capture (DEF → 0)
+      // gear damage is REAL hall damage; lethal gear can capture (DEF â†’ 0)
       const x = HALL_X - 6 + Math.random() * 12, y = HALL_Y - 4 + Math.random() * 8
-      addFx({ boom: true, emoji: item === 'rocket' ? '🚀💥' : item === 'dynamite' ? '💣💥' : '🧨💥', x0: x, y0: y, x1: x, y1: y, size: item === 'rocket' ? 64 : 48, dur: 750 }, 800)
+      addFx({ boom: true, emoji: item === 'rocket' ? 'ðŸš€ðŸ’¥' : item === 'dynamite' ? 'ðŸ’£ðŸ’¥' : 'ðŸ§¨ðŸ’¥', x0: x, y0: y, x1: x, y1: y, size: item === 'rocket' ? 64 : 48, dur: 750 }, 800)
       addSpark(x, y - 6, `-${data.damage.toLocaleString()}`, '#fbbf24')
       const id = ++idRef.current
       setShockwaves(w => [...w, { id, x, y }])
@@ -456,28 +461,31 @@ function SiegePage() {
         schedule(600, () => { if (!S.current.ended) finishAssault() })
       }
     } catch {
-      showToast('❌ Gear failed')
+      showToast('âŒ Gear failed')
     }
     setBoostBusy(false)
   }
 
-  // Choreography per attack — returns total duration ms
+  // Choreography per attack â€” returns total duration ms
   function playStrike(attackId: SiegeAttackId, damage: number): number {
     const pool = strikePool.current
-    pool.pending = damage
-    pool.target = Math.max(0, defense - damage)
+    // ADDITIVE so overlapping strikes stack instead of cancelling each other:
+    // the second attack's damage joins the pool rather than replacing what the
+    // first one still has left to chip (Michael 2026-07-28 â€” spammable strikes).
+    pool.pending += damage
+    pool.target = Math.max(0, Math.min(pool.target || Infinity, defense - damage))
     sfx.bell(false)
 
     if (attackId === 'tired') {
       // volley of pitchforks raining onto the hall
       const n = 9
-      pool.chunk = damage / n
+      const chunk = damage / n
       for (let i = 0; i < n; i++) {
         const x1 = 35 + Math.random() * 30
         const y1 = 38 + Math.random() * 12
         schedule(i * 100, () => {
           addFx({ src: '/siege/pitchfork.png', x0: 8 + Math.random() * 84, y0: 106, x1, y1, size: 54, dur: 650, spin: true, easeIn: true }, 700)
-          schedule(650, () => chipStrike(pool.chunk, x1, y1 - 4))
+          schedule(650, () => chipStrike(chunk, x1, y1 - 4))
         })
       }
       return n * 100 + 900
@@ -486,7 +494,7 @@ function SiegePage() {
     if (attackId === 'poor') {
       // a furious mob storms the gates
       const n = 7
-      pool.chunk = damage / (n * 3)
+      const chunk = damage / (n * 3)
       for (let i = 0; i < n; i++) {
         schedule(i * 130, () => {
           const sx = 6 + Math.random() * 88
@@ -514,28 +522,28 @@ function SiegePage() {
       // the huddled masses charge in a cloud of smoke
       for (let i = 0; i < 6; i++) {
         schedule(i * 120, () => {
-          addFx({ emoji: '💨', x0: 20 + Math.random() * 60, y0: 100, x1: 30 + Math.random() * 40, y1: 42 + Math.random() * 16, size: 64 + Math.random() * 40, dur: 1400 }, 1900)
+          addFx({ emoji: 'ðŸ’¨', x0: 20 + Math.random() * 60, y0: 100, x1: 30 + Math.random() * 40, y1: 42 + Math.random() * 16, size: 64 + Math.random() * 40, dur: 1400 }, 1900)
         })
       }
       schedule(200, () => {
         addFx({ src: '/siege/crowd.png', x0: 50, y0: 96, x1: 50, y1: 56, size: 240, dur: 1500 }, 2600)
       })
       const chunks = 4
-      pool.chunk = damage / chunks
+      const chunk = damage / chunks
       for (let i = 0; i < chunks; i++) {
         schedule(1500 + i * 220, () => {
-          chipStrike(pool.chunk, 42 + Math.random() * 16, 40 + Math.random() * 12)
+          chipStrike(chunk, 42 + Math.random() * 16, 40 + Math.random() * 12)
           shakeScreen(true)
         })
       }
-      schedule(1500, () => addFx({ boom: true, emoji: '💥', x0: 50, y0: 46, x1: 50, y1: 46, size: 84, dur: 750 }, 800))
+      schedule(1500, () => addFx({ boom: true, emoji: 'ðŸ’¥', x0: 50, y0: 46, x1: 50, y1: 46, size: 84, dur: 750 }, 800))
       return 2900
     }
 
     if (attackId === 'peace') {
       // screaming eagles dive on the hall
       const n = 4
-      pool.chunk = damage / n
+      const chunk = damage / n
       for (let i = 0; i < n; i++) {
         const fromLeft = i % 2 === 0
         const x1 = 40 + Math.random() * 20
@@ -543,8 +551,8 @@ function SiegePage() {
         schedule(i * 200, () => {
           addFx({ src: '/siege/eagle1.png', src2: '/siege/eagle2.png', x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1, y1, size: 66, dur: 950, flip: !fromLeft }, 1050)
           schedule(950, () => {
-            chipStrike(pool.chunk, x1, y1 - 3)
-            addFx({ boom: true, emoji: '🪶', x0: x1, y0: y1, x1, y1, size: 40, dur: 700 }, 750)
+            chipStrike(chunk, x1, y1 - 3)
+            addFx({ boom: true, emoji: 'ðŸª¶', x0: x1, y0: y1, x1, y1, size: 40, dur: 700 }, 750)
           })
         })
       }
@@ -554,7 +562,7 @@ function SiegePage() {
     if (attackId === 'strength') {
       // missile barrage
       const n = 3
-      pool.chunk = damage / n
+      const chunk = damage / n
       for (let i = 0; i < n; i++) {
         const x1 = 40 + i * 10 + Math.random() * 4
         const y1 = 40 + Math.random() * 8
@@ -562,8 +570,8 @@ function SiegePage() {
           sfx.whoosh?.()
           addFx({ src: '/siege/missile.png', x0: 20 + i * 30, y0: 110, x1, y1, size: 90, dur: 720, easeIn: true }, 740)
           schedule(720, () => {
-            addFx({ boom: true, emoji: '💥', x0: x1, y0: y1, x1, y1, size: 92, dur: 750 }, 800)
-            chipStrike(pool.chunk, x1, y1 - 5)
+            addFx({ boom: true, emoji: 'ðŸ’¥', x0: x1, y0: y1, x1, y1, size: 92, dur: 750 }, 800)
+            chipStrike(chunk, x1, y1 - 5)
             shakeScreen(true)
           })
         })
@@ -571,8 +579,8 @@ function SiegePage() {
       return n * 260 + 1100
     }
 
-    // liberty — Lady Liberty herself drops on the hall
-    pool.chunk = damage / 3
+    // liberty â€” Lady Liberty herself drops on the hall
+    const chunk = damage / 3
     addFx({ src: '/siege/statue.png', x0: 50, y0: -30, x1: 50, y1: 42, size: 240, dur: 950, easeIn: true }, 2400)
     schedule(950, () => {
       shakeScreen(true)
@@ -580,17 +588,17 @@ function SiegePage() {
       setShockwaves(w => [...w, { id, x: 50, y: 50 }])
       schedule(900, () => setShockwaves(w => w.filter(s => s.id !== id)))
       for (let i = 0; i < 5; i++) {
-        addFx({ emoji: '💨', x0: 50, y0: 50, x1: 26 + i * 12, y1: 44 + Math.random() * 12, size: 52, dur: 800 }, 900)
+        addFx({ emoji: 'ðŸ’¨', x0: 50, y0: 50, x1: 26 + i * 12, y1: 44 + Math.random() * 12, size: 52, dur: 800 }, 900)
       }
-      addFx({ boom: true, emoji: '💥', x0: 50, y0: 42, x1: 50, y1: 42, size: 110, dur: 750 }, 800)
+      addFx({ boom: true, emoji: 'ðŸ’¥', x0: 50, y0: 42, x1: 50, y1: 42, size: 110, dur: 750 }, 800)
     })
     for (let i = 0; i < 3; i++) {
-      schedule(1000 + i * 240, () => chipStrike(pool.chunk, 42 + Math.random() * 16, 40 + Math.random() * 10))
+      schedule(1000 + i * 240, () => chipStrike(chunk, 42 + Math.random() * 16, 40 + Math.random() * 10))
     }
     return 2700
   }
 
-  // ── Swipe → rock / firecracker along the swipe line ──────────────────────
+  // â”€â”€ Swipe â†’ rock / firecracker along the swipe line â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function launchThrow(x0: number, y0: number, x1: number, y1: number) {
     const st = S.current
     const now = Date.now()
@@ -617,18 +625,18 @@ function SiegePage() {
       setProjectiles(p => p.filter(pr => pr.id !== id))
       const xPct = (endX / rect.width) * 100
       const yPct = (targetY / rect.height) * 100
-      addSpark(xPct - 2, yPct - 3, kind === 'firecracker' ? '🧨💥' : '💥', '#fb923c')
+      addSpark(xPct - 2, yPct - 3, kind === 'firecracker' ? 'ðŸ§¨ðŸ’¥' : 'ðŸ’¥', '#fb923c')
       applyDamage(st.budget * (kind === 'firecracker' ? 0.10 : 0.055) * (0.85 + Math.random() * 0.3), xPct, yPct - 7)
     })
   }
 
-  // ── Tap → deploy one of the LIMITED free troops at the tap spot ──────────
+  // â”€â”€ Tap â†’ deploy one of the LIMITED free troops at the tap spot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function deploySoldier(x: number, y: number) {
     const st = S.current
     if (st.ended) return
-    // Capped free units per assault (siege rework A2) — the horde is finite
+    // Capped free units per assault (siege rework A2) â€” the horde is finite
     if (st.troopsUsed >= FREE_TROOPS) {
-      showToast(`🪧 Out of ${troopName}! Use your gear or a special attack`)
+      showToast(`ðŸª§ Out of ${troopName}! Use your gear or a special attack`)
       return
     }
     const rect = stageRef.current?.getBoundingClientRect()
@@ -644,7 +652,7 @@ function SiegePage() {
       y: (y / rect.height) * 100,
       tx,
       ty: HALL_Y + 4 + Math.random() * 8,
-      flip: tx < sx, // frames face right — mirror when charging leftward
+      flip: tx < sx, // frames face right â€” mirror when charging leftward
       state: 'march',
       spawnedAt: Date.now(),
       lastHit: 0,
@@ -657,7 +665,7 @@ function SiegePage() {
     buzz(15)
   }
 
-  // ── Soldier game loop: march → fight (chip damage) → fall ────────────────
+  // â”€â”€ Soldier game loop: march â†’ fight (chip damage) â†’ fall â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (phase !== 'assault') return
     const iv = setInterval(() => {
@@ -666,7 +674,7 @@ function SiegePage() {
       let changed = false
       const next = soldiersRef.current.map(s => {
         // Base defenses fire on troops: per-tick death roll scaled by how
-        // close he is to the nearest turret — placement is the skill
+        // close he is to the nearest turret â€” placement is the skill
         if (s.kind === 'troop' && (s.state === 'march' || s.state === 'fight')) {
           // approximate live position: use start point early in the march
           const px = s.state === 'fight' || now - s.spawnedAt > MARCH_MS / 2 ? s.tx : s.x
@@ -676,8 +684,8 @@ function SiegePage() {
           if (Math.random() < KILL_BASE[s.state] * danger) {
             changed = true
             const gun = DEFENSE_GUNS.reduce((a, b) => Math.hypot(px - a.x, py - a.y) < Math.hypot(px - b.x, py - b.y) ? a : b)
-            addFx({ emoji: '⚫', x0: gun.x, y0: gun.y, x1: px, y1: py, size: 16, dur: 260, easeIn: true }, 280)
-            schedule(260, () => addFx({ boom: true, emoji: '💥', x0: px, y0: py, x1: px, y1: py, size: 42, dur: 700 }, 750))
+            addFx({ emoji: 'âš«', x0: gun.x, y0: gun.y, x1: px, y1: py, size: 16, dur: 260, easeIn: true }, 280)
+            schedule(260, () => addFx({ boom: true, emoji: 'ðŸ’¥', x0: px, y0: py, x1: px, y1: py, size: 42, dur: 700 }, 750))
             return { ...s, state: 'poof' as const, hits: s.maxHits, lastHit: now }
           }
         }
@@ -713,7 +721,7 @@ function SiegePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
-  // ── Pointer input: short + still = tap (troop), else swipe (throw) ───────
+  // â”€â”€ Pointer input: short + still = tap (troop), else swipe (throw) â”€â”€â”€â”€â”€â”€â”€
   function onPointerDown(e: React.PointerEvent) {
     const rect = stageRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -736,7 +744,7 @@ function SiegePage() {
   if (phase === 'loading' || !profile) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-center"><div className="text-4xl mb-3">🏛️</div><p className="text-gray-400">Scouting the target...</p></div>
+        <div className="text-center"><div className="text-4xl mb-3">ðŸ›ï¸</div><p className="text-gray-400">Scouting the target...</p></div>
       </div>
     )
   }
@@ -745,7 +753,7 @@ function SiegePage() {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
         <p className="text-gray-400">Town hall not found.</p>
-        <button onClick={() => router.push('/map')} className="mt-4 text-blue-400">← Back to Map</button>
+        <button onClick={() => router.push('/map')} className="mt-4 text-blue-400">â† Back to Map</button>
       </div>
     )
   }
@@ -758,8 +766,8 @@ function SiegePage() {
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
     >
-      {/* ── The base map — 9:16 aerial, fills the whole screen, hall at the
-             center X ─────────────────────────────────────────────────────── */}
+      {/* â”€â”€ The base map â€” 9:16 aerial, fills the whole screen, hall at the
+             center X â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="absolute inset-0" style={{
         backgroundImage: 'url(/halls/hall_battle2.webp)',
         backgroundSize: 'cover', backgroundPosition: 'center',
@@ -770,10 +778,10 @@ function SiegePage() {
         background: 'linear-gradient(180deg, rgba(5,8,18,0.55) 0%, transparent 16%, transparent 72%, rgba(5,8,18,0.6) 100%)',
       }} />
 
-      {/* ── HUD: defense bar ─────────────────────────────────────────────── */}
+      {/* â”€â”€ HUD: defense bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="absolute top-3 left-3 right-3 z-30 pointer-events-none">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-white text-xs font-black drop-shadow">🏛️ {gym.city_name} Town Hall</span>
+          <span className="text-white text-xs font-black drop-shadow">ðŸ›ï¸ {gym.city_name} Town Hall</span>
           <span className="text-gray-200 text-xs font-bold tabular-nums drop-shadow">{defense.toLocaleString()} DEF</span>
         </div>
         <div className="h-3.5 bg-black/60 rounded-sm overflow-hidden border border-white/20">
@@ -782,13 +790,13 @@ function SiegePage() {
         </div>
         <div className="flex items-center justify-between mt-1">
           {gym.holder_username
-            ? <p className="text-gray-300 text-[10px] drop-shadow">Held by {gym.holder_username}{gym.holder_party ? ` · ${gym.holder_party === 'democrat' ? 'Democrat' : 'Republican'}` : ''}</p>
+            ? <p className="text-gray-300 text-[10px] drop-shadow">Held by {gym.holder_username}{gym.holder_party ? ` Â· ${gym.holder_party === 'democrat' ? 'Democrat' : 'Republican'}` : ''}</p>
             : <span />}
-          <p className="text-yellow-300 text-[10px] font-bold drop-shadow">⚡ {profile.fp_balance?.toLocaleString()} FP</p>
+          <p className="text-yellow-300 text-[10px] font-bold drop-shadow">âš¡ {profile.fp_balance?.toLocaleString()} FP</p>
         </div>
       </div>
 
-      {/* ── banner ───────────────────────────────────────────────────────── */}
+      {/* â”€â”€ banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {banner && (
         <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
           <span className="font-black" style={{
@@ -800,7 +808,7 @@ function SiegePage() {
         </div>
       )}
 
-      {/* ── projectiles ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ projectiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {projectiles.map(p => (
         <div key={p.id} className="absolute z-20 pointer-events-none" style={{
           left: p.launched ? p.x1 : p.x0,
@@ -812,11 +820,11 @@ function SiegePage() {
             fontSize: p.kind === 'firecracker' ? 46 : 40,
             animation: `sgSpin ${THROW_MS}ms linear`,
             filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.6))',
-          }}>{p.kind === 'firecracker' ? '🧨' : '🪨'}</span>
+          }}>{p.kind === 'firecracker' ? 'ðŸ§¨' : 'ðŸª¨'}</span>
         </div>
       ))}
 
-      {/* ── soldiers (party troops + the poor) ─────────────────────────────────── */}
+      {/* â”€â”€ soldiers (party troops + the poor) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {soldiers.map(s => (
         <div key={s.id} className="absolute z-20 pointer-events-none" style={{
           left: `${s.x}%`,
@@ -825,7 +833,7 @@ function SiegePage() {
           transform: `translate(-50%, -90%)${s.flip ? ' scaleX(-1)' : ''}`,
         }}>
           {s.state === 'poof' ? (
-            <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>💨</span>
+            <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>ðŸ’¨</span>
           ) : (
             <span className="block relative" style={{
               width: 56,
@@ -844,10 +852,10 @@ function SiegePage() {
         </div>
       ))}
 
-      {/* ── special-attack fx ────────────────────────────────────────────── */}
+      {/* â”€â”€ special-attack fx â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {fx.map(f => <FxItem key={f.id} f={f} />)}
 
-      {/* ── shockwaves ───────────────────────────────────────────────────── */}
+      {/* â”€â”€ shockwaves â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {shockwaves.map(w => (
         <div key={w.id} className="absolute z-20 pointer-events-none rounded-full" style={{
           left: `${w.x}%`, top: `${w.y}%`,
@@ -858,32 +866,32 @@ function SiegePage() {
         }} />
       ))}
 
-      {/* ── damage sparks ────────────────────────────────────────────────── */}
+      {/* â”€â”€ damage sparks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {sparks.map(s => (
         <div key={s.id} className="absolute z-30 pointer-events-none" style={{ left: `${s.x}%`, top: `${s.y}%`, animation: 'sgSpark 0.85s ease-out forwards' }}>
           <span className="font-black text-xl" style={{ color: s.color, textShadow: `0 0 10px ${s.color}, 0 2px 4px #000` }}>{s.text}</span>
         </div>
       ))}
 
-      {/* ── power flash: the server's exact roll, shown honestly (A3) ────── */}
+      {/* â”€â”€ power flash: the server's exact roll, shown honestly (A3) â”€â”€â”€â”€â”€â”€ */}
       {powerFlash !== null && (
         <div className="absolute top-24 inset-x-0 z-40 text-center pointer-events-none">
           <span className="inline-block px-5 py-2 rounded-2xl font-black text-xl text-amber-300 bg-black/70 border border-amber-500/60"
             style={{ textShadow: '0 0 14px #f59e0b' }}>
-            💥 ASSAULT POWER: {powerFlash.toLocaleString()} DEF
+            ðŸ’¥ ASSAULT POWER: {powerFlash.toLocaleString()} DEF
           </span>
         </div>
       )}
 
-      {/* ── assault controls: GEAR TRAY + party SPECIAL ATTACKS + hint ───── */}
+      {/* â”€â”€ assault controls: GEAR TRAY + party SPECIAL ATTACKS + hint â”€â”€â”€â”€â”€ */}
       {phase === 'assault' && (
         <div className="absolute bottom-3 left-3 right-3 z-30"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {/* owned gear — server-spent, real hall damage on top of the budget */}
+          {/* owned gear â€” server-spent, real hall damage on top of the budget */}
           <div className="flex justify-center gap-2 mb-2">
             {(['firecracker', 'dynamite', 'rocket'] as const).map(itemId => {
               const count = inv[itemId] ?? 0
-              const emoji = itemId === 'rocket' ? '🚀' : itemId === 'dynamite' ? '💣' : '🧨'
+              const emoji = itemId === 'rocket' ? 'ðŸš€' : itemId === 'dynamite' ? 'ðŸ’£' : 'ðŸ§¨'
               return (
                 <button key={itemId}
                   onPointerDown={e => e.stopPropagation()}
@@ -901,12 +909,12 @@ function SiegePage() {
             })}
             {(inv.firecracker ?? 0) + (inv.dynamite ?? 0) + (inv.rocket ?? 0) === 0 && (
               <span className="self-center text-gray-400 text-[10px] font-bold bg-black/55 rounded-full px-3 py-1">
-                📦 Out of gear — your Print Shop is making more
+                ðŸ“¦ Out of gear â€” your Print Shop is making more
               </span>
             )}
           </div>
           <p className="text-center text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1 drop-shadow">
-            ⚡ Special Attacks
+            âš¡ Special Attacks
           </p>
           <div className="grid grid-cols-3 gap-2 mb-2">
             {myAttacks.map(a => {
@@ -925,103 +933,103 @@ function SiegePage() {
                   }}>
                   <div className="text-2xl leading-none">{a.emoji}</div>
                   <p className="text-white text-[10px] font-black mt-0.5 leading-tight">{a.name}</p>
-                  <p className="text-yellow-300 text-[9px] font-bold">⚡ {a.fp} FP</p>
+                  <p className="text-yellow-300 text-[9px] font-bold">âš¡ {a.fp} FP</p>
                 </button>
               )
             })}
           </div>
           <p className="text-center text-white/90 text-xs font-bold bg-black/55 backdrop-blur rounded-full px-4 py-1.5 mx-auto w-max max-w-full pointer-events-none">
-            🪨 SWIPE to throw · 👆 TAP: <span className={troopsLeft > 0 ? 'text-emerald-300' : 'text-red-400'}>{troopsLeft} {troopName} left</span>
+            ðŸª¨ SWIPE to throw Â· ðŸ‘† TAP: <span className={troopsLeft > 0 ? 'text-emerald-300' : 'text-red-400'}>{troopsLeft} {troopName} left</span>
           </p>
         </div>
       )}
 
-      {/* ── READY overlay ────────────────────────────────────────────────── */}
+      {/* â”€â”€ READY overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {phase === 'ready' && (
         <div className="absolute inset-x-0 bottom-0 z-40 p-4 pb-8"
           style={{ background: 'linear-gradient(0deg, rgba(3,7,18,0.92) 40%, transparent 100%)' }}>
           <div className="w-full max-w-md mx-auto space-y-2.5">
             {samePartyHall ? (
               <div className="bg-gray-900/95 rounded-2xl p-4 text-center border border-gray-700">
-                <p className="text-gray-200 text-sm mb-3">Your party holds this hall — donate to defend it instead!</p>
+                <p className="text-gray-200 text-sm mb-3">Your party holds this hall â€” donate to defend it instead!</p>
                 <button onClick={() => router.push(`/townhall/${gym.id}`)}
                   className="w-full py-3 rounded-xl font-bold text-white transition"
                   style={{ background: myColor }}>
-                  🏛️ Go Donate
+                  ðŸ›ï¸ Go Donate
                 </button>
               </div>
             ) : (
               <>
                 {/* honest assault math (siege rework A3): the roll owns the
-                    ceiling — troops/throws just spend it, gear hits extra */}
+                    ceiling â€” troops/throws just spend it, gear hits extra */}
                 <div className="bg-gray-900/95 rounded-2xl p-3.5 border border-gray-700">
-                  <p className="text-white text-sm font-black text-center">March on {gym.city_name} Town Hall — 100 FP</p>
+                  <p className="text-white text-sm font-black text-center">March on {gym.city_name} Town Hall â€” 100 FP</p>
                   <p className="text-gray-400 text-[11px] text-center mt-1.5 leading-snug">
-                    Each assault rolls <span className="text-amber-300 font-black">~200–400 DEF</span> of attack power
+                    Each assault rolls <span className="text-amber-300 font-black">~200â€“400 DEF</span> of attack power
                     (revealed at the bell). Your <span className="text-white font-bold">{FREE_TROOPS} {troopName}</span> and
-                    throws spend that roll — <span className="text-amber-300 font-bold">gear 🧨💣🚀 and specials hit extra</span>.
+                    throws spend that roll â€” <span className="text-amber-300 font-bold">gear ðŸ§¨ðŸ’£ðŸš€ and specials hit extra</span>.
                   </p>
                 </div>
                 <button onClick={beginAssault} disabled={busy || (profile.fp_balance ?? 0) < 100}
                   className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black text-lg transition active:scale-95 shadow-2xl">
-                  {busy ? '⏳ ...' : '⚔️ BEGIN ASSAULT (100 FP)'}
+                  {busy ? 'â³ ...' : 'âš”ï¸ BEGIN ASSAULT (100 FP)'}
                 </button>
                 {!location && (
-                  <p className="text-yellow-400 text-xs text-center">📍 Locating you... attack unlocks once your position is found</p>
+                  <p className="text-yellow-400 text-xs text-center">ðŸ“ Locating you... attack unlocks once your position is found</p>
                 )}
               </>
             )}
             <button onClick={() => router.push(`/townhall/${gym.id}`)}
               className="w-full py-3 bg-gray-900/90 border border-gray-700 text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-800 transition">
-              🏛️ Back to Town Hall
+              ðŸ›ï¸ Back to Town Hall
             </button>
           </div>
         </div>
       )}
 
-      {/* ── RESULT overlay ───────────────────────────────────────────────── */}
+      {/* â”€â”€ RESULT overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {phase === 'result' && result && (
         <div className="absolute inset-0 z-40 bg-black/60 flex items-center justify-center p-4">
           <div className="w-full max-w-md space-y-3">
             <div className="bg-gray-900/95 rounded-2xl p-5 text-center border border-gray-700">
-              <div className="text-5xl mb-1">{result.captured ? '🏛️' : '🛡️'}</div>
+              <div className="text-5xl mb-1">{result.captured ? 'ðŸ›ï¸' : 'ðŸ›¡ï¸'}</div>
               <h2 className="font-black text-2xl" style={{ color: result.captured ? '#4ade80' : '#f87171' }}>
                 {result.captured ? 'HALL CAPTURED!' : 'DEFENSE HOLDS'}
               </h2>
               <p className="text-gray-400 text-sm mt-1">
                 {result.captured
                   ? `${gym.city_name} flies your colors now! +50 FP bonus`
-                  : `You dealt ${result.damage.toLocaleString()} damage — the hall still stands`}
+                  : `You dealt ${result.damage.toLocaleString()} damage â€” the hall still stands`}
               </p>
             </div>
 
             {result.captured ? (
-              // Freshly captured — fortify it before rivals counterattack
+              // Freshly captured â€” fortify it before rivals counterattack
               <>
                 <p className="text-gray-300 text-xs text-center px-2">
-                  🛡️ It's yours now — but rivals can attack it. Reinforce your defenses before they do!
+                  ðŸ›¡ï¸ It's yours now â€” but rivals can attack it. Reinforce your defenses before they do!
                 </p>
                 <button onClick={() => router.push(`/townhall/${gym.id}`)}
                   className="w-full py-4 rounded-xl font-black text-white transition active:scale-95"
                   style={{ background: myColor }}>
-                  🛡️ Add Defenses / Defense Points
+                  ðŸ›¡ï¸ Add Defenses / Defense Points
                 </button>
               </>
             ) : (
               <button onClick={() => setPhase('ready')}
                 disabled={(profile.fp_balance ?? 0) < 100}
                 className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black transition active:scale-95">
-                ⚔️ ATTACK AGAIN (100 FP)
+                âš”ï¸ ATTACK AGAIN (100 FP)
               </button>
             )}
 
             <button onClick={() => router.push(`/townhall/${gym.id}`)}
               className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition">
-              🏛️ Back to Town Hall
+              ðŸ›ï¸ Back to Town Hall
             </button>
             <button onClick={() => router.push('/map')}
               className="w-full py-2.5 bg-gray-900/80 border border-gray-700 text-gray-400 rounded-xl font-bold text-sm hover:bg-gray-800 transition">
-              🗺️ Back to Map
+              ðŸ—ºï¸ Back to Map
             </button>
           </div>
         </div>
