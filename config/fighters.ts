@@ -43,12 +43,12 @@ export const FIGHTERS: FighterMeta[] = [
     thumb: '/enemies/republican/prepper.png', party: 'republican', ownHead: true, minLevel: 5 },
   { id: 'ice_agent', label: 'The Ice Man', img: '/enemies/republican/ice_agent.png',
     thumb: '/enemies/republican/ice_agent.png', party: 'republican', ownHead: true, minLevel: 8 },
-  // The Don's head+hair eat most of the height budget, so fitting him to the
-  // standard 2.2 left his BODY looking stunted next to everyone else — give him
-  // a taller overall fit so he reads full-size (Michael 2026-07-28).
+  // The Don rides the standard 2.2 like everyone else. He was pushed to 2.6 then
+  // 3.0 on 07-28 to stop his body reading stunted, but on a phone that made him
+  // tower over the rest of the roster — "make him the same size as the others"
+  // (Michael 2026-07-29). No per-fighter override: same fit as all 21 others.
   { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
-    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10,
-    fitHeight: 3.0 },
+    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10 },
   { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
     thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true, minLevel: 12 },
   // batch 2 — commons early, rares mid, matching the existing curve

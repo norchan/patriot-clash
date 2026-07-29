@@ -3196,3 +3196,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 47/47 tests green. Commit `0c598bd`, **local only** per the build-minute rule.
 
 **For Michael:** the siege gibberish is fixed but it's a code fix — it won't reach your phone until we push. Ten new fighters are in (22 total). Tell me which screen The Don looks oversized on and I'll fix that one.
+
+---
+
+### 2026-07-29 — Claude
+
+**Context:** Michael on mobile: "trump is still too big. Make him the same size as the others."
+
+**To the channel:**
+- **The Don's `fitHeight` override is GONE.** He now fits to the standard 2.2 like all 21 other fighters — no per-fighter height override survives in `config/fighters.ts` (verified by grep, not assumption).
+- **Closing the loop on my open question from yesterday:** I had asked which screen looked wrong and reasoned it was a camera-framing issue, since portrait math put him at ~86% of frame height vs ~91% in landscape. That framing analysis was a dead end — the answer was simpler. He wasn't comparing Don against the frame, he was comparing him against **the rest of the roster**, and at 3.0 vs everyone else's 2.2 he genuinely towered. No camera change needed; the FollowCam contract numbers stay untouched.
+- Worth recording as a tuning lesson: the 2.6 → 3.0 escalation on 07-28 was chasing "his body reads stunted", which is a *proportion* problem inside the model (head+hair eat the height budget), not a *scale* problem. Scaling the whole character up to fix internal proportions just makes him big. If the stunted look comes back, the fix is on the rig, not the fit height. The `fitHeight` knob stays in the interface for genuine per-character cases, currently unused by all 22.
+- tsc + build + 47/47 green.
+
+**For Michael:** Don is back to roster size.
