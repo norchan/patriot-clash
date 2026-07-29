@@ -5,6 +5,7 @@ import { useGLTF, ContactShadows, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { headSideImage, headMeta } from '@/config/heads'
+import { fighterMeta } from '@/config/fighters'
 
 // 3D PvP street arena: two rigged bobblehead fighters trading punches in a
 // street, ringed by a cheering crowd. Solo mode (one fighter facing camera) is
@@ -249,10 +250,31 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    const s = 2.2 / (size.y || 1) // bigger fighters — feet stay planted, expand up
-    if (fit.current) { fit.current.scale.setScalar(s); fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s) }
+    // Sprite fighters carry bulkier silhouettes (coats, packs, props) than the
+    // generic bodies, so they read larger and crowd the other fighter at the
+    // rest gap of 1.1 — trim them a touch (Michael 2026-07-28).
+    const meta = fighterMeta(prefix.replace(/_(rep|dem)$/, ''))
+    const targetH = meta?.ownHead ? 2.0 : 2.2
+    const s = targetH / (size.y || 1) // feet stay planted, expand up
+    if (fit.current) {
+      fit.current.scale.setScalar(s)
+      fit.current.position.set(-center.x * s, -box.min.y * s, -center.z * s)
+      // Anchor HORIZONTALLY on the hips, not the bounding-box centre. A long
+      // coat or a backpack skews the bbox and shoved the whole body off its
+      // mark (measured ~1.1 units) — which is why fighters drifted right and
+      // overlapped. Y is left alone so feet stay on the ground.
+      if (hips && fit.current.parent) {
+        // updateWorldMatrix(true,…) refreshes the ANCESTOR chain — plain
+        // updateMatrixWorld leaves the parent stale and the correction no-ops
+        hips.updateWorldMatrix(true, false)
+        const hp = new THREE.Vector3().setFromMatrixPosition(hips.matrixWorld)
+        const local = fit.current.parent.worldToLocal(hp)
+        fit.current.position.x -= local.x
+        fit.current.position.z -= local.z
+      }
+    }
     if (hips) hips0.current = hips.position.clone()
-  }, [scene, hips, mixer])
+  }, [scene, hips, mixer, prefix])
 
   // Only ONE move plays at a time. A new move first CANCELS any in-progress move
   // (otherwise two clips blend and the fighter never returns cleanly to guard),

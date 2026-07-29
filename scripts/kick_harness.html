@@ -40,14 +40,27 @@ for (const [y, c] of [[0.45, 0x22c55e], [0.9, 0xf59e0b]]) {
 const loader = new GLTFLoader()
 const load = url => new Promise((res, rej) => loader.load(url, res, undefined, rej))
 
+window.__fit = {}
 function fitInto(group, scene3) {
   scene3.traverse(o => { if (o.isBone) o.scale.setScalar(1) })
   const box = new THREE.Box3().setFromObject(scene3)
   const size = new THREE.Vector3(); box.getSize(size)
   const center = new THREE.Vector3(); box.getCenter(center)
-  const s = 2.2 / (size.y || 1)
+  const s = (parseFloat(q.get('h') ?? '2.2')) / (size.y || 1)
   group.scale.setScalar(s)
   group.position.set(-center.x * s, -box.min.y * s, -center.z * s)
+  // mirror the app: anchor horizontally on the HIPS, not the bbox centre
+  const hips = scene3.getObjectByName('Hips')
+  if (hips && group.parent) {
+    hips.updateWorldMatrix(true, false)
+    const hp = new THREE.Vector3().setFromMatrixPosition(hips.matrixWorld)
+    const local = group.parent.worldToLocal(hp.clone())
+    group.position.x -= local.x
+    group.position.z -= local.z
+    group.updateMatrixWorld(true)
+  }
+  const hv = new THREE.Vector3(); if (hips) hips.getWorldPosition(hv)
+  window.__fit = { w: size.x * s, d: size.z * s, h: size.y * s, hipsX: hv.x }
 }
 
 const FRONT_FIX = Math.PI / 2
@@ -93,8 +106,9 @@ const rd = new THREE.Vector3(), lf = new THREE.Vector3()
 g1.scene.getObjectByName('RightFoot')?.getWorldPosition(rd)
 g1.scene.getObjectByName('LeftFoot')?.getWorldPosition(lf)
 const kick = rd.x > lf.x ? { n: 'R', v: rd } : { n: 'L', v: lf }
+const F = window.__fit
 document.title = `READY kick=${kick.n} h=${kick.v.y.toFixed(2)} x=${kick.v.x.toFixed(2)}`
-  + ` | R(${rd.y.toFixed(2)},${rd.x.toFixed(2)}) L(${lf.y.toFixed(2)},${lf.x.toFixed(2)})`
-  + ` | targetLeg~x=${(ANCHOR - 0.25).toFixed(2)}`
+  + ` | fittedW=${F.w?.toFixed(2)} halfW=${(F.w / 2)?.toFixed(2)} hipsOffX=${(F.hipsX + ANCHOR)?.toFixed(2)}`
+  + ` | gap=${(ANCHOR * 2).toFixed(2)} overlap=${(F.w - ANCHOR * 2).toFixed(2)}`
 </script>
 </body></html>
