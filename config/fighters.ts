@@ -48,7 +48,7 @@ export const FIGHTERS: FighterMeta[] = [
   // a taller overall fit so he reads full-size (Michael 2026-07-28).
   { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
     thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10,
-    fitHeight: 2.6 },
+    fitHeight: 3.0 },
   { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
     thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true, minLevel: 12 },
   // ── democrat ──
