@@ -34,30 +34,32 @@ export const FIGHTERS: FighterMeta[] = [
   // Roster characters with the full six-clip fighter set. minLevel is OFF on
   // all of them (Michael 2026-07-27) for playtesting — add `minLevel: N` per
   // entry to re-arm unlock gates. Model files: <id>_<rep|dem>_<clip>.glb
-  { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
-    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true },
-  { id: 'oil_baron', label: 'Oil Baron', img: '/enemies/republican/oil_baron.png',
-    thumb: '/enemies/republican/oil_baron.png', party: 'republican', ownHead: true },
+  // ── republican ──
   { id: 'cowboy', label: 'Lone Star', img: '/enemies/republican/cowboy.png',
-    thumb: '/enemies/republican/cowboy.png', party: 'republican', ownHead: true },
-  { id: 'ice_agent', label: 'The Ice Man', img: '/enemies/republican/ice_agent.png',
-    thumb: '/enemies/republican/ice_agent.png', party: 'republican', ownHead: true },
-  { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
-    thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true },
+    thumb: '/enemies/republican/cowboy.png', party: 'republican', ownHead: true, minLevel: 3 },
+  { id: 'oil_baron', label: 'Oil Baron', img: '/enemies/republican/oil_baron.png',
+    thumb: '/enemies/republican/oil_baron.png', party: 'republican', ownHead: true, minLevel: 5 },
   { id: 'prepper', label: 'The Prepper', img: '/enemies/republican/prepper.png',
-    thumb: '/enemies/republican/prepper.png', party: 'republican', ownHead: true },
-  { id: 'teardrop', label: 'Tear Drop', img: '/enemies/democrat/crying_liberal.png',
-    thumb: '/enemies/democrat/crying_liberal.png', party: 'democrat', ownHead: true },
-  { id: 'purple_hair', label: 'Purple Fury', img: '/enemies/democrat/purple_hair.png',
-    thumb: '/enemies/democrat/purple_hair.png', party: 'democrat', ownHead: true },
-  { id: 'comrade', label: 'The Comrade', img: '/enemies/democrat/comrade.png',
-    thumb: '/enemies/democrat/comrade.png', party: 'democrat', ownHead: true },
+    thumb: '/enemies/republican/prepper.png', party: 'republican', ownHead: true, minLevel: 5 },
+  { id: 'ice_agent', label: 'The Ice Man', img: '/enemies/republican/ice_agent.png',
+    thumb: '/enemies/republican/ice_agent.png', party: 'republican', ownHead: true, minLevel: 8 },
+  { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
+    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10 },
+  { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
+    thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true, minLevel: 12 },
+  // ── democrat ──
   { id: 'protestor', label: 'Antifa Kid', img: '/enemies/democrat/protestor.png',
-    thumb: '/enemies/democrat/protestor.png', party: 'democrat', ownHead: true },
+    thumb: '/enemies/democrat/protestor.png', party: 'democrat', ownHead: true, minLevel: 3 },
+  { id: 'purple_hair', label: 'Purple Fury', img: '/enemies/democrat/purple_hair.png',
+    thumb: '/enemies/democrat/purple_hair.png', party: 'democrat', ownHead: true, minLevel: 5 },
+  { id: 'comrade', label: 'The Comrade', img: '/enemies/democrat/comrade.png',
+    thumb: '/enemies/democrat/comrade.png', party: 'democrat', ownHead: true, minLevel: 5 },
   { id: 'crazy_liberal', label: 'HR', img: '/enemies/democrat/crazy_liberal.png',
-    thumb: '/enemies/democrat/crazy_liberal.png', party: 'democrat', ownHead: true },
+    thumb: '/enemies/democrat/crazy_liberal.png', party: 'democrat', ownHead: true, minLevel: 8 },
+  { id: 'teardrop', label: 'Tear Drop', img: '/enemies/democrat/crying_liberal.png',
+    thumb: '/enemies/democrat/crying_liberal.png', party: 'democrat', ownHead: true, minLevel: 10 },
   { id: 'climate_kid', label: 'The Climate Kid', img: '/enemies/democrat/climate_kid.png',
-    thumb: '/enemies/democrat/climate_kid.png', party: 'democrat', ownHead: true },
+    thumb: '/enemies/democrat/climate_kid.png', party: 'democrat', ownHead: true, minLevel: 12 },
 ]
 
 export const fighterMeta = (id: string): FighterMeta | undefined =>
@@ -75,3 +77,14 @@ export function fighterAllowedForParty(id: string, party: string | null | undefi
   if (f.demOnly && party !== 'democrat') return false
   return true
 }
+
+/** Has this player earned the fighter? Bobblehead bodies have no gate. */
+export function fighterUnlockedAtLevel(id: string, level: number): boolean {
+  const f = fighterMeta(id)
+  if (!f) return false
+  return level >= (f.minLevel ?? 1)
+}
+
+/** Wins needed to reach a level — inverse of fighterLevel() in lib/fighter.ts.
+ *  Used for "unlocks at level N" copy so the numbers can never drift. */
+export const winsForLevel = (lvl: number) => Math.ceil(((lvl - 1) ** 2) / 1.5)

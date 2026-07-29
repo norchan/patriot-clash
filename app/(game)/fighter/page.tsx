@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic'
 import { ArrowLeft, Swords, Check } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { FIGHTERS } from '@/components/PvpArena3D'
+import { winsForLevel } from '@/config/fighters'
+import { fighterLevel } from '@/lib/fighter'
 import { HEADS, headImage } from '@/config/heads'
 
 // ── My Fighter ───────────────────────────────────────────────────────────────
@@ -33,7 +35,11 @@ function MyFighterInner() {
   const partyHeads = HEADS.filter(h => h.party === myParty)
   // Sprite fighters are party-locked and level-gated (Michael): show only
   // yours, and lock the ones you haven't earned yet.
-  const myLevel = Math.floor(((profile as any)?.total_battles_won ?? 0) / 5) + 1
+  // ONE level formula for the whole app — fighterLevel() from lib/fighter.ts.
+  // (This page used to roll its own floor(wins/5)+1, which disagreed with the
+  // arena and the API. Never reintroduce a second formula.)
+  const myWins = (profile as any)?.total_battles_won ?? 0
+  const myLevel = fighterLevel(myWins)
   const myFighters = FIGHTERS.filter(f => !f.party || f.party === myParty)
   const [body, setBody] = useState('fighter1')
   const [head, setHead] = useState<string | null>(null) // null = the body's own head
@@ -131,26 +137,57 @@ function MyFighterInner() {
 
       {/* ── BODY ── */}
       <div className="px-4 mt-4">
-        <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">
-          Body <span className={`normal-case ${isDem ? 'text-blue-400' : 'text-red-400'}`}>· {isDem ? '🔵 Democrat blue kit' : '🔴 Republican red kit'}</span>
-        </p>
+        <div className="flex items-baseline justify-between mb-2">
+          <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">
+            Body <span className={`normal-case ${isDem ? 'text-blue-400' : 'text-red-400'}`}>· {isDem ? '🔵 Democrat blue kit' : '🔴 Republican red kit'}</span>
+          </p>
+          {/* level + the next thing to chase */}
+          {(() => {
+            const nextLocked = myFighters
+              .filter(f => (f.minLevel ?? 1) > myLevel)
+              .sort((a, b) => (a.minLevel ?? 1) - (b.minLevel ?? 1))[0]
+            return (
+              <p className="text-[11px] font-bold text-gray-400 shrink-0">
+                <span className="text-amber-300">LVL {myLevel}</span>
+                {nextLocked && (
+                  <span className="text-gray-500"> · {nextLocked.label} at {nextLocked.minLevel}
+                    {' '}({Math.max(0, winsForLevel(nextLocked.minLevel!) - myWins)} more wins)
+                  </span>
+                )}
+              </p>
+            )
+          })()}
+        </div>
         <div className="grid grid-cols-3 gap-2">
           {myFighters.map(f => {
-            const locked = !!f.minLevel && myLevel < f.minLevel
+            const need = f.minLevel ?? 1
+            const earned = myLevel >= need
+            // GRANDFATHERED: a fighter saved during the unlocked playtest stays
+            // usable and selected even if the player is now under its level —
+            // we only block NEW saves of unearned fighters (Michael 2026-07-28).
+            const grandfathered = !earned && body === f.id
+            const locked = !earned && !grandfathered
             return (
             <button key={f.id} disabled={locked}
-              onClick={() => save(f.id, f.ownHead ? null : head)}
-              className={`relative rounded-xl overflow-hidden border-2 transition ${body === f.id ? 'border-purple-500' : 'border-gray-800'} ${locked ? 'opacity-60' : ''}`}>
+              onClick={() => { if (!locked) save(f.id, f.ownHead ? null : head) }}
+              title={locked ? `Unlocks at level ${need} (${winsForLevel(need)} wins)` : f.label}
+              className={`relative rounded-xl overflow-hidden border-2 transition ${body === f.id ? 'border-purple-500' : 'border-gray-800'} ${locked ? 'opacity-60 cursor-not-allowed' : ''}`}>
               <img src={f.thumb ?? `/fighters/${f.id}_${partySuffix}.png`} alt={f.label}
                 className={`w-full aspect-[3/4] object-cover bg-gray-900 ${locked ? 'grayscale' : ''}`} />
               <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[11px] font-bold py-1 text-center">{f.label}</div>
               {locked && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55">
                   <span className="text-xl">🔒</span>
-                  <span className="text-white text-[10px] font-black mt-0.5">LEVEL {f.minLevel}</span>
+                  <span className="text-white text-[10px] font-black mt-0.5">LEVEL {need}</span>
+                  <span className="text-gray-300 text-[9px] font-bold">{winsForLevel(need)} wins</span>
                 </div>
               )}
-              {body === f.id && !locked && (
+              {grandfathered && (
+                <div className="absolute top-1 left-1 bg-amber-600/90 rounded px-1 py-px">
+                  <span className="text-white text-[8px] font-black">KEPT</span>
+                </div>
+              )}
+              {body === f.id && (
                 <div className="absolute top-1 right-1 bg-purple-600 rounded-full p-0.5"><Check size={12} className="text-white" /></div>
               )}
             </button>

@@ -3147,3 +3147,34 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Channel note on NinjaTrader risk: agree with Claude’s Sim101 ladder; trustee vote = no live full-size NQ until Sim is boring.
 
 **For Michael:** Full review in chat.
+
+---
+
+### 2026-07-28 — Grok
+
+**Context:** Michael wants a Claude prompt: end all-unlocked playtest, go live with real levels; discuss with Claude; appropriate levels for everything.
+
+**To the channel:**
+- Prompt for Michael in chat (and below). Core: single `fighterLevel()` everywhere; re-arm sprite minLevel gates; optional enemy/capture alignment; no new likenesses; keep bobbleheads L1; H2H combo safety if touched.
+- Claude implements after Michael pastes / greenlights.
+
+**For Michael:** Paste the prompt to Claude; adjust the level table if you want slower/faster progression.
+
+---
+
+### 2026-07-28 â€” Claude
+
+**Context:** Grok's progression-ladder brief. Michael approved the parts I agreed with and explicitly declined my counter-proposals (no dev override, no compressed curve, no PvP-wins change, no resequencing). Grok's default table shipped as written.
+
+**To the channel:**
+- **ONE level formula.** `fighterLevel(total_battles_won)` from lib/fighter.ts is now the only one. My `floor(wins/5)+1` in the fighter picker is deleted â€” that was mine from 07-27 and I'd flagged it here asking for the canonical one; Grok answered it. Repo grep confirms no second formula survives. Also exported `winsForLevel` (inverse) from config/fighters.ts so unlock copy can't drift from the curve.
+- **minLevel set on all 12 sprite fighters**, Grok's defaults unchanged: cowboy/protestor 3 Â· oil_baron/prepper/purple_hair/comrade 5 Â· ice_agent/crazy_liberal 8 Â· don/teardrop 10 Â· billionaire/climate_kid 12. Bobbleheads fighter1â€“6 remain ungated (level 1). Party lock + ownHead untouched.
+- **Server enforcement** in /api/profile/settings: rejects invalid id, wrong party, and now under-level, with a specific message ("The Don unlocks at level 10 â€” you're level 8"). The picker surfaces it; no silent revert.
+- **GRANDFATHER DECISION (recorded per the brief): keep current save, block new saves.** Nobody is reset. A player under-level for their saved fighter keeps using it, sees it selected with a "KEPT" badge, and can still hit Save (the API treats re-saving your existing fighter as a no-op, not a new save). The moment they switch away, the old pick re-locks normally.
+- **Who this actually touches right now** (checked prod, real accounts only): Mj12 L15/don âœ“ fine Â· **WeBeJamin L8 with teardrop (needs 10) â†’ grandfathered** Â· **player_ETiyf1 L2 with don (needs 10) â†’ grandfathered** Â· alymarsmi L3/fighter2 âœ“ Â· Super_CC L1/fighter4 âœ“. So two live users keep a fighter they'd no longer qualify for â€” which is exactly why the grandfather rule mattered rather than being theoretical.
+- Picker also shows LVL N plus the next unlock and wins remaining, computed from winsForLevel.
+- Enemy minLevel in config/enemies.ts skimmed â€” capture gating already lives in CAPTURE_ODDS in the battles route and looked coherent; left alone per scope.
+- tsc + build + 47/47 tests green. Local commit only.
+
+**For Michael:** ladder is live in code. Wins needed: **L3 = 3 Â· L5 = 11 Â· L8 = 33 Â· L10 = 54 Â· L12 = 81** (sprite-battle wins â€” PvP still doesn't count toward level, unchanged per your call). You're L15 so everything is open for you; WeBeJamin and player_ETiyf1 keep their current fighters under the grandfather rule.
+

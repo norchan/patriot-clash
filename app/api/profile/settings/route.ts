@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { sanitizeFighter } from '@/lib/fighter'
+import { sanitizeFighter, fighterLevel } from '@/lib/fighter'
 import { isValidHead, headMeta } from '@/config/heads'
-import { isValidFighter, fighterAllowedForParty } from '@/config/fighters'
+import { isValidFighter, fighterAllowedForParty, fighterUnlockedAtLevel, fighterMeta } from '@/config/fighters'
 
 // PATCH /api/profile/settings — update player preferences
 export async function PATCH(req: NextRequest) {
@@ -59,6 +59,21 @@ export async function PATCH(req: NextRequest) {
       }
       if (!fighterAllowedForParty(body.pvp_fighter, profile.party)) {
         return NextResponse.json({ error: 'That fighter belongs to the other party' }, { status: 400 })
+      }
+      // LEVEL GATE (Michael 2026-07-28): enforced here so a locked fighter
+      // can't be set by calling the endpoint directly. Existing saves are
+      // GRANDFATHERED — we never reset a profile, we only block NEW saves of
+      // fighters the player hasn't earned yet.
+      const myLevel = fighterLevel((profile as any).total_battles_won ?? 0)
+      // Re-saving the fighter you ALREADY have is not a new save — this is what
+      // makes grandfathering work end to end (otherwise the picker's Save button
+      // would reject a player's own current fighter).
+      const keepingCurrent = body.pvp_fighter === (profile as any).pvp_fighter
+      if (!keepingCurrent && !fighterUnlockedAtLevel(body.pvp_fighter, myLevel)) {
+        const f = fighterMeta(body.pvp_fighter)
+        return NextResponse.json(
+          { error: `${f?.label ?? 'That fighter'} unlocks at level ${f?.minLevel ?? 1} — you're level ${myLevel}` },
+          { status: 400 })
       }
       updates.pvp_fighter = body.pvp_fighter
     }
