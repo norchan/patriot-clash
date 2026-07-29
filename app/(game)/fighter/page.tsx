@@ -97,8 +97,9 @@ function MyFighterInner() {
     router.push('/map')
   }
 
+  // pb-44 clears BOTH the floating save bar and the fixed bottom nav
   return (
-    <div className="min-h-screen bg-gray-950 pb-28">
+    <div className="min-h-screen bg-gray-950 pb-44">
       <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-gray-800">
         {!welcome && <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>}
         <h1 className="text-white font-bold text-lg">{welcome ? 'Build your fighter' : 'My Fighter'}</h1>
@@ -189,9 +190,25 @@ function MyFighterInner() {
         </p>
       </div>
 
+      {/* Persistent SAVE bar (Michael 2026-07-28): choices already save on tap,
+          but the confirmation was easy to miss and the old bar sat UNDER the
+          fixed bottom nav (bottom-0 vs the nav's z-[90]). This floats just
+          above the nav so you can save/confirm from anywhere on the page. */}
+      {!welcome && (
+        <div className="fixed bottom-20 inset-x-0 z-[95] px-4 max-w-[520px] mx-auto">
+          <button onClick={() => save(body, head)}
+            className="w-full py-3.5 rounded-2xl font-black text-white shadow-2xl active:scale-[0.98] transition flex items-center justify-center gap-2"
+            style={{ background: saveError ? 'linear-gradient(135deg,#dc2626,#b91c1c)'
+              : saved ? 'linear-gradient(135deg,#16a34a,#15803d)'
+              : isDem ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : 'linear-gradient(135deg,#dc2626,#b91c1c)' }}>
+            {saveError ? `⚠ ${saveError}` : saved ? 'Saved ✓' : 'Save Fighter'}
+          </button>
+        </div>
+      )}
+
       {/* onboarding: fixed action bar — Skip (default fighter) or enter the game */}
       {welcome && (
-        <div className="fixed bottom-0 inset-x-0 z-20 bg-gray-950/95 backdrop-blur border-t border-gray-800 px-4 py-3 flex items-center gap-3 max-w-[520px] mx-auto">
+        <div className="fixed bottom-20 inset-x-0 z-[95] bg-gray-950/95 backdrop-blur border-t border-gray-800 px-4 py-3 flex items-center gap-3 max-w-[520px] mx-auto">
           <button onClick={skipToGame}
             className="px-5 py-3.5 rounded-2xl font-bold text-gray-300 bg-gray-900 border border-gray-700 hover:text-white">
             Skip

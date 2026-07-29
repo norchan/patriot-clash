@@ -250,11 +250,11 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     const box = new THREE.Box3().setFromObject(scene)
     const size = new THREE.Vector3(); box.getSize(size)
     const center = new THREE.Vector3(); box.getCenter(center)
-    // Sprite fighters carry bulkier silhouettes (coats, packs, props) than the
-    // generic bodies, so they read larger and crowd the other fighter at the
-    // rest gap of 1.1 — trim them a touch (Michael 2026-07-28).
+    // Height is per-fighter: 2.2 is the standard. Trimming ALL sprite fighters
+    // made them look stunted (Michael) — only genuinely wide rigs get a trim,
+    // set via fitHeight in config/fighters.ts.
     const meta = fighterMeta(prefix.replace(/_(rep|dem)$/, ''))
-    const targetH = meta?.ownHead ? 2.0 : 2.2
+    const targetH = meta?.fitHeight ?? 2.2
     const s = targetH / (size.y || 1) // feet stay planted, expand up
     if (fit.current) {
       fit.current.scale.setScalar(s)

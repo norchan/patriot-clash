@@ -16,6 +16,11 @@ export interface FighterMeta {
   ownHead?: boolean                  // sprite fighter — never head-swapped
   minLevel?: number                  // level unlock gate (omit = always open)
   thumb?: string                     // picker art override
+  /** Arena height in world units. Generic bodies sit at 2.2. Sprite fighters
+   *  vary — squat, wide characters crowd the 1.1 rest gap at full height, but
+   *  trimming everyone made them look stunted (Michael 2026-07-28). Tune per
+   *  character rather than with one blanket number. */
+  fitHeight?: number
 }
 
 export const FIGHTERS: FighterMeta[] = [

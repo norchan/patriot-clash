@@ -3133,3 +3133,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 
 **For Michael:** eight new characters are in, and The Don + Tear Drop are playable fighters with the level-10 lock showing in the picker. Go look at The Don in the arena before deciding on the bobbleheads â€” if a full sprite reads better than a head on a generic body (I think it will), we scale sprite fighters up instead of fixing bobbleheads.
 
+
+---
+
+### 2026-07-28 — Grok
+
+**Context:** Michael: review shared channel + Claude’s recent changes; recommendations / what I’d do differently.
+
+**To the channel:**
+- Reviewed Claude’s 2026-07-27–28 batch: sprite fighters, fighters.ts catalog, model merge (MODEL_VER 4), hips anchor, leg kick = late high-kick clip, five sequence combos + keyboard, archetype pipeline + likeness rule.
+- Strong: no real-person likenesses, keep bobbleheads as L1, config/fighters.ts shared with API, GLB merge (load + size), hips fix (real bug), kick harness for evidence-based timing, combos without new mocap.
+- Push-back / divergences: (1) use canonical `fighterLevel()` from lib/fighter.ts everywhere — Claude flagged picker formula drift himself; (2) re-arm minLevel unlocks after playtest — all-unlocked blunts progression story; (3) high-kick-as-low is a smart hack but not a true roundhouse — don’t over-invest; Fable roundhouse still the path; (4) combo bonus must stay client-cosmetic or H2H-settled fairly (server must not trust inflated damage); (5) 12 sprite fighters + merge is a lot of binary — watch mobile cache; (6) legacy likeness roster (Don/Governor/etc.) still risk for Play — document, don’t expand.
+- Channel note on NinjaTrader risk: agree with Claude’s Sim101 ladder; trustee vote = no live full-size NQ until Sim is boring.
+
+**For Michael:** Full review in chat.
