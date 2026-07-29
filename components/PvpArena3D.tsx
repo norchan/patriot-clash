@@ -223,8 +223,15 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
         jabL: oneShot('jabL', 0.26, 1.9),  // jab: extension ~0.5s in the raw clip
         // HEAD KICK: Step_in_High_Kick (218) — leg extended head-height at ~0.56s
         kickHi: oneShot('kickhi', 0.2, 1.4),
-        // LEG KICK: Simple_Kick (103) — thrust kick extends at ~1.0s raw
-        kickLo: oneShot('kicklo', 0.62, 2.3), // skip deeper into the wind-up + faster = a snapping leg kick
+        // LEG KICK (rebuilt 2026-07-28): the dedicated low clip (Simple_Kick 103)
+        // barely clears the body silhouette on these squat rigs — it read as a
+        // crouch, not a kick, which is why earlier aim/rotation fixes all failed.
+        // Verified in scripts/kick_shot.mjs: the HIGH-kick clip descends through
+        // knee height with the leg fully extended (foot h≈0.53 at t≈0.9), so we
+        // enter it late and land the strike there — a visible kick to the leg.
+        // enter at 0.78 (leg already low) and play slightly slow so the foot is
+        // still at knee height when the 180ms impact fires: 0.78 + 0.18*0.85 ≈ 0.93
+        kickLo: oneShot('kickhi', 0.78, 0.85),
         hit: oneShot('hit', 0.12, 1.6),
       },
     }

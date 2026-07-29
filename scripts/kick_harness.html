@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- Headless animation inspector (Michael 2026-07-28): loads a merged fighter
+     GLB, freezes a NAMED clip at ?t=<seconds>, and stands a second fighter in
+     front of it at real arena spacing so we can see exactly where a kick lands.
+     Served by scripts/kick_shot.mjs — not part of the app. -->
+<html><head><meta charset="utf-8"><style>body{margin:0;background:#101014}</style></head>
+<body>
+<script type="importmap">
+{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+
+const q = new URLSearchParams(location.search)
+const prefix = q.get('f') || 'don_rep'
+const clipName = q.get('clip') || 'kicklo'
+const t = parseFloat(q.get('t') ?? '0.9')
+const legPitch = parseFloat(q.get('pitch') ?? '0')   // extra downward rotation on the kicking leg
+const legBone = q.get('bone') || 'RightUpLeg'
+const ANCHOR = parseFloat(q.get('gap') ?? '0.9')      // arena rest spacing is 0.55; wider here to read the kick
+const solo = q.get('solo') === '1'
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color('#101014')
+const cam = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 100)
+cam.position.set(0, 1.35, 7.2); cam.lookAt(0, 1.0, 0)
+const rend = new THREE.WebGLRenderer({ antialias: true })
+rend.setSize(innerWidth, innerHeight); document.body.appendChild(rend.domElement)
+scene.add(new THREE.AmbientLight(0xffffff, 0.75))
+const key = new THREE.DirectionalLight(0xffd6a0, 2.2); key.position.set(5, 8, 4); scene.add(key)
+const rim = new THREE.DirectionalLight(0x6a8bff, 1.1); rim.position.set(-6, 3, -3); scene.add(rim)
+// ground + knee-height reference line so kick height is measurable
+const grid = new THREE.GridHelper(12, 24, 0x334, 0x223); scene.add(grid)
+for (const [y, c] of [[0.45, 0x22c55e], [0.9, 0xf59e0b]]) {
+  const g = new THREE.Mesh(new THREE.BoxGeometry(6, 0.012, 0.012), new THREE.MeshBasicMaterial({ color: c }))
+  g.position.set(0, y, 0); scene.add(g)   // green = knee height, amber = hip height
+}
+
+const loader = new GLTFLoader()
+const load = url => new Promise((res, rej) => loader.load(url, res, undefined, rej))
+
+function fitInto(group, scene3) {
+  scene3.traverse(o => { if (o.isBone) o.scale.setScalar(1) })
+  const box = new THREE.Box3().setFromObject(scene3)
+  const size = new THREE.Vector3(); box.getSize(size)
+  const center = new THREE.Vector3(); box.getCenter(center)
+  const s = 2.2 / (size.y || 1)
+  group.scale.setScalar(s)
+  group.position.set(-center.x * s, -box.min.y * s, -center.z * s)
+}
+
+const FRONT_FIX = Math.PI / 2
+const g1 = await load(`/public/models/${prefix}.glb`)
+const g2 = await load(`/public/models/${prefix}.glb`)
+
+// ── kicker (left, facing right) ──
+const kicker = new THREE.Group(); kicker.position.x = -ANCHOR; kicker.rotation.y = FRONT_FIX
+const kf = new THREE.Group(); kf.add(g1.scene); kicker.add(kf); scene.add(kicker)
+const mixer = new THREE.AnimationMixer(g1.scene)
+const clip = g1.animations.find(a => a.name === clipName)
+if (!clip) { document.title = 'NO CLIP'; throw new Error('clip not found: ' + clipName) }
+const act = mixer.clipAction(clip); act.play(); act.paused = true; act.time = t
+mixer.update(0.0001)
+fitInto(kf, g1.scene)
+mixer.update(0)
+
+// extra downward pitch on the kicking leg (the thing we're tuning)
+if (legPitch) {
+  const bone = g1.scene.getObjectByName(legBone)
+  if (bone) {
+    const ax = (q.get('axis') || 'x')
+    const axis = new THREE.Vector3(ax === 'x' ? 1 : 0, ax === 'y' ? 1 : 0, ax === 'z' ? 1 : 0)
+    // rotate in the bone's PARENT space so the whole limb swings as a unit
+    bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, legPitch))
+    bone.updateMatrixWorld(true)
+  } else document.title = 'NO BONE ' + legBone
+}
+
+// ── target (right, mirrored, standing in guard) ──
+const target = new THREE.Group(); target.visible = !solo
+target.position.x = ANCHOR; target.rotation.y = -FRONT_FIX
+const tf = new THREE.Group(); tf.add(g2.scene); target.add(tf); scene.add(target)
+const m2 = new THREE.AnimationMixer(g2.scene)
+const guard = g2.animations.find(a => a.name === 'jabL')
+if (guard) { const a2 = m2.clipAction(guard); a2.play(); a2.paused = true; a2.time = 0.03 }
+m2.update(0.0001); fitInto(tf, g2.scene); m2.update(0)
+
+rend.render(scene, cam)
+// Report BOTH feet in world space so we can tell which leg kicks and exactly
+// where it lands. Target's near edge is roughly ANCHOR-0.25.
+const rd = new THREE.Vector3(), lf = new THREE.Vector3()
+g1.scene.getObjectByName('RightFoot')?.getWorldPosition(rd)
+g1.scene.getObjectByName('LeftFoot')?.getWorldPosition(lf)
+const kick = rd.x > lf.x ? { n: 'R', v: rd } : { n: 'L', v: lf }
+document.title = `READY kick=${kick.n} h=${kick.v.y.toFixed(2)} x=${kick.v.x.toFixed(2)}`
+  + ` | R(${rd.y.toFixed(2)},${rd.x.toFixed(2)}) L(${lf.y.toFixed(2)},${lf.x.toFixed(2)})`
+  + ` | targetLeg~x=${(ANCHOR - 0.25).toFixed(2)}`
+</script>
+</body></html>

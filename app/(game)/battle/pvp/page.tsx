@@ -1144,7 +1144,9 @@ function StreetFightPage() {
     L.current.counts.kicks++
     // Pre-turn presentation reverted (Michael): keep the stock leg-kick clip
     // facing the foe — real roundhouse body turn needs a proper animation later.
-    strikeCore('hook', false, 'LEG KICK', 205)
+    // 180ms = the frame the rebuilt leg-kick clip is at knee height (see the
+    // kickLo comment in PvpArena3D + scripts/kick_shot.mjs)
+    strikeCore('hook', false, 'LEG KICK', 180)
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
