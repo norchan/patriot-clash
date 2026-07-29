@@ -85,7 +85,7 @@ interface ChallengeData {
 interface ChatMessage { id: string; sender_id: string; content: string; created_at: string }
 
 const MOVE_LABELS: Record<string, string> = {
-  jab: 'JAB', cross: 'PUNCH', hook: 'LEG KICK', uppercut: 'UPPERCUT', kick: 'HEAD KICK',
+  jab: 'JAB', cross: 'PUNCH', hook: 'KNEE', uppercut: 'UPPERCUT', kick: 'HEAD KICK',
   jumpkick: 'JUMP KICK', special: '★ SPECIAL ★',
 }
 const MOVE_POSE: Record<string, FighterPose> = {
@@ -1167,7 +1167,7 @@ function StreetFightPage() {
     }, impactMs)
   }
 
-  // ── Attack pad mapping (diamond): 🦵 high kick N · 🦶 low kick S · 👊 punch E
+  // ── Attack pad mapping (diamond): 🦵 high kick N · 🦿 knee S · 👊 punch E
   //    ⚡ power W (spend meter, buff next contact) · ★ special CENTER ─────────
   // Impact timings match each clip's visible strike frame:
   // straight clip lands ~270ms after press, jab clip ~150ms.
@@ -1212,11 +1212,9 @@ function StreetFightPage() {
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
-    // Pre-turn presentation reverted (Michael): keep the stock leg-kick clip
-    // facing the foe — real roundhouse body turn needs a proper animation later.
-    // 180ms = the frame the rebuilt leg-kick clip is at knee height (see the
-    // kickLo comment in PvpArena3D + scripts/kick_shot.mjs)
-    strikeCore('hook', false, 'LEG KICK', 180)
+    // KNEE, not a leg kick — the clip is a knee lift (see kickLo in
+    // PvpArena3D). 155ms puts the impact on the knee's peak.
+    strikeCore('hook', false, 'KNEE', 155)
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
@@ -1363,7 +1361,8 @@ function StreetFightPage() {
     if (phase !== 'live') return
     // DESKTOP LAYOUT (Michael 2026-07-28) — mirrors the two on-screen pads:
     //   LEFT pad  = W A S D + SPACE   move/jump/duck + hold SPACE to block
-    //   RIGHT pad = arrow keys        ↑ head kick · ↓ leg kick · → punch · ← special
+    //   RIGHT pad = arrow keys        ↑ head kick · ↓ knee · ← left / → right punch
+    //   CTRL power · SHIFT special
     //   CTRL      = ⚡ power
     const isBlockKey = (e: KeyboardEvent) => e.code === 'Space'
     const down = (e: KeyboardEvent) => {
@@ -1385,9 +1384,12 @@ function StreetFightPage() {
       // ── right pad: attacks ──
       if (e.key === 'ArrowUp') { e.preventDefault(); playerHighKick() }
       if (e.key === 'ArrowDown') { e.preventDefault(); playerLowKick() }
-      if (e.key === 'ArrowRight') { e.preventDefault(); playerPunch() }
-      if (e.key === 'ArrowLeft') { e.preventDefault(); playerSpecial() }
+      // arrows match the ARMS: → right hand, ← left hand (Michael 2026-07-28).
+      // Special moved to SHIFT so ← is a real left punch.
+      if (e.key === 'ArrowRight') { e.preventDefault(); playerPunchR() }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); playerPunchL() }
       if (e.key === 'Control') { e.preventDefault(); playerPower() }
+      if (e.key === 'Shift') { e.preventDefault(); playerSpecial() }
       if (e.key === 'Enter') { e.preventDefault(); playerStrike() }
     }
     const up = (e: KeyboardEvent) => {
@@ -1826,8 +1828,8 @@ function StreetFightPage() {
                   CENTER special (⚡ power button removed — Michael 2026-07-24) */}
               <button title="Head kick (high)" className={base} style={{ top: 0, left: 47 }}
                 onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerHighKick() }}>🦵</button>
-              <button title="Leg kick (low)" className={base} style={{ bottom: 0, left: 47 }}
-                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerLowKick() }}>🦶</button>
+              <button title="Knee" className={base} style={{ bottom: 0, left: 47 }}
+                onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerLowKick() }}>🦿</button>
               <button title="Left-hand punch" className={base} style={{ top: 47, left: 0 }}
                 onContextMenu={e => e.preventDefault()} onPointerDown={e => { stop(e); playerPunchL() }}>🤛</button>
               <button title="Right-hand punch" className={base} style={{ top: 47, right: 0 }}
@@ -1889,18 +1891,19 @@ function StreetFightPage() {
         ) : phase === 'live' ? (
           layout === 'portrait' ? null : (
             <div className="text-center space-y-1">
-              <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦶 leg kick · 👊 punch · ★ special</p>
+              <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦿 knee · 👊 punch · ★ special</p>
               <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — ▲ then 🦵 = jump kick</p>
               {/* desktop keyboard map (Michael): pads mirrored onto WASD + arrows */}
               <p className="text-gray-500 text-[11px]">
                 ⌨️ <span className="text-gray-300 font-bold">W A S D</span> move/jump/duck ·
                 <span className="text-gray-300 font-bold"> SPACE</span> block ·
-                <span className="text-gray-300 font-bold"> ↑↓→</span> kicks/punch ·
-                <span className="text-gray-300 font-bold"> ←</span> special ·
-                <span className="text-gray-300 font-bold"> CTRL</span> power
+                <span className="text-gray-300 font-bold"> ↑↓</span> kicks ·
+                <span className="text-gray-300 font-bold"> ←→</span> left/right punch ·
+                <span className="text-gray-300 font-bold"> CTRL</span> power ·
+                <span className="text-gray-300 font-bold"> SHIFT</span> special
               </p>
               <p className="text-amber-300/80 text-[11px] font-bold">
-                🔥 Combos: punch→punch→head kick · punch→leg kick · leg kick×2 · punch→jump kick
+                🔥 Combos: punch→punch→head kick · punch→knee · knee×2 · punch→jump kick
               </p>
               <p className="text-cyan-300/80 text-[11px] font-bold">
                 🌀 Hold BACK (◀ / A) then 🦵 = SPINNING JUMP KICK
