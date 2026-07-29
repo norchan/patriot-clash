@@ -51,6 +51,17 @@ export const FIGHTERS: FighterMeta[] = [
     fitHeight: 3.0 },
   { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
     thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true, minLevel: 12 },
+  // batch 2 — commons early, rares mid, matching the existing curve
+  { id: 'hick', label: 'Good Ole Boy', img: '/enemies/republican/hick.png',
+    thumb: '/enemies/republican/hick.png', party: 'republican', ownHead: true, minLevel: 3 },
+  { id: 'sheriff', label: 'The Sheriff', img: '/enemies/republican/sheriff.png',
+    thumb: '/enemies/republican/sheriff.png', party: 'republican', ownHead: true, minLevel: 5 },
+  { id: 'soldier_boy', label: 'Sgt. Stars', img: '/enemies/republican/soldier_boy.png',
+    thumb: '/enemies/republican/soldier_boy.png', party: 'republican', ownHead: true, minLevel: 8 },
+  { id: 'dan_dankas', label: 'Dan Dankas', img: '/enemies/republican/dan_dankas.png',
+    thumb: '/enemies/republican/dan_dankas.png', party: 'republican', ownHead: true, minLevel: 8 },
+  { id: 'megachurch_pastor', label: 'The Prosperity Pastor', img: '/enemies/republican/megachurch_pastor.png',
+    thumb: '/enemies/republican/megachurch_pastor.png', party: 'republican', ownHead: true, minLevel: 10 },
   // ── democrat ──
   { id: 'protestor', label: 'Antifa Kid', img: '/enemies/democrat/protestor.png',
     thumb: '/enemies/democrat/protestor.png', party: 'democrat', ownHead: true, minLevel: 3 },
@@ -64,6 +75,17 @@ export const FIGHTERS: FighterMeta[] = [
     thumb: '/enemies/democrat/crying_liberal.png', party: 'democrat', ownHead: true, minLevel: 10 },
   { id: 'climate_kid', label: 'The Climate Kid', img: '/enemies/democrat/climate_kid.png',
     thumb: '/enemies/democrat/climate_kid.png', party: 'democrat', ownHead: true, minLevel: 12 },
+  // batch 2 — the two LEGENDARY roster characters become the prestige unlocks
+  { id: 'maine', label: 'The Mainer', img: '/enemies/democrat/maine.png',
+    thumb: '/enemies/democrat/maine.png', party: 'democrat', ownHead: true, minLevel: 3 },
+  { id: 'drag', label: 'The Diva', img: '/enemies/democrat/drag.png',
+    thumb: '/enemies/democrat/drag.png', party: 'democrat', ownHead: true, minLevel: 5 },
+  { id: 'tampon_tim', label: 'The Governor', img: '/enemies/democrat/tampon_tim.png',
+    thumb: '/enemies/democrat/tampon_tim.png', party: 'democrat', ownHead: true, minLevel: 8 },
+  { id: 'dem_politician', label: 'Shadow Senator', img: '/enemies/democrat/politician_dems.png',
+    thumb: '/enemies/democrat/politician_dems.png', party: 'democrat', ownHead: true, minLevel: 12 },
+  { id: 'senator', label: 'The Chairman', img: '/enemies/democrat/senator.png',
+    thumb: '/enemies/democrat/senator.png', party: 'democrat', ownHead: true, minLevel: 15 },
 ]
 
 export const fighterMeta = (id: string): FighterMeta | undefined =>
