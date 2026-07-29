@@ -137,6 +137,8 @@ function StreetFightPage() {
   const [oppKickLoKey, setOppKickLoKey] = useState(0)
   const [playerHitKey, setPlayerHitKey] = useState(0)
   const [oppHitKey, setOppHitKey] = useState(0)
+  const [playerSpinKey, setPlayerSpinKey] = useState(0) // 🌀 spinning jump kick
+  const [oppSpinKey, setOppSpinKey] = useState(0)
   // 3D contact stamp (presentation brief Phase B): fired at every resolved
   // contact so the impact reads IN the scene, not just as DOM overlays
   const [impactFx, setImpactFx] = useState<{ key: number; side: 'player' | 'opp'; kind: 'light' | 'heavy' | 'special' | 'block' } | undefined>(undefined)
@@ -603,6 +605,8 @@ function StreetFightPage() {
     comboN: 0, lastHit: 0,
     // recent strikes, for combo-sequence detection (see COMBOS / detectCombo)
     comboHist: [] as { move: Move; at: number }[],
+    // BACK held/tapped recently → arms the spinning jump kick on 🦵
+    backHeldUntil: 0,
     blockHeld: false,
     dodgeUntil: 0, dodgeCd: 0,
     foeNextAt: 0, foeWindupAt: 0, foeMove: 'jab' as Move,
@@ -688,7 +692,7 @@ function StreetFightPage() {
     })
     channelRef.current = ch
 
-    const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean; boost?: number }) => {
+    const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean; boost?: number; spin?: boolean }) => {
       if (S.over) return
       S.dbg.recv++; S.dbg.lastRecvAt = Date.now()
       // duplicate (their retry): our result broadcast was lost — resend it
@@ -702,6 +706,8 @@ function StreetFightPage() {
       setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
       if (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') foeKick(p.move !== 'hook')
       else foeJab(!!p.right) // 3D: right or left jab
+      // mirror the 🌀 spin so the opponent's spin kick reads on our screen too
+      if (p.move === 'jumpkick' && p.spin) setOppSpinKey(k => k + 1)
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
       // their SPECIAL is an event on OUR screen too: party flash + punch-in
@@ -1038,6 +1044,8 @@ function StreetFightPage() {
   // reward known sequences with bonus damage + a callout. Each link must land
   // within COMBO_WINDOW of the previous one, so combos take timing, not mashing.
   const COMBO_WINDOW = 1100 // ms between links
+  // how long a BACK input keeps the spin kick armed (fighting-game input buffer)
+  const BACK_BUFFER_MS = 600
   const COMBOS: { name: string; seq: Move[]; mult: number; color: string }[] = [
     // classic boxing → head kick finisher
     { name: 'COMBINATION!', seq: ['cross', 'cross', 'kick'], mult: 1.55, color: '#f97316' },
@@ -1069,7 +1077,7 @@ function StreetFightPage() {
     return best
   }
 
-  function strikeCore(move: Move, right: boolean, label: string, impactMs: number, opts?: { jump?: boolean }) {
+  function strikeCore(move: Move, right: boolean, label: string, impactMs: number, opts?: { jump?: boolean; spin?: boolean }) {
     const S = L.current
     S.lastHit = Date.now()
     S.counts.taps++
@@ -1088,7 +1096,7 @@ function StreetFightPage() {
 
     if (realtime && !S.ghost) {
       const seq = ++S.attackSeq
-      const payload = { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined, jump: !!opts?.jump }
+      const payload = { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined, jump: !!opts?.jump, spin: !!opts?.spin }
       S.pendingMove = { seq, payload, at: Date.now(), resent: false }
       S.dbg.sent++
       channelRef.current?.send({ type: 'broadcast', event: 'move', payload })
@@ -1182,6 +1190,16 @@ function StreetFightPage() {
   function playerHighKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
+    // SPINNING JUMP KICK (Michael 2026-07-28): hold BACK (◀ / A) then 🦵.
+    // Winding back is the tell — same input language as a fighting game.
+    const backHeld = performance.now() < L.current.backHeldUntil
+    if (backHeld) {
+      L.current.counts.jumpkicks++
+      setPlayerSpinKey(k => k + 1)          // 360° turn in the arena
+      L.current.backHeldUntil = 0            // consume the wind-up
+      strikeCore('jumpkick', false, '🌀 SPIN KICK', 320, { jump: true, spin: true })
+      return
+    }
     // Jump window (▲ then 🦵) or already airborne → JUMP KICK
     const airborne = jumpingRef.current || playerY > 0.15 || performance.now() < jumpArmedUntil.current
     if (airborne) {
@@ -1352,7 +1370,13 @@ function StreetFightPage() {
       if (e.repeat) return
       const k = e.key.toLowerCase()
       // ── left pad: movement ──
-      if (k === 'a') { e.preventDefault(); setPlayerX(x => Math.max(-2.6, x - 0.4)) }
+      // A = back. Arms the spin kick for a short buffer, like a fighting-game
+      // charge input — hold/tap back then 🦵 (↑) for the spinning jump kick.
+      if (k === 'a') {
+        e.preventDefault()
+        setPlayerX(x => Math.max(-2.6, x - 0.4))
+        L.current.backHeldUntil = performance.now() + BACK_BUFFER_MS
+      }
       if (k === 'd') { e.preventDefault(); setPlayerX(x => Math.min((L.current.oppX ?? ANCHOR) - 0.5, x + 0.4)) }
       if (k === 'w') { e.preventDefault(); doJump() }
       if (k === 's') { e.preventDefault(); setPlayerDuck(true) }
@@ -1693,6 +1717,8 @@ function StreetFightPage() {
             oppKickLoKey={oppKickLoKey}
             playerHitKey={playerHitKey}
             oppHitKey={oppHitKey}
+            playerSpinKey={playerSpinKey}
+            oppSpinKey={oppSpinKey}
             playerX={playerX}
             playerY={playerY}
             playerDuck={playerDuck}
@@ -1786,7 +1812,8 @@ function StreetFightPage() {
               <button title="Duck" className={base} style={{ bottom: 0, left: 47 }}
                 onPointerDown={e => { stop(e); setPlayerDuck(true) }} onPointerUp={e => { stop(e); setPlayerDuck(false) }} onPointerLeave={() => setPlayerDuck(false)}>▼</button>
               <button title="Back up" className={base} style={{ top: 47, left: 0 }}
-                onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.6, x - 0.4)) }}>◀</button>
+                onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.6, x - 0.4)); L.current.backHeldUntil = performance.now() + BACK_BUFFER_MS }}
+                onPointerUp={() => { L.current.backHeldUntil = performance.now() + BACK_BUFFER_MS }}>◀</button>
               <button title="Move in" className={base} style={{ top: 47, right: 0 }}
                 onPointerDown={e => { stop(e); setPlayerX(x => Math.min((L.current.oppX ?? ANCHOR) - 0.5, x + 0.4)) }}>▶</button>
               <button title="Block" className={`${base} ${blocking ? 'bg-blue-500/70' : ''}`} style={{ top: 47, left: 47 }}
@@ -1874,6 +1901,9 @@ function StreetFightPage() {
               </p>
               <p className="text-amber-300/80 text-[11px] font-bold">
                 🔥 Combos: punch→punch→head kick · punch→leg kick · leg kick×2 · punch→jump kick
+              </p>
+              <p className="text-cyan-300/80 text-[11px] font-bold">
+                🌀 Hold BACK (◀ / A) then 🦵 = SPINNING JUMP KICK
               </p>
             </div>
           )
