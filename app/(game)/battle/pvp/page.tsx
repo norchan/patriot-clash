@@ -24,6 +24,16 @@ if (typeof window !== 'undefined') {
 // if the fist/foot clearly can't touch the opponent, it whiffs. Stepping back
 // with the D-pad is real defense; stepping in closes the distance.
 const ANCHOR = 0.55         // each fighter's resting |x| (0.55 => 1.1 apart)
+// Where the round OPENS. Deliberately wider than ANCHOR (Michael 2026-07-30:
+// "he also starts too close to the center line") — fighters break apart, then
+// close in, the way a round actually starts. This is separate from ANCHOR on
+// purpose: ANCHOR feeds every range/spacing check, so widening THAT would push
+// the resting gap past PUNCH_RANGE and make opening jabs whiff. Only the
+// initial placement uses this; the AI re-spaces to ANCHOR within a second.
+// 1.6 apart at the bell vs 1.1 resting. Kept just above KICK_RANGE (1.5) so the
+// opening is a real approach, but close enough that the AI's re-spacing covers
+// it in about a second rather than leaving you swinging at air.
+const START_ANCHOR = 0.8
 const PUNCH_RANGE = 1.25    // gap where an extended fist visually connects
 const KICK_RANGE = 1.5      // kicks reach farther — can still catch a retreat step
 const FOE_STEP = 0.05       // opponent approach speed per AI tick (~90ms)
@@ -159,12 +169,12 @@ function StreetFightPage() {
   // Jump window: press ▲ then high kick within window → jump kick
   const jumpArmedUntil = useRef(0)
   // D-pad movement for the 3D player fighter
-  const [playerX, setPlayerX] = useState(-ANCHOR) // position along the fight line
+  const [playerX, setPlayerX] = useState(-START_ANCHOR) // position along the fight line
   const [playerY, setPlayerY] = useState(0)       // jump height
   const [playerDuck, setPlayerDuck] = useState(false)
   const [blocking, setBlocking] = useState(false)
   const [oppBlocking, setOppBlocking] = useState(false) // opponent's live block pose
-  const [oppX, setOppX] = useState(ANCHOR)         // opponent position (AI-driven)
+  const [oppX, setOppX] = useState(START_ANCHOR)   // opponent position (AI-driven)
   const jumpingRef = useRef(false)
   const doJump = useCallback((height = 0.9, ms = 520) => {
     if (jumpingRef.current) return
@@ -191,7 +201,7 @@ function StreetFightPage() {
   useEffect(() => { L.current.blocking = blocking }, [blocking])
   useEffect(() => { L.current.ducking = playerDuck }, [playerDuck])
   useEffect(() => { L.current.airborne = playerY > 0.25 }, [playerY])
-  useEffect(() => { if (phase === 'live') { setPlayerX(-ANCHOR); setOppX(ANCHOR); L.current.playerX = -ANCHOR; L.current.oppX = ANCHOR } }, [phase])
+  useEffect(() => { if (phase === 'live') { setPlayerX(-START_ANCHOR); setOppX(START_ANCHOR); L.current.playerX = -START_ANCHOR; L.current.oppX = START_ANCHOR } }, [phase])
   // Landscape brawler: nudge the phone sideways (and best-effort lock)
   const [landscape, setLandscape] = useState(true)
   // LAYOUT MODE: 'portrait' = vertical fight with a bottom control deck (new,
@@ -623,7 +633,7 @@ function StreetFightPage() {
     counts: { taps: 0, kicks: 0, jumpkicks: 0, blocks: 0, combos: 0, specials: 0 },
     myHp: 100, foeHp: 100, meter: 0, powerArmed: false,
     // positional combat: fighter positions + guard state (mirrored from React)
-    playerX: -ANCHOR, oppX: ANCHOR, blocking: false, ducking: false, airborne: false, foeSpaceUntil: 0,
+    playerX: -START_ANCHOR, oppX: START_ANCHOR, blocking: false, ducking: false, airborne: false, foeSpaceUntil: 0,
   })
   const foeStats = fighterStats(foeLevel)
   const myRole = isChallenger ? 'c' : 'd'

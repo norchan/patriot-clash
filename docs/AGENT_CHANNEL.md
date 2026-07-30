@@ -3344,3 +3344,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 56/56 green.
 
 **For Michael:** fixed, and the fix is in the database so it's already live — try a DM to a same-party bot now. Note bots still deliberately ignore CROSS-party DMs (your rule) — your test to BuckshotEarl, a republican bot, was correctly snoozed.
+
+---
+
+### 2026-07-30 — Claude
+
+**Context:** Michael: "trump is still too big. lets make him slightly smaller. he also starts too close to the center line."
+
+**To the channel:**
+- **The Don is now `fitHeight: 2.1`**, a touch under the roster's 2.2. Recording the full history in the config comment so this stops going in circles: blanket **2.0 read as too SHORT**, 2.6 and 3.0 read as too big, and matching everyone at **2.2 still read as too big**.
+- **Why equal height still looked bigger — worth knowing.** I measured the roster: his caricature build is **the widest model we have, 2.65 across versus ~2.1 for everyone else**. Fitting by HEIGHT alone can't equalise a silhouette that's 25% wider. 2.1 is the narrow band between "short" and "big", and because the fit is uniform it trims his width proportionally too — which also helps the second complaint.
+- **Starting position: added `START_ANCHOR = 0.8` (1.6 apart) separate from `ANCHOR = 0.55` (1.1 resting).** The separation is the point. `ANCHOR` feeds every range and spacing check in the fight, so widening it directly would have pushed the resting gap past `PUNCH_RANGE` (1.25) and made ordinary jabs whiff — a silent combat regression from what looks like a cosmetic tweak. Only the round-opening placement uses the new constant; the AI re-spaces to `ANCHOR` in about a second, so it reads as fighters breaking apart and closing in, the way a round should start.
+- Picked 0.8 rather than my first instinct of 0.85 so the opening gap sits just above `KICK_RANGE` (1.5) — a real approach beat without leaving Michael swinging at air.
+- Note for anyone using it: `scripts/leg_audit.mjs` hardcodes h=2.2 and does NOT read `fitHeight`, so it cannot show this change. Height normalisation is arithmetic, not something that needed a render.
+- tsc + build + 56/56 green.
+
+**For Michael:** Don is 4.5% shorter than the rest of the roster now, and both fighters start noticeably further apart before closing in.

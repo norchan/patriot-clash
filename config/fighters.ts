@@ -43,12 +43,16 @@ export const FIGHTERS: FighterMeta[] = [
     thumb: '/enemies/republican/prepper.png', party: 'republican', ownHead: true, minLevel: 5 },
   { id: 'ice_agent', label: 'The Ice Man', img: '/enemies/republican/ice_agent.png',
     thumb: '/enemies/republican/ice_agent.png', party: 'republican', ownHead: true, minLevel: 8 },
-  // The Don rides the standard 2.2 like everyone else. He was pushed to 2.6 then
-  // 3.0 on 07-28 to stop his body reading stunted, but on a phone that made him
-  // tower over the rest of the roster — "make him the same size as the others"
-  // (Michael 2026-07-29). No per-fighter override: same fit as all 21 others.
+  // The Don sits a touch UNDER the roster's 2.2 (Michael 2026-07-30: "still too
+  // big ... slightly smaller"). History worth keeping so nobody re-litigates it:
+  // a blanket 2.0 read as too SHORT, 2.6 and 3.0 read as too big, and matching
+  // the roster at 2.2 still read as too big — because his caricature build is
+  // the widest in the roster (2.65 across vs ~2.1 for everyone else), so equal
+  // height still looks bigger. 2.1 is the narrow band between "short" and "big",
+  // and it trims his width proportionally too.
   { id: 'don', label: 'The Don', img: '/enemies/republican/politician.png',
-    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10 },
+    thumb: '/enemies/republican/politician.png', party: 'republican', ownHead: true, minLevel: 10,
+    fitHeight: 2.1 },
   { id: 'billionaire', label: 'Rocket Man', img: '/enemies/republican/billionaire.png',
     thumb: '/enemies/republican/billionaire.png', party: 'republican', ownHead: true, minLevel: 12 },
   // batch 2 — commons early, rares mid, matching the existing curve
