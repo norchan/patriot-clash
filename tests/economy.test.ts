@@ -272,3 +272,31 @@ describe('hall flak (town hall shoots back)', () => {
     expect(medianBite).toBeLessThan(0.15)
   })
 })
+
+import fs from 'node:fs'
+import path from 'node:path'
+import { ENEMY_3D_IDS, getEnemyById } from '@/config/enemies'
+
+describe('3D enemy rigs', () => {
+  // A missing GLB is not a soft failure: useGLTF throws, and the 404 takes the
+  // whole battle screen down. Michael hit this on union_barista (2026-07-29)
+  // after six characters were listed as 3D ahead of their Meshy runs. Catch
+  // the drift here instead of in someone's fight.
+  const models = path.join(process.cwd(), 'public', 'models')
+
+  it('every id declared 3D has BOTH an idle and a throw model on disk', () => {
+    const missing = ENEMY_3D_IDS.filter(id =>
+      !fs.existsSync(path.join(models, `${id}_idle.glb`)) ||
+      !fs.existsSync(path.join(models, `${id}_throw.glb`)))
+    expect(missing, `declared 3D but no model: ${missing.join(', ')}`).toEqual([])
+  })
+
+  it('every id declared 3D is a real enemy in the roster', () => {
+    const unknown = ENEMY_3D_IDS.filter(id => !getEnemyById(id))
+    expect(unknown, `not in the roster: ${unknown.join(', ')}`).toEqual([])
+  })
+
+  it('has no duplicate ids', () => {
+    expect(new Set(ENEMY_3D_IDS).size).toBe(ENEMY_3D_IDS.length)
+  })
+})

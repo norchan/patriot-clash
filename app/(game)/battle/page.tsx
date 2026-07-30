@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useProfile } from '@/hooks/useProfile'
-import { getEnemyById, getRandomEnemy, getEnemiesForParty } from '@/config/enemies'
+import { getEnemyById, getRandomEnemy, getEnemiesForParty, ENEMY_3D_IDS } from '@/config/enemies'
 import type { Enemy } from '@/config/enemies'
 import { THROWS, TIER_DEFENSE } from '@/config/attacks'
 import { fighterLevel } from '@/lib/fighter'
@@ -12,13 +12,10 @@ import dynamic from 'next/dynamic'
 // 3D enemy renderer (client-only). The battle stage is 3D-ONLY: every fighter
 // renders through Enemy3D so size, ground contact, and motion are identical.
 const Enemy3D = dynamic(() => import('@/components/Enemy3D'), { ssr: false })
-const ENEMY_3D: Record<string, string> = Object.fromEntries(
-  ['comrade', 'oil_baron', 'cowboy', 'politician', 'hick', 'ice_agent', 'soldier_boy', 'preppy', 'influencer',
-   'billionaire', 'crazy_liberal', 'crying_liberal', 'dem_politician', 'purple_hair', 'protestor', 'anchor',
-   'palestine', 'drag', 'senator', 'tampon_tim', 'dan_dankas', 'maine', 'firebrand', 'social_bean',
-   'prepper', 'yard_sign_lady', 'megachurch_pastor', 'crypto_bro', 'sheriff',
-   'union_barista', 'adjunct_professor', 'climate_kid'].map(id => [id, id]),
-)
+// Which enemies actually have a rig lives in config/enemies.ts next to the
+// roster, and is verified against public/models by the test suite — six ids
+// used to be listed here with no model, which 404'd and crashed the battle.
+const ENEMY_3D: Record<string, string> = Object.fromEntries(ENEMY_3D_IDS.map(id => [id, id]))
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SPRITE BATTLE — 12-second showdown.

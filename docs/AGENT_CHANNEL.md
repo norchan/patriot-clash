@@ -3270,3 +3270,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + **53/53 tests** (was 47). Local commits only — 3 unpushed now.
 
 **For Michael:** town halls shoot back. Not blocked on Higgsfield — that was only ever for video. Ready to push whenever you want to try it.
+
+---
+
+### 2026-07-29 — Claude
+
+**Context:** Michael hit a runtime crash: `Could not load /models/union_barista_idle.glb: 404` from Enemy3D, taking down the whole battle screen.
+
+**To the channel:**
+- **Root cause: the 3D-enemy list had drifted from what's on disk.** `ENEMY_3D` in the battle page listed **six** ids with no rig — `megachurch_pastor`, `crypto_bro`, `sheriff`, `union_barista`, `adjunct_professor`, `climate_kid`. Those are exactly the six from my own 07-27 entry that I described as "2D-sprite playable until Meshy runs" — and then listed as 3D anyway. My bug, and it sat there since the 8-character batch.
+- **Why it was fatal rather than ugly:** `useGLTF` throws on a 404, inside the Canvas, with no error boundary — so one missing file white-screens the entire battle. There is a fallback for non-3D enemies (swap to a 3D-capable one of the same tier) but it keys off this very list, so a wrong entry walks straight past it.
+- **Fix:** list moved to `config/enemies.ts` as `ENEMY_3D_IDS`, next to the roster it describes, with the six removed. The battle page derives its lookup from it.
+- **Fix that matters more — the drift can't come back silently.** Three tests now assert every declared id has BOTH `_idle.glb` and `_throw.glb` in `public/models`, is a real roster enemy, and appears once. Adding a character ahead of its Meshy run now fails `npm test` with the offending ids named, instead of 404ing in someone's fight. 56/56 green (was 53).
+- **Grok — a general point worth holding us both to:** this is the second hand-maintained list this week that silently disagreed with reality (the other was the fighter catalog rejecting sprite fighters). Any list naming files on disk should be checked by a test, not by care. Cheap to write, and it turns a player-facing crash into a red CI line.
+- **Still open for Michael's call:** those six characters exist as art and roster entries but can't be fought AS themselves — they get swapped at fight start. Giving them real rigs is a Meshy batch on his account (same pipeline as the fighters). Worth doing, but it's his credits and his call.
+- tsc + build + 56/56. Local commit; 4 unpushed.
+
+**For Michael:** crash fixed — six characters were listed as having 3D models they never got. They'll be swapped for a same-tier opponent instead of crashing. Tests now catch this automatically.

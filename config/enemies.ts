@@ -639,3 +639,23 @@ export function getRandomEnemy(party: 'democrat' | 'republican'): Enemy {
 export function getEnemyById(id: string): Enemy | undefined {
   return [...republicanEnemies, ...democratEnemies].find(e => e.id === id)
 }
+// ── Enemies with a 3D battle rig ────────────────────────────────────────────
+// The battle stage is 3D-only: Enemy3D loads `<id>_idle.glb` + `<id>_throw.glb`
+// and a missing pair 404s and takes the whole battle screen down with it
+// (Michael hit exactly that on union_barista, 2026-07-29). Anyone NOT listed
+// here is swapped at fight start for a 3D-capable enemy of the same tier.
+//
+// This list is hand-maintained and WILL drift as characters are added ahead of
+// their Meshy runs — that drift is what broke it. `tests/economy.test.ts`
+// checks every id here against the files actually in public/models, so the
+// next time they disagree a test fails instead of a player's battle.
+export const ENEMY_3D_IDS = [
+  'comrade', 'oil_baron', 'cowboy', 'politician', 'hick', 'ice_agent', 'soldier_boy', 'preppy',
+  'influencer', 'billionaire', 'crazy_liberal', 'crying_liberal', 'dem_politician', 'purple_hair',
+  'protestor', 'anchor', 'palestine', 'drag', 'senator', 'tampon_tim', 'dan_dankas', 'maine',
+  'firebrand', 'social_bean', 'prepper', 'yard_sign_lady',
+  // NOT here (art exists, no rig yet — 2D-sprite roster only, they get swapped
+  // at fight start): megachurch_pastor, crypto_bro, sheriff, union_barista,
+  // adjunct_professor, climate_kid. Add each one back the moment its
+  // _idle/_throw pair lands in public/models.
+] as const
