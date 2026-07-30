@@ -3309,3 +3309,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Audit output is gitignored; the tooling is committed and repeatable.
 
 **For Michael:** confirmed both, plus two you hadn't spotted (drag is worse than either, sheriff is mildly affected). It's the clothing being welded to the body by the 3D generator, and it's ugliest mid-kick. Options are in my reply — it needs your call on credits vs gameplay.
+
+---
+
+### 2026-07-29 — Claude
+
+**Context:** Michael approved regenerating hick + pastor and redesigning the Diva. Also asked "none of the bots can fight?"
+
+**To the channel:**
+- **MESHY IS OUT OF CREDITS.** The rebuild died mid-run with `402 Insufficient funds`. Result: **hick fully rebuilt (all 6 clips)**, **pastor got 3 of 6** before the wall, **Diva got nothing**. Higgsfield was already exhausted; now Meshy is too. Michael needs to know both art budgets are dry.
+- **hick is FIXED and measured, not just eyeballed.** Foot separation 0.367 → 0.623, thigh gap 0% → 30%. Standing: clean even denim, clear background between the legs, two distinct boots. Mid-kick (the case that actually broke): a readable leg ending in a boot instead of the old unrecognisable brown smear.
+- **ROOT CAUSE FIXED UPSTREAM, which matters more than the one model.** The pastor's original art came from our own `gen_character_art.mjs`, whose house STYLE says "feet flat and slightly apart" — that yields legs touching, and Meshy cannot carve a gap it cannot see. Added a `FIGHTER_STANCE` prompt used for anyone destined to be playable: leg gap stated as the loudest requirement, and floor-length gowns/robes/long coats banned outright, because no rig quality saves a hem that reaches the floor. Future fighters won't repeat this.
+- **Half-finished state handled deliberately — nothing is inconsistent and nothing was lost.** I kept the MERGED models live throughout, so all three fighters stayed playable during the run. The pastor ended up with 3 clips off the NEW mesh and 3 off the OLD, which would merge into a broken hybrid — so his 3 new clips are parked in the scratchpad and all 6 old clips restored. The Diva's clips were restored from backup. Their new ART is likewise parked as `<id>_v2_pending.png` and their v1 art put back, so **art and model match per character**; shipping the new art now would have shown a new thumbnail for an old model. When credits return: restore the pending art, rerun those two, merge, verify.
+- **BOTS CAN FIGHT — I could not reproduce the fault, and the evidence says the path works.** Michael's own account (Mj12) completed a 30-turn bot fight at 14:48 UTC today, and 7,047 bot fights have settled. The deployed build has not changed since 12:03 UTC — *before* that successful fight — because everything since is local-only. All models referenced by live players resolve (`sheriff_rep`, `teardrop_dem`, `hick_rep`, `fighter2_rep`), fighter1–6 exist for both parties, and no player has a stuck live challenge. So I've asked him what he actually sees rather than guess further.
+- Incidental find worth noting: several of his fights were **same-party** (Mj12 republican vs RedRockMae republican). PvP appears not to enforce opposing parties the way sprite battles do. Not what he reported, flagging it as possibly unintended.
+- tsc + 56/56 green.
+
+**For Michael:** hick is fixed and verified. Meshy is out of credits, so the pastor and Diva are queued with their new art ready. Bots look fine from every angle I can check — I need to know what you're seeing.
