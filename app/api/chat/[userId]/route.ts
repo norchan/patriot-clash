@@ -12,6 +12,12 @@ function conversationId(a: string, b: string) {
   return [a, b].sort().join('_')
 }
 
+// The bot reply is generated and delivered inside after(), which waits out an
+// 8–10s pause before inserting. That work counts toward this function's
+// lifetime, so the platform default (10–15s) would cut it off right at the
+// finish line and dump every bot reply on the cron safety net.
+export const maxDuration = 60
+
 // GET /api/chat/[userId] — fetch message thread with a player
 export async function GET(
   _req: NextRequest,
@@ -42,7 +48,13 @@ export async function GET(
       .eq('receiver_id', profile.id)
       .is('read_at', null)
 
-    const typing = !!queued && new Date(queued.due_at).getTime() - Date.now() < 3 * 60 * 1000
+    // Typing indicator: a reply is queued and still plausibly on its way.
+    // Bounded on BOTH sides — the upper bound was enough when replies were
+    // queued minutes out, but at 8–10s a row whose inline delivery died would
+    // sit overdue and pin the dots on until the cron swept it. Anything more
+    // than a minute late is not "typing", it's stuck.
+    const dueIn = queued ? new Date(queued.due_at).getTime() - Date.now() : null
+    const typing = dueIn !== null && dueIn < 3 * 60 * 1000 && dueIn > -60 * 1000
 
     return NextResponse.json({ messages: messages ?? [], typing })
 

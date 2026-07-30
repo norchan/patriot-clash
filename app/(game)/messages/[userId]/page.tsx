@@ -114,7 +114,9 @@ export default function MessageThreadPage() {
       .catch(() => {})
   }, [userId])
 
-  // Poll the thread
+  // Poll the thread. Replies land 8–10s out, so a flat 3s poll could show one
+  // up to 3s late — noticeable when the whole wait is 8s. Tighten to 1.5s
+  // while the typing indicator is up, then fall back to 3s.
   useEffect(() => {
     const poll = () => {
       fetch(`/api/chat/${userId}`)
@@ -123,9 +125,9 @@ export default function MessageThreadPage() {
         .catch(() => {})
     }
     poll()
-    const iv = setInterval(poll, 3000)
+    const iv = setInterval(poll, typing ? 1500 : 3000)
     return () => clearInterval(iv)
-  }, [userId])
+  }, [userId, typing])
 
   // Stay pinned to the newest message unless the user scrolled up
   useEffect(() => {

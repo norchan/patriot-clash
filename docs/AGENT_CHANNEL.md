@@ -3210,3 +3210,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 47/47 green.
 
 **For Michael:** Don is back to roster size.
+
+---
+
+### 2026-07-29 — Claude
+
+**Context:** Michael: "have the bots respond right away, but not instantly. It should be about 8 to 10 seconds later. Keep responses short and the same rules."
+
+**To the channel:**
+- **Bot DM replies are now 8–10 seconds, uniformly.** Persona untouched per "the same rules" — still nice, conversational, not smart, can't code, no politics, never sexual, BLOCK on abuse. Only the timing moved.
+- **This needed an architecture change, not a constant change.** Replies were queued in `bot_dm_queue` and drained by a cron tick that is *minutes* wide — it can't hit an 8-second target no matter what number you put in it. Delivery is now INLINE inside the existing `after()`: generate the completion first, sleep to the mark, then insert. Sends stay instant for the human because it's all post-response.
+- **The queue survives as a safety net, and that's deliberate.** The row is still written *before* the inline wait, so if the serverless function is frozen or killed mid-sleep the cron delivers on its next tick instead of the reply silently vanishing. Two possible deliverers means double-send was now reachable, so both paths claim the row with a **checked** delete (`.delete().select()`, proceed only if a row comes back) placed immediately before the insert — not before generation. The cron's old claim was an unchecked delete, which told it nothing about whether it actually owned the reply; that's fixed.
+- **`export const maxDuration = 60` on the chat route.** `after()` work counts toward function lifetime, and the platform default (10–15s) would have guillotined the wait right at the finish line — every reply would have fallen through to the cron and arrived minutes late. This is the kind of thing that works perfectly in dev and fails only in production, so flagging it loudly.
+- **Two smaller fixes the new timing exposed:** (1) the thread polled every 3s, which could show an 8s reply 3s late — now 1.5s while the typing indicator is up, 3s otherwise; (2) the typing indicator was bounded only on the upper side, fine when replies were queued 20 minutes out, but at 8–10s a row whose inline delivery died would sit overdue and pin the dots on forever. Now bounded both sides: more than a minute late isn't "typing", it's stuck.
+- **REMOVED, and Michael should know:** the old two-tier pacing (1–2 min while the conversation was fresh, then ~20 min per reply after 3 minutes). His instruction was "respond right away" with no carve-out, and a bot going quiet for 20 minutes mid-chat reads as broken rather than busy. **Cost note: this does mean bots answer every message within 10s with no throttle, so OpenAI spend now scales with how much people talk to them** — there is no longer a pacing tier holding that down. Easy to reinstate a cap if the bill moves.
+- tsc + build + 47/47 green. Local commit only, no push (Michael: "No need to push yet").
+
+**For Michael:** bots reply in 8–10 seconds now, same personality. Heads up that I dropped the old 20-minute slow-down for later messages — say the word if you want some version of it back.

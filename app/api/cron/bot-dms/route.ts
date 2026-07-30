@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { sendBotReplyNow } from '@/lib/bot-chat'
 
-// BOT DM QUEUE (Michael 2026-07-25): after 3 minutes of conversation, bot
-// replies wait ~20 minutes each. generateBotReply enqueues into
-// bot_dm_queue; this route (pg_cron, every 5 min) delivers what's due.
+// BOT DM QUEUE — SAFETY NET ONLY (Michael 2026-07-29).
+// Bot replies now land 8–10s after the human's message and are delivered
+// INLINE by generateBotReply, which no cron tick could ever hit. Rows still
+// get written before that inline wait, so this route exists to catch replies
+// whose serverless function was frozen or killed mid-wait. In normal
+// operation it should find nothing due — a steady stream here means the
+// inline path is dying and is worth investigating.
 
 export const maxDuration = 300
 
@@ -23,8 +27,15 @@ export async function GET(req: NextRequest) {
 
   let sent = 0
   for (const row of due ?? []) {
-    // claim first so an overlapping run can't double-send
-    await admin.from('bot_dm_queue').delete().eq('conversation_id', row.conversation_id)
+    // Claim first so an overlapping run — or the inline path — can't
+    // double-send. The delete must be CHECKED: an unchecked delete tells us
+    // nothing about whether we were the one who owned this reply.
+    const { data: claimed } = await admin
+      .from('bot_dm_queue')
+      .delete()
+      .eq('conversation_id', row.conversation_id)
+      .select('conversation_id')
+    if (!claimed?.length) continue
 
     const [{ data: bot }, { data: human }] = await Promise.all([
       admin.from('profiles').select('id, username, party, clerk_user_id').eq('id', row.bot_id).maybeSingle(),
