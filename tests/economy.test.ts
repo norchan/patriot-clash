@@ -219,3 +219,56 @@ describe('creator earnings', () => {
     expect(estimatedEarnings(1234)).toBe('0.12')
   })
 })
+
+import { SIEGE_ATTACKS, FLAK, flakHitChance, rollFlak } from '@/config/siege-attacks'
+
+describe('hall flak (town hall shoots back)', () => {
+  it('an undefended hall never intercepts', () => {
+    expect(flakHitChance(0)).toBe(0)
+    const r = rollFlak(SIEGE_ATTACKS.liberty, 0, () => 0) // rand always "hits"
+    expect(r.intercepted).toBe(0)
+    expect(r.damageMult).toBe(1)
+  })
+
+  it('accuracy scales with defense and saturates at DEF_FOR_FULL', () => {
+    expect(flakHitChance(FLAK.DEF_FOR_FULL / 2)).toBeCloseTo(FLAK.MAX_HIT_CHANCE / 2, 6)
+    expect(flakHitChance(FLAK.DEF_FOR_FULL)).toBeCloseTo(FLAK.MAX_HIT_CHANCE, 6)
+    // a hall well past the cap is no more accurate than one at the cap
+    expect(flakHitChance(99_999)).toBeCloseTo(FLAK.MAX_HIT_CHANCE, 6)
+  })
+
+  it('NEVER zeroes a strike, even when every piece is intercepted', () => {
+    // rand() = 0 always beats the hit chance, so the whole volley dies
+    for (const atk of Object.values(SIEGE_ATTACKS)) {
+      const r = rollFlak(atk, 99_999, () => 0)
+      expect(r.intercepted).toBe(atk.salvo)
+      expect(r.damageMult).toBeCloseTo(1 - FLAK.MAX_BITE, 6)
+      expect(r.damageMult).toBeGreaterThan(0)
+      // the cheapest attack still lands real damage through a max fortress
+      expect(Math.max(1, Math.round(atk.minDamage * r.damageMult))).toBeGreaterThan(0)
+    }
+  })
+
+  it('a fully missed volley takes no bite', () => {
+    const r = rollFlak(SIEGE_ATTACKS.strength, 99_999, () => 1) // rand never < p
+    expect(r.intercepted).toBe(0)
+    expect(r.damageMult).toBe(1)
+  })
+
+  it('every attack declares a salvo the interception can divide', () => {
+    for (const atk of Object.values(SIEGE_ATTACKS)) {
+      expect(atk.salvo).toBeGreaterThan(0)
+      expect(Number.isInteger(atk.salvo)).toBe(true)
+    }
+  })
+
+  it('a median live hall (DEF 979) bites far less than a fortress', () => {
+    const median = flakHitChance(979)
+    const fortress = flakHitChance(5866)
+    expect(median).toBeLessThan(fortress)
+    // sanity-check the tuning claim: median eats roughly a tenth of a strike
+    const medianBite = median * FLAK.MAX_BITE
+    expect(medianBite).toBeGreaterThan(0.05)
+    expect(medianBite).toBeLessThan(0.15)
+  })
+})

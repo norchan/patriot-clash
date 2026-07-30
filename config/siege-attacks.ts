@@ -14,6 +14,9 @@ export interface SiegeAttack {
   minDamage: number
   maxDamage: number
   desc: string
+  /** Interceptable pieces in the volley — the hall's turrets roll against each
+   *  one. Roughly matches what the siege screen actually draws. */
+  salvo: number
 }
 
 // Three tiers per party — each button costs more and hits harder.
@@ -21,13 +24,56 @@ export interface SiegeAttack {
 // Strikes CAN finish a hall (DEF → 0 = capture); no floor-at-1.
 export const SIEGE_ATTACKS: Record<SiegeAttackId, SiegeAttack> = {
   // ── Democrats: "Give me your tired, your poor, your huddled masses…" ────
-  tired:    { id: 'tired',    party: 'democrat',   name: 'The Tired',           emoji: '🔱', fp: 50,  minDamage: 35,  maxDamage: 70,  desc: 'A volley of pitchforks rains on the hall' },
-  poor:     { id: 'poor',     party: 'democrat',   name: 'The Poor',            emoji: '✊', fp: 150, minDamage: 90,  maxDamage: 160, desc: 'A furious mob storms the gates' },
-  free:     { id: 'free',     party: 'democrat',   name: 'Yearning to Be Free', emoji: '💨', fp: 400, minDamage: 220, maxDamage: 320, desc: 'The huddled masses charge in a cloud of smoke' },
+  tired:    { id: 'tired',    party: 'democrat',   name: 'The Tired',           emoji: '🔱', fp: 50,  minDamage: 35,  maxDamage: 70,  salvo: 9, desc: 'A volley of pitchforks rains on the hall' },
+  poor:     { id: 'poor',     party: 'democrat',   name: 'The Poor',            emoji: '✊', fp: 150, minDamage: 90,  maxDamage: 160, salvo: 7, desc: 'A furious mob storms the gates' },
+  free:     { id: 'free',     party: 'democrat',   name: 'Yearning to Be Free', emoji: '💨', fp: 400, minDamage: 220, maxDamage: 320, salvo: 6, desc: 'The huddled masses charge in a cloud of smoke' },
   // ── Republicans ──────────────────────────────────────────────────────────
-  peace:    { id: 'peace',    party: 'republican', name: 'Peace',    emoji: '🦅', fp: 50,  minDamage: 35,  maxDamage: 70,  desc: 'Screaming eagles dive on the hall' },
-  strength: { id: 'strength', party: 'republican', name: 'Strength', emoji: '🚀', fp: 150, minDamage: 90,  maxDamage: 160, desc: 'A missile barrage levels the walls' },
-  liberty:  { id: 'liberty',  party: 'republican', name: 'Liberty',  emoji: '🗽', fp: 400, minDamage: 220, maxDamage: 320, desc: 'Lady Liberty herself drops on the hall' },
+  peace:    { id: 'peace',    party: 'republican', name: 'Peace',    emoji: '🦅', fp: 50,  minDamage: 35,  maxDamage: 70,  salvo: 8, desc: 'Screaming eagles dive on the hall' },
+  strength: { id: 'strength', party: 'republican', name: 'Strength', emoji: '🚀', fp: 150, minDamage: 90,  maxDamage: 160, salvo: 6, desc: 'A missile barrage levels the walls' },
+  liberty:  { id: 'liberty',  party: 'republican', name: 'Liberty',  emoji: '🗽', fp: 400, minDamage: 220, maxDamage: 320, salvo: 4, desc: 'Lady Liberty herself drops on the hall' },
+}
+
+// ── HALL FLAK: the town hall shoots back ────────────────────────────────────
+// Michael 2026-07-28: "the town hall should be knocking out every type of
+// attack, or at least shooting at and damaging the incoming attacks."
+//
+// Turrets roll once per piece of the incoming volley. Two properties matter:
+//
+//  1. It scales with how well defended the hall IS, so a fortress is genuinely
+//     hard to crack and a hall you've already beaten down stops shooting well.
+//     That makes a siege accelerate as it goes instead of dragging — the last
+//     hit is the easiest, not the hardest.
+//  2. It can NEVER zero a strike. Specials cost up to 400 FP; spending that and
+//     watching it evaporate would feel like being robbed, so even a fully
+//     intercepted volley lands MIN_THROUGH of its damage.
+//
+// Tuned against live data (2,351 halls, median DEF 979, avg 1,433, max 5,866):
+// a median hall shoots down ~1 piece in 5 and eats ~11% of a strike; a maxed
+// fortress shoots down over half and eats ~28%.
+export const FLAK = {
+  DEF_FOR_FULL: 2500,    // defense at which turrets reach max accuracy
+  MAX_HIT_CHANCE: 0.55,  // per-piece intercept chance at that defense
+  MAX_BITE: 0.50,        // damage removed if the ENTIRE volley is intercepted
+} as const
+
+/** Per-piece intercept chance for a hall at this defense level. */
+export function flakHitChance(defensePoints: number): number {
+  const f = Math.max(0, Math.min(1, (defensePoints || 0) / FLAK.DEF_FOR_FULL))
+  return f * FLAK.MAX_HIT_CHANCE
+}
+
+/** Roll the hall's return fire against one incoming strike. Pure so the
+ *  economy tests can pin it with a seeded rand. */
+export function rollFlak(
+  attack: SiegeAttack,
+  defensePoints: number,
+  rand: () => number = Math.random,
+): { salvo: number; intercepted: number; damageMult: number } {
+  const p = flakHitChance(defensePoints)
+  let intercepted = 0
+  for (let i = 0; i < attack.salvo; i++) if (rand() < p) intercepted++
+  const damageMult = 1 - (intercepted / attack.salvo) * FLAK.MAX_BITE
+  return { salvo: attack.salvo, intercepted, damageMult }
 }
 
 export const ATTACKS_FOR_PARTY = (party: 'democrat' | 'republican'): SiegeAttack[] =>

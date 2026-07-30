@@ -399,7 +399,10 @@ function SiegePage() {
       // server answers, so strikes OVERLAP and read as a barrage. FP cost is
       // the real limiter, and the server still rolls every strike.
       setStrikeBusy(false)
-      const total = playStrike(attackId, data.damage)
+      if (data.intercepted > 0) {
+        showToast(`🛡️ Hall turrets shot down ${data.intercepted} of ${data.salvo}${data.blocked ? ` — ${data.blocked} damage stopped` : ''}`)
+      }
+      const total = playStrike(attackId, data.damage, data.salvo ?? 0, data.intercepted ?? 0)
       schedule(total, () => {
         // never wipe `pending` here — other strikes may still be draining it
         setDefense(prev => Math.min(prev, Math.max(0, data.defense_remaining ?? 0)))
@@ -467,7 +470,7 @@ function SiegePage() {
   }
 
   // Choreography per attack — returns total duration ms
-  function playStrike(attackId: SiegeAttackId, damage: number): number {
+  function playStrike(attackId: SiegeAttackId, damage: number, salvo = 0, intercepted = 0): number {
     const pool = strikePool.current
     // ADDITIVE so overlapping strikes stack instead of cancelling each other:
     // the second attack's damage joins the pool rather than replacing what the
@@ -476,16 +479,43 @@ function SiegePage() {
     pool.target = Math.max(0, Math.min(pool.target || Infinity, defense - damage))
     sfx.bell(false)
 
+    // ── HALL FLAK ────────────────────────────────────────────────────────────
+    // The SERVER decided how many pieces the turrets knocked down and already
+    // subtracted their damage. All we do here is pick which ones die and show
+    // it. `damage` is the post-flak number, so it spreads over the SURVIVORS —
+    // chipping it across all pieces would quietly double-count the loss.
+    const doomed = (n: number): Set<number> => {
+      const k = salvo > 0 ? Math.min(n, Math.round((intercepted / salvo) * n)) : 0
+      const picked = new Set<number>()
+      while (picked.size < k) picked.add(Math.floor(Math.random() * n))
+      return picked
+    }
+    /** Tracer up from a turret, then the piece bursts short of the hall. */
+    const shootDown = (x: number, y: number, atMs: number) => {
+      const gun = DEFENSE_GUNS[Math.floor(Math.random() * DEFENSE_GUNS.length)]
+      schedule(atMs, () => {
+        addFx({ emoji: '⚡', x0: gun.x, y0: gun.y, x1: x, y1: y, size: 30, dur: 200 }, 220)
+        schedule(200, () => {
+          addFx({ boom: true, emoji: '💥', x0: x, y0: y, x1: x, y1: y, size: 58, dur: 500 }, 540)
+          addFx({ emoji: '💨', x0: x, y0: y, x1: x + (Math.random() * 10 - 5), y1: y + 8, size: 40, dur: 600 }, 640)
+        })
+      })
+    }
+
     if (attackId === 'tired') {
       // volley of pitchforks raining onto the hall
       const n = 9
-      const chunk = damage / n
+      const dead = doomed(n)
+      const chunk = damage / Math.max(1, n - dead.size)
       for (let i = 0; i < n; i++) {
         const x1 = 35 + Math.random() * 30
         const y1 = 38 + Math.random() * 12
+        const hit = dead.has(i)
         schedule(i * 100, () => {
-          addFx({ src: '/siege/pitchfork.png', x0: 8 + Math.random() * 84, y0: 106, x1, y1, size: 54, dur: 650, spin: true, easeIn: true }, 700)
-          schedule(650, () => chipStrike(chunk, x1, y1 - 4))
+          // shot-down pitchforks die halfway up, short of the hall
+          addFx({ src: '/siege/pitchfork.png', x0: 8 + Math.random() * 84, y0: 106, x1, y1: hit ? y1 + 26 : y1, size: 54, dur: hit ? 380 : 650, spin: true, easeIn: true }, hit ? 400 : 700)
+          if (hit) shootDown(x1, y1 + 26, 340)
+          else schedule(650, () => chipStrike(chunk, x1, y1 - 4))
         })
       }
       return n * 100 + 900
@@ -520,11 +550,15 @@ function SiegePage() {
 
     if (attackId === 'free') {
       // the huddled masses charge in a cloud of smoke
+      const deadFree = doomed(6)
       for (let i = 0; i < 6; i++) {
         schedule(i * 120, () => {
           addFx({ emoji: '💨', x0: 20 + Math.random() * 60, y0: 100, x1: 30 + Math.random() * 40, y1: 42 + Math.random() * 16, size: 64 + Math.random() * 40, dur: 1400 }, 1900)
         })
       }
+      // Turrets rake the charge. The damage was already docked server-side, so
+      // these are pure visuals — the chip chunks below still total `damage`.
+      deadFree.forEach(i => shootDown(28 + i * 9, 58 + Math.random() * 10, 500 + i * 160))
       schedule(200, () => {
         addFx({ src: '/siege/crowd.png', x0: 50, y0: 96, x1: 50, y1: 56, size: 240, dur: 1500 }, 2600)
       })
@@ -543,14 +577,19 @@ function SiegePage() {
     if (attackId === 'peace') {
       // screaming eagles dive on the hall
       const n = 4
-      const chunk = damage / n
+      const dead = doomed(n)
+      const chunk = damage / Math.max(1, n - dead.size)
       for (let i = 0; i < n; i++) {
         const fromLeft = i % 2 === 0
         const x1 = 40 + Math.random() * 20
         const y1 = 38 + Math.random() * 10
+        const hit = dead.has(i)
+        // a downed eagle is clipped mid-dive and drops well short
+        const ex = hit ? (fromLeft ? x1 - 18 : x1 + 18) : x1
         schedule(i * 200, () => {
-          addFx({ src: '/siege/eagle1.png', src2: '/siege/eagle2.png', x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1, y1, size: 66, dur: 950, flip: !fromLeft }, 1050)
-          schedule(950, () => {
+          addFx({ src: '/siege/eagle1.png', src2: '/siege/eagle2.png', x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1: ex, y1: hit ? y1 + 14 : y1, size: 66, dur: hit ? 620 : 950, flip: !fromLeft }, hit ? 660 : 1050)
+          if (hit) shootDown(ex, y1 + 14, 580)
+          else schedule(950, () => {
             chipStrike(chunk, x1, y1 - 3)
             addFx({ boom: true, emoji: '🪶', x0: x1, y0: y1, x1, y1, size: 40, dur: 700 }, 750)
           })
@@ -562,14 +601,18 @@ function SiegePage() {
     if (attackId === 'strength') {
       // missile barrage
       const n = 3
-      const chunk = damage / n
+      const dead = doomed(n)
+      const chunk = damage / Math.max(1, n - dead.size)
       for (let i = 0; i < n; i++) {
         const x1 = 40 + i * 10 + Math.random() * 4
         const y1 = 40 + Math.random() * 8
+        const hit = dead.has(i)
         schedule(i * 260, () => {
           sfx.whoosh?.()
-          addFx({ src: '/siege/missile.png', x0: 20 + i * 30, y0: 110, x1, y1, size: 90, dur: 720, easeIn: true }, 740)
-          schedule(720, () => {
+          // intercepted missiles are detonated early, below the walls
+          addFx({ src: '/siege/missile.png', x0: 20 + i * 30, y0: 110, x1, y1: hit ? y1 + 30 : y1, size: 90, dur: hit ? 430 : 720, easeIn: true }, hit ? 450 : 740)
+          if (hit) shootDown(x1, y1 + 30, 390)
+          else schedule(720, () => {
             addFx({ boom: true, emoji: '💥', x0: x1, y0: y1, x1, y1, size: 92, dur: 750 }, 800)
             chipStrike(chunk, x1, y1 - 5)
             shakeScreen(true)
@@ -582,6 +625,9 @@ function SiegePage() {
     // liberty — Lady Liberty herself drops on the hall
     const chunk = damage / 3
     addFx({ src: '/siege/statue.png', x0: 50, y0: -30, x1: 50, y1: 42, size: 240, dur: 950, easeIn: true }, 2400)
+    // Nothing stops a falling statue, but the turrets empty into it on the way
+    // down — flak bursts around her, damage already docked server-side.
+    doomed(4).forEach(i => shootDown(40 + i * 7, 16 + i * 8, 200 + i * 170))
     schedule(950, () => {
       shakeScreen(true)
       const id = ++idRef.current

@@ -3251,3 +3251,22 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Open question from 07-28 he never answered: should the spin kick hit harder than a plain jump kick? Currently identical. Same question now applies to the sweep vs the knee.
 
 **For Michael:** leg sweep is in — hold ▼ (or S) then the knee button. Biggest thing still outstanding is the town hall shooting back at incoming attacks.
+
+---
+
+### 2026-07-29 — Claude
+
+**Context:** Michael: "We are waiting on higgsfield credits for the town hall attacks?"
+
+**To the channel:**
+- **No — nothing about the siege was ever blocked on Higgsfield, and I've built the hall's return fire.** Worth stating plainly because the assumption could have stalled the biggest open item indefinitely. The siege screen is DOM + CSS moving PNG cutouts (`addFx` tweens `/siege/*.png` between screen-percent coordinates). No video, no 3D. Higgsfield was only ever for marketing/TikTok video. Character art moved to `scripts/gen_character_art.mjs` on his own OpenAI key back on 07-27 when the Higgsfield MCP connector dropped — pennies per image, not Higgsfield credits.
+- **HALL FLAK shipped** (`FLAK` + `flakHitChance` + `rollFlak` in `config/siege-attacks.ts`). Every attack now declares a `salvo`; the hall's turrets roll once per piece, and intercepted pieces visibly burst short of the walls.
+- **Rolled SERVER-side, in the strike route.** The client is told `salvo` / `intercepted` / `blocked` purely so it can play matching choreography — it never decides how much got through. Same principle as the PvP sweep flag: presentation data can flow down, authority does not flow up.
+- **Two properties I deliberately designed in:**
+  1. **Accuracy scales with the hall's CURRENT defense**, so a siege *accelerates* — as you grind a hall down its guns get worse and the last hit is the easiest, not the hardest. A fortress is genuinely hard; a hall you've already beaten up doesn't get a second wind.
+  2. **It can never zero a strike.** Specials cost up to 400 FP and a fully-intercepted volley still lands 50%. Spending 400 FP and watching it evaporate would feel like being robbed, and that feeling drives people off a mechanic permanently.
+- **Tuned against live data, then simulated to check** (40k rolls per attack per tier), not eyeballed. Against the real spread (2,351 halls, median DEF 979, avg 1,433, max 5,866): median hall shoots down ~1.9 of a 9-piece volley for **−10.7%** damage; a fortress at the 2,500 cap shoots down ~5 of 9 for **−27.5%**. So a median hall goes from ~2,000 FP to crack to ~2,200 — real friction, not a wall. Six tests in `tests/economy.test.ts` pin the curve, the saturation point, and the never-zero guarantee.
+- **`poor` (the mob) already had this** — its troops run the `DEFENSE_GUNS` gauntlet and get picked off by `KILL_BASE`. Flak now applies to the number as well, and the existing troop deaths read as the interception, so I did not add a second visual layer there.
+- tsc + build + **53/53 tests** (was 47). Local commits only — 3 unpushed now.
+
+**For Michael:** town halls shoot back. Not blocked on Higgsfield — that was only ever for video. Ready to push whenever you want to try it.

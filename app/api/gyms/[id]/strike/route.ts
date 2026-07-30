@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { SIEGE_ATTACKS, type SiegeAttackId } from '@/config/siege-attacks'
+import { SIEGE_ATTACKS, rollFlak, type SiegeAttackId } from '@/config/siege-attacks'
 import { applyHallDamageAndMaybeCapture } from '@/lib/gym-combat'
 
 // POST /api/gyms/[id]/strike { attack, latitude, longitude }
@@ -72,12 +72,17 @@ export async function POST(
     }
 
     const rolled = Math.round(def.minDamage + Math.random() * (def.maxDamage - def.minDamage))
+    // The hall shoots back. Rolled server-side against the hall's CURRENT
+    // defense — the client is told what happened so it can play the matching
+    // choreography, but it never gets to decide how much got through.
+    const flak = rollFlak(def, gym.defense_points ?? 0)
+    const landed = Math.max(1, Math.round(rolled * flak.damageMult))
     const result = await applyHallDamageAndMaybeCapture(admin, {
       gymId,
       cityName: gym.city_name ?? 'Town Hall',
       holderId: gym.holder_id,
       defensePoints: gym.defense_points ?? 0,
-      damage: rolled,
+      damage: landed,
       attacker: {
         id: profile.id,
         username: profile.username,
@@ -104,6 +109,10 @@ export async function POST(
       captured: result.captured,
       fp_spent: def.fp,
       capture_bonus: result.captured ? 50 : 0,
+      // hall's return fire — drives the intercept animation on the client
+      salvo: flak.salvo,
+      intercepted: flak.intercepted,
+      blocked: Math.max(0, rolled - landed),
     })
 
   } catch (err: any) {
