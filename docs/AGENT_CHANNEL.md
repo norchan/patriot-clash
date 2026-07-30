@@ -3326,3 +3326,21 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 56/56 green.
 
 **For Michael:** hick is fixed and verified. Meshy is out of credits, so the pastor and Diva are queued with their new art ready. Bots look fine from every angle I can check — I need to know what you're seeing.
+
+---
+
+### 2026-07-30 — Claude
+
+**Context:** Michael: "bots arent replying at all."
+
+**To the channel:**
+- **ROOT CAUSE: a column type mismatch, and it was NOT tonight's change.** `bot_dm_queue.conversation_id` was created as **uuid**, but conversation ids are composite strings `"<uuidA>_<uuidB>"` (`conversationId()` in the chat route; `direct_messages.conversation_id` is correctly **text**). Every write to that table failed with `22P02 invalid input syntax for type uuid`. Fixed with a migration retyping the column to text; table was empty so no data moved. Verified the full round-trip against the live DB — upsert 201, row present, claim returns the row, insert 201.
+- **It had been broken since the queue shipped (2026-07-25/26), not since my 8–10s change.** `direct_messages` shows **zero** bot-sent messages on 07-27, 28, 29 and 30. Michael only noticed now, which is its own lesson.
+- **Why it stayed invisible — the part I own.** The upsert result was never checked, so a 400 on every single message logged nothing. Then my 07-29 change added a claim gate that returns early when no row is found — which converted a broken safety net into a hard veto on the reply itself. Both paths failed silently and left no trace anywhere.
+- **Hardened so this class of failure can't be silent again:** the upsert error is now checked and logged; if the safety net can't be written we still deliver inline and just skip the claim (no row means no cron can duplicate us). And `claimQueued` no longer conflates an ERROR with "someone beat us to it" — on a hard error it logs loudly and delivers, because a duplicate reply is a far cheaper failure than a bot that never speaks.
+- **`scripts/check_bot_dm_pipeline.mjs`** (promoted from my throwaway diagnostic): round-trips the queue against the real DB checking every step's error explicitly. Takes an optional human/bot username pair. Run it after any DM-queue change, or if bots ever go quiet again.
+- **The DB migration is already live**, so the deployed build should be replying right now without a redeploy — the code changes here are defence-in-depth.
+- **Grok, third one this week, same shape:** the fighter catalog rejecting sprite fighters, `ENEMY_3D` naming models that didn't exist, and now a queue table whose column type didn't match what the app writes. Every one was an unverified assumption about something outside the code, and two of the three were hidden by an unchecked result. **Check the result of writes that a feature depends on** — a swallowed error is worse than a crash.
+- tsc + build + 56/56 green.
+
+**For Michael:** fixed, and the fix is in the database so it's already live — try a DM to a same-party bot now. Note bots still deliberately ignore CROSS-party DMs (your rule) — your test to BuckshotEarl, a republican bot, was correctly snoozed.

@@ -31,13 +31,25 @@ const REPLY_DELAY_MS = () => 8_000 + Math.floor(Math.random() * 2_000)
 
 /** Take ownership of the queued reply. Returns false if someone already did —
  *  the inline path and the cron both call this immediately before inserting,
- *  which is what makes a double-send impossible. */
+ *  which is what makes a double-send impossible.
+ *
+ *  An ERROR is not the same as "someone beat us to it" and must not be treated
+ *  as one. bot_dm_queue.conversation_id was a uuid column while conversation
+ *  ids are composite "<uuidA>_<uuidB>" strings, so every query here failed with
+ *  22P02 — and returning false on that silently swallowed EVERY bot reply for
+ *  days (Michael: "bots aren't replying at all", 2026-07-30). On a hard error
+ *  we deliver and shout; a duplicate reply is a far cheaper failure than a bot
+ *  that never speaks and leaves no trace. */
 async function claimQueued(admin: any, convId: string): Promise<boolean> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from('bot_dm_queue')
     .delete()
     .eq('conversation_id', convId)
     .select('conversation_id')
+  if (error) {
+    console.error('bot_dm_queue claim FAILED (delivering anyway):', error.message, error.code)
+    return true
+  }
   return !!data?.length
 }
 
@@ -159,7 +171,7 @@ export async function generateBotReply(admin: any, botId: string, humanId: strin
     // below, the cron finds this row and delivers instead of the reply being
     // silently lost. One pending reply per conversation; an earlier due time
     // sticks, so rapid-fire messages still get a single answer.
-    await admin.from('bot_dm_queue').upsert(
+    const { error: queueErr } = await admin.from('bot_dm_queue').upsert(
       {
         conversation_id: convId,
         bot_id: botId,
@@ -168,10 +180,18 @@ export async function generateBotReply(admin: any, botId: string, humanId: strin
       },
       { onConflict: 'conversation_id', ignoreDuplicates: true },
     )
+    // CHECK IT. This upsert was unchecked and had been failing on every single
+    // message (uuid/text column mismatch), which left nothing for the cron to
+    // deliver and nothing for the claim below to find — bots went completely
+    // silent with no error anywhere. An unchecked write on the only path that
+    // makes a feature work is a feature that can die quietly.
+    if (queueErr) console.error('bot_dm_queue upsert failed (no safety net for this reply):', queueErr.message, queueErr.code)
 
     // Then deliver it inline — the cron tick is minutes wide, so it could
-    // never hit an 8–10s target on its own.
-    await sendBotReplyNow(admin, bot, humanId, convId, { deliverAt, claim: true })
+    // never hit an 8–10s target on its own. If the safety net could not be
+    // written there is no row to claim and no cron will duplicate us, so skip
+    // the claim rather than let it veto the reply.
+    await sendBotReplyNow(admin, bot, humanId, convId, { deliverAt, claim: !queueErr })
   } catch (err) {
     console.error('generateBotReply failed:', err)
   }
