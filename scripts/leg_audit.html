@@ -1,0 +1,120 @@
+<!doctype html>
+<!-- Leg/foot inspector (Michael 2026-07-29): renders ONE fighter in the rest
+     pose framed on the lower body, so pants and feet can actually be seen at
+     the size they render in the arena. Served by scripts/leg_audit.mjs. -->
+<html><head><meta charset="utf-8"><style>body{margin:0;background:#c8ccd4}</style></head>
+<body>
+<script type="importmap">
+{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+
+const q = new URLSearchParams(location.search)
+const prefix = q.get('f') || 'hick_rep'
+const view = q.get('view') || 'legs'      // legs | full
+const clipName = q.get('clip') || ''       // '' = rest pose
+const t = parseFloat(q.get('t') ?? '0')
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color('#c8ccd4')   // light grey: dark pants read clearly
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 100)
+const rend = new THREE.WebGLRenderer({ antialias: true })
+rend.setSize(innerWidth, innerHeight); document.body.appendChild(rend.domElement)
+// flat, even light — we're inspecting geometry, not making it look good
+scene.add(new THREE.AmbientLight(0xffffff, 1.5))
+const k1 = new THREE.DirectionalLight(0xffffff, 1.4); k1.position.set(3, 6, 6); scene.add(k1)
+const k2 = new THREE.DirectionalLight(0xffffff, 0.9); k2.position.set(-4, 3, -4); scene.add(k2)
+
+// ground plane at y=0 — anything below it, or hovering above it, is a bug
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ color: 0x8a90a0 }))
+ground.rotation.x = -Math.PI / 2; scene.add(ground)
+const grid = new THREE.GridHelper(6, 60, 0x445, 0x667); scene.add(grid)
+
+const loader = new GLTFLoader()
+const gltf = await new Promise((res, rej) => loader.load(`/public/models/${prefix}.glb`, res, undefined, rej))
+const root = gltf.scene
+root.traverse(o => { if (o.isBone) o.scale.setScalar(1) })
+
+// same fit the arena uses: normalise height, plant feet on the ground
+const box = new THREE.Box3().setFromObject(root)
+const size = new THREE.Vector3(); box.getSize(size)
+const center = new THREE.Vector3(); box.getCenter(center)
+const H = 2.2
+const s = H / (size.y || 1)
+const holder = new THREE.Group()
+holder.add(root); scene.add(holder)
+root.scale.setScalar(s)
+root.position.set(-center.x * s, -box.min.y * s, -center.z * s)
+
+if (clipName && gltf.animations.length) {
+  const clip = gltf.animations.find(a => a.name === clipName)
+  if (clip) { const m = new THREE.AnimationMixer(root); const a = m.clipAction(clip); a.play(); m.setTime(t) }
+}
+
+// frame either the whole fighter or just the legs (hip height down)
+const KNEE = H * 0.28
+if (view === 'legs') { cam.position.set(0, H * 0.30, 1.75); cam.lookAt(0, H * 0.22, 0) }
+else { cam.position.set(0, H * 0.55, 3.5); cam.lookAt(0, H * 0.50, 0) }
+
+// measure the feet after posing so the title carries hard numbers
+root.updateMatrixWorld(true)
+const names = ['LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase']
+const found = {}
+root.traverse(o => { if (names.includes(o.name)) found[o.name] = new THREE.Vector3().setFromMatrixPosition(o.matrixWorld) })
+const post = new THREE.Box3().setFromObject(root)
+const fmt = v => v == null ? 'na' : v.toFixed(3)
+const gap = found.LeftFoot && found.RightFoot
+  ? Math.hypot(found.LeftFoot.x - found.RightFoot.x, found.LeftFoot.z - found.RightFoot.z) : null
+document.title = `${prefix} floor=${fmt(post.min.y)} Lfoot=${fmt(found.LeftFoot?.y)} Rfoot=${fmt(found.RightFoot?.y)} gap=${fmt(gap)} w=${fmt(post.max.x - post.min.x)}`
+
+rend.render(scene, cam)
+
+// ── FUSED-LEG DETECTOR ──────────────────────────────────────────────────────
+// Bone spacing turned out to be a poor proxy: a fighter can have well-separated
+// foot bones and still have the mesh webbed solid between the thighs (Meshy
+// fills a gap it cannot see in the source art). So measure what the eye sees —
+// read the rendered pixels along horizontal scanlines at thigh / knee / shin
+// height and look for a run of BACKGROUND between the two legs.
+const W = rend.domElement.width, HGT = rend.domElement.height
+const gl = rend.getContext()
+const buf = new Uint8Array(W * HGT * 4)
+gl.readPixels(0, 0, W, HGT, gl.RGBA, gl.UNSIGNED_BYTE, buf)
+// readPixels is bottom-up; convert a top-down row to its buffer row
+const px = (x, yTop) => {
+  const y = HGT - 1 - yTop
+  const i = (y * W + x) * 4
+  return [buf[i], buf[i + 1], buf[i + 2]]
+}
+// Background is the flat #c8ccd4 sky ABOVE the horizon; the ground plane is a
+// different flat grey. Either counts as "not the character".
+const isBg = (r, g, b) =>
+  (Math.abs(r - 0xc8) < 14 && Math.abs(g - 0xcc) < 14 && Math.abs(b - 0xd4) < 14) ||
+  (Math.abs(r - 0x8a) < 16 && Math.abs(g - 0x90) < 16 && Math.abs(b - 0xa0) < 16) ||
+  (Math.abs(r - g) < 26 && Math.abs(g - b) < 26 && b > r && b > 120 && r > 90) // grid lines
+function scan(yTop) {
+  // find the character's left and right edge on this row
+  let first = -1, last = -1
+  for (let x = 0; x < W; x++) { const [r, g, b] = px(x, yTop); if (!isBg(r, g, b)) { if (first < 0) first = x; last = x } }
+  if (first < 0) return { span: 0, gap: 0 }
+  // widest background run strictly BETWEEN the edges = the gap between legs
+  let best = 0, run = 0
+  for (let x = first; x <= last; x++) {
+    const [r, g, b] = px(x, yTop)
+    if (isBg(r, g, b)) { run++; if (run > best) best = run } else run = 0
+  }
+  return { span: last - first, gap: best }
+}
+// rows as a fraction of image height, top-down: upper thigh, knee, shin
+const rows = { thigh: 0.42, knee: 0.62, shin: 0.80 }
+const out = {}
+for (const [k, f] of Object.entries(rows)) {
+  const { span, gap } = scan(Math.round(HGT * f))
+  out[k] = span > 0 ? Math.round((gap / span) * 100) : 0
+}
+document.title = `${prefix} floor=${fmt(post.min.y)} Lfoot=${fmt(found.LeftFoot?.y)} Rfoot=${fmt(found.RightFoot?.y)} boneGap=${fmt(gap)} | GAP%% thigh=${out.thigh} knee=${out.knee} shin=${out.shin}`
+window.__gaps = out
+window.__done = true
+</script>
+</body></html>

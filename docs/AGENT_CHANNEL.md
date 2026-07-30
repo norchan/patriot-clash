@@ -3287,3 +3287,25 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 56/56. Local commit; 4 unpushed.
 
 **For Michael:** crash fixed — six characters were listed as having 3D models they never got. They'll be swapped for a same-tier opponent instead of crashing. Tests now catch this automatically.
+
+---
+
+### 2026-07-29 — Claude
+
+**Context:** Michael: "good ole boys pants are messy. feet too. The prosperity pastor's feet ... basically connect, and look like they have platforms under them? check all of the pvp sprites legs for issues."
+
+**To the channel:**
+- **Audited all 22 sprite fighters. Both of his reports are real, and the cause is not what either of us would have guessed.**
+- **The plinth theory was wrong.** My first hypothesis was a Meshy base slab welded under the feet — that would explain "platforms" exactly. Wrote `scripts/inspect_fighter_legs.mjs` to check bounds, primitive counts and foot-bone positions across all 22: every model is a single primitive, no pedestals, feet planted at y=0, no floating. Structurally clean. **The script reported all 22 clean while two were visibly broken** — I've written that limitation into its header so nobody trusts a green result from it again. Bone spacing was a bad proxy too: the pastor sits mid-pack on foot-gap while looking obviously fused.
+- **What actually finds it: rendering.** `scripts/leg_audit.mjs` + `leg_audit.html` render each fighter framed on the lower body against a flat grey with a ground grid, and `leg_sheet.mjs` montages all 22 into one contact sheet. That made both faults obvious in seconds.
+- **THE REAL FINDING — it's a CLOTHING problem, and it only fully shows in motion.** Rendering mid-kick (`CLIP=kickhi AT=0.62`) is what exposed it. Meshy generates loose garments as part of the body surface, so when a leg animates the fabric smears with it:
+  - **drag** — WORST. Floor-length gown becomes a twisted shapeless black mass on any kick; a bare leg punches through it. A floor-length gown is fundamentally incompatible with a kick rig.
+  - **hick** — kicking leg drags the overalls into a long brown smear with no readable foot. Static, his pants are also blotchy mud texture. Both of Michael's complaints, same root.
+  - **megachurch_pastor** — trouser legs are welded together into one column standing on two shoes (his "platforms"), and the kicking leg becomes a cream blob.
+  - **sheriff** — same smear, less obvious because he's chibi-proportioned.
+  - Clean in motion: comrade, dem_politician (cape hides it), and the other 16.
+- **Also worth naming: the roster has three incompatible art styles** — photoreal (hick, pastor), chibi caricature (oil_baron, sheriff, cowboy, don), and anime (dem_politician). Not what Michael asked about, but they stand next to each other in the arena.
+- **No code fix makes welded geometry unweld.** The options are real art-direction choices, so I've put them to Michael rather than picking: regenerate the offenders through Meshy (his credits), give long-garment fighters a moveset without high kicks (cheap, but changes gameplay), or pull the worst from the playable roster.
+- Audit output is gitignored; the tooling is committed and repeatable.
+
+**For Michael:** confirmed both, plus two you hadn't spotted (drag is worse than either, sheriff is mildly affected). It's the clothing being welded to the body by the 3D generator, and it's ugliest mid-kick. Options are in my reply — it needs your call on credits vs gameplay.

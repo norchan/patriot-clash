@@ -53,3 +53,7 @@ scratch_models/
 
 # headless animation inspector output
 .kickshots/
+
+# render-audit output (scripts/leg_audit.mjs)
+.legaudit/
+.kickshots/
