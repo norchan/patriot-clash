@@ -168,8 +168,8 @@ function ProfileHead({ headId, faceY, duck = false, mirror = false, hitKey = 0, 
   )
 }
 
-function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId, blocking = false, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, hitKey = 0, spinKey = 0 }:
-  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; headId?: string | null; blocking?: boolean; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; hitKey?: number; spinKey?: number }) {
+function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId, blocking = false, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, hitKey = 0, spinKey = 0, sweepKey = 0 }:
+  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; headId?: string | null; blocking?: boolean; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; hitKey?: number; spinKey?: number; sweepKey?: number }) {
   // Real boxing kit. The Left_Jab clip starts AND ends in a proper fists-up
   // boxing guard, so its frame 0 doubles as the held GUARD (fists at the face).
   // One-shots: straight punch (right), the jab (left), a straight KICK
@@ -187,17 +187,34 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   // on its facing — a recognisable spinning jump kick built from the head-kick
   // clip we already know reads well. (A full turn, unlike the old half-turn
   // leg-kick experiment that left fighters facing the camera.)
+  // LEG SWEEP (Michael 2026-07-29): hold DOWN + low kick. Same trick as the
+  // spin kick — no new animation credits. It's the SAME 360° turn, but taken
+  // from a deep crouch, which is what sells it as a sweep rather than a spin:
+  // the turn happens down at shin height where the low clip's leg already is.
+  // Faster than the spin (a sweep is a snap, not a wind-up).
   const spinGroup = useRef<THREE.Group>(null!)
   const spinAt = useRef(0)
+  const sweepAt = useRef(0)
   useEffect(() => { if (spinKey) spinAt.current = performance.now() }, [spinKey])
+  useEffect(() => { if (sweepKey) sweepAt.current = performance.now() }, [sweepKey])
   useFrame(() => {
     if (!spinGroup.current) return
-    const SPIN_MS = 560
-    const t = performance.now() - spinAt.current
+    const now = performance.now()
+    const SPIN_MS = 560, SWEEP_MS = 460
+    const t = now - spinAt.current
     const spinning = spinAt.current > 0 && t >= 0 && t < SPIN_MS
+    const st = now - sweepAt.current
+    const sweeping = sweepAt.current > 0 && st >= 0 && st < SWEEP_MS
     // ease-out so the turn snaps early and settles cleanly on the facing
-    const p = spinning ? 1 - Math.pow(1 - t / SPIN_MS, 2.2) : 0
-    spinGroup.current.rotation.y = faceY + (mirror ? -1 : 1) * p * Math.PI * 2
+    const turn = sweeping ? 1 - Math.pow(1 - st / SWEEP_MS, 2.6)
+      : spinning ? 1 - Math.pow(1 - t / SPIN_MS, 2.2)
+      : 0
+    spinGroup.current.rotation.y = faceY + (mirror ? -1 : 1) * turn * Math.PI * 2
+    // Drop into the crouch and back out across the turn (0 → 1 → 0). Written
+    // here rather than in JSX because useFrame runs after render — the same
+    // reason rotation.y is set here and not on the element.
+    const crouch = sweeping ? Math.sin(Math.PI * (st / SWEEP_MS)) : 0
+    spinGroup.current.scale.y = (duck ? 0.82 : 1) * (1 - 0.36 * crouch)
   })
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
@@ -639,8 +656,8 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
   return null
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, playerSpinKey = 0, oppSpinKey = 0, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
-  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; playerSpinKey?: number; oppSpinKey?: number; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, playerSpinKey = 0, oppSpinKey = 0, playerSweepKey = 0, oppSweepKey = 0, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
+  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; playerSpinKey?: number; oppSpinKey?: number; playerSweepKey?: number; oppSweepKey?: number; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6 * soloZoom] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
@@ -670,9 +687,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
           // rotation.y = +PI/2 points the fighter down the +X axis.)
           <>
             <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={Math.PI / 2} headId={playerHeadId} blocking={playerBlocking}
-              jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickHiKey={playerKickHiKey} kickLoKey={playerKickLoKey} hitKey={playerHitKey} spinKey={playerSpinKey} />
+              jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickHiKey={playerKickHiKey} kickLoKey={playerKickLoKey} hitKey={playerHitKey} spinKey={playerSpinKey} sweepKey={playerSweepKey} />
             {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-Math.PI / 2} mirror headId={oppHeadId} blocking={oppBlocking}
-              jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} hitKey={oppHitKey} spinKey={oppSpinKey} />}
+              jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} hitKey={oppHitKey} spinKey={oppSpinKey} sweepKey={oppSweepKey} />}
           </>
         )}
         {!solo && <Ground />}

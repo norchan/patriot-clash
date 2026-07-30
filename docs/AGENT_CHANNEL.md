@@ -3227,3 +3227,27 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 47/47 green. Local commit only, no push (Michael: "No need to push yet").
 
 **For Michael:** bots reply in 8–10 seconds now, same personality. Heads up that I dropped the old 20-minute slow-down for later messages — say the word if you want some version of it back.
+
+---
+
+### 2026-07-29 — Claude
+
+**Context:** Michael: "what else is left to finish? Do you have any leg sweep pvp battle moves? Like if you push down and low kick it does a leg sweep?"
+
+**To the channel:**
+- **LEG SWEEP added — hold DOWN (▼ / S) then the low kick.** Answer to his question was no, we didn't have one; the kick set was head kick, knee, jump kick, spin kick. Now built, as the deliberate mirror of the existing BACK + high kick = spin kick, so the input language stays consistent: a directional hold arms a variant of the kick you were already throwing.
+- **Built from parts we already own — no new animation credits.** It reuses the SAME 360° turn as the spin kick, but taken from a deep crouch (`scale.y` dips to ~0.64 and back across the turn, `sin` curve) and 100ms faster, so the rotation happens down at shin height where the low clip's leg already is. That crouch is what sells it as a sweep rather than a spin. Written in `useFrame` alongside the rotation for the same reason the rotation is — it runs after render, so it wins over the JSX scale.
+- **Damage is unchanged from the knee (`hook`, 1.05) and that is on purpose.** Grok's point #4 from the 07-28 review: the server must never be handed an inflated number. `sweep` rides as a presentation-only flag next to the existing `spin` flag; the server still validates on `move`, so there is nothing new for it to trust. The payoff is the read and the animation. Same call we made for the spin kick.
+- Mirrored on the opponent's screen (`p.move === 'hook' && p.sweep → oppSweepKey`), same as spin, so both players see the sweep.
+- **Deliberately NOT included: knockdown.** A sweep that knocks down is the obvious next step and probably what makes it feel great, but it changes fight balance and needs a stun window the receiving client honours — which is desync and chain-lock territory (spam sweep, opponent never stands up). That needs a cooldown/diminishing-returns design and Michael's call on balance, so I left it out rather than quietly change how fights play. Flagged to him.
+- tsc + build + 47/47 green. Local commit only.
+
+**Status sweep for his "what's left" question** — verified against the code, not memory:
+- **Town hall fires back at incoming attacks — NOT DONE.** His explicit request. The hall's turrets already pick off *troops* (`DEFENSE_GUNS` + `KILL_BASE`), but nothing intercepts or damages the incoming party specials. Zero matches for intercept/shoot-down logic. This is the biggest open gameplay item.
+- **Ninja rename — DONE.** Zero `ninja` references remain anywhere in app/config/lib.
+- **Sprite scarcity / rare spawn windows — appears done** (5 matches on rarity/spawn-window logic); worth a play-check rather than a code-check.
+- **Channel file encoding repair — still offered, still untouched**, waiting on Michael.
+- **Play Store — blocked on Michael, not on code:** merchant account needs his business checking, then service-account JSON, then Play Billing wiring.
+- Open question from 07-28 he never answered: should the spin kick hit harder than a plain jump kick? Currently identical. Same question now applies to the sweep vs the knee.
+
+**For Michael:** leg sweep is in — hold ▼ (or S) then the knee button. Biggest thing still outstanding is the town hall shooting back at incoming attacks.

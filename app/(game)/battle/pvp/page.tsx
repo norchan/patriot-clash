@@ -139,6 +139,8 @@ function StreetFightPage() {
   const [oppHitKey, setOppHitKey] = useState(0)
   const [playerSpinKey, setPlayerSpinKey] = useState(0) // 🌀 spinning jump kick
   const [oppSpinKey, setOppSpinKey] = useState(0)
+  const [playerSweepKey, setPlayerSweepKey] = useState(0) // 🌀 crouching leg sweep
+  const [oppSweepKey, setOppSweepKey] = useState(0)
   // 3D contact stamp (presentation brief Phase B): fired at every resolved
   // contact so the impact reads IN the scene, not just as DOM overlays
   const [impactFx, setImpactFx] = useState<{ key: number; side: 'player' | 'opp'; kind: 'light' | 'heavy' | 'special' | 'block' } | undefined>(undefined)
@@ -607,6 +609,8 @@ function StreetFightPage() {
     comboHist: [] as { move: Move; at: number }[],
     // BACK held/tapped recently → arms the spinning jump kick on 🦵
     backHeldUntil: 0,
+    // DOWN held/tapped recently → arms the leg sweep on the low kick
+    downHeldUntil: 0,
     blockHeld: false,
     dodgeUntil: 0, dodgeCd: 0,
     foeNextAt: 0, foeWindupAt: 0, foeMove: 'jab' as Move,
@@ -692,7 +696,7 @@ function StreetFightPage() {
     })
     channelRef.current = ch
 
-    const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean; boost?: number; spin?: boolean }) => {
+    const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean; boost?: number; spin?: boolean; sweep?: boolean }) => {
       if (S.over) return
       S.dbg.recv++; S.dbg.lastRecvAt = Date.now()
       // duplicate (their retry): our result broadcast was lost — resend it
@@ -708,6 +712,7 @@ function StreetFightPage() {
       else foeJab(!!p.right) // 3D: right or left jab
       // mirror the 🌀 spin so the opponent's spin kick reads on our screen too
       if (p.move === 'jumpkick' && p.spin) setOppSpinKey(k => k + 1)
+      if (p.move === 'hook' && p.sweep) setOppSweepKey(k => k + 1)
       setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
       // their SPECIAL is an event on OUR screen too: party flash + punch-in
@@ -1077,7 +1082,7 @@ function StreetFightPage() {
     return best
   }
 
-  function strikeCore(move: Move, right: boolean, label: string, impactMs: number, opts?: { jump?: boolean; spin?: boolean }) {
+  function strikeCore(move: Move, right: boolean, label: string, impactMs: number, opts?: { jump?: boolean; spin?: boolean; sweep?: boolean }) {
     const S = L.current
     S.lastHit = Date.now()
     S.counts.taps++
@@ -1096,7 +1101,7 @@ function StreetFightPage() {
 
     if (realtime && !S.ghost) {
       const seq = ++S.attackSeq
-      const payload = { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined, jump: !!opts?.jump, spin: !!opts?.spin }
+      const payload = { seq, move, right, boost: S.powerArmed ? POWER_MULT : undefined, jump: !!opts?.jump, spin: !!opts?.spin, sweep: !!opts?.sweep }
       S.pendingMove = { seq, payload, at: Date.now(), resent: false }
       S.dbg.sent++
       channelRef.current?.send({ type: 'broadcast', event: 'move', payload })
@@ -1212,6 +1217,18 @@ function StreetFightPage() {
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
     L.current.counts.kicks++
+    // LEG SWEEP (Michael 2026-07-29): hold DOWN (▼ / S) then the low kick —
+    // the mirror of BACK + high kick for the spin. Same damage as the knee:
+    // the payoff is the read and the animation, not a bigger number, which
+    // also keeps it honest against the server (it validates on `move`, and
+    // `sweep` is a presentation flag it never has to trust).
+    const downHeld = performance.now() < L.current.downHeldUntil
+    if (downHeld) {
+      setPlayerSweepKey(k => k + 1)          // crouch + 360° at shin height
+      L.current.downHeldUntil = 0            // consume the crouch
+      strikeCore('hook', false, '🌀 LEG SWEEP', 200, { sweep: true })
+      return
+    }
     // KNEE, not a leg kick — the clip is a knee lift (see kickLo in
     // PvpArena3D). 155ms puts the impact on the knee's peak.
     strikeCore('hook', false, 'KNEE', 155)
@@ -1378,7 +1395,13 @@ function StreetFightPage() {
       }
       if (k === 'd') { e.preventDefault(); setPlayerX(x => Math.min((L.current.oppX ?? ANCHOR) - 0.5, x + 0.4)) }
       if (k === 'w') { e.preventDefault(); doJump() }
-      if (k === 's') { e.preventDefault(); setPlayerDuck(true) }
+      // S = duck. Arms the leg sweep the same way A arms the spin kick —
+      // crouch, then ↓ for the sweep instead of the knee.
+      if (k === 's') {
+        e.preventDefault()
+        setPlayerDuck(true)
+        L.current.downHeldUntil = performance.now() + BACK_BUFFER_MS
+      }
       // ── hold SPACE to block ──
       if (isBlockKey(e)) { e.preventDefault(); L.current.blockHeld = true; setBlocking(true); setMyPose('block') }
       // ── right pad: attacks ──
@@ -1721,6 +1744,8 @@ function StreetFightPage() {
             oppHitKey={oppHitKey}
             playerSpinKey={playerSpinKey}
             oppSpinKey={oppSpinKey}
+            playerSweepKey={playerSweepKey}
+            oppSweepKey={oppSweepKey}
             playerX={playerX}
             playerY={playerY}
             playerDuck={playerDuck}
@@ -1811,8 +1836,10 @@ function StreetFightPage() {
             <div className="relative select-none" style={{ width: 138, height: 138 }}>
               <button title="Jump" className={base} style={{ top: 0, left: 47 }}
                 onPointerDown={e => { stop(e); doJump() }}>▲</button>
-              <button title="Duck" className={base} style={{ bottom: 0, left: 47 }}
-                onPointerDown={e => { stop(e); setPlayerDuck(true) }} onPointerUp={e => { stop(e); setPlayerDuck(false) }} onPointerLeave={() => setPlayerDuck(false)}>▼</button>
+              <button title="Duck — then 🦿 for a leg sweep" className={base} style={{ bottom: 0, left: 47 }}
+                onPointerDown={e => { stop(e); setPlayerDuck(true); L.current.downHeldUntil = performance.now() + BACK_BUFFER_MS }}
+                onPointerUp={e => { stop(e); setPlayerDuck(false); L.current.downHeldUntil = performance.now() + BACK_BUFFER_MS }}
+                onPointerLeave={() => setPlayerDuck(false)}>▼</button>
               <button title="Back up" className={base} style={{ top: 47, left: 0 }}
                 onPointerDown={e => { stop(e); setPlayerX(x => Math.max(-2.6, x - 0.4)); L.current.backHeldUntil = performance.now() + BACK_BUFFER_MS }}
                 onPointerUp={() => { L.current.backHeldUntil = performance.now() + BACK_BUFFER_MS }}>◀</button>
@@ -1892,7 +1919,7 @@ function StreetFightPage() {
           layout === 'portrait' ? null : (
             <div className="text-center space-y-1">
               <p className="text-white/80 text-xs font-bold">Right pad: 🦵 head kick · 🦿 knee · 👊 punch · ★ special</p>
-              <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — ▲ then 🦵 = jump kick</p>
+              <p className="text-gray-400 text-[11px]">Left D-pad: ◀ ▶ move · ▲ jump · ▼ duck · 🛡 block — ▲ then 🦵 = jump kick · ▼ then 🦿 = leg sweep</p>
               {/* desktop keyboard map (Michael): pads mirrored onto WASD + arrows */}
               <p className="text-gray-500 text-[11px]">
                 ⌨️ <span className="text-gray-300 font-bold">W A S D</span> move/jump/duck ·
@@ -1906,7 +1933,8 @@ function StreetFightPage() {
                 🔥 Combos: punch→punch→head kick · punch→knee · knee×2 · punch→jump kick
               </p>
               <p className="text-cyan-300/80 text-[11px] font-bold">
-                🌀 Hold BACK (◀ / A) then 🦵 = SPINNING JUMP KICK
+                🌀 Hold BACK (◀ / A) then 🦵 = SPINNING JUMP KICK ·
+                Hold DOWN (▼ / S) then 🦿 = LEG SWEEP
               </p>
             </div>
           )
