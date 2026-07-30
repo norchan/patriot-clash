@@ -627,8 +627,25 @@ function Backdrop({ url }: { url: string }) {
 // ── CAMERA CONTRACT (frozen per PVP_PRESENTATION_BRIEF Phase A3) ─────────────
 // FOV 48 · z = clamp(3.4 + gap*1.05, 4.5, 7.2) · cam y 1.52 · lookAt y 1.42.
 // Do NOT tune these numbers again without Michael explicitly asking.
+//
+// 2026-07-30 — Michael DID ask ("start the players farther away from each
+// other"), and honouring it required one addition, not a retune. The contract
+// numbers above are all preserved; a WIDTH FLOOR is layered on top.
+//
+// Why it was needed: a three.js perspective FOV is VERTICAL. On a portrait
+// phone (canvas roughly 390x644, aspect ~0.6) the horizontal view is less than
+// two thirds of the vertical one, so the fighters can be comfortably framed
+// top-to-bottom while their outer shoulders hang off the sides. At the old
+// resting gap they were already grazing that edge — which is very likely part
+// of why The Don kept reading as "too big" on mobile: he wasn't just large, he
+// was CROPPED. Simply separating the fighters would have pushed them clean off
+// screen on a phone while looking perfect on my landscape desktop.
+//
+// So: pull back far enough that both fighters plus their bodies always fit
+// horizontally, and take whichever distance is greater. On a wide screen the
+// width floor never binds and the original framing is untouched.
 function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
-  const { camera } = useThree()
+  const { camera, size } = useThree()
   useLayoutEffect(() => {
     const c = camera as THREE.PerspectiveCamera
     c.fov = 48; c.updateProjectionMatrix()
@@ -637,7 +654,14 @@ function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
     const mid = (playerX + oppX) / 2
     const gap = Math.abs(oppX - playerX)
     // farther still (Michael round 2) — smaller fighters, full clearance
-    const tz = Math.min(7.2, Math.max(4.5, 3.4 + gap * 1.05))
+    const byGap = 3.4 + gap * 1.05
+    // Width floor: half-width visible at the fighter plane is
+    // (z - 0.6) * tan(fov/2) * aspect, so invert it for the span we need.
+    const aspect = size.width / Math.max(1, size.height)
+    const halfV = Math.tan((48 / 2) * Math.PI / 180)
+    const needHalf = gap / 2 + 0.6            // half the gap + a body + a little air
+    const byWidth = 0.6 + needHalf / Math.max(0.2, halfV * aspect)
+    const tz = Math.min(9, Math.max(4.5, Math.max(byGap, byWidth)))
     const k = Math.min(1, dt * 6) // smooth chase, no snapping
     camera.position.x += (mid - camera.position.x) * k
     camera.position.z += (tz - camera.position.z) * k

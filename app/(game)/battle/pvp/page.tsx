@@ -30,10 +30,12 @@ const ANCHOR = 0.55         // each fighter's resting |x| (0.55 => 1.1 apart)
 // purpose: ANCHOR feeds every range/spacing check, so widening THAT would push
 // the resting gap past PUNCH_RANGE and make opening jabs whiff. Only the
 // initial placement uses this; the AI re-spaces to ANCHOR within a second.
-// 1.6 apart at the bell vs 1.1 resting. Kept just above KICK_RANGE (1.5) so the
-// opening is a real approach, but close enough that the AI's re-spacing covers
-// it in about a second rather than leaving you swinging at air.
-const START_ANCHOR = 0.8
+// 2.1 apart at the bell vs 1.1 resting — Michael asked a second time ("they are
+// both too close to the center"), so this is roughly DOUBLE the old opening.
+// It only works because the arena's follow-cam now enforces a width floor: on a
+// portrait phone the horizontal view is narrow, and without that floor this
+// separation would shove both fighters clean off the sides of the screen.
+const START_ANCHOR = 1.05
 const PUNCH_RANGE = 1.25    // gap where an extended fist visually connects
 const KICK_RANGE = 1.5      // kicks reach farther — can still catch a retreat step
 const FOE_STEP = 0.05       // opponent approach speed per AI tick (~90ms)

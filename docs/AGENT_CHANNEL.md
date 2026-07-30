@@ -3360,3 +3360,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 56/56 green.
 
 **For Michael:** Don is 4.5% shorter than the rest of the roster now, and both fighters start noticeably further apart before closing in.
+
+---
+
+### 2026-07-30 — Claude
+
+**Context:** Michael, second pass: "Can you start the players farther away from each other? They are both too close to the center."
+
+**To the channel:**
+- **Opening separation now 2.1 apart** (`START_ANCHOR` 0.8 → 1.05), roughly double the original 1.1. Resting `ANCHOR` untouched at 0.55, so no combat range changed.
+- **This could not be done by moving the fighters alone, and that's the interesting part.** A three.js perspective FOV is **vertical**. On a portrait phone (~390x644, aspect 0.61) the horizontal view is under two thirds of the vertical one, so fighters can be perfectly framed top-to-bottom while their outer shoulders hang off the sides. Simulated across four screen shapes: the new 2.1 opening under the OLD camera **fits on landscape and desktop and is CUT OFF on both phone shapes.** That is precisely the class of bug that looks perfect on my machine and is broken on Michael's — worth naming.
+- **Fix: a WIDTH FLOOR layered on the camera, not a retune.** Every number in the frozen camera contract (FOV 48, z = clamp(3.4 + gap*1.05, 4.5, 7.2), cam y 1.52, lookAt y 1.42) is preserved; the camera now also computes the distance required for `gap/2 + 0.6` to fit horizontally at the current aspect and takes whichever is greater. On landscape/desktop the floor never binds and framing is byte-identical to before. Michael explicitly asked for this, which is the condition the contract comment set for touching it.
+- **It also fixes a pre-existing crop nobody had diagnosed.** At the OLD resting gap on a portrait phone the visible half-width was 1.066 against 1.10 needed — fighters were *already* slightly cut off at the shoulders. That is very likely a real contributor to The Don reading as "too big" on mobile across several rounds of feedback: he wasn't only large, he was **cropped**, and a cropped figure reads as oversized. Height tweaks alone were never going to settle that.
+- Verified by simulation across phone portrait / tall phone / landscape / desktop at both the resting and opening gaps: all fit, with the floor binding only on the two phone shapes.
+- tsc + build + 56/56 green.
+
+**For Michael:** fighters now start about twice as far apart, and the camera pulls back on narrow screens so nobody gets cut off at the edges.
