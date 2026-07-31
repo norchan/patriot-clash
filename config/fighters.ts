@@ -66,6 +66,17 @@ export const FIGHTERS: FighterMeta[] = [
     thumb: '/enemies/republican/dan_dankas.png', party: 'republican', ownHead: true, minLevel: 8 },
   { id: 'megachurch_pastor', label: 'The Prosperity Pastor', img: '/enemies/republican/megachurch_pastor.png',
     thumb: '/enemies/republican/megachurch_pastor.png', party: 'republican', ownHead: true, minLevel: 10 },
+  // batch 3 (Michael 2026-07-30) — first fighters drawn with FIGHTER_STANCE, so
+  // their legs are separated by design rather than by luck. Commons early,
+  // rares mid, matching the curve the rest of the roster already uses.
+  { id: 'militia_grandpa', label: 'Neighborhood Watch', img: '/enemies/republican/militia_grandpa.png',
+    thumb: '/enemies/republican/militia_grandpa.png', party: 'republican', ownHead: true, minLevel: 3 },
+  { id: 'truther', label: 'The Truther', img: '/enemies/republican/truther.png',
+    thumb: '/enemies/republican/truther.png', party: 'republican', ownHead: true, minLevel: 5 },
+  { id: 'broadcaster', label: 'The Broadcaster', img: '/enemies/republican/broadcaster.png',
+    thumb: '/enemies/republican/broadcaster.png', party: 'republican', ownHead: true, minLevel: 8 },
+  { id: 'frog_guy', label: 'The Frog Guy', img: '/enemies/republican/frog_guy.png',
+    thumb: '/enemies/republican/frog_guy.png', party: 'republican', ownHead: true, minLevel: 10 },
   // ── democrat ──
   { id: 'protestor', label: 'Antifa Kid', img: '/enemies/democrat/protestor.png',
     thumb: '/enemies/democrat/protestor.png', party: 'democrat', ownHead: true, minLevel: 3 },

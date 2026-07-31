@@ -68,6 +68,51 @@ const CHARACTERS = {
       + `A bandolier of shiny tin cans across his chest instead of ammunition, and he cradles a dented metal `
       + `canned-goods tin in one hand like a grenade. Wary squinting expression, one eyebrow raised.`,
   },
+  // ── NEW REPUBLICAN FIGHTERS (Michael 2026-07-30) ─────────────────────────
+  // Four picks, deliberately differentiated: three of them could easily blur
+  // into "angry man with a microphone", so each gets its own energy —
+  // outdoors / unhinged / obsessive / slick.
+  //
+  // LIKENESS NOTE: Michael asked for an Alex Jones parody, and reaffirmed
+  // after I flagged the risk (he's a broadcaster, not an officeholder, so the
+  // political-caricature protection that covers The Don is weaker). Built as
+  // an EXAGGERATED ARCHETYPE, not a portrait: no real name anywhere, no
+  // photoreal likeness, no trademarked show branding. The frog is the joke.
+  // Standing rule elsewhere is unchanged — archetypes only.
+  militia_grandpa: {
+    party: 'republican',
+    fighter: true,
+    prompt: `A cheerful weather-beaten grandfather in his seventies with a bristly white mustache and a deep farmer tan, `
+      + `wearing an American-flag windbreaker over a polo shirt tucked into belted jeans, white sneakers, `
+      + `and a mesh trucker cap. Binoculars hang round his neck and a battered plaid thermos is clipped to his belt. `
+      + `He guards a driveway that needs no guarding. Content, vigilant, faintly smug expression.`,
+  },
+  frog_guy: {
+    party: 'republican',
+    fighter: true,
+    prompt: `A furious red-faced broadcaster in his fifties, shaved-short hair, thick neck, glistening with sweat, `
+      + `veins standing out on his forehead, mouth wide open mid-bellow. He wears a rumpled black polo shirt `
+      + `stretched tight over a barrel chest, with a headset microphone pulled down to his chin. `
+      + `He clutches a jar of glowing orange supplement powder in one fist, and a small bright green cartoon frog `
+      + `sits calmly on his shoulder, unbothered. Wildly exaggerated cartoon rage, comic not menacing.`,
+  },
+  truther: {
+    party: 'republican',
+    fighter: true,
+    prompt: `A wiry intense man in his forties with wispy thinning hair and wire-rim glasses pushed up his nose, `
+      + `wearing a fishing vest over a tucked-in short-sleeve shirt, cargo shorts, black socks and sandals. `
+      + `A red laser pointer in one hand and a fat roll of red yarn in the other, with printed pages spilling `
+      + `from his vest pockets. Wide-eyed, urgent, mid-explanation — he has connected everything and needs you to see it.`,
+  },
+  broadcaster: {
+    party: 'republican',
+    fighter: true,
+    prompt: `A smooth silver-haired AM radio host in his sixties with a golden tan and a blinding capped smile, `
+      + `wearing an expensive navy blazer over an open-collar shirt with a flag lapel pin, and pressed slacks. `
+      + `Big padded studio headphones round his neck, an unlit cigar between two fingers, `
+      + `and a heavy chrome desk microphone gripped in the other hand. Confident, self-satisfied, mid-monologue.`,
+  },
+
   // ── FIGHTER RE-GENERATIONS (Michael 2026-07-29) ──────────────────────────
   // These three are playable fighters whose legs broke in the arena. They use
   // FIGHTER_STANCE, not STYLE. Old art is kept as <id>_v1.png so a bad

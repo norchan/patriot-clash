@@ -34,6 +34,76 @@ export interface EnemyMove {
 }
 
 export const republicanEnemies: Enemy[] = [
+  // ── 2026-07-30 batch (Michael): four new Republicans, drawn with the
+  // FIGHTER_STANCE prompt so their legs are properly separated from the start
+  // rather than inheriting the welded-trouser problem. No _idle/_throw rigs
+  // yet, so they are NOT in ENEMY_3D_IDS and get substituted at fight start
+  // until those are generated.
+  {
+    id: 'militia_grandpa',
+    name: 'Neighborhood Watch',
+    description: 'Seventy-two years old and guarding a driveway nobody is coming for',
+    image: '/enemies/republican/militia_grandpa.png',
+    party: 'republican',
+    tier: 'common',
+    hp: 85,
+    power: 62,
+    fpReward: 22,
+    moves: [
+      { name: 'Thermos Swing', damage: 30, emoji: '🥤' },
+      { name: 'Suspicious Squint', damage: 45, emoji: '🔭' },
+      { name: 'Calling It In', damage: 58, emoji: '📢' },
+    ]
+  },
+  {
+    id: 'truther',
+    name: 'The Truther',
+    description: 'He has connected everything with red yarn and he needs you to see it',
+    image: '/enemies/republican/truther.png',
+    party: 'republican',
+    tier: 'common',
+    hp: 78,
+    power: 66,
+    fpReward: 24,
+    moves: [
+      { name: 'Laser Pointer', damage: 32, emoji: '🔴' },
+      { name: 'Wall of Yarn', damage: 46, emoji: '🧶' },
+      { name: 'Do Your Research', damage: 60, emoji: '📄' },
+    ]
+  },
+  {
+    id: 'broadcaster',
+    name: 'The Broadcaster',
+    description: 'Golden throat, golden tan, and callers lined up all the way to the top of the hour',
+    image: '/enemies/republican/broadcaster.png',
+    party: 'republican',
+    tier: 'rare',
+    hp: 118,
+    power: 82,
+    fpReward: 42,
+    moves: [
+      { name: 'Hot Take', damage: 38, emoji: '🎙' },
+      { name: 'Cigar Smoke', damage: 52, emoji: '🚬' },
+      { name: 'Top of the Hour', damage: 68, emoji: '📻' },
+    ]
+  },
+  {
+    id: 'frog_guy',
+    name: 'The Frog Guy',
+    description: 'Screaming into a headset about the water supply, with a very calm frog on his shoulder',
+    image: '/enemies/republican/frog_guy.png',
+    party: 'republican',
+    tier: 'rare',
+    hp: 128,
+    power: 88,
+    fpReward: 46,
+    rarity: 0.7,
+    moves: [
+      { name: 'Supplement Jar', damage: 40, emoji: '🫙' },
+      { name: 'Full Volume', damage: 55, emoji: '📣' },
+      { name: 'They Turned The Frogs', damage: 72, emoji: '🐸' },
+    ]
+  },
   {
     id: 'oil_baron',
     name: 'Oil Baron',

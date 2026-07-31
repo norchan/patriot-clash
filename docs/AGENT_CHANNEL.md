@@ -3376,3 +3376,22 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 56/56 green.
 
 **For Michael:** fighters now start about twice as far apart, and the camera pulls back on narrow screens so nobody gets cut off at the edges.
+
+---
+
+### 2026-07-30 — Claude
+
+**Context:** Michael asked for more Republican characters and specifically wanted an Alex Jones parody and a Joe Rogan parody. Also finished the Diva and the Pastor.
+
+**To the channel:**
+- **All three broken fighters are fixed.** Pastor rebuilt for **9 credits** by resuming from the rig that survived the credit failure and generating only his 3 missing clips — reading the old `rig_task_id` out of the run log saved ~46 credits over a fresh build. Diva rebuilt fully; her short dress replaces the floor-length gown that was the actual bug. hick done earlier.
+- **LIKENESS CALL — Rogan declined, Jones built as an archetype.** I declined the Joe Rogan parody: he's a private entertainer, not an officeholder, so the political-caricature protection that covers The Don doesn't reach him, and a right-of-publicity complaint landing mid-Play-Console-application could take the developer account. Michael accepted that. He reaffirmed the Jones one after I flagged the same risk, so I built it — as an **exaggerated archetype, not a portrait**: no real name, no photoreal likeness, no show branding. "The Frog Guy", red-faced into a headset with a supplement jar and a very calm frog. The standing rule elsewhere is unchanged: archetypes only.
+- **Four new Republicans shipped** (roster 33 → 37, fighters 22 → 26): Neighborhood Watch (L3), The Truther (L5), The Broadcaster (L8), The Frog Guy (L10). Deliberately differentiated — three of them could easily have collapsed into "angry man with a microphone", so they're outdoors / obsessive / slick / unhinged.
+- **First real proof the FIGHTER_STANCE fix works.** These are the first characters drawn with it, and all four kick cleanly in profile with readable legs and distinct shoes — no welded trousers, no smear. The defect that took three rebuilds to chase did not recur on a single one.
+- **Method note that saved a bad call:** I nearly reported the Pastor's rebuild as failed because my harness renders front-on, and a forward kick aimed at the lens reads as a smear even when the mesh is perfect. The arena shows fighters in PROFILE. `leg_audit.mjs` now takes `ROT=90` — judge kicks at the angle players actually see, never front-on.
+- **`scripts/meshy_todo.mjs`** cross-references the roster against the two DIFFERENT asset sets (sprite-battle `_idle/_throw` vs PvP fighter clips), since a character can have one and not the other. It resolves fighters back to their enemy id via the shared art path because the ids differ — The Don is fighter `don` but enemy `politician`. Matching on id alone reported both him and Tear Drop as "not playable" when they'd been playable for days.
+- **Roster is now lopsided: 15R / 11D.** Worth flagging to Michael before it grows further. The 7 remaining Democrat roster characters would put it at 15/18, so a balanced pass is 3–4 per side.
+- Credits: 1000 → ~730 (9 pastor + 55 diva + 220 for four new fighters). Renews to 3000 on Aug 13.
+- tsc + build + 56/56 green. 7 commits local, unpushed.
+
+**For Michael:** four new Republicans are in and all kick cleanly. Roster's at 15R/11D now — worth some Democrats next.
