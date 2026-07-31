@@ -337,3 +337,52 @@ describe('FP pack catalog (Stripe + Google Play share it)', () => {
     for (const p of FP_PACKS) expect(p.stripeEnv).toMatch(/^STRIPE_PRICE_/)
   })
 })
+
+import {
+  GRID, HQ_PAD, PRINT_SHOP_PAD, FIXED_PADS, PAD_UNLOCK_ORDER, FREE_PADS,
+  PAD_COSTS, BUILDINGS, towerBanked, nextPadCost, buildingCost,
+  TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS, TOWER_RATE_BY_LEVEL,
+} from '@/config/house'
+
+describe('campaign HQ base (Phase 1)', () => {
+  it('the yard adds up: 2 fixed pads + every other pad exactly once in unlock order', () => {
+    const all = new Set([...FIXED_PADS, ...PAD_UNLOCK_ORDER])
+    expect(all.size).toBe(GRID * GRID)
+    expect(PAD_UNLOCK_ORDER.length).toBe(GRID * GRID - FIXED_PADS.length)
+    expect(PAD_UNLOCK_ORDER).not.toContain(HQ_PAD)
+    expect(PAD_UNLOCK_ORDER).not.toContain(PRINT_SHOP_PAD)
+  })
+
+  it('pad prices rise and cover exactly the pads beyond the free six', () => {
+    expect(PAD_COSTS.length).toBe(PAD_UNLOCK_ORDER.length - FREE_PADS)
+    for (let i = 1; i < PAD_COSTS.length; i++) expect(PAD_COSTS[i]).toBeGreaterThan(PAD_COSTS[i - 1])
+    expect(nextPadCost(FREE_PADS)).toBe(PAD_COSTS[0])
+    expect(nextPadCost(FREE_PADS + PAD_COSTS.length)).toBeNull() // yard fully open
+  })
+
+  it('every building level costs more than the one before it', () => {
+    for (const def of Object.values(BUILDINGS)) {
+      for (let i = 1; i < def.costs.length; i++) expect(def.costs[i]).toBeGreaterThan(def.costs[i - 1])
+      expect(buildingCost(def.type, 1)).toBe(def.costs[0])
+      expect(buildingCost(def.type, def.costs.length + 1)).toBeNull() // no cost past max
+    }
+  })
+
+  it('tower banking clamps: nothing early, one interval pays, bank caps', () => {
+    expect(towerBanked(TOWER_INTERVAL_SECS - 1, 1)).toBe(0)
+    expect(towerBanked(TOWER_INTERVAL_SECS, 1)).toBe(TOWER_RATE_BY_LEVEL[0])
+    // a week offline banks the same as the cap — offline time is not a jackpot
+    expect(towerBanked(7 * 86400, 1)).toBe(TOWER_BANK_INTERVALS * TOWER_RATE_BY_LEVEL[0])
+    expect(towerBanked(-500, 1)).toBe(0)          // clock skew can't mint FP
+    expect(towerBanked(TOWER_INTERVAL_SECS, 99)).toBe(TOWER_RATE_BY_LEVEL[TOWER_RATE_BY_LEVEL.length - 1]) // absurd level clamps to max
+  })
+
+  it('the tower is a slow faucet, not a printer: daily max under the daily sign-in bonus', () => {
+    const maxLevel = TOWER_RATE_BY_LEVEL.length
+    const perDay = (86400 / TOWER_INTERVAL_SECS) * TOWER_RATE_BY_LEVEL[maxLevel - 1]
+    expect(perDay).toBeLessThanOrEqual(1000) // sign-in bonus is the ceiling reference
+    // and it pays back its own build cost in days, not hours
+    const l1PerDay = (86400 / TOWER_INTERVAL_SECS) * TOWER_RATE_BY_LEVEL[0]
+    expect(BUILDINGS.media_tower.costs[0] / l1PerDay).toBeGreaterThanOrEqual(3)
+  })
+})

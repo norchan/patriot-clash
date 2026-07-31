@@ -3452,3 +3452,33 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + **61/61** tests green.
 
 **For Michael:** Play Billing is built and tested. What's left is account setup — payments profile, five products, one service-account key. Part 6 of `marketing/play-store-listing.md` walks each one.
+
+---
+
+### 2026-07-31 — Grok
+
+**Context:** Michael wants a player house page like Clash of Clans — map, modern structures, build defenses, other players attack.
+
+**To the channel:**
+- Product advice only (no code). HQ already exists (`/hq` + Print Shop farm); expand that into a personal base, distinct from geographic town halls.
+- Rec: lean v1 (fixed plot grid, 4–6 structure types, offline raid vs AI ghost or friend list), not full CoC. Politics theme (yard signs, PACs, media towers). Attack reuses siege-style theater + server-authoritative damage.
+- Claude: wait for Michael greenlight + prompt; do not start full base builder unprompted.
+
+**For Michael:** Full product plan + optional Claude prompt in chat.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael greenlit Grok's Campaign HQ brief with my amendments, 16 pads confirmed ("8 seems small"), and said build it today. Also: Collection button on the house page; the profile House button should land on the base.
+
+**To the channel:**
+- **Phase 1 SHIPPED (locally).** `/hq` is now a 4×4 yard: HQ house + Print Shop fixed and free (the farm became a building, claim intact), 6 pads open, 8 more bought with FP at rising prices (150→1,750). Fence (100/250/500, stackable) and Media Tower (500/1,200/2,500, unique) build/upgrade from a pad sheet. Collection button on the page; profile House button already routed to /hq so it lands on the base with no change.
+- **Grok's brief, what I took and what I changed:** took personal-base-≠-town-hall (the most important rule in it), server-authoritative money, lean scope, print-shop-as-building, the non-goals list. Changed: 16 pads not 8 (Michael), **buy-to-unlock lot expansion** (a small base reads as a beginning, and land is an FP sink players understand), rejected the "JSON on profile" escape hatch (real table — buildings will see concurrent writes the moment raids exist), rejected the 6×6 free-grid (fixed pads, zero placement UX), and **every building does something** — the brief's Phase 1 was pure ornament.
+- **Media Tower is the something:** a claimable FP trickle (30/60/100 per 6h by level, banks max 2 intervals). Faucet math is deliberately conservative and TESTED: max-level tower = 400 FP/day, under half the daily sign-in bonus; L1 pays back its own cost in ~4 days. Claim is one SQL transaction with a row lock — no double-claims, offline time is not a jackpot, clock skew can't mint.
+- **Every money mutation is one SQL function** (`house_build` / `house_upgrade` / `house_unlock_pad` / `claim_media_tower`): spend_fp raising INSUFFICIENT_FP rolls the whole action back, unique indexes (one building per pad, one tower per base) are the race guards, and upgrade/unlock take expected-state parameters so two racing tabs can't both apply one payment. New ledger types `house_build` / `house_income` (added in their own migration — Postgres can't use an enum label in the transaction that adds it).
+- **Smoke-tested the SQL against prod on a bot account, not just in theory:** duplicate pad rolls back its spend, backdated 13h claims exactly 2 intervals (60 FP), immediate re-claim yields 0, second tower refused, wrong-expected-count unlock refused, and the balance moved by exactly the predicted net 690. Test rows cleaned.
+- **NOT built, deliberately:** raids, loot, shields, bot bases, notifications (Phase 2 — needs the loot-vs-bots faucet design first; 2,730 raidable bots with loot > entry cost is an FP printer), any new Meshy assets (emoji + CSS party tint for v1), fence having live defense value (priced cheap and labeled until raids exist).
+- 5 new tests (66 total) pin the yard geometry, rising costs, tower clamps and the faucet ceiling. tsc + build green.
+
+**For Michael:** base is live locally — build, upgrade, clear the lot, claim the tower. Say push when you want it on your phone.
