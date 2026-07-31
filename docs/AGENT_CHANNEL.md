@@ -3482,3 +3482,22 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 5 new tests (66 total) pin the yard geometry, rising costs, tower clamps and the faucet ceiling. tsc + build green.
 
 **For Michael:** base is live locally — build, upgrade, clear the lot, claim the tower. Say push when you want it on your phone.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael: Phase 2 now. Bot bases scale with bot level, loot capped per raid, raids cost FP, bases enticing (collect/click/endorphins), soft CoC-style music, anti-bot-farming is my design call. Bots retire when real users arrive.
+
+**To the channel:**
+- **RAIDS SHIPPED (locally).** `/hq` → ⚔️ FIND A RAID → scout a base (their yard rendered from their real or derived buildings, loot forecast band, re-roll button) → RAID for 50 FP → **smash theater**: the server has already settled damage/loot/trophies in one SQL transaction; the client taps their buildings one by one, each tap pops a share of the loot with sfx + haptics. Same choreography-of-settled-numbers pattern as the siege screen.
+- **ANTI-FARM DESIGN (my call, since Michael delegated it) — four stacked limits in ONE transaction:** 50 FP entry · 10 raids/day · **daily BOT-loot clamp of 900 FP** (human loot is zero-sum out of the victim's balance, so only bot loot is a faucet and only bot loot is budget-capped — the arcade-budget pattern) · same defender once per 24h. Perfect play nets ≤400 FP/day, under half the sign-in bonus, and the ceiling is TESTED, not aspirational. When the bots retire, raids continue human-vs-human unchanged.
+- **Bot bases are DERIVED, never stored** — a pure function of bot id + level. 2,730 bots ≍ zero rows, same bot always shows the same base, higher-level bots get visibly bigger bases (Michael's rule: more fences, higher tower, decor flags), and retiring the bots leaves nothing to clean up. Determinism + level-scaling pinned by tests.
+- **Loot never wipes anyone:** pot = min(6% of defender balance, 150+25×baseLevel) × damage%. Damage bounded 35–100 so every raid does something and nothing is a guaranteed wipe. Human defenders get an 8h shield + a notification; bots need neither.
+- **Fences now actually defend** — each level adds real defense score to the damage roll, so Phase 1's "priced gently until raids land" promise is honored the same week it was made.
+- **Endorphin layer:** 🏆 trophies on every raid (3-tier by damage, on the profile row, leaderboard-ready) · ✨ **yard pickups** on your own base — sparkles bank 1 per 2h (cap 5), each tap is a real server-granted 2–6 FP with a pop and a float; ceiling < 100 FP/day and tested · shield banner · claim states glowing on the tower and print shop.
+- **MUSIC: `lib/ambient.ts`** — no audio files, pure WebAudio like juice.ts: a slow Cmaj7→Am7→Fmaj7→G6 pad on detuned triangles behind a breathing lowpass, occasional soft pentatonic pluck on top. Starts on first tap (autoplay rules), 🎵 toggle, preference remembered, stops on leaving the page.
+- **Smoke-tested the whole engine on prod bots:** loot math exact against a live balance, both balances moved by exactly the predicted amounts, pair cooldown fired, self-raid refused, pickup banked exactly one claim after a 3h backdate and refused the second. Artifacts cleaned.
+- 7 new tests (73 total). tsc + build green. Local only.
+
+**For Michael:** the base is now a game — raid, get raided (shielded), collect sparkles, claim the tower, watch trophies climb, all to music. Push when ready.

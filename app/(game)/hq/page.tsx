@@ -1,12 +1,13 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Trophy } from 'lucide-react'
+import { ArrowLeft, Trophy, Music, VolumeX } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, PAD_UNLOCK_ORDER, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
 } from '@/config/house'
+import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
 
 // 🏠 CAMPAIGN HQ — the personal base (Michael 2026-07-31, CoC-lite Phase 1).
 // A 4×4 yard of pads: the House and Print Shop are yours from the start, six
@@ -17,7 +18,17 @@ import {
 interface Farm { ready: number; next_in_secs: number | null; rate_hours: number; cap: number }
 interface Building { pad: number; type: string; level: number }
 interface Tower { level: number; banked: number; next_in_secs: number; rate: number; interval_hours: number }
-interface House { pads_unlocked: number; next_pad_cost: number | null; buildings: Building[]; tower: Tower | null }
+interface House {
+  pads_unlocked: number; next_pad_cost: number | null; buildings: Building[]; tower: Tower | null
+  trophies: number; shield_until: string | null; pickups: number
+}
+
+// where the yard sparkles sit (percent positions over the grid) — fixed table
+// so a refresh doesn't shuffle them around underneath your finger
+const SPARKLE_SPOTS = [
+  { left: '12%', top: '68%' }, { left: '78%', top: '22%' }, { left: '55%', top: '80%' },
+  { left: '25%', top: '15%' }, { left: '85%', top: '60%' },
+]
 
 export default function HqPage() {
   const router = useRouter()
@@ -41,7 +52,47 @@ export default function HqPage() {
     return () => clearInterval(iv)
   }, [])
 
+  // ── ambient music: starts on the FIRST tap anywhere (browser autoplay
+  // rules), remembered across visits, stops when you leave the page ──────────
+  const [music, setMusic] = useState(false)
+  const musicPref = useRef(true)
+  useEffect(() => {
+    try { musicPref.current = localStorage.getItem('hq_music') !== 'off' } catch {}
+    const first = () => {
+      if (musicPref.current && !ambientRunning()) { startAmbient(); setMusic(true) }
+      window.removeEventListener('pointerdown', first)
+    }
+    window.addEventListener('pointerdown', first)
+    return () => { window.removeEventListener('pointerdown', first); stopAmbient() }
+  }, [])
+  function toggleMusic() {
+    if (ambientRunning()) { stopAmbient(); setMusic(false); musicPref.current = false; try { localStorage.setItem('hq_music', 'off') } catch {} }
+    else { startAmbient(); setMusic(true); musicPref.current = true; try { localStorage.setItem('hq_music', 'on') } catch {} }
+  }
+
   function say(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  // yard sparkle pickups — each tap is a real server grant with a pop
+  const [popped, setPopped] = useState<Array<{ id: number; left: string; top: string; text: string }>>([])
+  const popId = useRef(0)
+  async function pickUp(spot: { left: string; top: string }) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/house', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pickup' }),
+      })
+      const d = await res.json()
+      if (res.ok && d.claimed > 0) {
+        const id = ++popId.current
+        setPopped(p => [...p, { id, ...spot, text: `+${d.claimed} FP` }])
+        setTimeout(() => setPopped(p => p.filter(x => x.id !== id)), 900)
+        try { navigator.vibrate?.(20) } catch {}
+        load(); refetch()
+      } else { load() }
+    } finally { setBusy(false) }
+  }
 
   async function act(payload: Record<string, unknown>, okMsg: (d: any) => string) {
     if (busy) return
@@ -144,17 +195,46 @@ export default function HqPage() {
         <div className="flex items-center gap-3">
           <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>
           <h1 className="text-white font-black text-lg">🏠 Campaign HQ</h1>
-          <span className="ml-auto text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
+          <button onClick={toggleMusic} className="text-gray-400 hover:text-white" title={music ? 'Music off' : 'Music on'}>
+            {music ? <Music size={16} /> : <VolumeX size={16} />}
+          </button>
+          <span className="ml-auto flex items-center gap-3">
+            <span className="text-amber-400 font-black text-sm">🏆 {house?.trophies ?? 0}</span>
+            <span className="text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
+          </span>
         </div>
         <p className="text-gray-500 text-xs mt-1.5">Your base. Build it out — clear the lot, raise the towers.</p>
 
+        {house?.shield_until && (
+          <div className="mt-3 bg-sky-950/50 border border-sky-800 rounded-xl px-4 py-2.5 text-sky-300 text-xs font-bold text-center">
+            🛡️ Shield up — nobody can raid you until {new Date(house.shield_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </div>
+        )}
+
         {/* the yard */}
-        <div className="mt-4 rounded-2xl border border-gray-800 p-3"
+        <div className="mt-4 rounded-2xl border border-gray-800 p-3 relative"
           style={{ background: 'radial-gradient(circle at 30% 20%, #14231a, #0b1210 70%)' }}>
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${GRID}, minmax(0, 1fr))` }}>
             {Array.from({ length: GRID * GRID }, (_, i) => padCell(i))}
           </div>
+          {/* sparkle pickups — tap for a little FP pop */}
+          {SPARKLE_SPOTS.slice(0, house?.pickups ?? 0).map((s, i) => (
+            <button key={i} onClick={() => pickUp(s)}
+              className="absolute text-xl animate-pulse active:scale-75 transition"
+              style={{ left: s.left, top: s.top }}>✨</button>
+          ))}
+          {popped.map(p => (
+            <span key={p.id} className="absolute text-yellow-300 font-black text-sm animate-bounce pointer-events-none"
+              style={{ left: p.left, top: p.top }}>{p.text}</span>
+          ))}
         </div>
+
+        {/* raid — the other half of the game */}
+        <button onClick={() => router.push('/hq/raid')}
+          className="mt-4 w-full py-4 rounded-2xl font-black text-white text-lg active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
+          ⚔️ FIND A RAID
+        </button>
 
         {/* HQ Collection — Michael: the collection lives at your house */}
         <button onClick={() => router.push('/collection')}

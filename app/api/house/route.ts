@@ -6,6 +6,7 @@ import {
   PAD_UNLOCK_ORDER, FREE_PADS, FIXED_PADS, buildingDef, buildingCost,
   nextPadCost, TOWER_RATE_BY_LEVEL, TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS,
   TOWER_MAX_LEVEL, towerBanked,
+  PICKUP_INTERVAL_SECS, PICKUP_BANK_CAP, PICKUP_MIN_FP, PICKUP_MAX_FP, pickupsBanked,
 } from '@/config/house'
 
 // CAMPAIGN HQ base — Phase 1 (Michael 2026-07-31).
@@ -26,9 +27,14 @@ export async function GET() {
 
     const tower = (buildings ?? []).find(b => b.type === 'media_tower')
     const elapsed = tower ? (Date.now() - +new Date(tower.claimed_at)) / 1000 : 0
+    const sweptElapsed = (Date.now() - +new Date((profile as any).yard_swept_at ?? Date.now())) / 1000
+    const shieldUntil = (profile as any).house_shield_until
     return NextResponse.json({
       pads_unlocked: (profile as any).house_pads ?? FREE_PADS,
       next_pad_cost: nextPadCost((profile as any).house_pads ?? FREE_PADS),
+      trophies: (profile as any).house_trophies ?? 0,
+      shield_until: shieldUntil && new Date(shieldUntil) > new Date() ? shieldUntil : null,
+      pickups: pickupsBanked(sweptElapsed),
       buildings: buildings ?? [],
       tower: tower ? {
         level: tower.level,
@@ -124,6 +130,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Could not unlock' }, { status: 500 })
       }
       return NextResponse.json({ ok: true, spent: cost, pads_unlocked: unlocked + 1 })
+    }
+
+    if (action === 'pickup') {
+      // one sparkle per call — the endorphin is in the individual tap, so the
+      // client claims them one at a time and each pop is a real server grant
+      const { data, error } = await admin.rpc('yard_pickup', {
+        p_profile_id: profile.id,
+        p_interval_secs: PICKUP_INTERVAL_SECS,
+        p_bank_cap: PICKUP_BANK_CAP,
+        p_min_fp: PICKUP_MIN_FP,
+        p_max_fp: PICKUP_MAX_FP,
+      })
+      if (error) {
+        console.error('yard_pickup failed:', error)
+        return NextResponse.json({ error: 'Could not pick that up' }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true, claimed: data ?? 0 })
     }
 
     if (action === 'claim_tower') {

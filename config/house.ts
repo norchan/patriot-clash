@@ -97,3 +97,104 @@ export function buildingCost(type: string, level: number): number | null {
   if (!def) return null
   return def.costs[level - 1] ?? null
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 2 — RAIDS (Michael 2026-07-31)
+// Personal-base raids: pay to attack, capped loot, never touches town halls.
+//
+// ANTI-FARMING (the bots are the obvious exploit — 2,730 of them with real
+// FP balances). Four stacked limits, all enforced in ONE SQL transaction:
+//   1. entry fee (RAID_COST) — farming has a price
+//   2. daily raid cap (RAID_DAILY_CAP)
+//   3. daily BOT-loot clamp (BOT_LOOT_DAILY_CAP) — human loot is zero-sum
+//      (it leaves the victim's balance), bot loot is a faucet, so only bot
+//      loot is budget-capped, same pattern as the arcade budget
+//   4. same defender only once per 24h (pair cooldown)
+// Worst case perfect play: 10 raids × 50 = 500 FP in, ≤900 FP out of bots =
+// max +400/day — under half the sign-in bonus. When Michael retires the bots,
+// raids keep working human-vs-human unchanged (those are zero-sum transfers).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const RAID_COST = 50                 // FP to launch a raid
+export const RAID_DAILY_CAP = 10            // raids per attacker per day
+export const BOT_LOOT_DAILY_CAP = 900       // FP/day lootable from bots total
+export const RAID_PAIR_COOLDOWN_HOURS = 24  // same defender once a day
+export const RAID_SHIELD_HOURS = 8          // human defenders get a shield after being hit
+export const RAID_LOOT_PCT = 0.06           // % of defender balance at stake
+export const raidLootAbsCap = (baseLevel: number) => 150 + 25 * baseLevel
+
+// Damage roll: attacker level vs defense score, ±15 noise, floor/ceiling so
+// every raid does SOMETHING and nothing is a guaranteed wipe.
+export function raidDamagePct(attackerLevel: number, defenseScore: number, roll: number): number {
+  const noise = Math.floor(roll * 31) - 15 // roll∈[0,1) → -15..+15
+  return Math.max(35, Math.min(100, 55 + (attackerLevel - defenseScore) * 4 + noise))
+}
+
+/** Defender defense score from their real buildings. */
+export function defenseScore(buildings: Array<{ type: string; level: number }>, baseLevel: number): number {
+  let s = baseLevel
+  for (const b of buildings) {
+    if (b.type === 'fence') s += b.level * 2
+    if (b.type === 'media_tower') s += 1 // a tower is a target, barely a defense
+  }
+  return s
+}
+
+export function trophiesFor(damagePct: number): number {
+  return damagePct >= 85 ? 5 : damagePct >= 50 ? 3 : 1
+}
+
+// ── Bot bases — DERIVED, never stored ───────────────────────────────────────
+// 2,730 bots must not become 2,730 rows of base state. A bot's base is a pure
+// function of its id + level: same bot always shows the same base, higher
+// level bots have visibly bigger bases (Michael's rule), and when the bots
+// are retired nothing needs cleaning up.
+export interface BotBase {
+  baseLevel: number   // 1..5
+  buildings: Array<{ pad: number; type: BuildingType | 'decor'; level: number }>
+  padsOpen: number
+}
+
+function h32(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+export function botBase(botId: string, level: number): BotBase {
+  const baseLevel = 1 + Math.min(4, Math.floor(level / 3))
+  const seed = h32(botId)
+  const padsOpen = Math.min(PAD_UNLOCK_ORDER.length, FREE_PADS + baseLevel * 2)
+  const buildings: BotBase['buildings'] = []
+  const fences = 1 + baseLevel                 // bigger bot, more fences
+  for (let i = 0; i < fences && i < padsOpen; i++) {
+    buildings.push({ pad: PAD_UNLOCK_ORDER[(seed + i * 7) % padsOpen], type: 'fence', level: Math.min(3, 1 + ((seed >> (i + 2)) % baseLevel)) })
+  }
+  buildings.push({ pad: PAD_UNLOCK_ORDER[(seed + 3) % padsOpen], type: 'media_tower', level: Math.min(3, baseLevel) })
+  // decor pads make big bases LOOK rich (flags, signs — pure rendering)
+  for (let i = 0; i < baseLevel; i++) {
+    buildings.push({ pad: PAD_UNLOCK_ORDER[(seed + 11 + i * 5) % padsOpen], type: 'decor', level: 1 })
+  }
+  // dedupe by pad, first write wins
+  const seen = new Set<number>()
+  return {
+    baseLevel,
+    padsOpen,
+    buildings: buildings.filter(b => (seen.has(b.pad) ? false : (seen.add(b.pad), true))),
+  }
+}
+
+export const botDefenseScore = (baseLevel: number) => baseLevel * 3
+
+// ── Yard pickups — the little endorphin taps ────────────────────────────────
+// Sparkles appear on your own yard over time; each tap claims a few FP.
+// Server-banked exactly like the print shop: 1 pickup every 2h, holds 5,
+// worth 2–6 FP each — a ~50 FP/day ceiling, pocket change with confetti.
+export const PICKUP_INTERVAL_SECS = 2 * 3600
+export const PICKUP_BANK_CAP = 5
+export const PICKUP_MIN_FP = 2
+export const PICKUP_MAX_FP = 6
+
+export function pickupsBanked(elapsedSecs: number): number {
+  return Math.min(PICKUP_BANK_CAP, Math.floor(Math.max(0, elapsedSecs) / PICKUP_INTERVAL_SECS))
+}

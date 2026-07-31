@@ -386,3 +386,74 @@ describe('campaign HQ base (Phase 1)', () => {
     expect(BUILDINGS.media_tower.costs[0] / l1PerDay).toBeGreaterThanOrEqual(3)
   })
 })
+
+import {
+  RAID_COST, RAID_DAILY_CAP, BOT_LOOT_DAILY_CAP, RAID_LOOT_PCT,
+  raidLootAbsCap, raidDamagePct, defenseScore, botDefenseScore,
+  trophiesFor, botBase, pickupsBanked,
+  PICKUP_INTERVAL_SECS, PICKUP_BANK_CAP, PICKUP_MAX_FP,
+} from '@/config/house'
+
+describe('campaign HQ raids (Phase 2 anti-farm math)', () => {
+  it('perfect bot farming nets less than half the daily sign-in bonus', () => {
+    const worstCaseNet = BOT_LOOT_DAILY_CAP - RAID_DAILY_CAP * RAID_COST
+    expect(worstCaseNet).toBeLessThanOrEqual(500)
+    expect(worstCaseNet).toBeGreaterThan(0) // still worth doing, just bounded
+  })
+
+  it('damage is always bounded 35..100 whatever the matchup', () => {
+    expect(raidDamagePct(1, 50, 0)).toBe(35)      // hopeless underdog still lands
+    expect(raidDamagePct(50, 0, 0.999)).toBe(100) // steamroll caps at 100
+    for (const roll of [0, 0.25, 0.5, 0.75, 0.999]) {
+      const d = raidDamagePct(10, 8, roll)
+      expect(d).toBeGreaterThanOrEqual(35)
+      expect(d).toBeLessThanOrEqual(100)
+    }
+  })
+
+  it('loot pot is a small slice of the defender, hard-capped by base level', () => {
+    // rich defender: percentage yields to the absolute cap
+    expect(Math.min(100000 * RAID_LOOT_PCT, raidLootAbsCap(5))).toBe(raidLootAbsCap(5))
+    expect(raidLootAbsCap(5)).toBeLessThanOrEqual(300)
+    // poor defender: cap yields to the percentage — nobody is wiped out
+    expect(Math.min(300 * RAID_LOOT_PCT, raidLootAbsCap(1))).toBe(18)
+  })
+
+  it('fences actually defend: each level raises the score', () => {
+    const bare = defenseScore([], 1)
+    const fenced = defenseScore([{ type: 'fence', level: 3 }], 1)
+    expect(fenced).toBe(bare + 6)
+    expect(defenseScore([{ type: 'media_tower', level: 3 }], 1)).toBe(bare + 1)
+  })
+
+  it('trophies scale with damage', () => {
+    expect(trophiesFor(100)).toBe(5)
+    expect(trophiesFor(60)).toBe(3)
+    expect(trophiesFor(35)).toBe(1)
+  })
+
+  it('bot bases are deterministic and scale with level', () => {
+    const a1 = botBase('bot-abc', 3), a2 = botBase('bot-abc', 3)
+    expect(a1).toEqual(a2)                                  // same bot, same base
+    expect(botBase('bot-xyz', 3)).not.toEqual(a1)           // different bot differs
+    const low = botBase('bot-abc', 1), high = botBase('bot-abc', 14)
+    expect(high.baseLevel).toBeGreaterThan(low.baseLevel)   // Michael's rule
+    expect(high.buildings.length).toBeGreaterThan(low.buildings.length)
+    expect(high.baseLevel).toBeLessThanOrEqual(5)
+    // no two buildings share a pad, and every pad is a real yard pad
+    for (const b of [...low.buildings, ...high.buildings]) {
+      expect(b.pad).toBeGreaterThanOrEqual(0)
+      expect(b.pad).toBeLessThan(16)
+    }
+    expect(new Set(high.buildings.map(b => b.pad)).size).toBe(high.buildings.length)
+    expect(botDefenseScore(high.baseLevel)).toBeGreaterThan(botDefenseScore(low.baseLevel))
+  })
+
+  it('yard pickups are pocket change: hard daily ceiling under 100 FP', () => {
+    const perDay = (86400 / PICKUP_INTERVAL_SECS) * PICKUP_MAX_FP
+    expect(perDay).toBeLessThan(100)
+    expect(pickupsBanked(0)).toBe(0)
+    expect(pickupsBanked(PICKUP_INTERVAL_SECS * 99)).toBe(PICKUP_BANK_CAP) // offline caps
+    expect(pickupsBanked(-100)).toBe(0)
+  })
+})
