@@ -1,15 +1,17 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useProfile } from '@/hooks/useProfile'
 import { Zap } from 'lucide-react'
+import { FP_PACKS } from '@/config/fp-packs'
+import { playBillingAvailable, buyWithPlay } from '@/lib/play-billing-client'
 
-const PACKS = [
-  { id: 'fp_100',   name: 'Starter Pack', fp: 100,   bonus: 0,     price: '$0.99',  emoji: '⚡',   featured: false },
-  { id: 'fp_600',   name: 'Value Pack',   fp: 500,   bonus: 100,   price: '$4.99',  emoji: '⚡⚡', featured: true  },
-  { id: 'fp_1400',  name: 'Power Pack',   fp: 1000,  bonus: 400,   price: '$9.99',  emoji: '🔋',   featured: false },
-  { id: 'fp_3200',  name: 'Elite Pack',   fp: 2000,  bonus: 1200,  price: '$19.99', emoji: '🔥',   featured: false },
-  { id: 'fp_32000', name: 'Super Pack',   fp: 20000, bonus: 12000, price: '$99.99', emoji: '👑',   featured: false },
-]
+// Pack numbers now come from config/fp-packs.ts — the same catalog the Stripe
+// route and the Play verification route read. They used to be duplicated here,
+// which is how the shop could advertise one FP amount while a payment path
+// granted another.
+const PACKS = FP_PACKS.map(p => ({
+  id: p.id, name: p.name, fp: p.base, bonus: p.bonus, price: p.usd, emoji: p.emoji, featured: !!p.featured,
+}))
 
 const DEFENSE_SHOP = [
   { id: 'iron_firewall',   name: 'Iron Firewall',   desc: '+20% passive defense, 24h',         cost: 200,  emoji: '🛡️' },
@@ -29,9 +31,25 @@ export default function ShopPage() {
     setTimeout(() => setToast(''), 3000)
   }
 
+  // Inside the Android app, Google Play policy REQUIRES that digital goods are
+  // sold through Play Billing — Stripe checkout in the wrapper is a violation
+  // that gets apps removed. Detected by feature, not user-agent.
+  const [usePlay, setUsePlay] = useState(false)
+  useEffect(() => { playBillingAvailable().then(setUsePlay).catch(() => setUsePlay(false)) }, [])
+
   async function buyPack(packId: string) {
     setLoading(packId)
     try {
+      if (usePlay) {
+        const r = await buyWithPlay(packId)
+        if (r.ok) {
+          showToast(`✅ ${r.fp?.toLocaleString()} FP added`)
+          refetch()
+        } else if (!r.cancelled) {
+          showToast(`❌ ${r.error ?? 'Purchase failed'}`)
+        }
+        return
+      }
       const res = await fetch('/api/shop/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -2,38 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { fpPack } from '@/config/fp-packs'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-04-22.dahlia',
 })
 
-// FP pack definitions — must match Stripe products
-const FP_PACKS: Record<string, { fp: number; priceId: string; name: string }> = {
-  fp_100: {
-    fp: 100,
-    priceId: process.env.STRIPE_PRICE_FP_100!,
-    name: 'Starter Pack'
-  },
-  fp_600: {
-    fp: 600,
-    priceId: process.env.STRIPE_PRICE_FP_600!,
-    name: 'Value Pack'
-  },
-  fp_1400: {
-    fp: 1400,
-    priceId: process.env.STRIPE_PRICE_FP_1400!,
-    name: 'Power Pack'
-  },
-  fp_3200: {
-    fp: 3200,
-    priceId: process.env.STRIPE_PRICE_FP_3200!,
-    name: 'Elite Pack'
-  },
-  fp_32000: {
-    fp: 32000,
-    priceId: process.env.STRIPE_PRICE_FP_32000!,
-    name: 'Super Pack'
-  },
+// FP amounts come from the shared catalog so Stripe and Google Play can never
+// grant different FP for the same pack; only the Stripe price id lives here.
+const packFor = (id: string) => {
+  const p = fpPack(id)
+  if (!p) return null
+  return { fp: p.fp, name: p.name, priceId: process.env[p.stripeEnv] }
 }
 
 // =============================================================================
@@ -47,9 +27,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { pack_id } = body
 
-    const pack = FP_PACKS[pack_id]
+    const pack = packFor(pack_id)
     if (!pack) {
       return NextResponse.json({ error: 'Invalid pack' }, { status: 400 })
+    }
+    if (!pack.priceId) {
+      console.error(`shop/checkout: missing Stripe price env for ${pack_id}`)
+      return NextResponse.json({ error: 'That pack is not available right now' }, { status: 503 })
     }
 
     // Create Stripe Checkout Session

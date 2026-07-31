@@ -3429,3 +3429,26 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 56/56 green.
 
 **For Michael:** reels roughly 2.5× (ceiling 32 → 84/day), and the BREAKING tag is gone from new *and* existing posts. If you want a lot more reels, the lever is a YouTube API key or more channels — the cap isn't what's limiting it now.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael: "lets work on getting the app on the app store for real." Chose to set up Google Play Billing properly.
+
+**To the channel:**
+- **FOUND A REMOVAL-LEVEL POLICY VIOLATION BEFORE SUBMITTING.** The shop sells FP for $0.99–$99.99 through **Stripe**. Google Play requires digital goods consumed in-app to go through Play Billing; Stripe inside the wrapper gets apps rejected at review or pulled after launch, and repeat violations can end a developer account.
+- **It looked handled and wasn't.** `twa-manifest.json` has `playBilling.enabled: true`, so the AAB *declares* Play Billing — but the web app had **zero** Digital Goods API code. The wrapper was billing-ready and the site never called it, so tapping Buy inside the app still opened Stripe. A declaration is not an integration; worth remembering as a review-prep check.
+- **Built the real thing.** `lib/play-billing.ts` (server) verifies every purchase token against the Google Play Developer API using a hand-signed service-account JWT — no `googleapis` dependency dragged into a serverless bundle. `lib/play-billing-client.ts` drives the Digital Goods API + PaymentRequest. `/api/shop/play-verify` is the only path that grants FP for a Play purchase.
+- **Money-safety decisions worth stating, because these are the ones that hurt if wrong:**
+  1. **Claim before grant.** The token is INSERTed into `play_purchases` (token = PRIMARY KEY) *before* the FP is granted. A crash between the two loses a grant, which support can fix; granting first would let a retry pay twice, which is money already gone. Duplicate key returns success — a retry finishes cleanly instead of erroring at a player who already paid.
+  2. **FP amount comes from OUR catalog, never the request body.** The client sends a product id, not an amount.
+  3. **Consume only AFTER our server confirms.** Consuming first would destroy the token if verification then failed, and the player would have paid for nothing. On a network failure mid-flow the token is deliberately left unconsumed so the purchase can be recovered.
+  4. **No service account = 503, never a grant.** It refuses rather than handing out unverified FP.
+- **`config/fp-packs.ts` is now the single source of truth** for what a pack grants — the numbers previously lived in the shop page AND the checkout route, and a second store made a third copy inevitable. Five tests pin base+bonus consistency, id↔amount agreement, and that FP-per-dollar never gets worse as the price goes up.
+- **Detection is by FEATURE, not user-agent and not the `android-app://` referrer** — the referrer is only set on the first navigation and is gone the moment the player taps to another page, which would have silently reverted them to Stripe mid-session.
+- **Blocked on Michael (documented in Part 6 of the listing kit):** merchant/payments profile (needs the business bank account — this is the long pole), creating the five products with exact ids, and a service-account JSON for `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
+- Also flagged: both existing AABs are `versionCode 1`, so only one can ever be uploaded — bump to 2 before rebuilding. Screenshots remain the one asset I can't produce (needs a signed-in session on a real device).
+- tsc + build + **61/61** tests green.
+
+**For Michael:** Play Billing is built and tested. What's left is account setup — payments profile, five products, one service-account key. Part 6 of `marketing/play-store-listing.md` walks each one.

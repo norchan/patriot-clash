@@ -300,3 +300,40 @@ describe('3D enemy rigs', () => {
     expect(new Set(ENEMY_3D_IDS).size).toBe(ENEMY_3D_IDS.length)
   })
 })
+
+import { FP_PACKS, fpPack } from '@/config/fp-packs'
+
+describe('FP pack catalog (Stripe + Google Play share it)', () => {
+  it('every pack grants base + bonus, and the id encodes the total', () => {
+    for (const p of FP_PACKS) {
+      expect(p.base + p.bonus, `${p.id} base+bonus`).toBe(p.fp)
+      // fp_1400 must grant 1400 — the id is what a player reads as the amount
+      expect(Number(p.id.replace('fp_', '')), `${p.id} id vs fp`).toBe(p.fp)
+    }
+  })
+
+  it('ids are unique and Play-product-id safe (lowercase, no spaces)', () => {
+    expect(new Set(FP_PACKS.map(p => p.id)).size).toBe(FP_PACKS.length)
+    for (const p of FP_PACKS) expect(p.id).toMatch(/^[a-z0-9_]+$/)
+  })
+
+  it('more money always buys more FP — no pack is a worse deal than a cheaper one', () => {
+    const byPrice = [...FP_PACKS].sort((a, b) => Number(a.usd.slice(1)) - Number(b.usd.slice(1)))
+    for (let i = 1; i < byPrice.length; i++) {
+      expect(byPrice[i].fp, `${byPrice[i].id} vs ${byPrice[i - 1].id}`).toBeGreaterThan(byPrice[i - 1].fp)
+      // and FP-per-dollar must not get worse as you spend more
+      const rate = (p: typeof byPrice[0]) => p.fp / Number(p.usd.slice(1))
+      expect(rate(byPrice[i])).toBeGreaterThanOrEqual(rate(byPrice[i - 1]))
+    }
+  })
+
+  it('lookup rejects unknown ids rather than returning a default', () => {
+    expect(fpPack('fp_100')?.fp).toBe(100)
+    expect(fpPack('fp_999999')).toBeUndefined()
+    expect(fpPack('')).toBeUndefined()
+  })
+
+  it('every pack names a Stripe price env var', () => {
+    for (const p of FP_PACKS) expect(p.stripeEnv).toMatch(/^STRIPE_PRICE_/)
+  })
+})
