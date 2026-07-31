@@ -35,8 +35,12 @@ p.on('response', r => { if (r.status() >= 400) console.log(`  ${r.status()} ${r.
 
 const clip = process.env.CLIP || ''
 const at = process.env.AT || '0'
+// ROT=90 renders the profile the arena actually shows. Use it for any kick —
+// front-on, a forward kick aims at the lens and reads as a smear even when the
+// mesh is fine (Michael's pastor, 2026-07-30).
+const rot = process.env.ROT || '0'
 for (const f of list) {
-  await p.goto(`http://localhost:4601/scripts/leg_audit.html?f=${f.file}&view=${view}&clip=${clip}&t=${at}`, { waitUntil: 'networkidle', timeout: 60000 })
+  await p.goto(`http://localhost:4601/scripts/leg_audit.html?f=${f.file}&view=${view}&clip=${clip}&t=${at}&rot=${rot}`, { waitUntil: 'networkidle', timeout: 60000 })
   await p.waitForFunction(() => window.__done === true, { timeout: 30000 }).catch(() => {})
   await new Promise(r => setTimeout(r, 250))
   const out = path.join(outDir, `${view}_${f.id}.png`)

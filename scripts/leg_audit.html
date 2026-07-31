@@ -16,6 +16,10 @@ const prefix = q.get('f') || 'hick_rep'
 const view = q.get('view') || 'legs'      // legs | full
 const clipName = q.get('clip') || ''       // '' = rest pose
 const t = parseFloat(q.get('t') ?? '0')
+// Yaw in degrees. The ARENA shows fighters in profile (faceY = ±90°), so a
+// front-on render points a forward kick straight at the camera and turns it
+// into a meaningless smear. Judge kicks at rot=90, the way players see them.
+const rot = parseFloat(q.get('rot') ?? '0') * Math.PI / 180
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color('#c8ccd4')   // light grey: dark pants read clearly
@@ -44,6 +48,7 @@ const center = new THREE.Vector3(); box.getCenter(center)
 const H = 2.2
 const s = H / (size.y || 1)
 const holder = new THREE.Group()
+holder.rotation.y = rot
 holder.add(root); scene.add(holder)
 root.scale.setScalar(s)
 root.position.set(-center.x * s, -box.min.y * s, -center.z * s)
