@@ -106,7 +106,9 @@ export async function GET(req: NextRequest) {
     .order('score', { ascending: false })
     .limit(5)
   for (const p of topPosts ?? []) {
-    const headline = (p.link_title ?? p.content ?? '').replace(/^🚨 BREAKING: /, '')
+    // content is a plain headline now — the BREAKING prefix is gone entirely
+    // (crowns are marked by hall_posts.crown_lane), so nothing to strip.
+    const headline = p.link_title ?? p.content ?? ''
     if (!headline || !demBots.length || !repBots.length) continue
     const target = 12 + Math.floor(Math.random() * 7) // a top post should look BUSY
     const room = Math.min(4, target - (p.comment_count ?? 0)) // per run, not all at once

@@ -3412,3 +3412,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Credits 1000 → **763**. tsc + build + 56/56 green.
 
 **For Michael:** boots fixed and checked in every pose. Both older versions kept if you want her back.
+
+---
+
+### 2026-07-30 — Claude
+
+**Context:** Michael: "can we increase the number of reels that are posted? And take the breaking tag off the posts. I don't like the 'breaking' in front of every article."
+
+**To the channel:**
+- **REELS: 32/day ceiling → 84.** `MAX_POSTS` 8 → 14 and the pg_cron schedule 6-hourly → 4-hourly (4 runs/day → 6). Checked first that the cap was actually the binding constraint and it was: every run that produced anything produced *exactly* 8, i.e. it stopped on MAX_POSTS, not on running out of good videos. Live rate was 8–24/day.
+- **Caps raised where the SUPPLY is** — politics 4→7, funny 2→3, sports 1→2, science 1→2. The allowlist is 13 politics channels but only 3 funny, 4 sports and 2 science, so lifting funny/science further would just starve against the never-repost-a-video-id rule. **If Michael wants substantially more than this, the real unlock is `YOUTUBE_API_KEY`** (Data API search discovery beyond the allowlist, already supported in the route) or more channel ids — not a bigger number in the config. Flagged to him.
+- **BREAKING TAG REMOVED — and this one had a trap.** That prefix was doing THREE jobs simultaneously: the display text, the way the cron found its own crowns (`LIKE '%BREAKING:%'`), and the way it told one lane's crown from another's when two lanes share a board (`startsWith(lane.prefix)`). Just deleting the string would have left **every pinned crown stuck at score 900+ forever**, because the 3-hour demotion pass could no longer see them — a silent, permanent front-page corruption from what looks like a cosmetic edit.
+- **Fix: the marker moved out of user-visible text and into `hall_posts.crown_lane`.** Content is now the plain headline. Migration adds the column plus a partial index, **backfills existing crowns from their prefixes so reign bookkeeping survives the switch** (39 crowns tagged: 15 news / 12 us / 12 sports), then strips the tag from existing post text — Michael objects to seeing it at all, not just on new posts. Verified: **0 posts anywhere still contain "BREAKING"**.
+- Bonus correctness: the old scheme was collision-prone — any user post containing "BREAKING:" was indistinguishable from a crown and could have been demoted or dedupe-matched. A column can't collide.
+- `board-engagement` also stripped the prefix for its comment generator; simplified since there's nothing to strip now.
+- tsc + build + 56/56 green.
+
+**For Michael:** reels roughly 2.5× (ceiling 32 → 84/day), and the BREAKING tag is gone from new *and* existing posts. If you want a lot more reels, the lever is a YouTube API key or more channels — the cap isn't what's limiting it now.

@@ -17,11 +17,25 @@ import { tooSimilar } from '@/lib/content-unique'
 
 export const maxDuration = 300
 
-const MAX_POSTS = 8
+// Michael 2026-07-30: "can we increase the number of reels that are posted?"
+// Raised 8 → 14 per run, and the pg_cron schedule went 6-hourly → 4-hourly
+// (4 runs/day → 6), so the daily ceiling is 32 → 84.
+//
+// The cap really was the binding constraint, not the quality gates: every run
+// that produced anything produced exactly 8, i.e. it stopped because it hit
+// MAX_POSTS rather than because it ran out of good videos.
+//
+// Caps are raised WHERE THE SUPPLY IS. The allowlist is 13 politics channels
+// but only 3 funny, 4 sports and 2 science, so lifting funny/science much
+// higher would just starve against the never-repost-a-video-id rule. If more
+// volume is wanted after this, the real unlock is YOUTUBE_API_KEY (Data API
+// search discovery beyond the allowlist) or simply more channel ids — not a
+// bigger number here.
+const MAX_POSTS = 14
 type Cat = 'politics' | 'funny' | 'sports' | 'science'
 // per-run category caps — the mix Grok's brief calls for (politics-first,
 // sports present but never dominant)
-const CAT_CAPS: Record<Cat, number> = { politics: 4, funny: 2, sports: 1, science: 1 }
+const CAT_CAPS: Record<Cat, number> = { politics: 7, funny: 3, sports: 2, science: 2 }
 
 // [display name, channel id, category]. RSS failures are logged per-channel
 // and harmless — tune this list freely.

@@ -9,16 +9,26 @@ import { sameStory } from '@/lib/content-unique'
 // buried at score 4 while 108 posts covered it; US lane added same day):
 //  - NEWS lane: Google Top Stories → p/news at score 900-1100 (top of p/all)
 //  - US lane: Google Nation desk (hottest US stories) → p/news at 750-880,
-//    🇺🇸 prefix — right under the world crown
+//    right under the world crown
 //  - SPORTS lane: Google Sports desk → p/sports at score 620-750 — TOP of
 //    p/sports and rides high on p/all without outranking hard news
 // Rules per lane:
-//  - ONE live breaking story at a time, 🚨 BREAKING prefix.
+//  - ONE live breaking story at a time.
 //  - No story reigns longer than 3 HOURS: every run demotes expired crowns
 //    back to a normal score, then crowns a new story (sameStory + link
 //    dedupe vs 3 days of that lane's crowns).
 //  - House rules apply: real https og:image or the candidate is skipped.
 //  - No OpenAI spend — RSS + og resolve only.
+//
+// NO "BREAKING" PREFIX (Michael 2026-07-30: "take the breaking tag off the
+// posts. I don't like the 'breaking' in front of every article"). Post content
+// is now just the headline. That prefix used to do THREE jobs at once — the
+// display text, finding this cron's own crowns, and telling one lane's crown
+// from another's when two lanes share a board. Deleting it naively would have
+// left every crown pinned at score 900+ forever, because the demotion pass
+// could no longer find them. So the marker moved into a real column,
+// hall_posts.crown_lane, which is also collision-proof: a user post containing
+// the words "BREAKING:" used to be indistinguishable from a crown.
 
 export const maxDuration = 120
 
@@ -28,9 +38,6 @@ interface Lane {
   key: string
   feed: string
   boardSlug: string
-  /** the crown's content prefix — also how a lane recognizes its own crowns
-      when two lanes share a board (news + us both live on p/news) */
-  prefix: string
   /** crown score */
   crown: () => number
   /** freshness window for candidates (breaking means NOW; sports runs longer) */
@@ -41,7 +48,6 @@ const LANES: Lane[] = [
     key: 'news',
     feed: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',
     boardSlug: 'news',
-    prefix: '🚨 BREAKING: ',
     crown: () => 900 + Math.floor(Math.random() * 200),
     freshMs: 6 * 3600 * 1000,
   },
@@ -49,7 +55,6 @@ const LANES: Lane[] = [
     key: 'us',
     feed: 'https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en',
     boardSlug: 'news',
-    prefix: '🇺🇸 BREAKING: ',
     crown: () => 750 + Math.floor(Math.random() * 130),
     freshMs: 8 * 3600 * 1000,
   },
@@ -57,7 +62,6 @@ const LANES: Lane[] = [
     key: 'sports',
     feed: 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en',
     boardSlug: 'sports',
-    prefix: '🚨 BREAKING: ',
     crown: () => 620 + Math.floor(Math.random() * 130),
     freshMs: 12 * 3600 * 1000,
   },
@@ -103,10 +107,11 @@ export async function GET(req: NextRequest) {
   const [{ data: boards }, { data: bots }, { data: reigning }] = await Promise.all([
     admin.from('boards').select('id, slug').in('slug', LANES.map(l => l.boardSlug)),
     admin.from('profiles').select('id').like('clerk_user_id', 'bot%').limit(400),
-    // every crown of the last 3 days, all lanes/prefixes (dedupe + reigns)
+    // every crown of the last 3 days, all lanes (dedupe + reigns). Keyed on
+    // crown_lane now, not a substring of the user-visible content.
     admin.from('hall_posts')
-      .select('id, board_id, content, link_url, link_title, created_at, score')
-      .like('content', '%BREAKING:%')
+      .select('id, board_id, content, link_url, link_title, created_at, score, crown_lane')
+      .not('crown_lane', 'is', null)
       .gte('created_at', new Date(Date.now() - 3 * 86400 * 1000).toISOString())
       .order('created_at', { ascending: false })
       .limit(120),
@@ -120,9 +125,9 @@ export async function GET(req: NextRequest) {
     if (!laneBoardId) { result[lane.key] = 'board missing'; continue }
     // all crowns on this board (cross-lane dedupe — the same mega story can
     // top both Top Stories and the Nation desk); the LANE's own crowns are
-    // the prefix-matched subset (reign bookkeeping)
+    // the crown_lane-matched subset (reign bookkeeping)
     const boardCrowns = (reigning ?? []).filter(p => p.board_id === laneBoardId)
-    const laneCrowns = boardCrowns.filter(p => (p.content ?? '').startsWith(lane.prefix))
+    const laneCrowns = boardCrowns.filter(p => p.crown_lane === lane.key)
 
     // ── 1. End expired reigns: crowns older than 3h fall back into the
     // normal feed (their real conversation keeps them alive or not) ────────
@@ -157,10 +162,9 @@ export async function GET(req: NextRequest) {
     } catch { /* feed hiccup — try again next hour */ }
     if (!pool.length) { result[lane.key] = { demoted, posted: 0, note: 'no fresh stories' }; continue }
 
-    // a story only reigns once per BOARD (covers the news+us shared board);
-    // link_title is prefix-free, content is the fallback with prefix stripped
-    const stripPrefix = (s: string) => { const i = s.indexOf('BREAKING: '); return i >= 0 ? s.slice(i + 'BREAKING: '.length) : s }
-    const pastTitles = boardCrowns.map(p => p.link_title ?? stripPrefix(p.content ?? ''))
+    // a story only reigns once per BOARD (covers the news+us shared board).
+    // Both link_title and content are plain headlines now — nothing to strip.
+    const pastTitles = boardCrowns.map(p => p.link_title ?? p.content ?? '')
     const pastLinks = new Set(boardCrowns.map(p => p.link_url).filter(Boolean))
 
     let posted = 0, skippedDupe = 0, skippedNoImage = 0
@@ -173,7 +177,8 @@ export async function GET(req: NextRequest) {
         board_id: laneBoardId,
         profile_id: bot.id,
         party: null,
-        content: lane.prefix + item.title,
+        content: item.title,
+        crown_lane: lane.key,
         link_url: a.url,
         link_title: item.title,
         link_domain: a.domain ?? item.source,
