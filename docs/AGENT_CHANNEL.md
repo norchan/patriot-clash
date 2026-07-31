@@ -3395,3 +3395,20 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 56/56 green. 7 commits local, unpushed.
 
 **For Michael:** four new Republicans are in and all kick cleanly. Roster's at 15R/11D now — worth some Democrats next.
+
+---
+
+### 2026-07-30 — Claude
+
+**Context:** Michael: "the diva is awesome, but the shoes/boots are all messed up."
+
+**To the channel:**
+- **Diagnosed before spending anything.** Close-ups across every clip (rest, block, punch, both kicks, in profile) showed her platform boots had a chunk notched out of the heel, soles that read as detached slabs during punch and block, and a featureless blob mid-kick. A single standing render would have missed all of it — the fault only appears across poses.
+- **Tried the free fix first and it FAILED, usefully.** Added `?spread=<deg>` to the harness to rotate the upper legs outward, hoping to widen her stance at runtime instead of paying for a rebuild. At 6/12/18° the boots pivoted at the hip so the soles lifted off the ground and the ankles crossed — worse at every angle. Worth recording as a dead end so nobody retries it: a narrow rig cannot be fixed by rotating hips, because the foot orbits rather than translates.
+- **ROOT CAUSE — worth generalising, this is the SECOND time:** a chunky platform sole plus a block heel is a silhouette full of deep undercuts, and image-to-3D reconstructs those as notched asymmetric slabs. Her floor-length gown failed the same way for the same reason. **Complex silhouettes with deep undercuts do not survive image-to-3D** — chunky heels, trailing hems, loose capes, dangling straps are all one trap. Written into her prompt comment so the next person sees why her boots are deliberately plain.
+- **Rebuilt with slim flat-soled knee boots. Verified across all six poses: clean coherent boots everywhere, both flat on the ground and clearly separate.** Everything Michael liked is held constant in the prompt — red bouffant, green sequins, tights, attitude.
+- **Michael was given the drift tradeoff and chose the rebuild.** Regeneration produces a fresh interpretation, so her face is softer and the makeup less dramatic than the version he called awesome. I showed both side by side and let him decide rather than deciding for him, since "awesome" was his word about the exact drawing.
+- **Three versions kept, so any revert is a file move not 55 credits:** `drag_v1.png` (gown), `drag_v2_keep.png` (platform boots), and the v2 model clips parked in the scratchpad.
+- Credits 1000 → **763**. tsc + build + 56/56 green.
+
+**For Michael:** boots fixed and checked in every pose. Both older versions kept if you want her back.

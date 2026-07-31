@@ -53,6 +53,18 @@ holder.add(root); scene.add(holder)
 root.scale.setScalar(s)
 root.position.set(-center.x * s, -box.min.y * s, -center.z * s)
 
+// ?spread=<deg> rotates the upper legs outward, to test whether a narrow
+// stance can be widened at RUNTIME instead of paying for a new model. If the
+// boots separate cleanly the mesh is merely intersecting; if fabric webs
+// between them the geometry is welded and only a rebuild fixes it.
+const spread = parseFloat(q.get('spread') ?? '0') * Math.PI / 180
+if (spread) {
+  for (const [name, sign] of [['LeftUpLeg', 1], ['RightUpLeg', -1]]) {
+    const b = root.getObjectByName(name)
+    if (b) b.rotation.z += sign * spread
+  }
+}
+
 if (clipName && gltf.animations.length) {
   const clip = gltf.animations.find(a => a.name === clipName)
   if (clip) { const m = new THREE.AnimationMixer(root); const a = m.clipAction(clip); a.play(); m.setTime(t) }
@@ -60,7 +72,8 @@ if (clipName && gltf.animations.length) {
 
 // frame either the whole fighter or just the legs (hip height down)
 const KNEE = H * 0.28
-if (view === 'legs') { cam.position.set(0, H * 0.30, 1.75); cam.lookAt(0, H * 0.22, 0) }
+if (view === 'feet') { cam.position.set(0, H * 0.14, 0.95); cam.lookAt(0, H * 0.055, 0) }
+else if (view === 'legs') { cam.position.set(0, H * 0.30, 1.75); cam.lookAt(0, H * 0.22, 0) }
 else { cam.position.set(0, H * 0.55, 3.5); cam.lookAt(0, H * 0.50, 0) }
 
 // measure the feet after posing so the title carries hard numbers

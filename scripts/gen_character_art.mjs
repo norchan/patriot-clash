@@ -139,12 +139,21 @@ const CHARACTERS = {
   drag: {
     party: 'democrat',
     fighter: true,
-    // Redesigned per Michael: the floor-length gown was the actual bug. A hem
-    // that reaches the ground gets dragged into a shapeless mass by any kick.
+    // Redesigned twice. Round 1 killed the floor-length gown — a hem that
+    // reaches the ground is dragged into a shapeless mass by any kick.
+    // Round 2 kills the PLATFORM BOOTS (Michael 2026-07-30: "the diva is
+    // awesome, but the shoes/boots are all messed up"). A chunky platform sole
+    // plus a block heel is a fiddly silhouette with deep undercuts, and
+    // image-to-3D reconstructed it as notched, asymmetric slabs that read as
+    // detached from the boot. Slim, flat-soled, close-fitting boots give the
+    // solver a simple shape it can actually resolve. Everything Michael likes
+    // — the red wig, the green sequins, the attitude — is held constant.
     prompt: `A fierce, glamorous drag performer with an enormous voluminous red bouffant wig and dramatic `
       + `sparkling stage makeup, wearing a SHORT sequinned emerald cocktail dress that ends WELL ABOVE THE KNEE, `
-      + `with opaque black tights and tall shiny platform boots that stop below the knee. `
-      + `Legs planted wide apart and fully visible from mid-thigh down, clear background between them. `
+      + `with opaque black tights. On her feet, SLIM CLOSE-FITTING FLAT-SOLED knee-high black boots — `
+      + `smooth simple shape, thin flat sole, NO platform, NO chunky heel, NO thick treads or straps. `
+      + `Legs planted wide apart and fully visible from mid-thigh down, clear background between them, `
+      + `both boots clearly separate and flat on the ground. `
       + `One hand on a hip, the other arm flung out. Confident, theatrical, chin lifted.`,
   },
   crypto_bro: {
