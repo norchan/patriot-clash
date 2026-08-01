@@ -3,15 +3,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
-import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage } from '@/config/house'
+import { HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage } from '@/config/house'
+import IsoYard, { IsoCellSpec, isoPos, useLandscape, RotateGate } from '@/components/IsoYard'
 
-// ⚔️ RAID SCREEN (Phase 2). Find a base → see the pot → smash it.
-//
-// The SERVER resolves the whole raid the moment you tap RAID — damage, loot
-// and trophies are settled before the first building falls. Everything after
-// that is theater: each tap smashes a building and "finds" a share of loot
-// that was already yours. Same trick as the siege screen; the fun is real,
-// the numbers are not negotiable.
+// ⚔️ RAID — same isometric stage as the home base (Grok's brief): you scout
+// THEIR yard on the full-bleed ground, then smash their buildings sprite by
+// sprite. The server settled damage/loot/trophies before the first tap —
+// everything after RAID is choreography over decided numbers.
 
 interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number }> }
 interface Target { id: string; username: string; party: string; level: number; base_level: number; base: TargetBase }
@@ -19,6 +17,14 @@ interface Found { target: Target; cost: number; loot_min: number; loot_max: numb
 interface Result { damage_pct: number; loot: number; trophies: number; base: TargetBase; defender: { username: string; party: string } }
 
 type PhaseT = 'finding' | 'preview' | 'smash' | 'done'
+
+const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
+  fence: { img: () => '/house/fence.png', w: 118 },
+  media_tower: { img: () => '/house/media_tower.png', w: 126 },
+  safe: { img: l => safeImage(l), w: 96 },
+  decor: { img: () => '/house/decor_flag.png', w: 84 },
+  print_shop: { img: () => '/house/print_shop.png', w: 128 },
+}
 
 function pop(freq = 220) {
   try {
@@ -36,6 +42,7 @@ const buzz = (ms: number) => { try { navigator.vibrate?.(ms) } catch {} }
 export default function RaidPage() {
   const router = useRouter()
   const { profile, refetch } = useProfile()
+  const landscape = useLandscape()
   const [phase, setPhase] = useState<PhaseT>('finding')
   const [found, setFound] = useState<Found | null>(null)
   const [result, setResult] = useState<Result | null>(null)
@@ -74,7 +81,6 @@ export default function RaidPage() {
     } catch { setErr('Network error') } finally { setBusy(false) }
   }
 
-  // theater bookkeeping: loot splits across the smashable buildings
   const smashable = result?.base.buildings ?? []
   const perBuilding = smashable.length ? Math.floor((result?.loot ?? 0) / smashable.length) : 0
 
@@ -92,129 +98,116 @@ export default function RaidPage() {
     if (isLast) setTimeout(() => setPhase('done'), 700)
   }
 
-  function yardCell(pad: number, base: TargetBase, interactive: boolean) {
-    const cls = 'aspect-square rounded-lg flex flex-col items-center justify-center transition relative'
-    if (pad === HQ_PAD) return (
-      <div key={pad} className={`${cls} border-2 border-gray-600 bg-gray-800/60 overflow-visible`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={hqImage(base.baseLevel)} alt=""
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[150%] max-w-none z-10 pointer-events-none" />
-      </div>
-    )
-    if (pad === PRINT_SHOP_PAD) return (
-      <div key={pad} className={`${cls} border border-gray-700 bg-gray-900`}><span className="text-lg">🖨️</span></div>
-    )
-    const b = base.buildings.find(x => x.pad === pad)
-    if (!b) return <div key={pad} className={`${cls} border border-gray-900 bg-gray-950/50`}><span className="opacity-25 text-xs">🌱</span></div>
-    const emoji = b.type === 'decor' ? '🚩' : (buildingDef(b.type)?.emoji ?? '🏗️')
-    const dead = smashed.has(pad)
-    if (b.type === 'safe') {
-      return (
-        <button key={pad} disabled={!interactive || dead} onClick={() => smash(pad)}
-          className={`${cls} border ${dead ? 'border-orange-900 bg-orange-950/40' : interactive ? 'border-yellow-600 bg-gray-900 animate-pulse' : 'border-gray-700 bg-gray-900'} ${interactive && !dead ? 'active:scale-90' : ''} overflow-visible`}>
-          {dead ? <span className="text-lg">💥</span> : (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={safeImage(b.level)} alt="" className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[115%] max-w-none pointer-events-none" />
-          )}
-          {floats.filter(f => f.pad === pad).map(f => (
-            <span key={f.id} className="absolute -top-2 text-yellow-300 font-black text-xs animate-bounce z-10">{f.text}</span>
-          ))}
-        </button>
-      )
+  if (!landscape) return <RotateGate />
+
+  // map the TARGET's yard onto the stage
+  const base = result?.base ?? found?.target.base
+  const interactive = phase === 'smash'
+  const cells: IsoCellSpec[] = []
+  if (base) {
+    const onPad = new Map(base.buildings.map(b => [b.pad, b]))
+    for (let pad = 0; pad < 36; pad++) {
+      if (pad === HQ_PAD) { cells.push({ pad, img: hqImage(base.baseLevel), imgW: 198 }); continue }
+      if (pad === PRINT_SHOP_PAD) { cells.push({ pad, img: '/house/print_shop.png', imgW: 128 }); continue }
+      const b = onPad.get(pad)
+      if (!b) { cells.push({ pad, plot: true }); continue }
+      const sp = SPRITES[b.type]
+      const dead = smashed.has(pad)
+      cells.push({
+        pad,
+        img: dead ? undefined : sp?.img(b.level), imgW: sp?.w,
+        emoji: dead ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
+        dead,
+        glow: interactive && !dead,
+        onTap: interactive && !dead ? () => smash(pad) : undefined,
+        chip: !dead && b.type !== 'decor'
+          ? <span className="text-[10px] font-bold px-1 rounded bg-black/45 text-gray-300">Lv {b.level}</span>
+          : undefined,
+      })
     }
-    return (
-      <button key={pad} disabled={!interactive || dead} onClick={() => smash(pad)}
-        className={`${cls} border ${dead ? 'border-orange-900 bg-orange-950/40' : interactive ? 'border-yellow-600 bg-gray-900 animate-pulse' : 'border-gray-700 bg-gray-900'} ${interactive && !dead ? 'active:scale-90' : ''}`}>
-        <span className={`text-lg ${dead ? 'grayscale opacity-40' : ''}`}>{dead ? '💥' : emoji}</span>
-        {!dead && b.type !== 'decor' && <span className="text-[8px] text-gray-500 font-bold">L{b.level}</span>}
-        {floats.filter(f => f.pad === pad).map(f => (
-          <span key={f.id} className="absolute -top-2 text-yellow-300 font-black text-xs animate-bounce">{f.text}</span>
-        ))}
-      </button>
-    )
   }
 
-  const yard = (base: TargetBase, interactive: boolean) => (
-    <div className="rounded-2xl border border-gray-800 p-3"
-      style={{ background: 'radial-gradient(circle at 30% 20%, #231a14, #120d0b 70%)' }}>
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${GRID}, minmax(0, 1fr))` }}>
-        {Array.from({ length: GRID * GRID }, (_, i) => yardCell(i, base, interactive))}
-      </div>
-    </div>
-  )
-
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-200 pb-28">
-      <div className="max-w-md mx-auto px-4 py-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/hq')} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>
-          <h1 className="text-white font-black text-lg">⚔️ Raid</h1>
-          <span className="ml-auto text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
-        </div>
+    <div className="fixed inset-0 z-[60] bg-[#150f0d] text-gray-200 select-none">
+      {base && (
+        <IsoYard cells={cells} bg="/house/yard_bg.png">
+          {floats.map(f => {
+            const { x, y } = isoPos(f.pad)
+            return (
+              <span key={f.id} className="absolute text-yellow-300 font-black text-base animate-bounce pointer-events-none -translate-x-1/2"
+                style={{ left: x, top: y - 56, zIndex: 900 }}>{f.text}</span>
+            )
+          })}
+        </IsoYard>
+      )}
 
-        {err && <div className="mt-4 bg-red-950/60 border border-red-800 rounded-xl px-4 py-3 text-red-300 text-sm text-center">{err}</div>}
-
-        {phase === 'finding' && !err && (
-          <p className="mt-10 text-center text-gray-500 font-bold animate-pulse">Scouting for a base…</p>
-        )}
-
-        {phase === 'preview' && found && (
-          <>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white"
-                style={{ background: isRep(found.target.party) ? '#dc2626' : '#2563eb' }}>
-                {found.target.username[0]?.toUpperCase()}
-              </div>
-              <div className="flex-1">
-                <p className="text-white font-black">{found.target.username}</p>
-                <p className="text-gray-500 text-xs">Lv {found.target.level} · Base {found.target.base_level} ⭐</p>
-              </div>
-              <button onClick={findTarget} className="text-gray-400 hover:text-white p-2" title="Next target"><RefreshCw size={17} /></button>
-            </div>
-            <div className="mt-3">{yard(found.target.base, false)}</div>
-            <div className="mt-3 bg-gray-900 rounded-xl border border-gray-800 px-4 py-3 flex items-center justify-between">
-              <span className="text-gray-400 text-sm font-bold">Potential loot</span>
-              <span className="text-yellow-300 font-black">⚡ {found.loot_min}–{found.loot_max}</span>
-            </div>
-            <button onClick={launch} disabled={busy}
-              className="mt-3 w-full py-4 rounded-2xl font-black text-white text-lg active:scale-[0.98] disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
-              {busy ? '…' : `⚔️ RAID — ${found.cost} FP`}
-            </button>
-          </>
-        )}
-
-        {(phase === 'smash' || phase === 'done') && result && (
-          <>
-            <p className="mt-4 text-center text-gray-400 text-sm font-bold">
-              {phase === 'smash' ? `Tap ${result.defender.username}'s buildings to loot them!` : 'Raid complete'}
-            </p>
-            <div className="mt-3">{yard(result.base, phase === 'smash')}</div>
-            <div className="mt-3 flex items-center justify-center gap-6">
-              <span className="text-yellow-300 font-black text-xl">⚡ +{lootShown}</span>
-              <span className="text-gray-400 font-bold text-sm">{result.damage_pct}% damage</span>
-              <span className="text-amber-400 font-black text-sm">🏆 +{result.trophies}</span>
-            </div>
-            {phase === 'smash' && (
-              <button onClick={() => { setSmashed(new Set(smashable.map(b => b.pad))); setLootShown(result.loot); setPhase('done') }}
-                className="mt-3 w-full py-2 text-gray-500 text-xs font-bold">skip →</button>
-            )}
-            {phase === 'done' && (
-              <div className="mt-4 space-y-2">
-                <button onClick={findTarget}
-                  className="w-full py-4 rounded-2xl font-black text-white text-lg active:scale-[0.98]"
-                  style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
-                  ⚔️ RAID AGAIN
-                </button>
-                <button onClick={() => router.push('/hq')}
-                  className="w-full py-3 rounded-2xl font-bold text-gray-300 bg-gray-900 border border-gray-800">
-                  🏠 Back to base
-                </button>
-              </div>
-            )}
-          </>
-        )}
+      {/* HUD */}
+      <div className="absolute top-3 left-3 z-[70] flex items-center gap-2">
+        <button onClick={() => router.push('/hq')} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center"><ArrowLeft size={17} /></button>
+        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-white font-black text-sm">⚔️ Raid</span>
       </div>
+      <div className="absolute top-3 right-3 z-[70]">
+        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
+      </div>
+
+      {err && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[70] bg-red-950/80 backdrop-blur border border-red-800 rounded-xl px-4 py-2.5 text-red-300 text-sm">{err}</div>
+      )}
+
+      {phase === 'finding' && !err && (
+        <p className="absolute inset-0 flex items-center justify-center text-gray-400 font-bold animate-pulse z-[65]">Scouting for a base…</p>
+      )}
+
+      {phase === 'preview' && found && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-black/60 backdrop-blur rounded-2xl p-3 pr-4">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white shrink-0"
+            style={{ background: isRep(found.target.party) ? '#dc2626' : '#2563eb' }}>
+            {found.target.username[0]?.toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-white font-black text-sm truncate">{found.target.username}</p>
+            <p className="text-gray-400 text-[11px]">Lv {found.target.level} · Base {found.target.base_level}⭐ · loot ⚡{found.loot_min}–{found.loot_max}</p>
+          </div>
+          <button onClick={findTarget} className="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center text-gray-300 shrink-0" title="Next target"><RefreshCw size={15} /></button>
+          <button onClick={launch} disabled={busy}
+            className="px-5 py-3 rounded-xl font-black text-white shrink-0 active:scale-95 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
+            {busy ? '…' : `⚔️ RAID — ${found.cost} FP`}
+          </button>
+        </div>
+      )}
+
+      {(phase === 'smash' || phase === 'done') && result && (
+        <>
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-4 bg-black/60 backdrop-blur rounded-2xl px-4 py-2">
+            <span className="text-yellow-300 font-black text-lg">⚡ +{lootShown}</span>
+            <span className="text-gray-300 font-bold text-xs">{result.damage_pct}% damage</span>
+            <span className="text-amber-400 font-black text-xs">🏆 +{result.trophies}</span>
+          </div>
+          {phase === 'smash' && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3">
+              <span className="px-3 py-2 rounded-xl bg-black/60 backdrop-blur text-gray-300 text-xs font-bold">
+                Tap {result.defender.username}'s buildings to loot them!
+              </span>
+              <button onClick={() => { setSmashed(new Set(smashable.map(b => b.pad))); setLootShown(result.loot); setPhase('done') }}
+                className="px-3 py-2 rounded-xl bg-black/40 text-gray-500 text-xs font-bold">skip →</button>
+            </div>
+          )}
+          {phase === 'done' && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2">
+              <button onClick={findTarget}
+                className="px-6 py-3.5 rounded-2xl font-black text-white active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
+                ⚔️ RAID AGAIN
+              </button>
+              <button onClick={() => router.push('/hq')}
+                className="px-5 py-3.5 rounded-2xl font-bold text-gray-300 bg-black/60 backdrop-blur border border-gray-800">
+                🏠 Back to base
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

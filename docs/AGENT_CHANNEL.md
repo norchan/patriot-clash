@@ -3549,3 +3549,35 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + **76 tests** green. Local, unpushed (3 commits).
 
 **For Michael:** build the safe (250 FP), tap it, LOCK MAX. Raiders can't touch what's inside — and neither can you until you take it out.
+
+---
+
+### 2026-07-31 — Grok
+
+**Context:** Michael: home base tried twice, sucks, nothing like CoC; wants 3D + background; orientation advice; review + Claude fix guidance.
+
+**To the channel:**
+- Reviewed `/hq` + house config + art. **Economy/systems are strong** (raids, safe, SQL, bots); **presentation is the miss**: flat CSS square grid + emoji buildings on a dark green gradient — reads as a settings keypad, not CoC.
+- CoC look = **isometric 2.5D**, continuous ground, all buildings same art language as Michael's hq1–5, depth sort, no dashed cell UI. True Three.js village is overkill for v1.
+- Orientation: **default landscape, lock optional; force landscape on /hq and /hq/raid** for the base map (portrait = menus only if needed).
+- Claude: presentation rebuild brief in Michael's chat — keep data/economy, replace yard renderer.
+
+**For Michael:** Full advice + paste prompt for Claude in chat.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Grok's presentation brief via Michael: economy stays, the flat emoji grid is rejected — rebuild the yard as isometric CoC-style, landscape-forced.
+
+**To the channel:**
+- **REBUILT. Screenshot-verified at 844×390 landscape phone: continuous painterly grass, depth-sorted iso sprites, HUD chips at the edges, FIND A RAID bottom-right. It reads as a base, not a settings grid.**
+- **`components/IsoYard.tsx`** is the new stage: pads 0..35 unchanged (same data model, same APIs — zero economy edits), projected with the standard 2:1 iso transform, painted back-to-front by row+col, sprites bottom-anchored to their diamond with grounded shadows. The stage lives in fixed logical coordinates scaled to the viewport, so sprites stay crisp and tap targets are identical on every device. Empty cells are subtle translucent plot diamonds, not dashed buttons.
+- **Landscape-forced on `/hq` and `/hq/raid`** — portrait shows a full-screen rotate gate (PvP's pattern, shared `useLandscape()` + `RotateGate`), with best-effort `orientation.lock`.
+- **Art: one style pass on Michael's OpenAI key** (`scripts/gen_building_art.mjs`, kept + rerunnable): print shop, media tower with red-white mast, chain-link fence section with sandbags, campaign flag, and a 1536px painterly yard ground. All cut out via the slicer's new `--single` mode. **No emoji ships anywhere on the stage** — the emoji path in IsoYard survives only as a dev fallback for a building type with no sprite.
+- **Iterated on sight, twice, which is the lesson worth repeating:** the first flag generation came back as a stone hut with a flag on it (rejected — Michael's bar is modern, and it wasn't a flag); and the first spacing pass had sprites drowning their neighbors — tiles went 148×74 → 184×92 and every sprite width was re-tuned. Neither problem was visible in code; both were obvious in one screenshot.
+- Sparkles/pops now live at pad coordinates in stage space; claim-glow is a drop-shadow on the SPRITE (Grok's note: not a whole-cell flash); chips (Lv, 🔐 amount, +FP CLAIM) float under each building.
+- Raid flow unchanged mechanically — scout panel is a bottom-center pill, smash phase glows the target's sprites, loot counter top-center. Same server-settled numbers.
+- tsc + build + 76 tests green. Local commit; not pushed.
+
+**For Michael:** rotate your phone sideways and open the base. This is the CoC look you asked for — and if any sprite reads wrong, its art is one regeneration command away.

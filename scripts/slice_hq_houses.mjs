@@ -20,6 +20,9 @@ const prefix = process.argv[3] || 'hq'
 // the badge-free sheets pack the pieces closer and slot 5 was catching its
 // neighbor's corner.
 const noBadges = process.argv.includes('--no-badges')
+// --single: the sheet is ONE object — whole-frame crop, no badges, output
+// exactly <prefix>.png (used for generated per-building sprites)
+const single = process.argv.includes('--single')
 if (!src || !fs.existsSync(src)) { console.error('usage: node scripts/slice_hq_houses.mjs <sheet> [outPrefix]'); process.exit(1) }
 
 const BADGES = [ // fractions of the full sheet — gold number hexagons to erase
@@ -33,6 +36,7 @@ const HOUSES = [ // crop box per level
   [0.24, 0.62, 0.80, 1.00],
 ]
 if (noBadges) HOUSES[4] = [0.28, 0.665, 0.76, 1.00]
+if (single) { HOUSES.length = 0; HOUSES.push([0, 0, 1, 1]) }
 
 const img = sharp(src)
 const meta = await img.metadata()
@@ -44,7 +48,7 @@ const patches = BADGES.map(([x0, y0, x1, y1]) => ({
   input: { create: { width: Math.round((x1 - x0) * W), height: Math.round((y1 - y0) * H), channels: 3, background: '#ffffff' } },
   left: Math.round(x0 * W), top: Math.round(y0 * H),
 }))
-const clean = noBadges ? await img.png().toBuffer() : await img.composite(patches).png().toBuffer()
+const clean = (noBadges || single) ? await img.png().toBuffer() : await img.composite(patches).png().toBuffer()
 
 fs.mkdirSync('public/house', { recursive: true })
 
@@ -79,7 +83,7 @@ for (let i = 0; i < HOUSES.length; i++) {
     data[px(x, y) + 3] = 0 // transparent
     stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1])
   }
-  const out = `public/house/${prefix}${i + 1}.png`
+  const out = single ? `public/house/${prefix}.png` : `public/house/${prefix}${i + 1}.png`
   await sharp(Buffer.from(data), { raw: { width: w, height: h, channels: 4 } })
     .trim({ threshold: 8 })
     .resize({ width: 460, height: 460, fit: 'inside' })

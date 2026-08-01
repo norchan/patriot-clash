@@ -4,17 +4,18 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Trophy, Music, VolumeX } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import {
-  GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
+  HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
-  safeImage, safeCapacity, SAFE_MAX_LEVEL,
+  safeImage,
 } from '@/config/house'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
+import IsoYard, { IsoCellSpec, isoPos, useLandscape, RotateGate } from '@/components/IsoYard'
 
-// 🏠 CAMPAIGN HQ — the personal base (Michael 2026-07-31).
-// A 6×6 OPEN yard (Grok's layout): the House (Michael's 5-level art) and the
-// Print Shop are fixed; build on any other cell. Raids, tower income, yard
-// sparkles, trophies, shields, ambient music — the works.
+// 🏠 CAMPAIGN HQ — the personal base, ISOMETRIC (Grok's presentation brief,
+// 2026-07-31: "must feel like CoC — not a flat CSS grid of emoji"). The 6×6
+// data model and every API are unchanged; only the stage is new: landscape-
+// forced, continuous yard background, depth-sorted sprites, HUD at the edges.
 // PERSONAL base only — nothing here touches town-hall control.
 
 interface Farm { ready: number; next_in_secs: number | null; rate_hours: number; cap: number }
@@ -26,16 +27,20 @@ interface House {
   safe: { level: number; stored: number; capacity: number } | null
 }
 
-// where the yard sparkles sit (percent positions over the grid) — fixed table
-// so a refresh doesn't shuffle them around underneath your finger
-const SPARKLE_SPOTS = [
-  { left: '12%', top: '68%' }, { left: '78%', top: '22%' }, { left: '55%', top: '80%' },
-  { left: '25%', top: '15%' }, { left: '85%', top: '60%' },
-]
+// sprite art per building type (same painterly iso language as the house)
+const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
+  fence: { img: () => '/house/fence.png', w: 118 },
+  media_tower: { img: () => '/house/media_tower.png', w: 126 },
+  safe: { img: l => safeImage(l), w: 96 },
+}
+
+// sparkle pickups live on fixed pads so a refresh doesn't shuffle them
+const SPARKLE_PADS = [3, 21, 33, 9, 26]
 
 export default function HqPage() {
   const router = useRouter()
   const { profile, refetch } = useProfile()
+  const landscape = useLandscape()
   const [farm, setFarm] = useState<Farm | null>(null)
   const [house, setHouse] = useState<House | null>(null)
   const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean } | null>(null)
@@ -55,8 +60,8 @@ export default function HqPage() {
     return () => clearInterval(iv)
   }, [])
 
-  // ── ambient music: starts on the FIRST tap anywhere (browser autoplay
-  // rules), remembered across visits, stops when you leave the page ──────────
+  // ambient music: starts on the FIRST tap (browser autoplay rules),
+  // remembered across visits, stops when leaving the page
   const [music, setMusic] = useState(false)
   const musicPref = useRef(true)
   useEffect(() => {
@@ -75,10 +80,10 @@ export default function HqPage() {
 
   function say(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  // yard sparkle pickups — each tap is a real server grant with a pop
-  const [popped, setPopped] = useState<Array<{ id: number; left: string; top: string; text: string }>>([])
+  // sparkle pickups — each tap is a real server grant, popped at its pad
+  const [popped, setPopped] = useState<Array<{ id: number; pad: number; text: string }>>([])
   const popId = useRef(0)
-  async function pickUp(spot: { left: string; top: string }) {
+  async function pickUp(pad: number) {
     if (busy) return
     setBusy(true)
     try {
@@ -89,7 +94,7 @@ export default function HqPage() {
       const d = await res.json()
       if (res.ok && d.claimed > 0) {
         const id = ++popId.current
-        setPopped(p => [...p, { id, ...spot, text: `+${d.claimed} FP` }])
+        setPopped(p => [...p, { id, pad, text: `+${d.claimed} FP` }])
         setTimeout(() => setPopped(p => p.filter(x => x.id !== id)), 900)
         try { navigator.vibrate?.(20) } catch {}
         load(); refetch()
@@ -121,253 +126,237 @@ export default function HqPage() {
     } finally { setBusy(false) }
   }
 
-  const builtOn = new Map((house?.buildings ?? []).map(b => [b.pad, b]))
-  const hasTower = (house?.buildings ?? []).some(b => b.type === 'media_tower')
+  if (!landscape) return <RotateGate />
 
-  // 6×6 open grid (Grok's version, per Michael): every empty cell is buildable
-  function padCell(pad: number) {
-    const base = 'aspect-square rounded-lg flex flex-col items-center justify-center text-center transition active:scale-95'
-    // the two fixed buildings — the HOUSE is Michael's art and levels 1-5
+  const builtOn = new Map((house?.buildings ?? []).map(b => [b.pad, b]))
+  const hasOf = (t: string) => (house?.buildings ?? []).some(b => b.type === t)
+
+  // ── map game state onto the iso stage ──────────────────────────────────────
+  const cells: IsoCellSpec[] = []
+  for (let pad = 0; pad < 36; pad++) {
     if (pad === HQ_PAD) {
-      return (
-        <button key={pad} onClick={() => setSheet({ pad, hq: true })}
-          className={`${base} border-2 relative overflow-visible`} style={{ borderColor: tint, background: `${tint}18` }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={hqImage(house?.hq_level ?? 1)} alt="Your house"
-            className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[150%] max-w-none z-10 pointer-events-none drop-shadow-xl" />
-        </button>
-      )
+      cells.push({
+        pad, img: hqImage(house?.hq_level ?? 1), imgW: 198,
+        onTap: () => setSheet({ pad, hq: true }),
+        chip: <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md" style={{ background: `${tint}cc`, color: '#fff' }}>Lv {house?.hq_level ?? 1}</span>,
+      })
+      continue
     }
     if (pad === PRINT_SHOP_PAD) {
       const ready = (farm?.ready ?? 0) > 0
-      return (
-        <button key={pad} onClick={claimFarm} disabled={!ready || busy}
-          className={`${base} border ${ready ? 'border-amber-400 bg-amber-500/15 animate-pulse' : 'border-gray-700 bg-gray-900'}`}>
-          <span className="text-xl leading-none">🖨️</span>
-          {ready && <span className="text-[9px] font-black text-amber-300">🧨{farm!.ready}</span>}
-        </button>
-      )
+      cells.push({
+        pad, img: '/house/print_shop.png', imgW: 128,
+        glow: ready, onTap: ready ? claimFarm : undefined,
+        chip: ready
+          ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-amber-400 text-black animate-bounce">🧨 CLAIM {farm!.ready}</span>
+          : farm ? <span className="text-[10px] font-bold px-1 rounded bg-black/45 text-gray-300">🧨 in {Math.max(1, Math.ceil((farm.next_in_secs ?? 0) / 60))}m</span> : undefined,
+      })
+      continue
     }
     const b = builtOn.get(pad)
     if (b) {
-      const def = buildingDef(b.type)
-      const isTower = b.type === 'media_tower'
-      const banked = isTower ? (house?.tower?.banked ?? 0) : 0
-      if (b.type === 'safe') {
-        return (
-          <button key={pad} onClick={() => setSheet({ pad, building: b })}
-            className={`${base} border border-gray-700 bg-gray-900 relative overflow-visible`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={safeImage(b.level)} alt="Safe"
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[120%] max-w-none pointer-events-none drop-shadow-lg" />
-            <span className="absolute -bottom-1 text-[9px] text-amber-300 font-black z-10">
-              {(house?.safe?.stored ?? 0) > 0 ? `🔐${house!.safe!.stored.toLocaleString()}` : `L${b.level}`}
-            </span>
-          </button>
-        )
-      }
-      return (
-        <button key={pad} onClick={() => setSheet({ pad, building: b })}
-          className={`${base} border ${banked > 0 ? 'border-emerald-400 bg-emerald-500/15 animate-pulse' : 'border-gray-700 bg-gray-900'}`}>
-          <span className="text-xl leading-none">{def?.emoji ?? '🏗️'}</span>
-          <span className="text-[9px] text-gray-500 font-bold">{banked > 0 ? `+${banked}` : `L${b.level}`}</span>
-        </button>
-      )
+      const sp = SPRITES[b.type]
+      const banked = b.type === 'media_tower' ? (house?.tower?.banked ?? 0) : 0
+      const stored = b.type === 'safe' ? (house?.safe?.stored ?? 0) : 0
+      cells.push({
+        pad,
+        img: sp?.img(b.level), imgW: sp?.w, emoji: sp ? undefined : buildingDef(b.type)?.emoji,
+        glow: banked > 0,
+        onTap: () => setSheet({ pad, building: b }),
+        chip: banked > 0
+          ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-emerald-400 text-black animate-bounce">+{banked} FP</span>
+          : stored > 0
+            ? <span className="text-[10px] font-black px-1 rounded bg-black/45 text-amber-300">🔐 {stored.toLocaleString()}</span>
+            : <span className="text-[10px] font-bold px-1 rounded bg-black/45 text-gray-300">Lv {b.level}</span>,
+      })
+      continue
     }
-    // open grid: every empty cell builds
-    return (
-      <button key={pad} onClick={() => setSheet({ pad })}
-        className={`${base} border border-dashed border-gray-800 bg-gray-900/30 hover:border-gray-600`}>
-        <span className="text-gray-700 text-base leading-none">＋</span>
-      </button>
-    )
+    // empty plot — subtle diamond, tap to build
+    cells.push({ pad, plot: true, onTap: () => setSheet({ pad }) })
   }
 
+  const sparkles = SPARKLE_PADS.slice(0, house?.pickups ?? 0)
+
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-200 pb-28">
-      <div className="max-w-md mx-auto px-4 py-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-400 hover:text-white"><ArrowLeft size={18} /></button>
-          <h1 className="text-white font-black text-lg">🏠 Campaign HQ</h1>
-          <button onClick={toggleMusic} className="text-gray-400 hover:text-white" title={music ? 'Music off' : 'Music on'}>
-            {music ? <Music size={16} /> : <VolumeX size={16} />}
-          </button>
-          <span className="ml-auto flex items-center gap-3">
-            <span className="text-amber-400 font-black text-sm">🏆 {house?.trophies ?? 0}</span>
-            <span className="text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
-          </span>
+    <div className="fixed inset-0 z-[60] bg-[#0d1512] text-gray-200 select-none">
+      <IsoYard cells={cells} bg="/house/yard_bg.png">
+        {/* sparkle pickups + their pops, in stage coordinates */}
+        {sparkles.map(pad => {
+          const { x, y, depth } = isoPos(pad)
+          return (
+            <button key={`s${pad}`} onClick={() => pickUp(pad)}
+              className="absolute text-2xl animate-pulse active:scale-75 transition -translate-x-1/2 -translate-y-1/2"
+              style={{ left: x, top: y - 8, zIndex: depth * 10 + 5 }}>✨</button>
+          )
+        })}
+        {popped.map(p => {
+          const { x, y } = isoPos(p.pad)
+          return (
+            <span key={p.id} className="absolute text-yellow-300 font-black text-base animate-bounce pointer-events-none -translate-x-1/2"
+              style={{ left: x, top: y - 46, zIndex: 900 }}>{p.text}</span>
+          )
+        })}
+      </IsoYard>
+
+      {/* ── HUD: chrome at the edges, yard stays full-bleed ── */}
+      <div className="absolute top-3 left-3 z-[70] flex items-center gap-2">
+        <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200"><ArrowLeft size={17} /></button>
+        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-white font-black text-sm">🏠 Campaign HQ</span>
+        <button onClick={toggleMusic} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200">
+          {music ? <Music size={15} /> : <VolumeX size={15} />}
+        </button>
+      </div>
+      <div className="absolute top-3 right-3 z-[70] flex items-center gap-2">
+        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-amber-400 font-black text-sm">🏆 {house?.trophies ?? 0}</span>
+        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
+      </div>
+      {house?.shield_until && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[65] px-3 py-1.5 rounded-xl bg-sky-950/80 backdrop-blur border border-sky-700 text-sky-300 text-xs font-bold">
+          🛡️ Shielded until {new Date(house.shield_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
         </div>
-        <p className="text-gray-500 text-xs mt-1.5">Your base. Build it out — clear the lot, raise the towers.</p>
-
-        {house?.shield_until && (
-          <div className="mt-3 bg-sky-950/50 border border-sky-800 rounded-xl px-4 py-2.5 text-sky-300 text-xs font-bold text-center">
-            🛡️ Shield up — nobody can raid you until {new Date(house.shield_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-          </div>
-        )}
-
-        {/* the yard */}
-        <div className="mt-4 rounded-2xl border border-gray-800 p-3 relative"
-          style={{ background: 'radial-gradient(circle at 30% 20%, #14231a, #0b1210 70%)' }}>
-          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${GRID}, minmax(0, 1fr))` }}>
-            {Array.from({ length: GRID * GRID }, (_, i) => padCell(i))}
-          </div>
-          {/* sparkle pickups — tap for a little FP pop */}
-          {SPARKLE_SPOTS.slice(0, house?.pickups ?? 0).map((s, i) => (
-            <button key={i} onClick={() => pickUp(s)}
-              className="absolute text-xl animate-pulse active:scale-75 transition"
-              style={{ left: s.left, top: s.top }}>✨</button>
-          ))}
-          {popped.map(p => (
-            <span key={p.id} className="absolute text-yellow-300 font-black text-sm animate-bounce pointer-events-none"
-              style={{ left: p.left, top: p.top }}>{p.text}</span>
-          ))}
-        </div>
-
-        {/* raid — the other half of the game */}
+      )}
+      <div className="absolute bottom-3 right-3 z-[70]">
         <button onClick={() => router.push('/hq/raid')}
-          className="mt-4 w-full py-4 rounded-2xl font-black text-white text-lg active:scale-[0.98]"
+          className="px-6 py-3.5 rounded-2xl font-black text-white text-base shadow-xl active:scale-95"
           style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
           ⚔️ FIND A RAID
         </button>
-
-        {/* HQ Collection — Michael: the collection lives at your house */}
-        <button onClick={() => router.push('/collection')}
-          className="mt-4 w-full bg-gray-900 rounded-2xl border border-gray-800 p-4 flex items-center gap-3 hover:border-gray-600 transition active:scale-[0.99]">
-          <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: `${tint}22` }}>
-            <Trophy size={20} style={{ color: tint }} />
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-white font-black text-sm">Your Collection</p>
-            <p className="text-gray-500 text-xs">Every character you've captured, on display</p>
-          </div>
-          <span className="text-gray-600">›</span>
-        </button>
-
-        {/* build / manage sheet */}
-        {sheet && (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-end" onClick={() => setSheet(null)}>
-            <div className="w-full max-w-md mx-auto bg-gray-900 rounded-t-3xl border-t border-gray-700 p-5 pb-8"
-              onClick={e => e.stopPropagation()}>
-              {sheet.hq ? (() => {
-                const lvl = house?.hq_level ?? 1
-                const cost = hqUpgradeCost(lvl)
-                return (
-                  <>
-                    <div className="flex items-center gap-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={hqImage(lvl)} alt="" className="w-24 h-24 object-contain" />
-                      <div>
-                        <p className="text-white font-black text-lg">Your House <span className="text-gray-500 text-sm">Lv {lvl}</span></p>
-                        <p className="text-gray-500 text-xs mt-1">{lvl >= HQ_MAX_LEVEL ? 'The crystal manor — as good as it gets.' : 'A better house defends your whole base.'}</p>
-                      </div>
-                    </div>
-                    {cost != null && (
-                      <>
-                        <div className="mt-4 flex items-center gap-3 bg-gray-800/60 rounded-xl p-3 border border-gray-700">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={hqImage(lvl + 1)} alt="" className="w-16 h-16 object-contain" />
-                          <p className="text-gray-400 text-xs">Next: <span className="text-white font-bold">Level {lvl + 1}</span> — stronger defense, better looks</p>
-                        </div>
-                        <button disabled={busy}
-                          onClick={() => act({ action: 'upgrade_hq' }, d => `🏠 House upgraded to Lv ${d.hq_level}! (-${d.spent} FP)`)}
-                          className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
-                          style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
-                          Upgrade to Lv {lvl + 1} — ⚡{cost.toLocaleString()}
-                        </button>
-                      </>
-                    )}
-                  </>
-                )
-              })() : sheet.building ? (() => {
-                const def = buildingDef(sheet.building!.type)!
-                const isTower = def.type === 'media_tower'
-                const isSafe = def.type === 'safe'
-                const maxLv = isTower ? TOWER_MAX_LEVEL : def.costs.length
-                const nextCost = buildingCost(def.type, sheet.building!.level + 1)
-                return (
-                  <>
-                    <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-gray-500 text-sm">Lv {sheet.building!.level}</span></p>
-                    <p className="text-gray-500 text-xs mt-1">{def.desc}</p>
-                    {isSafe && house?.safe && (() => {
-                      const st = house.safe!
-                      const pct = Math.min(100, Math.round((st.stored / Math.max(1, st.capacity)) * 100))
-                      const onHand = profile?.fp_balance ?? 0
-                      const room = Math.max(0, st.capacity - st.stored)
-                      return (
-                        <div className="mt-4">
-                          <div className="flex items-center justify-between text-xs font-bold">
-                            <span className="text-amber-300">🔐 {st.stored.toLocaleString()} locked</span>
-                            <span className="text-gray-500">{st.capacity.toLocaleString()} max</span>
-                          </div>
-                          <div className="mt-1.5 h-2.5 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#f59e0b,#fbbf24)' }} />
-                          </div>
-                          <p className="text-gray-600 text-[10px] mt-1.5">Raiders can never touch FP in the safe — but you can't spend it until you take it out.</p>
-                          <div className="mt-3 grid grid-cols-2 gap-2">
-                            <button disabled={busy || room <= 0 || onHand <= 0}
-                              onClick={() => act({ action: 'safe_deposit', amount: Math.min(room, onHand) }, d => `🔐 Locked up! Safe holds ${d.stored.toLocaleString()} FP`)}
-                              className="py-3 rounded-xl font-black text-black disabled:opacity-35"
-                              style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
-                              LOCK MAX ({Math.min(room, onHand).toLocaleString()})
-                            </button>
-                            <button disabled={busy || st.stored <= 0}
-                              onClick={() => act({ action: 'safe_withdraw', amount: st.stored }, () => `💰 Withdrew everything — spend it or lose it`)}
-                              className="py-3 rounded-xl font-black text-white bg-gray-800 border border-gray-700 disabled:opacity-35">
-                              TAKE ALL OUT
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })()}
-                    {isTower && house?.tower && (
-                      <button disabled={busy || (house.tower.banked ?? 0) <= 0}
-                        onClick={() => act({ action: 'claim_tower' }, d => `📡 +${d.claimed} FP from the airwaves!`)}
-                        className="mt-4 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
-                        style={{ background: 'linear-gradient(135deg,#34d399,#059669)' }}>
-                        {house.tower.banked > 0 ? `CLAIM ${house.tower.banked} FP` : `Broadcasting… ${house.tower.rate} FP every ${house.tower.interval_hours}h`}
-                      </button>
-                    )}
-                    {sheet.building!.level < maxLv && nextCost != null && (
-                      <button disabled={busy}
-                        onClick={() => act({ action: 'upgrade', pad: sheet.pad }, d => `⬆️ Upgraded to Lv ${d.level}! (-${d.spent} FP)`)}
-                        className="mt-3 w-full py-3 rounded-xl font-black text-white bg-gray-800 border border-gray-700 hover:border-gray-500">
-                        Upgrade to Lv {sheet.building!.level + 1} — ⚡{nextCost}
-                      </button>
-                    )}
-                  </>
-                )
-              })() : (
-                <>
-                  <p className="text-white font-black text-lg">Build on this pad</p>
-                  <div className="mt-3 space-y-2">
-                    {Object.values(BUILDINGS).map(def => {
-                      const blocked = def.unique && hasTower
-                      return (
-                        <button key={def.type} disabled={busy || !!blocked}
-                          onClick={() => act({ action: 'build', pad: sheet.pad, type: def.type }, d => `${def.emoji} ${def.name} built! (-${d.spent} FP)`)}
-                          className="w-full bg-gray-800 rounded-xl border border-gray-700 p-3 flex items-center gap-3 hover:border-gray-500 disabled:opacity-40 text-left">
-                          <span className="text-2xl">{def.emoji}</span>
-                          <span className="flex-1">
-                            <span className="text-white font-bold text-sm block">{def.name}{blocked ? ' (already built)' : ''}</span>
-                            <span className="text-gray-500 text-[11px]">{def.desc}</span>
-                          </span>
-                          <span className="text-yellow-400 font-black text-sm">⚡{def.costs[0]}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {toast && (
-          <div className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto">
-            <div className="bg-gray-800 text-white px-4 py-3 rounded-xl text-sm text-center shadow-xl border border-gray-700">{toast}</div>
-          </div>
-        )}
       </div>
+      <div className="absolute bottom-3 left-3 z-[70]">
+        <button onClick={() => router.push('/collection')}
+          className="px-4 py-3.5 rounded-2xl font-black text-sm bg-black/50 backdrop-blur text-white flex items-center gap-2 active:scale-95">
+          <Trophy size={16} style={{ color: tint }} /> Collection
+        </button>
+      </div>
+
+      {/* build / manage sheet */}
+      {sheet && (
+        <div className="fixed inset-0 z-[75] bg-black/60 flex items-end" onClick={() => setSheet(null)}>
+          <div className="w-full max-w-md mx-auto bg-gray-900 rounded-t-3xl border-t border-gray-700 p-5 pb-8 max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}>
+            {sheet.hq ? (() => {
+              const lvl = house?.hq_level ?? 1
+              const cost = hqUpgradeCost(lvl)
+              return (
+                <>
+                  <div className="flex items-center gap-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={hqImage(lvl)} alt="" className="w-24 h-24 object-contain" />
+                    <div>
+                      <p className="text-white font-black text-lg">Your House <span className="text-gray-500 text-sm">Lv {lvl}</span></p>
+                      <p className="text-gray-500 text-xs mt-1">{lvl >= HQ_MAX_LEVEL ? 'The crystal manor — as good as it gets.' : 'A better house defends your whole base.'}</p>
+                    </div>
+                  </div>
+                  {cost != null && (
+                    <>
+                      <div className="mt-4 flex items-center gap-3 bg-gray-800/60 rounded-xl p-3 border border-gray-700">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={hqImage(lvl + 1)} alt="" className="w-16 h-16 object-contain" />
+                        <p className="text-gray-400 text-xs">Next: <span className="text-white font-bold">Level {lvl + 1}</span> — stronger defense, better looks</p>
+                      </div>
+                      <button disabled={busy}
+                        onClick={() => act({ action: 'upgrade_hq' }, d => `🏠 House upgraded to Lv ${d.hq_level}! (-${d.spent} FP)`)}
+                        className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
+                        style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                        Upgrade to Lv {lvl + 1} — ⚡{cost.toLocaleString()}
+                      </button>
+                    </>
+                  )}
+                </>
+              )
+            })() : sheet.building ? (() => {
+              const def = buildingDef(sheet.building!.type)!
+              const isTower = def.type === 'media_tower'
+              const isSafe = def.type === 'safe'
+              const maxLv = isTower ? TOWER_MAX_LEVEL : def.costs.length
+              const nextCost = buildingCost(def.type, sheet.building!.level + 1)
+              return (
+                <>
+                  <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-gray-500 text-sm">Lv {sheet.building!.level}</span></p>
+                  <p className="text-gray-500 text-xs mt-1">{def.desc}</p>
+                  {isSafe && house?.safe && (() => {
+                    const st = house.safe!
+                    const pct = Math.min(100, Math.round((st.stored / Math.max(1, st.capacity)) * 100))
+                    const onHand = profile?.fp_balance ?? 0
+                    const room = Math.max(0, st.capacity - st.stored)
+                    return (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-amber-300">🔐 {st.stored.toLocaleString()} locked</span>
+                          <span className="text-gray-500">{st.capacity.toLocaleString()} max</span>
+                        </div>
+                        <div className="mt-1.5 h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#f59e0b,#fbbf24)' }} />
+                        </div>
+                        <p className="text-gray-600 text-[10px] mt-1.5">Raiders can never touch FP in the safe — but you can't spend it until you take it out.</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <button disabled={busy || room <= 0 || onHand <= 0}
+                            onClick={() => act({ action: 'safe_deposit', amount: Math.min(room, onHand) }, d => `🔐 Locked up! Safe holds ${d.stored.toLocaleString()} FP`)}
+                            className="py-3 rounded-xl font-black text-black disabled:opacity-35"
+                            style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                            LOCK MAX ({Math.min(room, onHand).toLocaleString()})
+                          </button>
+                          <button disabled={busy || st.stored <= 0}
+                            onClick={() => act({ action: 'safe_withdraw', amount: st.stored }, () => `💰 Withdrew everything — spend it or lose it`)}
+                            className="py-3 rounded-xl font-black text-white bg-gray-800 border border-gray-700 disabled:opacity-35">
+                            TAKE ALL OUT
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  {isTower && house?.tower && (
+                    <button disabled={busy || (house.tower.banked ?? 0) <= 0}
+                      onClick={() => act({ action: 'claim_tower' }, d => `📡 +${d.claimed} FP from the airwaves!`)}
+                      className="mt-4 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
+                      style={{ background: 'linear-gradient(135deg,#34d399,#059669)' }}>
+                      {house.tower.banked > 0 ? `CLAIM ${house.tower.banked} FP` : `Broadcasting… ${house.tower.rate} FP every ${house.tower.interval_hours}h`}
+                    </button>
+                  )}
+                  {sheet.building!.level < maxLv && nextCost != null && (
+                    <button disabled={busy}
+                      onClick={() => act({ action: 'upgrade', pad: sheet.pad }, d => `⬆️ Upgraded to Lv ${d.level}! (-${d.spent} FP)`)}
+                      className="mt-3 w-full py-3 rounded-xl font-black text-white bg-gray-800 border border-gray-700 hover:border-gray-500">
+                      Upgrade to Lv {sheet.building!.level + 1} — ⚡{nextCost}
+                    </button>
+                  )}
+                </>
+              )
+            })() : (
+              <>
+                <p className="text-white font-black text-lg">Build here</p>
+                <div className="mt-3 space-y-2">
+                  {Object.values(BUILDINGS).map(def => {
+                    const blocked = def.unique && hasOf(def.type)
+                    const thumb = SPRITES[def.type]?.img(1)
+                    return (
+                      <button key={def.type} disabled={busy || !!blocked}
+                        onClick={() => act({ action: 'build', pad: sheet.pad, type: def.type }, d => `${def.emoji} ${def.name} built! (-${d.spent} FP)`)}
+                        className="w-full bg-gray-800 rounded-xl border border-gray-700 p-3 flex items-center gap-3 hover:border-gray-500 disabled:opacity-40 text-left">
+                        {thumb
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={thumb} alt="" className="w-12 h-12 object-contain" />
+                          : <span className="text-2xl">{def.emoji}</span>}
+                        <span className="flex-1">
+                          <span className="text-white font-bold text-sm block">{def.name}{blocked ? ' (already built)' : ''}</span>
+                          <span className="text-gray-500 text-[11px]">{def.desc}</span>
+                        </span>
+                        <span className="text-yellow-400 font-black text-sm">⚡{def.costs[0]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[70] max-w-md w-[90%]">
+          <div className="bg-gray-800/95 backdrop-blur text-white px-4 py-3 rounded-xl text-sm text-center shadow-xl border border-gray-700">{toast}</div>
+        </div>
+      )}
     </div>
   )
 }
