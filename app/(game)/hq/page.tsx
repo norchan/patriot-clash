@@ -24,6 +24,7 @@ interface Upgrade { to: number; done_at: string; rush_cost: number }
 interface Building { pad: number; type: string; level: number; upgrade?: Upgrade | null }
 interface Tower { level: number; banked: number; next_in_secs: number; rate: number; interval_hours: number }
 interface House {
+  print_shop_pad?: number
   hq_level: number; hq_upgrade: Upgrade | null
   buildings: Building[]; tower: Tower | null
   trophies: number; shield_until: string | null; pickups: number
@@ -169,10 +170,10 @@ export default function HqPage() {
       })
       continue
     }
-    if (pad === PRINT_SHOP_PAD) {
+    if (pad === (house?.print_shop_pad ?? PRINT_SHOP_PAD)) {
       const ready = (farm?.ready ?? 0) > 0
       cells.push({
-        pad, img: '/house/print_shop.png', imgW: 128,
+        pad, img: '/house/print_shop.png', imgW: 128, movable: true,
         glow: ready, onTap: ready ? claimFarm : undefined,
         chip: ready
           ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-amber-400 text-black animate-bounce">🧨 CLAIM {farm!.ready}</span>
@@ -186,7 +187,7 @@ export default function HqPage() {
       const banked = b.type === 'media_tower' ? (house?.tower?.banked ?? 0) : 0
       const stored = b.type === 'safe' ? (house?.safe?.stored ?? 0) : 0
       cells.push({
-        pad,
+        pad, movable: true,
         img: sp?.img(b.level), imgW: sp?.w, emoji: sp ? undefined : buildingDef(b.type)?.emoji,
         glow: banked > 0,
         onTap: () => setSheet({ pad, building: b }),
@@ -206,11 +207,31 @@ export default function HqPage() {
 
   const sparkles = SPARKLE_PADS.slice(0, house?.pickups ?? 0)
 
+  // every empty cell is a legal landing spot (not the house, not occupied)
+  const psPad = house?.print_shop_pad ?? PRINT_SHOP_PAD
+  const validTargets = new Set<number>()
+  for (let pad = 0; pad < 36; pad++) {
+    if (pad === HQ_PAD || pad === psPad || builtOn.has(pad)) continue
+    validTargets.add(pad)
+  }
+  async function moveBuilding(from: number, to: number) {
+    try {
+      const res = await fetch('/api/house', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'move', from_pad: from, to_pad: to }),
+      })
+      const d = await res.json()
+      if (!res.ok) say(`❌ ${d.error ?? 'Could not move'}`)
+      else { try { navigator.vibrate?.(15) } catch {} }
+    } catch { say('❌ Could not move') }
+    load()
+  }
+
   return (
     <div className="fixed inset-0 z-[60] bg-[#0d1512] text-gray-200 select-none">
       {/* the yard stops above the bottom nav — the bar stays (Michael) */}
       <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
-      <IsoYard cells={cells} bg="/house/yard_bg.png">
+      <IsoYard cells={cells} bg="/house/yard_bg.png" onMove={moveBuilding} validTargets={validTargets}>
         {/* sparkle pickups + their pops, in stage coordinates */}
         {sparkles.map(pad => {
           const { x, y, depth } = isoPos(pad)

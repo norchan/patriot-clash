@@ -26,7 +26,7 @@ export async function GET() {
     await admin.rpc('house_settle', { p_profile_id: profile.id })
     // requireProfile's snapshot predates the settle - re-read what it changes
     const { data: fresh } = await admin.from('profiles')
-      .select('hq_level, hq_upgrading_to, hq_upgrade_done_at, house_trophies, house_shield_until, yard_swept_at, safe_fp')
+      .select('hq_level, hq_upgrading_to, hq_upgrade_done_at, house_trophies, house_shield_until, yard_swept_at, safe_fp, print_shop_pad')
       .eq('id', profile.id).single()
     const { data: buildings } = await admin
       .from('house_buildings')
@@ -46,6 +46,7 @@ export async function GET() {
       return { to, done_at: doneAt, rush_cost: rushCost(baseCost, remaining, total) }
     }
     return NextResponse.json({
+      print_shop_pad: fresh?.print_shop_pad ?? 15,
       hq_level: fresh?.hq_level ?? 1,
       hq_upgrade: (fresh?.hq_upgrading_to && fresh?.hq_upgrade_done_at)
         ? quote(fresh.hq_upgrading_to, fresh.hq_upgrade_done_at, true, hqUpgradeCost(fresh.hq_upgrading_to - 1) ?? 0)
@@ -197,6 +198,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Could not withdraw' }, { status: 500 })
       }
       return NextResponse.json({ ok: true, stored: data })
+    }
+
+    if (action === 'move') {
+      const from = Number(body.from_pad), to = Number(body.to_pad)
+      if (!Number.isInteger(from) || !Number.isInteger(to)) {
+        return NextResponse.json({ error: 'from_pad and to_pad required' }, { status: 400 })
+      }
+      const { error } = await admin.rpc('house_move', {
+        p_profile_id: profile.id, p_from: from, p_to: to,
+      })
+      if (error) {
+        if (error.message.includes('MOVE_OCCUPIED')) return NextResponse.json({ error: 'That spot is taken' }, { status: 409 })
+        if (error.message.includes('MOVE_NOTHING')) return NextResponse.json({ error: 'Nothing there to move' }, { status: 400 })
+        if (error.message.includes('MOVE_INVALID')) return NextResponse.json({ error: "Can't move there" }, { status: 400 })
+        console.error('house_move failed:', error)
+        return NextResponse.json({ error: 'Could not move' }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true })
     }
 
     if (action === 'rush') {

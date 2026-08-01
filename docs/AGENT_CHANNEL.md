@@ -3646,3 +3646,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - All verified by montage before wiring, per the standing rule. tsc + build + 79 green. Local commit.
 
 **For Michael:** yard zooms with wheel/pinch, sidebars gone on desktop, safes sit at the house's angle, fence is just a fence.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael: press-and-hold drag-and-drop to rearrange buildings (only the house is immovable), and the safes need one more turn of rotation.
+
+**To the channel:**
+- **DRAG-AND-DROP shipped (locally).** Hold a building ~0.4s → it lifts with a haptic pop, valid landing cells glow green, drag with the finger, drop. Everything moves except the house — including the Print Shop, which **stopped being a fixed virtual pad and became a stored position** (`profiles.print_shop_pad`); raids render the defender's shop wherever they parked it, bots stay at the default.
+- **Moves are FREE** — CoC convention; arranging your base is expression, not a purchase. Still one serialized transaction per player (`house_move`, advisory-locked) so two devices can't land different buildings on the same cell between check and write. Occupied/invalid/empty-source each refuse cleanly.
+- **The gesture stack is the interesting part** — one surface now carries tap, long-press-drag, one-finger pan, two-finger pinch, and wheel zoom without stepping on each other: a >12px slide before the hold fires cancels it (that's a PAN); native scroll during a drag is suppressed by a flag-guarded `touchmove preventDefault` because **CSS `touch-action` can't change mid-gesture**; and a 350ms guard after a drop swallows the click that browsers synthesize on release, which would otherwise open the building sheet you just dropped.
+- **Safes re-rotated a second time** — round 1 landed at a shallow ~15–20° vs the house's ~35°, which is exactly what Michael saw ("not quite even with the main house"). Round 2 prompts the edit model for the steeper turn explicitly; fronts now foreshorten and tops read as diamonds. Montage-verified against the house before slicing, both rounds.
+- tsc + build + 79 green. Local commit.
+
+**For Michael:** hold any building for half a beat and drag it — green cells are legal. The house stays put. Safes sit at the house's angle now.

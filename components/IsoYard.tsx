@@ -49,10 +49,26 @@ export interface IsoCellSpec {
   glow?: boolean
   dead?: boolean
   onTap?: () => void
+  /** press-and-hold lifts this sprite for drag-and-drop */
+  movable?: boolean
 }
 
-export default function IsoYard({ cells, bg, children }:
-  { cells: IsoCellSpec[]; bg?: string; children?: ReactNode }) {
+/** stage coords → pad index, or null when off the diamond */
+export function padAt(x: number, y: number): number | null {
+  const u = (x - ORIGIN_X) / (TILE_W / 2)
+  const v = (y - ORIGIN_Y) / (TILE_H / 2)
+  const col = Math.round((u + v) / 2 - 0.5)
+  const row = Math.round((v - u) / 2 - 0.5)
+  if (col < 0 || col >= GRID || row < 0 || row >= GRID) return null
+  return row * GRID + col
+}
+
+export default function IsoYard({ cells, bg, children, onMove, validTargets }:
+  { cells: IsoCellSpec[]; bg?: string; children?: ReactNode
+    /** called after a successful drag-and-drop */
+    onMove?: (fromPad: number, toPad: number) => void
+    /** cells a lifted building may land on */
+    validTargets?: Set<number> }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [auto, setAuto] = useState(1)       // fit-derived base scale
   const [zoom, setZoom] = useState(1)       // player zoom on top of it
@@ -130,6 +146,81 @@ export default function IsoYard({ cells, bg, children }:
     }
   }, [])
 
+  // ── DRAG-AND-DROP (Michael 2026-07-31): press-and-hold lifts a movable
+  // sprite, drag follows the finger, drop on a highlighted cell. Native
+  // scrolling is suppressed for the duration via a flag-guarded touchmove
+  // preventDefault — CSS touch-action can't change mid-gesture. ──
+  const [drag, setDrag] = useState<{ from: number; x: number; y: number; hover: number | null } | null>(null)
+  const dragRef = useRef<typeof drag>(null)
+  dragRef.current = drag
+  const holdRef = useRef<{ pad: number; x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const justDroppedAt = useRef(0)
+
+  const toStage = (clientX: number, clientY: number) => {
+    const el = wrapRef.current!
+    const r = el.getBoundingClientRect()
+    const s = auto * zoomRef.current
+    const spacerW = Math.max(STAGE_W * s, el.clientWidth)
+    const spacerH = Math.max(STAGE_H * s, el.clientHeight)
+    const offX = spacerW / 2 - (STAGE_W * s) / 2
+    const offY = spacerH / 2 - (STAGE_H * s) / 2
+    return {
+      x: (clientX - r.left + el.scrollLeft - offX) / s,
+      y: (clientY - r.top + el.scrollTop - offY) / s,
+    }
+  }
+
+  const beginHold = (pad: number, e: React.PointerEvent) => {
+    const { clientX, clientY } = e
+    const timer = setTimeout(() => {
+      if (!holdRef.current || holdRef.current.pad !== pad) return
+      const p = toStage(clientX, clientY)
+      setDrag({ from: pad, x: p.x, y: p.y, hover: null })
+      try { navigator.vibrate?.(30) } catch {}
+      holdRef.current = null
+    }, 420)
+    holdRef.current = { pad, x: clientX, y: clientY, timer }
+  }
+  const cancelHold = () => {
+    if (holdRef.current) { clearTimeout(holdRef.current.timer); holdRef.current = null }
+  }
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const onMoveEv = (e: PointerEvent) => {
+      // a real finger slide before the hold fires = the user is panning
+      if (holdRef.current && Math.hypot(e.clientX - holdRef.current.x, e.clientY - holdRef.current.y) > 12) cancelHold()
+      const d = dragRef.current
+      if (!d) return
+      const p = toStage(e.clientX, e.clientY)
+      setDrag({ ...d, x: p.x, y: p.y, hover: padAt(p.x, p.y) })
+    }
+    const onUp = () => {
+      cancelHold()
+      const d = dragRef.current
+      if (!d) return
+      if (d.hover != null && d.hover !== d.from && (validTargets?.has(d.hover) ?? false)) {
+        justDroppedAt.current = Date.now()
+        onMove?.(d.from, d.hover)
+      }
+      setDrag(null)
+    }
+    // suppress native pan while a building is in the air
+    const onTouchMove = (e: TouchEvent) => { if (dragRef.current) e.preventDefault() }
+    window.addEventListener('pointermove', onMoveEv)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => {
+      window.removeEventListener('pointermove', onMoveEv)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      el.removeEventListener('touchmove', onTouchMove)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, onMove, validTargets])
+
   // center the pan when the FIT changes (first layout, rotation) — NOT on
   // player zoom, which anchors itself and must not be snapped back to center
   useEffect(() => {
@@ -172,8 +263,10 @@ export default function IsoYard({ cells, bg, children }:
                       style={{
                         transform: 'rotateX(0deg)',
                         clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-                        background: 'rgba(255,255,255,0.06)',
-                        borderColor: 'rgba(255,255,255,0.14)',
+                        background: drag && validTargets?.has(c.pad)
+                          ? (drag.hover === c.pad ? 'rgba(52,211,153,0.45)' : 'rgba(52,211,153,0.18)')
+                          : 'rgba(255,255,255,0.06)',
+                        borderColor: drag && validTargets?.has(c.pad) ? 'rgba(52,211,153,0.7)' : 'rgba(255,255,255,0.14)',
                       }} />
                   )}
                 </button>
@@ -191,13 +284,16 @@ export default function IsoYard({ cells, bg, children }:
               {c.img ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={c.img} alt=""
-                  onClick={c.onTap}
+                  onClick={() => { if (Date.now() - justDroppedAt.current > 350) c.onTap?.() }}
+                  onPointerDown={c.movable && onMove ? (e => beginHold(c.pad, e)) : undefined}
                   className={`absolute max-w-none ${c.onTap ? 'cursor-pointer' : ''} ${c.dead ? 'grayscale opacity-40' : ''} ${c.glow ? 'iso-glow' : ''}`}
                   style={{
                     width: c.imgW ?? 120,
                     left: 0, top: TILE_H * 0.28,
                     transform: 'translate(-50%, -100%)',
+                    opacity: drag?.from === c.pad ? 0.25 : undefined,
                     filter: c.glow ? 'drop-shadow(0 0 14px rgba(52,211,153,0.9))' : 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
+                    touchAction: c.movable && onMove ? 'none' : undefined,
                   }} />
               ) : c.emoji ? (
                 <span onClick={c.onTap}
@@ -215,6 +311,22 @@ export default function IsoYard({ cells, bg, children }:
             </div>
           )
         })}
+        {/* the airborne building follows the finger */}
+        {drag && (() => {
+          const src = cells.find(c => c.pad === drag.from)
+          if (!src?.img) return null
+          return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={src.img} alt="" className="absolute max-w-none pointer-events-none"
+              style={{
+                width: (src.imgW ?? 120) * 1.08,
+                left: drag.x, top: drag.y,
+                transform: 'translate(-50%, -85%)',
+                zIndex: 950,
+                filter: 'drop-shadow(0 14px 16px rgba(0,0,0,0.5)) brightness(1.08)',
+              }} />
+          )
+        })()}
         {children}
       </div>
       </div>

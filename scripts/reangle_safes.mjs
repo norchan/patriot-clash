@@ -10,9 +10,13 @@ const env = Object.fromEntries(
     .split('\n').filter(l => l.includes('=') && !l.trim().startsWith('#'))
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }))
 
-const PROMPT = `Redraw this exact safe as a painterly isometric mobile-game sprite: `
-  + `three-quarter view from the front-left at roughly 30 degrees, matching a Clash-of-Clans-style base-builder camera `
-  + `(we should see the front face angled to the right and one side face angled to the left, with a visible top). `
+// Round 2 (Michael): "rotated just a bit more — not quite even with the main
+// house." The first pass landed at a shallow ~15-20°; the house sits at a
+// steeper ~35°. Ask for the deeper turn explicitly.
+const PROMPT = `Rotate this safe FURTHER into a strong three-quarter isometric view, matching a Clash-of-Clans-style `
+  + `base-builder camera at roughly 35-40 degrees: the front face clearly foreshortened and angled, the side face `
+  + `prominently visible, and the top surface clearly showing as a diamond. The rotation must be OBVIOUS - `
+  + `noticeably more turned than it is now. `
   + `KEEP the design identical: same lock style, same handle, same proportions, same dark metal, same brass details. `
   + `Warm soft lighting from the upper left, hand-painted texture, clean dark outlines, small grounded contact shadow. `
   + `Plain flat light gray background (#cfcfcf), no text, no watermark.`

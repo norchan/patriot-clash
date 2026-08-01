@@ -21,7 +21,7 @@ async function defenderInfo(admin: any, p: { id: string; clerk_user_id: string; 
   const level = fighterLevel(p.total_battles_won ?? 0)
   if (isBot) {
     const base = botBase(p.id, level)
-    return { isBot, level, base, defense: botDefenseScore(base.baseLevel), baseLevel: base.baseLevel }
+    return { isBot, level, base: { ...base, print_shop_pad: 15 }, defense: botDefenseScore(base.baseLevel), baseLevel: base.baseLevel }
   }
   const { data: buildings } = await admin.from('house_buildings')
     .select('pad, type, level').eq('profile_id', p.id)
