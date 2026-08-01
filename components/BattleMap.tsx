@@ -366,10 +366,8 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
       {signedIn ? '⚔️ FIGHT MAP ⚔️' : '⚔️ JOIN THE FIGHT ⚔️'}
     </button>
 
-    {/* under-map dock: white icons with names underneath (Michael). My Base
-        sits by Town Hall and wears the HOUSE ART, not a line icon — it opens
-        /hq exactly the way Arcade opens the arcade (Michael 2026-07-31). */}
-    <div className="mt-4 flex items-start justify-center gap-4 flex-wrap">
+    {/* under-map dock: white icons with names underneath (Michael) */}
+    <div className="mt-4 flex items-start justify-center gap-7">
       {([
         { label: 'Boards', icon: Newspaper, go: () => router.push('/boards') },
         { label: 'Arcade', icon: Gamepad2, go: () => router.push(signedIn ? '/arcade' : '/play/arcade') },
@@ -377,17 +375,13 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
         // slot and opens the FULLSCREEN pager directly (start swiping)
         { label: 'Reels', icon: Clapperboard, go: () => router.push('/reels') },
         { label: 'Town Hall', icon: Landmark, go: townHall },
-        { label: 'My Base', img: '/house/hq2.png', go: () => router.push(signedIn ? '/hq' : '/sign-up') },
         { label: 'Messages', icon: MessagesSquare, go: () => router.push(signedIn ? '/messages' : '/sign-up') },
-      ] as const).map(({ label, go, ...rest }) => (
+      ] as const).map(({ label, icon: Icon, go }) => (
         <button key={label} onClick={go} disabled={label === 'Town Hall' && locating}
           title={label} aria-label={label}
           className="flex flex-col items-center text-white transition active:scale-90 hover:opacity-80 disabled:opacity-50"
           style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }}>
-          {'img' in rest && rest.img
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={rest.img} alt="" className="h-[38px] w-auto object-contain" />
-            : (() => { const Icon = (rest as any).icon; return <Icon size={38} strokeWidth={2.2} /> })()}
+          <Icon size={38} strokeWidth={2.2} />
           <span className="text-[11px] font-bold mt-1 whitespace-nowrap">{label}</span>
         </button>
       ))}

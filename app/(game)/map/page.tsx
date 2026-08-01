@@ -180,6 +180,8 @@ export default function MapPage() {
   const gymMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   // Arcade markers sit just west of each hall; every one opens /arcade
   const arcadeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  // My Base — the player's own house, south of their nearest hall → /hq
+  const houseMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   // Arena — mirrored east of the LOCAL hall only; opens /arena
   const arenaMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const enemyMarkersRef = useRef<mapboxgl.Marker[]>([])
@@ -309,6 +311,12 @@ export default function MapPage() {
     arcadeMarkersRef.current.forEach(mk => {
       const el = mk.getElement()
       el.style.display = showArcades ? '' : 'none'
+      const inner = el.querySelector('.arc-scale') as HTMLElement | null
+      if (inner) inner.style.transform = `scale(${arcadeScale})`
+    })
+    houseMarkersRef.current.forEach(mk => {
+      const el = mk.getElement()
+      el.style.display = showArcades ? '' : 'none' // twin behavior with the arcade
       const inner = el.querySelector('.arc-scale') as HTMLElement | null
       if (inner) inner.style.transform = `scale(${arcadeScale})`
     })
@@ -970,6 +978,31 @@ export default function MapPage() {
         arcadeMarkersRef.current.set(g.id, marker)
       }
 
+      // ── My Base — ONE only, SOUTH of the hall nearest the PLAYER ─────────
+      // (Michael 2026-07-31: "picture of the house below the town hall image
+      // on the fight map — acts like the arcade") → tap opens /hq
+      for (const [id, mk] of houseMarkersRef.current) {
+        if (!arcadeKeep.has(id)) { mk.remove(); houseMarkersRef.current.delete(id) }
+      }
+      if (nearestGym && !houseMarkersRef.current.has(nearestGym.id)) {
+        const g = nearestGym
+        const houseLat = g.latitude - 0.0062 // ~0.43 mi south
+        const el = document.createElement('div')
+        el.innerHTML = `
+          <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
+            <img src="/house/hq2.png" alt="My Base" draggable="false" style="
+              width:58px;height:auto;pointer-events:none;
+              filter:drop-shadow(0 0 6px #fbbf24) drop-shadow(0 3px 5px rgba(0,0,0,0.6));" />
+          </div>`
+        el.style.cursor = 'pointer'
+        el.title = 'My Base'
+        el.addEventListener('click', () => router.push('/hq'))
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([g.longitude, houseLat])
+          .addTo(map.current!)
+        houseMarkersRef.current.set(g.id, marker)
+      }
+
       // ── Arena — ONE only, east of the hall nearest the PLAYER ────────────
       for (const [id, mk] of arenaMarkersRef.current) {
         if (!arcadeKeep.has(id)) { mk.remove(); arenaMarkersRef.current.delete(id) }
@@ -1049,6 +1082,8 @@ export default function MapPage() {
       gymMarkersRef.current = new Map()
       arcadeMarkersRef.current.forEach(m => m.remove())
       arcadeMarkersRef.current = new Map()
+      houseMarkersRef.current.forEach(m => m.remove())
+      houseMarkersRef.current = new Map()
     }
   }, [gyms, router])
 
