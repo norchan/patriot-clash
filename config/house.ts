@@ -100,6 +100,37 @@ export function hqUpgradeCost(currentLevel: number): number | null {
   return HQ_UPGRADE_COSTS[currentLevel - 1] ?? null
 }
 
+// ── UPGRADE TIMERS (Michael 2026-07-31) ─────────────────────────────────────
+// Upgrades take TIME, higher level = longer, with an instant-finish for FP —
+// the classic base-builder loop. Decisions worth recording:
+//  · NEW builds stay instant (onboarding should feel generous; the wait is
+//    for progression, not for getting started).
+//  · Buildings KEEP WORKING while upgrading — the tower still pays, the safe
+//    still protects. Disabling them punishes upgrading, which is backwards.
+//  · Completion settles LAZILY: the house API applies due upgrades whenever
+//    the owner touches the base. No cron, no background jobs, and an offline
+//    player's upgrade still completes the moment they come back.
+//  · Rush price is PROPORTIONAL to time remaining: a full-length rush costs
+//    RUSH_COST_FRACTION of the upgrade's FP price, decaying to the 5 FP floor
+//    as the timer runs down. Waiting is always free; impatience is the fee.
+export const UPGRADE_HOURS = [0.5, 2, 6, 12] as const     // buildings, to L2..L5
+export const HQ_UPGRADE_HOURS = [1, 4, 12, 24] as const   // the house, to L2..L5
+export const RUSH_COST_FRACTION = 0.4
+export const RUSH_MIN_FP = 5
+
+/** Seconds an upgrade to targetLevel takes. */
+export function upgradeSecs(targetLevel: number, isHq = false): number {
+  const table = isHq ? HQ_UPGRADE_HOURS : UPGRADE_HOURS
+  const h = table[Math.max(0, Math.min(table.length - 1, targetLevel - 2))] ?? table[table.length - 1]
+  return Math.round(h * 3600)
+}
+
+/** FP to finish right now — decays linearly with the remaining time. */
+export function rushCost(baseCost: number, remainingSecs: number, totalSecs: number): number {
+  const frac = Math.max(0, Math.min(1, remainingSecs / Math.max(1, totalSecs)))
+  return Math.max(RUSH_MIN_FP, Math.ceil(baseCost * RUSH_COST_FRACTION * frac))
+}
+
 // ── Media Tower income ──────────────────────────────────────────────────────
 // A slow FP trickle so the base pays you back for visiting. Clamped hard:
 // yields are per-INTERVAL with a small bank cap, all enforced in one atomic

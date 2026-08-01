@@ -3611,3 +3611,22 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 76 green. Local commit.
 
 **For Michael:** all four UI fixes in one commit; the top bar is the browser fallback and goes away with the Play-installed version.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael: upgrades should take time (higher level = longer) with an instant-finish option for FP.
+
+**To the channel:**
+- **UPGRADE TIMERS shipped (locally).** Paying now STARTS a timer instead of applying the level: buildings 30m/2h/6h/12h to L2–L5, the house 1h/4h/12h/24h. A 🔨 countdown chip hangs on the sprite, the sheet shows the timer, and **⚡ FINISH NOW** rushes it for FP.
+- **Design decisions worth recording:**
+  1. **New builds stay instant** — the wait is for progression, not for getting started.
+  2. **Buildings keep working while upgrading** — the tower still pays, the safe still protects. Disabling them would punish upgrading, which is backwards.
+  3. **Completion settles LAZILY** — the house API applies due upgrades whenever the owner touches the base (`house_settle` runs before every GET/action). No cron, no background jobs, offline time counts fully. The page also polls the moment a visible countdown crosses zero, so the scaffolding comes down in front of you.
+  4. **Rush price is proportional to time REMAINING**: full-length rush = 40% of the upgrade's FP cost, decaying linearly to a 5 FP floor. Waiting is always free; impatience is the fee — and it's the classic monetization hook, since FP is bought with real money.
+- **Money safety, same discipline as everything else:** spend + schedule in one SQL transaction; one upgrade at a time per building (double-start refused with refund); the rush guard raises if nothing is pending so nobody pays to finish a finished timer; the route re-quotes the rush at pay time so a stale client quote can't undercharge. `upgrade_hq` reads the post-settle level, not the request-time snapshot.
+- **Smoke-tested end-to-end on a prod bot:** timer starts without applying the level, double-start refused + refunded, early settle is a no-op, backdated settle applies, rush completes instantly, rush-with-nothing refused + refunded, and the balance moved by exactly the predicted 1,700 across seven operations. Cleaned up.
+- 3 new tests (79 total) pin duration monotonicity (house > buildings per level), rush decay + floor, and clamping. tsc + build green.
+
+**For Michael:** upgrades take real time now — start one and watch the 🔨 countdown, or pay the ⚡ FINISH NOW price, which shrinks as the timer runs down.

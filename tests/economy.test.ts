@@ -476,3 +476,28 @@ describe('the safe (raid-proof FP vault)', () => {
     expect(BUILDINGS.safe.unique).toBe(true)
   })
 })
+
+import { UPGRADE_HOURS, HQ_UPGRADE_HOURS, upgradeSecs, rushCost, RUSH_COST_FRACTION, RUSH_MIN_FP } from '@/config/house'
+
+describe('upgrade timers + rush pricing', () => {
+  it('higher levels take strictly longer, and the house outweighs its buildings', () => {
+    for (let i = 1; i < UPGRADE_HOURS.length; i++) expect(UPGRADE_HOURS[i]).toBeGreaterThan(UPGRADE_HOURS[i - 1])
+    for (let i = 1; i < HQ_UPGRADE_HOURS.length; i++) expect(HQ_UPGRADE_HOURS[i]).toBeGreaterThan(HQ_UPGRADE_HOURS[i - 1])
+    for (let l = 2; l <= 5; l++) expect(upgradeSecs(l, true)).toBeGreaterThan(upgradeSecs(l, false))
+  })
+
+  it('rush price decays with remaining time and never undercuts the floor', () => {
+    const base = 1500, total = upgradeSecs(3, false)
+    expect(rushCost(base, total, total)).toBe(Math.ceil(base * RUSH_COST_FRACTION)) // full rush = the fraction
+    expect(rushCost(base, total / 2, total)).toBe(Math.ceil(base * RUSH_COST_FRACTION * 0.5))
+    expect(rushCost(base, 1, total)).toBeGreaterThanOrEqual(RUSH_MIN_FP)            // last second still costs the floor
+    expect(rushCost(base, 0, total)).toBe(RUSH_MIN_FP)
+    // waiting is always cheaper than rushing
+    expect(rushCost(base, total, total)).toBeLessThan(base)
+  })
+
+  it('out-of-range target levels clamp to the longest duration instead of exploding', () => {
+    expect(upgradeSecs(99, false)).toBe(UPGRADE_HOURS[UPGRADE_HOURS.length - 1] * 3600)
+    expect(upgradeSecs(1, false)).toBe(UPGRADE_HOURS[0] * 3600)
+  })
+})
