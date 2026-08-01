@@ -387,7 +387,11 @@ export default function MapPage() {
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
       center: [startAt.lng, startAt.lat],
-      zoom: 16,
+      // 14.6, not 16 (Michael 2026-07-31): street zoom cropped out the My
+      // Base house marker, which sits ~0.43 mi south of the nearest hall.
+      // This frames player + hall + house on landing and still reads as
+      // "your neighborhood"; the locate-me button zooms back to 16.
+      zoom: 14.6,
       pitch: 30,
     })
 
