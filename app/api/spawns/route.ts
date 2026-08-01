@@ -24,10 +24,14 @@ function eliteWindowNow(): boolean {
 
 function buildRoster() {
   const elite = eliteWindowNow()
+  // DOUBLED (Michael 2026-08-01: "double the number of sprites in each town
+  // hall area... Keep the same rules though"). Every rule stands — elite
+  // windows, the 35% rare cycle, opposite-party hunting, 10-min regeneration,
+  // 15-min lifetimes, the 5-catch cap — only the copies-per-drop changed.
   return [...republicanEnemies, ...democratEnemies].flatMap(e => {
-    if (ELITES.has(e.id)) return elite ? [{ id: e.id, copies: 1, tier: e.tier }] : []
-    if (e.tier !== 'common') return Math.random() < 0.35 ? [{ id: e.id, copies: 1, tier: e.tier }] : []
-    return [{ id: e.id, copies: 1, tier: e.tier }]
+    if (ELITES.has(e.id)) return elite ? [{ id: e.id, copies: 2, tier: e.tier }] : []
+    if (e.tier !== 'common') return Math.random() < 0.35 ? [{ id: e.id, copies: 2, tier: e.tier }] : []
+    return [{ id: e.id, copies: 2, tier: e.tier }]
   })
 }
 
