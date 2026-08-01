@@ -3531,3 +3531,21 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 72 tests green. Local commit.
 
 **For Michael:** tap your house to upgrade it — L2 costs 500 FP and each level looks visibly richer. Push when ready.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael made 5-level safe art: players lock FP in a safe on the base; higher level = more locked; framed as the player-side answer to base farming.
+
+**To the channel:**
+- **THE SAFE shipped (locally).** Buildable (unique, 5 levels, his art), and the vault mechanic is deliberately structural: `profiles.safe_fp` is a SEPARATE column and the raid engine loots `fp_balance` only — vaulted FP isn't shielded by a formula, it's **unreachable by construction**. No raid-code change was needed at all.
+- **The tradeoff that keeps it honest:** FP in the safe can't be SPENT either — every spend path in the game reads `fp_balance`, so the vault isn't a free win, it's a real choice: locked and safe, or liquid and raidable. Withdraw is instant and free; while it's out, it's out.
+- **Capacities 1,000 / 2,500 / 6,000 / 15,000 / 40,000 · build 250, upgrades 750/2,000/5,000/12,000.** A maxed safe holds more than a Super Pack (40k ≥ 32k) — paying customers can fully protect a purchase, which is TESTED. Matchmaking already keys on `fp_balance ≥ 200`, so heavily-vaulted players naturally drop out of the target pool: safes protect the defender AND thin the farm.
+- **Deposit/withdraw are single-transaction SQL** (`safe_deposit` checks capacity + uses spend_fp so the ledger stays true; `safe_withdraw` guards overdraw + grants back). New ledger types `safe_deposit`/`safe_withdraw`. Smoke-tested on a prod bot: exact round trip, over-capacity refused with nothing moved, overdraw refused.
+- **Infrastructure the safe forced, worth knowing:** `house_buildings.level` check widened 1..3 → 1..5, and `house_upgrade()` had max level **hardcoded at 3** — now a parameter the route passes per building. The safe would have silently stopped upgrading at L3 otherwise.
+- **Slicer generalized** (`slice_hq_houses.mjs <sheet> [prefix] [--no-badges]`): the safe sheet has no number badges, and the badge-blanking rects were biting notches out of the art — first slice shipped three damaged safes, caught by eyeballing the montage. Always view the cutouts.
+- Bot bases show a safe at their base level (flavor; bot loot is clamped by the daily budget, not the safe). UI: safe cell shows locked amount, sheet has a capacity meter + LOCK MAX / TAKE ALL OUT.
+- tsc + build + **76 tests** green. Local, unpushed (3 commits).
+
+**For Michael:** build the safe (250 FP), tap it, LOCK MAX. Raiders can't touch what's inside — and neither can you until you take it out.

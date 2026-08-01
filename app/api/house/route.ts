@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import {
   GRID, FIXED_PADS, buildingDef, buildingCost, hqUpgradeCost, HQ_MAX_LEVEL,
+  safeCapacity, SAFE_MAX_LEVEL,
   TOWER_RATE_BY_LEVEL, TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS,
   TOWER_MAX_LEVEL, towerBanked,
   PICKUP_INTERVAL_SECS, PICKUP_BANK_CAP, PICKUP_MIN_FP, PICKUP_MAX_FP, pickupsBanked,
@@ -26,6 +27,7 @@ export async function GET() {
       .eq('profile_id', profile.id)
 
     const tower = (buildings ?? []).find(b => b.type === 'media_tower')
+    const safeB = (buildings ?? []).find(b => b.type === 'safe')
     const elapsed = tower ? (Date.now() - +new Date(tower.claimed_at)) / 1000 : 0
     const sweptElapsed = (Date.now() - +new Date((profile as any).yard_swept_at ?? Date.now())) / 1000
     const shieldUntil = (profile as any).house_shield_until
@@ -34,6 +36,11 @@ export async function GET() {
       trophies: (profile as any).house_trophies ?? 0,
       shield_until: shieldUntil && new Date(shieldUntil) > new Date() ? shieldUntil : null,
       pickups: pickupsBanked(sweptElapsed),
+      safe: safeB ? {
+        level: safeB.level,
+        stored: (profile as any).safe_fp ?? 0,
+        capacity: safeCapacity(safeB.level),
+      } : null,
       buildings: buildings ?? [],
       tower: tower ? {
         level: tower.level,
@@ -95,6 +102,7 @@ export async function POST(req: NextRequest) {
       if (cost == null) return NextResponse.json({ error: 'Already max level' }, { status: 400 })
       const { error } = await admin.rpc('house_upgrade', {
         p_profile_id: profile.id, p_pad: pad, p_expected_level: b.level, p_cost: cost,
+        p_max_level: maxLevel,
       })
       if (error) {
         if (error.message.includes('INSUFFICIENT_FP')) {
@@ -127,6 +135,39 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Could not upgrade' }, { status: 500 })
       }
       return NextResponse.json({ ok: true, spent: cost, hq_level: Math.min(HQ_MAX_LEVEL, cur + 1) })
+    }
+
+    if (action === 'safe_deposit' || action === 'safe_withdraw') {
+      const amount = Math.floor(Number(body.amount))
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return NextResponse.json({ error: 'A positive amount is required' }, { status: 400 })
+      }
+      const { data: safeB } = await admin.from('house_buildings')
+        .select('level').eq('profile_id', profile.id).eq('type', 'safe').maybeSingle()
+      if (!safeB) return NextResponse.json({ error: 'Build a safe first' }, { status: 400 })
+
+      if (action === 'safe_deposit') {
+        const { data, error } = await admin.rpc('safe_deposit', {
+          p_profile_id: profile.id, p_amount: amount, p_capacity: safeCapacity(safeB.level),
+        })
+        if (error) {
+          if (error.message.includes('SAFE_FULL')) return NextResponse.json({ error: 'SAFE_FULL', message: `Your safe holds ${safeCapacity(safeB.level).toLocaleString()} FP max — upgrade it to lock more` }, { status: 400 })
+          if (error.message.includes('INSUFFICIENT_FP')) return NextResponse.json({ error: 'INSUFFICIENT_FP', message: "You don't have that much FP on hand" }, { status: 400 })
+          console.error('safe_deposit failed:', error)
+          return NextResponse.json({ error: 'Could not deposit' }, { status: 500 })
+        }
+        return NextResponse.json({ ok: true, stored: data })
+      }
+
+      const { data, error } = await admin.rpc('safe_withdraw', {
+        p_profile_id: profile.id, p_amount: amount,
+      })
+      if (error) {
+        if (error.message.includes('SAFE_INSUFFICIENT')) return NextResponse.json({ error: 'SAFE_INSUFFICIENT', message: "There isn't that much in the safe" }, { status: 400 })
+        console.error('safe_withdraw failed:', error)
+        return NextResponse.json({ error: 'Could not withdraw' }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true, stored: data })
     }
 
     if (action === 'pickup') {

@@ -6,13 +6,21 @@
 // light gray, both unsaturated; the houses are colorful or warm cream, so the
 // fill stops at their outlines. Same idea as build_sprites.mjs' white-bg cut).
 //
-//   node scripts/slice_hq_houses.mjs <sheet.jpg>
-// → public/house/hq1.png .. hq5.png
+//   node scripts/slice_hq_houses.mjs <sheet.jpg> [outPrefix]
+// → public/house/<prefix>1.png .. <prefix>5.png   (prefix defaults to "hq";
+//   Michael's sheets share the same 5-slot layout, so the safe sheet and any
+//   future building sheet slice with the same boxes)
 import sharp from 'sharp'
 import fs from 'fs'
 
 const src = process.argv[2]
-if (!src || !fs.existsSync(src)) { console.error('usage: node scripts/slice_hq_houses.mjs <sheet>'); process.exit(1) }
+const prefix = process.argv[3] || 'hq'
+// --no-badges: sheet has no number badges (blanking would bite into art that
+// extends where the house sheet's badges sat). Also tightens slot 5's crop —
+// the badge-free sheets pack the pieces closer and slot 5 was catching its
+// neighbor's corner.
+const noBadges = process.argv.includes('--no-badges')
+if (!src || !fs.existsSync(src)) { console.error('usage: node scripts/slice_hq_houses.mjs <sheet> [outPrefix]'); process.exit(1) }
 
 const BADGES = [ // fractions of the full sheet — gold number hexagons to erase
   [0.035, 0.025, 0.150, 0.095], [0.525, 0.025, 0.640, 0.095],
@@ -24,6 +32,7 @@ const HOUSES = [ // crop box per level
   [0.02, 0.33, 0.52, 0.62], [0.52, 0.33, 1.00, 0.62],
   [0.24, 0.62, 0.80, 1.00],
 ]
+if (noBadges) HOUSES[4] = [0.28, 0.665, 0.76, 1.00]
 
 const img = sharp(src)
 const meta = await img.metadata()
@@ -35,7 +44,7 @@ const patches = BADGES.map(([x0, y0, x1, y1]) => ({
   input: { create: { width: Math.round((x1 - x0) * W), height: Math.round((y1 - y0) * H), channels: 3, background: '#ffffff' } },
   left: Math.round(x0 * W), top: Math.round(y0 * H),
 }))
-const clean = await img.composite(patches).png().toBuffer()
+const clean = noBadges ? await img.png().toBuffer() : await img.composite(patches).png().toBuffer()
 
 fs.mkdirSync('public/house', { recursive: true })
 
@@ -70,7 +79,7 @@ for (let i = 0; i < HOUSES.length; i++) {
     data[px(x, y) + 3] = 0 // transparent
     stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1])
   }
-  const out = `public/house/hq${i + 1}.png`
+  const out = `public/house/${prefix}${i + 1}.png`
   await sharp(Buffer.from(data), { raw: { width: w, height: h, channels: 4 } })
     .trim({ threshold: 8 })
     .resize({ width: 460, height: 460, fit: 'inside' })

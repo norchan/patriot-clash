@@ -7,6 +7,7 @@ import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
+  safeImage, safeCapacity, SAFE_MAX_LEVEL,
 } from '@/config/house'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
 
@@ -22,6 +23,7 @@ interface Tower { level: number; banked: number; next_in_secs: number; rate: num
 interface House {
   hq_level: number; buildings: Building[]; tower: Tower | null
   trophies: number; shield_until: string | null; pickups: number
+  safe: { level: number; stored: number; capacity: number } | null
 }
 
 // where the yard sparkles sit (percent positions over the grid) — fixed table
@@ -151,6 +153,19 @@ export default function HqPage() {
       const def = buildingDef(b.type)
       const isTower = b.type === 'media_tower'
       const banked = isTower ? (house?.tower?.banked ?? 0) : 0
+      if (b.type === 'safe') {
+        return (
+          <button key={pad} onClick={() => setSheet({ pad, building: b })}
+            className={`${base} border border-gray-700 bg-gray-900 relative overflow-visible`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={safeImage(b.level)} alt="Safe"
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[120%] max-w-none pointer-events-none drop-shadow-lg" />
+            <span className="absolute -bottom-1 text-[9px] text-amber-300 font-black z-10">
+              {(house?.safe?.stored ?? 0) > 0 ? `🔐${house!.safe!.stored.toLocaleString()}` : `L${b.level}`}
+            </span>
+          </button>
+        )
+      }
       return (
         <button key={pad} onClick={() => setSheet({ pad, building: b })}
           className={`${base} border ${banked > 0 ? 'border-emerald-400 bg-emerald-500/15 animate-pulse' : 'border-gray-700 bg-gray-900'}`}>
@@ -266,12 +281,44 @@ export default function HqPage() {
               })() : sheet.building ? (() => {
                 const def = buildingDef(sheet.building!.type)!
                 const isTower = def.type === 'media_tower'
+                const isSafe = def.type === 'safe'
                 const maxLv = isTower ? TOWER_MAX_LEVEL : def.costs.length
                 const nextCost = buildingCost(def.type, sheet.building!.level + 1)
                 return (
                   <>
                     <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-gray-500 text-sm">Lv {sheet.building!.level}</span></p>
                     <p className="text-gray-500 text-xs mt-1">{def.desc}</p>
+                    {isSafe && house?.safe && (() => {
+                      const st = house.safe!
+                      const pct = Math.min(100, Math.round((st.stored / Math.max(1, st.capacity)) * 100))
+                      const onHand = profile?.fp_balance ?? 0
+                      const room = Math.max(0, st.capacity - st.stored)
+                      return (
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className="text-amber-300">🔐 {st.stored.toLocaleString()} locked</span>
+                            <span className="text-gray-500">{st.capacity.toLocaleString()} max</span>
+                          </div>
+                          <div className="mt-1.5 h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#f59e0b,#fbbf24)' }} />
+                          </div>
+                          <p className="text-gray-600 text-[10px] mt-1.5">Raiders can never touch FP in the safe — but you can't spend it until you take it out.</p>
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <button disabled={busy || room <= 0 || onHand <= 0}
+                              onClick={() => act({ action: 'safe_deposit', amount: Math.min(room, onHand) }, d => `🔐 Locked up! Safe holds ${d.stored.toLocaleString()} FP`)}
+                              className="py-3 rounded-xl font-black text-black disabled:opacity-35"
+                              style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                              LOCK MAX ({Math.min(room, onHand).toLocaleString()})
+                            </button>
+                            <button disabled={busy || st.stored <= 0}
+                              onClick={() => act({ action: 'safe_withdraw', amount: st.stored }, () => `💰 Withdrew everything — spend it or lose it`)}
+                              className="py-3 rounded-xl font-black text-white bg-gray-800 border border-gray-700 disabled:opacity-35">
+                              TAKE ALL OUT
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })()}
                     {isTower && house?.tower && (
                       <button disabled={busy || (house.tower.banked ?? 0) <= 0}
                         onClick={() => act({ action: 'claim_tower' }, d => `📡 +${d.claimed} FP from the airwaves!`)}

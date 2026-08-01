@@ -451,3 +451,28 @@ describe('campaign HQ raids (Phase 2 anti-farm math)', () => {
     expect(pickupsBanked(-100)).toBe(0)
   })
 })
+
+import { SAFE_CAPACITY, safeCapacity, SAFE_MAX_LEVEL } from '@/config/house'
+
+describe('the safe (raid-proof FP vault)', () => {
+  it('capacity and cost both rise with level', () => {
+    for (let i = 1; i < SAFE_CAPACITY.length; i++) {
+      expect(SAFE_CAPACITY[i]).toBeGreaterThan(SAFE_CAPACITY[i - 1])
+      expect(BUILDINGS.safe.costs[i]).toBeGreaterThan(BUILDINGS.safe.costs[i - 1])
+    }
+    expect(BUILDINGS.safe.costs.length).toBe(SAFE_MAX_LEVEL)
+  })
+
+  it('a maxed safe can protect a whole Super Pack purchase', () => {
+    expect(safeCapacity(SAFE_MAX_LEVEL)).toBeGreaterThanOrEqual(32000)
+  })
+
+  it('capacity clamps out-of-range levels instead of exploding', () => {
+    expect(safeCapacity(0)).toBe(SAFE_CAPACITY[0])
+    expect(safeCapacity(99)).toBe(SAFE_CAPACITY[SAFE_MAX_LEVEL - 1])
+  })
+
+  it('the safe is unique — one vault per base', () => {
+    expect(BUILDINGS.safe.unique).toBe(true)
+  })
+})

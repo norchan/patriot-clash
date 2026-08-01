@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
-import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage } from '@/config/house'
+import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage } from '@/config/house'
 
 // ⚔️ RAID SCREEN (Phase 2). Find a base → see the pot → smash it.
 //
@@ -108,6 +108,20 @@ export default function RaidPage() {
     if (!b) return <div key={pad} className={`${cls} border border-gray-900 bg-gray-950/50`}><span className="opacity-25 text-xs">🌱</span></div>
     const emoji = b.type === 'decor' ? '🚩' : (buildingDef(b.type)?.emoji ?? '🏗️')
     const dead = smashed.has(pad)
+    if (b.type === 'safe') {
+      return (
+        <button key={pad} disabled={!interactive || dead} onClick={() => smash(pad)}
+          className={`${cls} border ${dead ? 'border-orange-900 bg-orange-950/40' : interactive ? 'border-yellow-600 bg-gray-900 animate-pulse' : 'border-gray-700 bg-gray-900'} ${interactive && !dead ? 'active:scale-90' : ''} overflow-visible`}>
+          {dead ? <span className="text-lg">💥</span> : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={safeImage(b.level)} alt="" className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[115%] max-w-none pointer-events-none" />
+          )}
+          {floats.filter(f => f.pad === pad).map(f => (
+            <span key={f.id} className="absolute -top-2 text-yellow-300 font-black text-xs animate-bounce z-10">{f.text}</span>
+          ))}
+        </button>
+      )
+    }
     return (
       <button key={pad} disabled={!interactive || dead} onClick={() => smash(pad)}
         className={`${cls} border ${dead ? 'border-orange-900 bg-orange-950/40' : interactive ? 'border-yellow-600 bg-gray-900 animate-pulse' : 'border-gray-700 bg-gray-900'} ${interactive && !dead ? 'active:scale-90' : ''}`}>

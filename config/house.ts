@@ -9,7 +9,7 @@
 // costs from HERE and passes them to atomic SQL functions — the client never
 // sends a price, the same trust boundary as the fp-packs catalog.
 
-export type BuildingType = 'fence' | 'media_tower'
+export type BuildingType = 'fence' | 'media_tower' | 'safe'
 
 // ── The yard ────────────────────────────────────────────────────────────────
 // 6×6 OPEN grid, cell indexes 0..35 row-major (Michael 2026-07-31: rejected
@@ -57,7 +57,32 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     costs: [500, 1200, 2500],
     unique: true,
   },
+  safe: {
+    type: 'safe',
+    name: 'The Safe',
+    emoji: '🔐',
+    desc: 'Lock FP inside — raiders can never touch what is in the safe. Bigger safe, bigger vault.',
+    costs: [250, 750, 2000, 5000, 12000],
+    unique: true,
+  },
 }
+
+// ── The SAFE — raid-proof FP storage (Michael 2026-07-31) ───────────────────
+// "Allow players to lock a certain portion of their fp in a safe... The higher
+// the level, the more they can lock up. That should stop people from farming
+// bases." Art: public/house/safe1..5.png (his sheet, same slicer as the house).
+//
+// The mechanic is deliberately simple: safe_fp is a SEPARATE column, and the
+// raid engine loots from fp_balance only — so deposited FP isn't shielded by a
+// formula, it's structurally unreachable. The tradeoff that keeps it honest:
+// FP in the safe can't be SPENT either (every spend path reads fp_balance);
+// you withdraw first, and while it's out, it's raidable.
+export const SAFE_CAPACITY = [1000, 2500, 6000, 15000, 40000] as const
+export const SAFE_MAX_LEVEL = SAFE_CAPACITY.length
+export const safeCapacity = (level: number) =>
+  SAFE_CAPACITY[Math.max(0, Math.min(SAFE_MAX_LEVEL, level) - 1)] ?? 0
+export const safeImage = (level: number) =>
+  `/house/safe${Math.max(1, Math.min(SAFE_MAX_LEVEL, level))}.png`
 
 // ── The HOUSE itself — 5 upgrade levels (Michael's art, 2026-07-31) ─────────
 // The centerpiece: a shack at L1, solar panels by L3, a crystal-crowned manor
@@ -178,6 +203,7 @@ export function botBase(botId: string, level: number): BotBase {
     buildings.push({ pad: cells[(seed + i * 7) % cells.length], type: 'fence', level: Math.min(3, 1 + ((seed >> (i + 2)) % baseLevel)) })
   }
   buildings.push({ pad: cells[(seed + 3) % cells.length], type: 'media_tower', level: Math.min(3, baseLevel) })
+  buildings.push({ pad: cells[(seed + 17) % cells.length], type: 'safe', level: Math.min(5, baseLevel) })
   // decor makes big bases LOOK rich (flags, signs — pure rendering)
   for (let i = 0; i < 1 + baseLevel; i++) {
     buildings.push({ pad: cells[(seed + 11 + i * 5) % cells.length], type: 'decor', level: 1 })
