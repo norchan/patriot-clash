@@ -190,12 +190,13 @@ export default function MessageThreadPage() {
           )}
           <span className="text-white font-bold text-sm truncate">{other?.username ?? '...'}</span>
         </button>
+        {/* facetime — RIGHT of the name (Michael 2026-07-31: at the far right
+            it sat exactly under the floating ☰ menu and looked missing) */}
+        <button onClick={() => setCall('caller')}
+          className="text-green-400 hover:text-green-300 transition flex-shrink-0" title="Video call" aria-label="Video call">
+          <Video size={20} />
+        </button>
         <div className="ml-auto flex items-center gap-3 flex-shrink-0">
-          {/* facetime (Michael): start a video call in this thread */}
-          <button onClick={() => setCall('caller')}
-            className="text-green-400 hover:text-green-300 transition" title="Video call" aria-label="Video call">
-            <Video size={18} />
-          </button>
           {otherLoc && (
             <button onClick={() => router.push(`/map?flat=${otherLoc.lat}&flng=${otherLoc.lng}`)}
               className="flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 transition"

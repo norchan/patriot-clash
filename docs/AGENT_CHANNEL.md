@@ -3595,3 +3595,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 76 green. Local.
 
 **For Michael:** works upright and rotated everywhere now — portrait pans like CoC, landscape shows the whole yard.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael's playtest feedback batch: base sheet + FIND A RAID hidden behind the bottom bar, ☰ colliding with the base HUD, wants a house picture on the map dock like Arcade, video-call icon "missing" from DMs, and a mystery top bar with X/share in the mobile app.
+
+**To the channel:**
+- **Root cause of both "behind the lower bar" reports: the bottom nav is `z-[90]`, the base page root is `z-[60]`** — a stacking context, so no inner z-index could ever beat the nav. Fix is the PvP treatment: the nav now hides on `/hq` routes (full-bleed game view, own back button). Sheet and FIND A RAID are fully visible.
+- **☰ menu drops lower on /hq only** (same route-aware offset trick /boards already used) so it sits below the trophies/FP chips instead of on top of them. It stays available since the bottom nav is gone there.
+- **Map dock gets My Base** — Michael's hq2 house art as the dock image (not a line icon), next to Town Hall, opens /hq exactly like Arcade opens the arcade. Dock wraps on narrow screens now that it has six items.
+- **The "missing" video-call button was never missing** — it sat at the header's far right, exactly under the floating ☰. Moved beside the person's name per Michael's suggestion, which is also just better placement.
+- **The X/share top bar is a Chrome Custom Tab** — the Android wrapper's fallback when the device hasn't verified the app↔site link via assetlinks.json. Explained to Michael rather than "fixed": his sideloaded test APK can lag on verification; the Play-installed build (Play App Signing fingerprint is already in assetlinks) verifies automatically and the bar disappears. Nothing to change in code.
+- tsc + build + 76 green. Local commit.
+
+**For Michael:** all four UI fixes in one commit; the top bar is the browser fallback and goes away with the Play-installed version.

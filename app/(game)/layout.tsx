@@ -147,7 +147,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       // on /boards the psub tab strip owns the very top — the game ☰ drops
       // below it (mobile). On xl the ☰ hides EVERYWHERE: the left rail
       // carries the same menu on every desktop page (Michael)
-      <div className={`fixed z-[80] xl:hidden`} style={{ top: pathname === '/boards' ? 'calc(3.6rem + env(safe-area-inset-top))' : 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
+      <div className={`fixed z-[80] xl:hidden`} style={{ top: pathname === '/boards' ? 'calc(3.6rem + env(safe-area-inset-top))' : pathname.startsWith('/hq') ? 'calc(3.9rem + env(safe-area-inset-top))' : 'calc(0.75rem + env(safe-area-inset-top))', right: 'calc(max(0px, (100vw - 28rem) / 2) + 12px)' }}>
         <button
           onClick={() => setMenuOpen(v => !v)}
           className="relative w-10 h-10 rounded-xl bg-gray-900/90 backdrop-blur border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white shadow-lg transition"
@@ -193,9 +193,10 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       {/* Fixed ad banner — every page except immersive battle screens */}
       {showAds && <AdBanner />}
       {/* z-[90] keeps the bar above immersive surfaces — EXCEPT the PvP ring
-          (Michael): it was covering the attack pads, and mid-fight nav is a
-          misclick hazard anyway. Back button + leave-confirm still guard exit. */}
-      {!pathname.startsWith('/battle/pvp') && (
+          and the /hq base yard (Michael 2026-07-31: the bar was covering the
+          base page's sheet and FIND A RAID button — the yard is a full-bleed
+          game view with its own back button, same treatment as the ring). */}
+      {!pathname.startsWith('/battle/pvp') && !pathname.startsWith('/hq') && (
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-gray-900 border-t border-gray-800 z-[90]">
         <div className="flex">
           {navItems.map(({ href, label, icon: Icon }) => {
