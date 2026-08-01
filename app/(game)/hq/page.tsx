@@ -6,20 +6,21 @@ import { useProfile } from '@/hooks/useProfile'
 import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
+  hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
 } from '@/config/house'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
 
-// 🏠 CAMPAIGN HQ — the personal base (Michael 2026-07-31, CoC-lite Phase 1).
-// A 4×4 yard of pads: the House and Print Shop are yours from the start, six
-// pads are open to build on, and the rest of the lot is bought with FP.
+// 🏠 CAMPAIGN HQ — the personal base (Michael 2026-07-31).
+// A 6×6 OPEN yard (Grok's layout): the House (Michael's 5-level art) and the
+// Print Shop are fixed; build on any other cell. Raids, tower income, yard
+// sparkles, trophies, shields, ambient music — the works.
 // PERSONAL base only — nothing here touches town-hall control.
-// Phase 2 (raids, loot, shields) is designed but deliberately not built.
 
 interface Farm { ready: number; next_in_secs: number | null; rate_hours: number; cap: number }
 interface Building { pad: number; type: string; level: number }
 interface Tower { level: number; banked: number; next_in_secs: number; rate: number; interval_hours: number }
 interface House {
-  buildings: Building[]; tower: Tower | null
+  hq_level: number; buildings: Building[]; tower: Tower | null
   trophies: number; shield_until: string | null; pickups: number
 }
 
@@ -35,7 +36,7 @@ export default function HqPage() {
   const { profile, refetch } = useProfile()
   const [farm, setFarm] = useState<Farm | null>(null)
   const [house, setHouse] = useState<House | null>(null)
-  const [sheet, setSheet] = useState<{ pad: number; building?: Building } | null>(null)
+  const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -124,12 +125,15 @@ export default function HqPage() {
   // 6×6 open grid (Grok's version, per Michael): every empty cell is buildable
   function padCell(pad: number) {
     const base = 'aspect-square rounded-lg flex flex-col items-center justify-center text-center transition active:scale-95'
-    // the two fixed buildings
+    // the two fixed buildings — the HOUSE is Michael's art and levels 1-5
     if (pad === HQ_PAD) {
       return (
-        <div key={pad} className={`${base} border-2`} style={{ borderColor: tint, background: `${tint}18` }}>
-          <span className="text-xl leading-none">🏠</span>
-        </div>
+        <button key={pad} onClick={() => setSheet({ pad, hq: true })}
+          className={`${base} border-2 relative overflow-visible`} style={{ borderColor: tint, background: `${tint}18` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={hqImage(house?.hq_level ?? 1)} alt="Your house"
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[150%] max-w-none z-10 pointer-events-none drop-shadow-xl" />
+        </button>
       )
     }
     if (pad === PRINT_SHOP_PAD) {
@@ -229,7 +233,37 @@ export default function HqPage() {
           <div className="fixed inset-0 z-50 bg-black/60 flex items-end" onClick={() => setSheet(null)}>
             <div className="w-full max-w-md mx-auto bg-gray-900 rounded-t-3xl border-t border-gray-700 p-5 pb-8"
               onClick={e => e.stopPropagation()}>
-              {sheet.building ? (() => {
+              {sheet.hq ? (() => {
+                const lvl = house?.hq_level ?? 1
+                const cost = hqUpgradeCost(lvl)
+                return (
+                  <>
+                    <div className="flex items-center gap-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={hqImage(lvl)} alt="" className="w-24 h-24 object-contain" />
+                      <div>
+                        <p className="text-white font-black text-lg">Your House <span className="text-gray-500 text-sm">Lv {lvl}</span></p>
+                        <p className="text-gray-500 text-xs mt-1">{lvl >= HQ_MAX_LEVEL ? 'The crystal manor — as good as it gets.' : 'A better house defends your whole base.'}</p>
+                      </div>
+                    </div>
+                    {cost != null && (
+                      <>
+                        <div className="mt-4 flex items-center gap-3 bg-gray-800/60 rounded-xl p-3 border border-gray-700">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={hqImage(lvl + 1)} alt="" className="w-16 h-16 object-contain" />
+                          <p className="text-gray-400 text-xs">Next: <span className="text-white font-bold">Level {lvl + 1}</span> — stronger defense, better looks</p>
+                        </div>
+                        <button disabled={busy}
+                          onClick={() => act({ action: 'upgrade_hq' }, d => `🏠 House upgraded to Lv ${d.hq_level}! (-${d.spent} FP)`)}
+                          className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
+                          style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                          Upgrade to Lv {lvl + 1} — ⚡{cost.toLocaleString()}
+                        </button>
+                      </>
+                    )}
+                  </>
+                )
+              })() : sheet.building ? (() => {
                 const def = buildingDef(sheet.building!.type)!
                 const isTower = def.type === 'media_tower'
                 const maxLv = isTower ? TOWER_MAX_LEVEL : def.costs.length

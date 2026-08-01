@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
-import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef } from '@/config/house'
+import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage } from '@/config/house'
 
 // ⚔️ RAID SCREEN (Phase 2). Find a base → see the pot → smash it.
 //
@@ -95,8 +95,10 @@ export default function RaidPage() {
   function yardCell(pad: number, base: TargetBase, interactive: boolean) {
     const cls = 'aspect-square rounded-lg flex flex-col items-center justify-center transition relative'
     if (pad === HQ_PAD) return (
-      <div key={pad} className={`${cls} border-2 border-gray-600 bg-gray-800/60`}>
-        <span className="text-lg">🏠</span>
+      <div key={pad} className={`${cls} border-2 border-gray-600 bg-gray-800/60 overflow-visible`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={hqImage(base.baseLevel)} alt=""
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[150%] max-w-none z-10 pointer-events-none" />
       </div>
     )
     if (pad === PRINT_SHOP_PAD) return (

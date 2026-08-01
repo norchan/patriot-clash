@@ -3,7 +3,7 @@ import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import {
-  GRID, FIXED_PADS, buildingDef, buildingCost,
+  GRID, FIXED_PADS, buildingDef, buildingCost, hqUpgradeCost, HQ_MAX_LEVEL,
   TOWER_RATE_BY_LEVEL, TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS,
   TOWER_MAX_LEVEL, towerBanked,
   PICKUP_INTERVAL_SECS, PICKUP_BANK_CAP, PICKUP_MIN_FP, PICKUP_MAX_FP, pickupsBanked,
@@ -30,6 +30,7 @@ export async function GET() {
     const sweptElapsed = (Date.now() - +new Date((profile as any).yard_swept_at ?? Date.now())) / 1000
     const shieldUntil = (profile as any).house_shield_until
     return NextResponse.json({
+      hq_level: (profile as any).hq_level ?? 1,
       trophies: (profile as any).house_trophies ?? 0,
       shield_until: shieldUntil && new Date(shieldUntil) > new Date() ? shieldUntil : null,
       pickups: pickupsBanked(sweptElapsed),
@@ -106,6 +107,26 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Could not upgrade' }, { status: 500 })
       }
       return NextResponse.json({ ok: true, spent: cost, level: b.level + 1 })
+    }
+
+    if (action === 'upgrade_hq') {
+      const cur = Number((profile as any).hq_level ?? 1)
+      const cost = hqUpgradeCost(cur)
+      if (cost == null) return NextResponse.json({ error: 'Your house is already maxed out' }, { status: 400 })
+      const { error } = await admin.rpc('house_upgrade_hq', {
+        p_profile_id: profile.id, p_expected_level: cur, p_cost: cost,
+      })
+      if (error) {
+        if (error.message.includes('INSUFFICIENT_FP')) {
+          return NextResponse.json({ error: 'INSUFFICIENT_FP', message: `Need ${cost} FP to upgrade your house` }, { status: 400 })
+        }
+        if (error.message.includes('HQ_UPGRADE_CONFLICT')) {
+          return NextResponse.json({ error: 'Try again' }, { status: 409 })
+        }
+        console.error('house_upgrade_hq failed:', error)
+        return NextResponse.json({ error: 'Could not upgrade' }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true, spent: cost, hq_level: Math.min(HQ_MAX_LEVEL, cur + 1) })
     }
 
     if (action === 'pickup') {

@@ -59,6 +59,22 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
 }
 
+// ── The HOUSE itself — 5 upgrade levels (Michael's art, 2026-07-31) ─────────
+// The centerpiece: a shack at L1, solar panels by L3, a crystal-crowned manor
+// at L5. Art: public/house/hq1.png..hq5.png (sliced from Michael's sheet by
+// scripts/slice_hq_houses.mjs). Upgrading the house is the long-term FP sink,
+// and it DEFENDS: for humans the house level IS the base level, which feeds
+// the raid defense score — a better house is genuinely harder to crack.
+export const HQ_MAX_LEVEL = 5
+/** cost to reach level 2, 3, 4, 5 — index = (targetLevel - 2) */
+export const HQ_UPGRADE_COSTS = [500, 1500, 4000, 10000] as const
+export const hqImage = (level: number) =>
+  `/house/hq${Math.max(1, Math.min(HQ_MAX_LEVEL, level))}.png`
+export function hqUpgradeCost(currentLevel: number): number | null {
+  if (currentLevel < 1 || currentLevel >= HQ_MAX_LEVEL) return null
+  return HQ_UPGRADE_COSTS[currentLevel - 1] ?? null
+}
+
 // ── Media Tower income ──────────────────────────────────────────────────────
 // A slow FP trickle so the base pays you back for visiting. Clamped hard:
 // yields are per-INTERVAL with a small bank cap, all enforced in one atomic

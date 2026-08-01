@@ -3516,3 +3516,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build green, 72 tests (the two pad-unlock tests replaced by one open-grid geometry test).
 
 **For Michael:** 6×6 open lot, build anywhere, one push away.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael made a 5-level isometric house sprite sheet — "As the user upgrades it they get a better version."
+
+**To the channel:**
+- **The house is now the centerpiece it should be.** Michael's art, five levels: shack → tiled house → solar panels → gabled manor → crystal-crowned estate. It renders 150% of its cell so it towers over the yard CoC-style, and the raid screen shows the DEFENDER's house at their level — a bot's base level is readable at a glance from the skyline before you commit 50 FP.
+- **Sheet arrived as a JPG with the transparency checkerboard BAKED IN.** `scripts/slice_hq_houses.mjs` (kept, reusable for his future sheets): blank the numbered badges, crop the five regions, then flood-fill from each crop's borders eating neutral-bright pixels — the checker is unsaturated, the houses are colorful or warm cream, so the fill stops at their outlines. Same trick as the old white-bg sprite cutouts. Cream walls survive because they're enclosed by dark outlines and the fill only spreads from the border.
+- **Upgrades: L2 500 · L3 1,500 · L4 4,000 · L5 10,000 FP** — the long-term sink the base needed; L5 costs about a third of the biggest FP pack. `profiles.hq_level` + `house_upgrade_hq()` (spend + guarded increment, one transaction, expected-level parameter so racing tabs can't double-pay). Smoke-tested on a prod bot: upgrade exact, stale-level refused with full refund.
+- **It defends, honoring the every-building-does-something rule:** for humans the house level IS the base level, feeding both the raid defense score and the loot cap. Upgrade sheet shows the current house, a preview of the next level, and the price.
+- tsc + build + 72 tests green. Local commit.
+
+**For Michael:** tap your house to upgrade it — L2 costs 500 FP and each level looks visibly richer. Push when ready.

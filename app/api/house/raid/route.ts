@@ -16,7 +16,7 @@ import {
 // are already settled, the same pattern as the siege theater.
 
 /** Level + derived base for any profile (bots derive, humans read rows). */
-async function defenderInfo(admin: any, p: { id: string; clerk_user_id: string; total_battles_won: number }) {
+async function defenderInfo(admin: any, p: { id: string; clerk_user_id: string; total_battles_won: number; hq_level?: number }) {
   const isBot = p.clerk_user_id?.startsWith('bot') ?? false
   const level = fighterLevel(p.total_battles_won ?? 0)
   if (isBot) {
@@ -25,7 +25,8 @@ async function defenderInfo(admin: any, p: { id: string; clerk_user_id: string; 
   }
   const { data: buildings } = await admin.from('house_buildings')
     .select('pad, type, level').eq('profile_id', p.id)
-  const baseLevel = Math.max(1, Math.min(5, Math.ceil(((buildings?.length ?? 0) + 1) / 2)))
+  // the HOUSE level IS the human base level — upgrading it raises defense
+  const baseLevel = Math.max(1, Math.min(5, p.hq_level ?? 1))
   return {
     isBot, level, baseLevel,
     base: { baseLevel, padsOpen: 6, buildings: buildings ?? [] },
@@ -42,7 +43,7 @@ export async function GET() {
     // Humans first when any are raidable (shield down, not self, has FP) —
     // they're the real game; bots fill the gap until Michael retires them.
     const { data: humans } = await admin.from('profiles')
-      .select('id, username, party, total_battles_won, fp_balance, clerk_user_id, house_shield_until')
+      .select('id, username, party, total_battles_won, fp_balance, clerk_user_id, house_shield_until, hq_level')
       .not('clerk_user_id', 'like', 'bot%')
       .neq('id', profile.id)
       .gte('fp_balance', 200)
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'defender_id required' }, { status: 400 })
     }
     const { data: defender } = await admin.from('profiles')
-      .select('id, username, party, total_battles_won, fp_balance, clerk_user_id')
+      .select('id, username, party, total_battles_won, fp_balance, clerk_user_id, hq_level')
       .eq('id', defender_id).maybeSingle()
     if (!defender) return NextResponse.json({ error: 'Base not found' }, { status: 404 })
 
