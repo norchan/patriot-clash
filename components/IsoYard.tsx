@@ -13,6 +13,10 @@ import { GRID } from '@/config/house'
 // behind it. The whole stage lives in a fixed logical coordinate space and is
 // scaled to the viewport, which keeps every sprite crisp at any screen size
 // and makes tap targets identical across devices.
+//
+// BOTH orientations are supported (Michael 2026-07-31: the rotate gate also
+// caught tall DESKTOP windows — "can we do vertical and rotated?"). Landscape
+// gives the biggest yard; portrait scales the same stage to fit the width.
 
 export const TILE_W = 184
 export const TILE_H = 92
@@ -47,34 +51,6 @@ export interface IsoCellSpec {
   onTap?: () => void
 }
 
-/** Fullscreen "turn your phone" gate — the base map is landscape-only. */
-export function useLandscape(): boolean {
-  const [landscape, setLandscape] = useState(true)
-  useEffect(() => {
-    const check = () => setLandscape(window.innerWidth >= window.innerHeight)
-    check()
-    window.addEventListener('resize', check)
-    window.addEventListener('orientationchange', check)
-    try { (screen.orientation as any)?.lock?.('landscape')?.catch?.(() => {}) } catch {}
-    return () => {
-      window.removeEventListener('resize', check)
-      window.removeEventListener('orientationchange', check)
-      try { (screen.orientation as any)?.unlock?.() } catch {}
-    }
-  }, [])
-  return landscape
-}
-
-export function RotateGate() {
-  return (
-    <div className="fixed inset-0 z-[80] bg-gray-950 flex flex-col items-center justify-center text-center px-8">
-      <div className="text-5xl animate-[spin_3s_ease-in-out_infinite]" style={{ animationDirection: 'alternate' }}>📱</div>
-      <p className="text-white font-black text-xl mt-4">Rotate your phone</p>
-      <p className="text-gray-400 text-sm mt-2">Your base is best surveyed in landscape.</p>
-    </div>
-  )
-}
-
 export default function IsoYard({ cells, bg, children }:
   { cells: IsoCellSpec[]; bg?: string; children?: ReactNode }) {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -84,7 +60,12 @@ export default function IsoYard({ cells, bg, children }:
     if (!el) return
     const fit = () => {
       const r = el.getBoundingClientRect()
-      setScale(Math.min(r.width / STAGE_W, r.height / STAGE_H))
+      // Landscape: the whole yard fits. Portrait / tall windows: fitting by
+      // WIDTH shrinks the yard to a postage stamp, so zoom toward height-fit
+      // (capped at 2.2× the width-fit) and let the player PAN — the CoC feel.
+      const fitW = r.width / STAGE_W
+      const fitH = r.height / STAGE_H
+      setScale(Math.max(fitW, Math.min(fitH, fitW * 2.2)))
     }
     fit()
     const ro = new ResizeObserver(fit)
@@ -92,11 +73,25 @@ export default function IsoYard({ cells, bg, children }:
     return () => ro.disconnect()
   }, [])
 
+  // center the pan on first layout so the house greets you, not a corner
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    el.scrollLeft = Math.max(0, (STAGE_W * scale - el.clientWidth) / 2)
+    el.scrollTop = Math.max(0, (STAGE_H * scale - el.clientHeight) / 2)
+  }, [scale])
+
   const sorted = [...cells].sort((a, b) => isoPos(a.pad).depth - isoPos(b.pad).depth)
 
   return (
-    <div ref={wrapRef} className="absolute inset-0 overflow-hidden"
-      style={bg ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+    <div ref={wrapRef} className="absolute inset-0 overflow-auto overscroll-contain"
+      style={{ WebkitOverflowScrolling: 'touch' as any, scrollbarWidth: 'none' }}>
+      {/* the pannable ground — bg lives HERE so grass moves with the buildings */}
+      <div className="relative" style={{
+        width: Math.max(STAGE_W * scale, wrapRef.current?.clientWidth ?? 0),
+        height: Math.max(STAGE_H * scale, wrapRef.current?.clientHeight ?? 0),
+        ...(bg ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
+      }}>
       {/* soft vignette so HUD chips read against bright grass */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%)' }} />
@@ -162,6 +157,7 @@ export default function IsoYard({ cells, bg, children }:
           )
         })}
         {children}
+      </div>
       </div>
     </div>
   )

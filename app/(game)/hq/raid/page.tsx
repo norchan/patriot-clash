@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage } from '@/config/house'
-import IsoYard, { IsoCellSpec, isoPos, useLandscape, RotateGate } from '@/components/IsoYard'
+import IsoYard, { IsoCellSpec, isoPos } from '@/components/IsoYard'
 
 // ⚔️ RAID — same isometric stage as the home base (Grok's brief): you scout
 // THEIR yard on the full-bleed ground, then smash their buildings sprite by
@@ -42,7 +42,6 @@ const buzz = (ms: number) => { try { navigator.vibrate?.(ms) } catch {} }
 export default function RaidPage() {
   const router = useRouter()
   const { profile, refetch } = useProfile()
-  const landscape = useLandscape()
   const [phase, setPhase] = useState<PhaseT>('finding')
   const [found, setFound] = useState<Found | null>(null)
   const [result, setResult] = useState<Result | null>(null)
@@ -97,8 +96,6 @@ export default function RaidPage() {
     pop(160 + Math.random() * 120); buzz(25)
     if (isLast) setTimeout(() => setPhase('done'), 700)
   }
-
-  if (!landscape) return <RotateGate />
 
   // map the TARGET's yard onto the stage
   const base = result?.base ?? found?.target.base
@@ -159,7 +156,7 @@ export default function RaidPage() {
       )}
 
       {phase === 'preview' && found && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-black/60 backdrop-blur rounded-2xl p-3 pr-4">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-black/60 backdrop-blur rounded-2xl p-3 pr-4 max-w-[96vw] flex-wrap justify-center">
           <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white shrink-0"
             style={{ background: isRep(found.target.party) ? '#dc2626' : '#2563eb' }}>
             {found.target.username[0]?.toUpperCase()}

@@ -3581,3 +3581,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 76 tests green. Local commit; not pushed.
 
 **For Michael:** rotate your phone sideways and open the base. This is the CoC look you asked for — and if any sprite reads wrong, its art is one regeneration command away.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael: the base page just says "rotate your phone" on desktop — "Can we do vertical and rotated?"
+
+**To the channel:**
+- **The rotate gate is GONE — both orientations are first-class.** The gate compared width to height, so any tall window hit it, including desktop windows. Grok's brief said force landscape; Michael has overridden that, and honestly the gate was never necessary: the stage scales to fit any viewport.
+- **Portrait got the real CoC treatment instead of a shrunk yard:** fitting by width made the base a postage stamp, so tall viewports now zoom toward height-fit (capped at 2.2× width-fit) and the yard becomes **pannable** — drag around your base, initial scroll centered on the house. The ground image pans WITH the buildings (it moved into the scroll container), so it feels like moving over a world, not sliding sprites on wallpaper. Landscape is unchanged — everything still fits in one view.
+- HUD hardening for narrow screens: title chip hides under 480px, raid preview pill wraps.
+- tsc + build + 76 green. Local.
+
+**For Michael:** works upright and rotated everywhere now — portrait pans like CoC, landscape shows the whole yard.

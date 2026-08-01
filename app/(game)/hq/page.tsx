@@ -10,12 +10,13 @@ import {
   safeImage,
 } from '@/config/house'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
-import IsoYard, { IsoCellSpec, isoPos, useLandscape, RotateGate } from '@/components/IsoYard'
+import IsoYard, { IsoCellSpec, isoPos } from '@/components/IsoYard'
 
 // 🏠 CAMPAIGN HQ — the personal base, ISOMETRIC (Grok's presentation brief,
 // 2026-07-31: "must feel like CoC — not a flat CSS grid of emoji"). The 6×6
-// data model and every API are unchanged; only the stage is new: landscape-
-// forced, continuous yard background, depth-sorted sprites, HUD at the edges.
+// data model and every API are unchanged; only the stage is new: continuous
+// yard background, depth-sorted sprites, HUD at the edges. Works in BOTH
+// orientations — landscape is the big view, portrait scales to fit.
 // PERSONAL base only — nothing here touches town-hall control.
 
 interface Farm { ready: number; next_in_secs: number | null; rate_hours: number; cap: number }
@@ -40,7 +41,6 @@ const SPARKLE_PADS = [3, 21, 33, 9, 26]
 export default function HqPage() {
   const router = useRouter()
   const { profile, refetch } = useProfile()
-  const landscape = useLandscape()
   const [farm, setFarm] = useState<Farm | null>(null)
   const [house, setHouse] = useState<House | null>(null)
   const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean } | null>(null)
@@ -126,8 +126,6 @@ export default function HqPage() {
     } finally { setBusy(false) }
   }
 
-  if (!landscape) return <RotateGate />
-
   const builtOn = new Map((house?.buildings ?? []).map(b => [b.pad, b]))
   const hasOf = (t: string) => (house?.buildings ?? []).some(b => b.type === t)
 
@@ -201,7 +199,7 @@ export default function HqPage() {
       {/* ── HUD: chrome at the edges, yard stays full-bleed ── */}
       <div className="absolute top-3 left-3 z-[70] flex items-center gap-2">
         <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200"><ArrowLeft size={17} /></button>
-        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-white font-black text-sm">🏠 Campaign HQ</span>
+        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-white font-black text-sm hidden min-[480px]:inline-flex">🏠 Campaign HQ</span>
         <button onClick={toggleMusic} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200">
           {music ? <Music size={15} /> : <VolumeX size={15} />}
         </button>
