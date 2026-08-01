@@ -142,7 +142,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       {/* the shell only spans its max-w — keep the WHOLE viewport dark
           behind it on desktop so the rails never sit on a light body */}
       <div className="hidden xl:block fixed inset-0 -z-10 bg-gray-950" />
-      {!immersive && <DesktopRails />}
+      {/* desktop rails hidden on /hq (Michael 2026-07-31: no arcade/profile/
+          menu sidebars on the base page — it's a game view) */}
+      {!immersive && !pathname.startsWith('/hq') && <DesktopRails />}
       {!immersive && (
       // on /boards the psub tab strip owns the very top — the game ☰ drops
       // below it (mobile). On xl the ☰ hides EVERYWHERE: the left rail

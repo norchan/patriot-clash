@@ -233,7 +233,6 @@ export default function HqPage() {
       {/* ── HUD: chrome at the edges, buttons clear of the bottom bar ── */}
       <div className="absolute top-3 left-3 z-[70] flex items-center gap-2">
         <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200"><ArrowLeft size={17} /></button>
-        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-white font-black text-sm hidden min-[480px]:inline-flex">🏠 Campaign HQ</span>
         <button onClick={toggleMusic} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200">
           {music ? <Music size={15} /> : <VolumeX size={15} />}
         </button>

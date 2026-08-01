@@ -54,7 +54,10 @@ export interface IsoCellSpec {
 export default function IsoYard({ cells, bg, children }:
   { cells: IsoCellSpec[]; bg?: string; children?: ReactNode }) {
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
+  const [auto, setAuto] = useState(1)       // fit-derived base scale
+  const [zoom, setZoom] = useState(1)       // player zoom on top of it
+  const zoomRef = useRef(1)
+  const scale = auto * zoom
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
@@ -65,7 +68,7 @@ export default function IsoYard({ cells, bg, children }:
       // (capped at 2.2× the width-fit) and let the player PAN — the CoC feel.
       const fitW = r.width / STAGE_W
       const fitH = r.height / STAGE_H
-      setScale(Math.max(fitW, Math.min(fitH, fitW * 2.2)))
+      setAuto(Math.max(fitW, Math.min(fitH, fitW * 2.2)))
     }
     fit()
     const ro = new ResizeObserver(fit)
@@ -73,13 +76,69 @@ export default function IsoYard({ cells, bg, children }:
     return () => ro.disconnect()
   }, [])
 
-  // center the pan on first layout so the house greets you, not a corner
+  // ── zoom in/out (Michael 2026-07-31): mouse wheel on desktop, two-finger
+  // pinch on touch. Anchored on the viewport CENTER so the yard doesn't lurch;
+  // pan (scroll) covers whatever the zoom uncovers. ──
+  const applyZoom = (factor: number) => {
+    const el = wrapRef.current
+    if (!el) return
+    const next = Math.max(0.55, Math.min(2.6, zoomRef.current * factor))
+    if (next === zoomRef.current) return
+    const ratio = next / zoomRef.current
+    const cx = el.scrollLeft + el.clientWidth / 2
+    const cy = el.scrollTop + el.clientHeight / 2
+    zoomRef.current = next
+    setZoom(next)
+    requestAnimationFrame(() => {
+      el.scrollLeft = cx * ratio - el.clientWidth / 2
+      el.scrollTop = cy * ratio - el.clientHeight / 2
+    })
+  }
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    el.scrollLeft = Math.max(0, (STAGE_W * scale - el.clientWidth) / 2)
-    el.scrollTop = Math.max(0, (STAGE_H * scale - el.clientHeight) / 2)
-  }, [scale])
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      applyZoom(e.deltaY < 0 ? 1.12 : 1 / 1.12)
+    }
+    // pinch: track two pointers by hand — browser pinch is page zoom, not ours
+    const pts = new Map<number, { x: number; y: number }>()
+    let lastDist = 0
+    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); lastDist = 0 } }
+    const move = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' || !pts.has(e.pointerId)) return
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()]
+        const d = Math.hypot(a.x - b.x, a.y - b.y)
+        if (lastDist > 0) applyZoom(d / lastDist)
+        lastDist = d
+      }
+    }
+    const up = (e: PointerEvent) => { pts.delete(e.pointerId); lastDist = 0 }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('pointerdown', down)
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('pointerdown', down)
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+    }
+  }, [])
+
+  // center the pan when the FIT changes (first layout, rotation) — NOT on
+  // player zoom, which anchors itself and must not be snapped back to center
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const s = auto * zoomRef.current
+    el.scrollLeft = Math.max(0, (STAGE_W * s - el.clientWidth) / 2)
+    el.scrollTop = Math.max(0, (STAGE_H * s - el.clientHeight) / 2)
+  }, [auto])
 
   const sorted = [...cells].sort((a, b) => isoPos(a.pad).depth - isoPos(b.pad).depth)
 

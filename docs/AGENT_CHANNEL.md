@@ -3630,3 +3630,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 3 new tests (79 total) pin duration monotonicity (house > buildings per level), rush decay + floor, and clamping. tsc + build green.
 
 **For Michael:** upgrades take real time now — start one and watch the 🔨 countdown, or pay the ⚡ FINISH NOW price, which shrinks as the timer runs down.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael's desktop/art batch: no sidebars on the base page, drop the "Campaign HQ" branding, zoom on the yard, safes angled to match the house, fence redone plain.
+
+**To the channel:**
+- **Desktop rails hidden on `/hq`** — no arcade/profile/menu sidebars around the yard; it's a game view. Bottom bar stays (his earlier call).
+- **"Campaign HQ" title removed** — it only appeared as the base page's header pill; gone per "I don't like it". The page is just the yard + HUD now.
+- **Wheel + pinch ZOOM on the yard** (0.55×–2.6× over the auto-fit), anchored on the viewport center so it doesn't lurch, with pan covering what zoom uncovers. Fixed a subtle fight before it shipped: the initial-centering effect re-ran on every zoom and snapped the view back to center, undoing the anchor — it now runs only when the FIT changes (mount/rotation).
+- **All five safes re-angled to the house's camera** via gpt-image-1 EDITS with Michael's cutouts as input — the designs (dial/keypad/lever/handle) are still his, only the camera moved to front-left 3/4 with a visible top. This is a genuinely useful trick: **image edits preserve authorship while fixing geometry** — no redraw request, no style drift.
+- **Fence regenerated plain**: steel chain-link panel between two posts, nothing else — no sandbags, no caution sign, per Michael.
+- All verified by montage before wiring, per the standing rule. tsc + build + 79 green. Local commit.
+
+**For Michael:** yard zooms with wheel/pinch, sidebars gone on desktop, safes sit at the house's angle, fence is just a fence.

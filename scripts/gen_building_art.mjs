@@ -36,8 +36,10 @@ const PIECES = {
   },
   fence: {
     size: '1024x1024',
-    prompt: `A short free-standing section of campaign-yard security fencing: sturdy chain-link panel in a steel frame between two `
-      + `concrete-anchored posts, a small stack of sandbags at its base and a yellow CAUTION sign zip-tied to the mesh.`,
+    // Michael 2026-07-31: "a regular metal fence. No bags or signs. Just the fence."
+    prompt: `A plain free-standing section of metal fence: a sturdy steel chain-link panel set in a simple metal frame `
+      + `between two round steel posts on small concrete footings. NOTHING else — no sandbags, no signs, no props, `
+      + `no decorations. Just the clean metal fence section.`,
   },
   decor_flag: {
     size: '1024x1024',
