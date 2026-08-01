@@ -193,10 +193,10 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       {/* Fixed ad banner — every page except immersive battle screens */}
       {showAds && <AdBanner />}
       {/* z-[90] keeps the bar above immersive surfaces — EXCEPT the PvP ring
-          and the /hq base yard (Michael 2026-07-31: the bar was covering the
-          base page's sheet and FIND A RAID button — the yard is a full-bleed
-          game view with its own back button, same treatment as the ring). */}
-      {!pathname.startsWith('/battle/pvp') && !pathname.startsWith('/hq') && (
+          (Michael): mid-fight nav is a misclick hazard. The /hq base KEEPS the
+          bar (Michael 2026-07-31: "i liked the bottom bar on the base page") —
+          the base page lifts its own buttons above it instead. */}
+      {!pathname.startsWith('/battle/pvp') && (
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-gray-900 border-t border-gray-800 z-[90]">
         <div className="flex">
           {navItems.map(({ href, label, icon: Icon }) => {

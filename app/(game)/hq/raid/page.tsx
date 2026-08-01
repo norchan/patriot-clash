@@ -127,6 +127,7 @@ export default function RaidPage() {
   return (
     <div className="fixed inset-0 z-[60] bg-[#150f0d] text-gray-200 select-none">
       {base && (
+        <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
         <IsoYard cells={cells} bg="/house/yard_bg.png">
           {floats.map(f => {
             const { x, y } = isoPos(f.pad)
@@ -136,6 +137,7 @@ export default function RaidPage() {
             )
           })}
         </IsoYard>
+        </div>
       )}
 
       {/* HUD */}
@@ -156,7 +158,7 @@ export default function RaidPage() {
       )}
 
       {phase === 'preview' && found && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-black/60 backdrop-blur rounded-2xl p-3 pr-4 max-w-[96vw] flex-wrap justify-center">
+        <div style={{ bottom: '5.5rem' }} className="absolute left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-black/60 backdrop-blur rounded-2xl p-3 pr-4 max-w-[96vw] flex-wrap justify-center">
           <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white shrink-0"
             style={{ background: isRep(found.target.party) ? '#dc2626' : '#2563eb' }}>
             {found.target.username[0]?.toUpperCase()}
@@ -182,7 +184,7 @@ export default function RaidPage() {
             <span className="text-amber-400 font-black text-xs">🏆 +{result.trophies}</span>
           </div>
           {phase === 'smash' && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3">
+            <div style={{ bottom: '5.5rem' }} className="absolute left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3">
               <span className="px-3 py-2 rounded-xl bg-black/60 backdrop-blur text-gray-300 text-xs font-bold">
                 Tap {result.defender.username}'s buildings to loot them!
               </span>
@@ -191,7 +193,7 @@ export default function RaidPage() {
             </div>
           )}
           {phase === 'done' && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2">
+            <div style={{ bottom: '5.5rem' }} className="absolute left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2">
               <button onClick={findTarget}
                 className="px-6 py-3.5 rounded-2xl font-black text-white active:scale-95"
                 style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>

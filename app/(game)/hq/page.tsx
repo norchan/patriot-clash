@@ -177,6 +177,8 @@ export default function HqPage() {
 
   return (
     <div className="fixed inset-0 z-[60] bg-[#0d1512] text-gray-200 select-none">
+      {/* the yard stops above the bottom nav — the bar stays (Michael) */}
+      <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
       <IsoYard cells={cells} bg="/house/yard_bg.png">
         {/* sparkle pickups + their pops, in stage coordinates */}
         {sparkles.map(pad => {
@@ -195,8 +197,9 @@ export default function HqPage() {
           )
         })}
       </IsoYard>
+      </div>
 
-      {/* ── HUD: chrome at the edges, yard stays full-bleed ── */}
+      {/* ── HUD: chrome at the edges, buttons clear of the bottom bar ── */}
       <div className="absolute top-3 left-3 z-[70] flex items-center gap-2">
         <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200"><ArrowLeft size={17} /></button>
         <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-white font-black text-sm hidden min-[480px]:inline-flex">🏠 Campaign HQ</span>
@@ -213,14 +216,14 @@ export default function HqPage() {
           🛡️ Shielded until {new Date(house.shield_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
         </div>
       )}
-      <div className="absolute bottom-3 right-3 z-[70]">
+      <div className="absolute right-3 z-[70]" style={{ bottom: '5.5rem' }}>
         <button onClick={() => router.push('/hq/raid')}
           className="px-6 py-3.5 rounded-2xl font-black text-white text-base shadow-xl active:scale-95"
           style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
           ⚔️ FIND A RAID
         </button>
       </div>
-      <div className="absolute bottom-3 left-3 z-[70]">
+      <div className="absolute left-3 z-[70]" style={{ bottom: '5.5rem' }}>
         <button onClick={() => router.push('/collection')}
           className="px-4 py-3.5 rounded-2xl font-black text-sm bg-black/50 backdrop-blur text-white flex items-center gap-2 active:scale-95">
           <Trophy size={16} style={{ color: tint }} /> Collection
@@ -230,7 +233,7 @@ export default function HqPage() {
       {/* build / manage sheet */}
       {sheet && (
         <div className="fixed inset-0 z-[75] bg-black/60 flex items-end" onClick={() => setSheet(null)}>
-          <div className="w-full max-w-md mx-auto bg-gray-900 rounded-t-3xl border-t border-gray-700 p-5 pb-8 max-h-[85vh] overflow-y-auto"
+          <div className="w-full max-w-md mx-auto bg-gray-900 rounded-t-3xl border-t border-gray-700 p-5 max-h-[85vh] overflow-y-auto" style={{ paddingBottom: 'calc(2rem + 4.5rem + env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}>
             {sheet.hq ? (() => {
               const lvl = house?.hq_level ?? 1
@@ -351,7 +354,7 @@ export default function HqPage() {
       )}
 
       {toast && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[70] max-w-md w-[90%]">
+        <div className="absolute left-1/2 -translate-x-1/2 z-[70] max-w-md w-[90%]" style={{ bottom: '8.5rem' }}>
           <div className="bg-gray-800/95 backdrop-blur text-white px-4 py-3 rounded-xl text-sm text-center shadow-xl border border-gray-700">{toast}</div>
         </div>
       )}
