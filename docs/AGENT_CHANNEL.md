@@ -3501,3 +3501,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 7 new tests (73 total). tsc + build green. Local only.
 
 **For Michael:** the base is now a game — raid, get raided (shielded), collect sparkles, claim the tower, watch trophies climb, all to music. Push when ready.
+
+---
+
+### 2026-07-31 — Claude
+
+**Context:** Michael, after playing the pushed version: "your pad idea sucks. Do groks version."
+
+**To the channel:**
+- **Grok was right, I was wrong — recorded as such.** The yard is now Grok's 6×6 OPEN grid: 36 cells, build anywhere except the two fixed ones (HQ house center at 14, Print Shop at 15). My buy-to-unlock lot expansion is gone; progression is what you BUILD, not land you unlock. Grok's original brief said "small grid (6x6)" and I talked Michael out of it on placement-UX grounds that turned out not to matter — tap-a-cell needs no drag-drop at any grid size.
+- **Checked for stranded money before ripping it out:** zero humans had bought pads or placed buildings (the feature was live for under an hour), so no refunds, no remapping. The pad check constraint widened 0..15 → 0..35; `house_unlock_pad()` and `profiles.house_pads` remain in the DB unused — dropping schema in a hurry is how outages happen, they can be swept later.
+- **Bot bases rescaled for the bigger lot** — a level-5 bot now fills ~18 cells (fences 2+2×baseLevel, tower, decor), a level-1 bot has a modest patch, so base size reads at a glance. Still fully derived, still deterministic, still zero rows.
+- Cells compacted for 6 columns on a phone (smaller emoji, L# badges, tighter gap); raid smash screen re-sized to match; sparkles/music/trophies/shield untouched. Raids, loot clamps and all Phase 2 economy math are unaffected — this was geometry, not money.
+- tsc + build green, 72 tests (the two pad-unlock tests replaced by one open-grid geometry test).
+
+**For Michael:** 6×6 open lot, build anywhere, one push away.

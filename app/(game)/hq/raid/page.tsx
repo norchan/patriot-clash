@@ -93,24 +93,24 @@ export default function RaidPage() {
   }
 
   function yardCell(pad: number, base: TargetBase, interactive: boolean) {
-    const cls = 'aspect-square rounded-xl flex flex-col items-center justify-center transition relative'
+    const cls = 'aspect-square rounded-lg flex flex-col items-center justify-center transition relative'
     if (pad === HQ_PAD) return (
       <div key={pad} className={`${cls} border-2 border-gray-600 bg-gray-800/60`}>
-        <span className="text-2xl">🏠</span>
+        <span className="text-lg">🏠</span>
       </div>
     )
     if (pad === PRINT_SHOP_PAD) return (
-      <div key={pad} className={`${cls} border border-gray-700 bg-gray-900`}><span className="text-2xl">🖨️</span></div>
+      <div key={pad} className={`${cls} border border-gray-700 bg-gray-900`}><span className="text-lg">🖨️</span></div>
     )
     const b = base.buildings.find(x => x.pad === pad)
-    if (!b) return <div key={pad} className={`${cls} border border-gray-900 bg-gray-950/50`}><span className="opacity-30 text-sm">🌱</span></div>
+    if (!b) return <div key={pad} className={`${cls} border border-gray-900 bg-gray-950/50`}><span className="opacity-25 text-xs">🌱</span></div>
     const emoji = b.type === 'decor' ? '🚩' : (buildingDef(b.type)?.emoji ?? '🏗️')
     const dead = smashed.has(pad)
     return (
       <button key={pad} disabled={!interactive || dead} onClick={() => smash(pad)}
         className={`${cls} border ${dead ? 'border-orange-900 bg-orange-950/40' : interactive ? 'border-yellow-600 bg-gray-900 animate-pulse' : 'border-gray-700 bg-gray-900'} ${interactive && !dead ? 'active:scale-90' : ''}`}>
-        <span className={`text-2xl ${dead ? 'grayscale opacity-40' : ''}`}>{dead ? '💥' : emoji}</span>
-        {!dead && b.type !== 'decor' && <span className="text-[9px] text-gray-500 font-bold">Lv {b.level}</span>}
+        <span className={`text-lg ${dead ? 'grayscale opacity-40' : ''}`}>{dead ? '💥' : emoji}</span>
+        {!dead && b.type !== 'decor' && <span className="text-[8px] text-gray-500 font-bold">L{b.level}</span>}
         {floats.filter(f => f.pad === pad).map(f => (
           <span key={f.id} className="absolute -top-2 text-yellow-300 font-black text-xs animate-bounce">{f.text}</span>
         ))}
@@ -121,7 +121,7 @@ export default function RaidPage() {
   const yard = (base: TargetBase, interactive: boolean) => (
     <div className="rounded-2xl border border-gray-800 p-3"
       style={{ background: 'radial-gradient(circle at 30% 20%, #231a14, #120d0b 70%)' }}>
-      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${GRID}, minmax(0, 1fr))` }}>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${GRID}, minmax(0, 1fr))` }}>
         {Array.from({ length: GRID * GRID }, (_, i) => yardCell(i, base, interactive))}
       </div>
     </div>

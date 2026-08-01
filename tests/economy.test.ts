@@ -339,25 +339,19 @@ describe('FP pack catalog (Stripe + Google Play share it)', () => {
 })
 
 import {
-  GRID, HQ_PAD, PRINT_SHOP_PAD, FIXED_PADS, PAD_UNLOCK_ORDER, FREE_PADS,
-  PAD_COSTS, BUILDINGS, towerBanked, nextPadCost, buildingCost,
+  GRID, HQ_PAD, PRINT_SHOP_PAD, FIXED_PADS, BUILDABLE_CELLS,
+  BUILDINGS, towerBanked, buildingCost,
   TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS, TOWER_RATE_BY_LEVEL,
 } from '@/config/house'
 
 describe('campaign HQ base (Phase 1)', () => {
-  it('the yard adds up: 2 fixed pads + every other pad exactly once in unlock order', () => {
-    const all = new Set([...FIXED_PADS, ...PAD_UNLOCK_ORDER])
-    expect(all.size).toBe(GRID * GRID)
-    expect(PAD_UNLOCK_ORDER.length).toBe(GRID * GRID - FIXED_PADS.length)
-    expect(PAD_UNLOCK_ORDER).not.toContain(HQ_PAD)
-    expect(PAD_UNLOCK_ORDER).not.toContain(PRINT_SHOP_PAD)
-  })
-
-  it('pad prices rise and cover exactly the pads beyond the free six', () => {
-    expect(PAD_COSTS.length).toBe(PAD_UNLOCK_ORDER.length - FREE_PADS)
-    for (let i = 1; i < PAD_COSTS.length; i++) expect(PAD_COSTS[i]).toBeGreaterThan(PAD_COSTS[i - 1])
-    expect(nextPadCost(FREE_PADS)).toBe(PAD_COSTS[0])
-    expect(nextPadCost(FREE_PADS + PAD_COSTS.length)).toBeNull() // yard fully open
+  it('the yard adds up: a 6x6 open grid, every cell fixed or buildable exactly once', () => {
+    expect(GRID).toBe(6)
+    expect(BUILDABLE_CELLS.length + FIXED_PADS.length).toBe(GRID * GRID)
+    expect(BUILDABLE_CELLS).not.toContain(HQ_PAD)
+    expect(BUILDABLE_CELLS).not.toContain(PRINT_SHOP_PAD)
+    expect(new Set(BUILDABLE_CELLS).size).toBe(BUILDABLE_CELLS.length)
+    for (const c of BUILDABLE_CELLS) { expect(c).toBeGreaterThanOrEqual(0); expect(c).toBeLessThan(GRID * GRID) }
   })
 
   it('every building level costs more than the one before it', () => {
@@ -443,7 +437,7 @@ describe('campaign HQ raids (Phase 2 anti-farm math)', () => {
     // no two buildings share a pad, and every pad is a real yard pad
     for (const b of [...low.buildings, ...high.buildings]) {
       expect(b.pad).toBeGreaterThanOrEqual(0)
-      expect(b.pad).toBeLessThan(16)
+      expect(b.pad).toBeLessThan(GRID * GRID)
     }
     expect(new Set(high.buildings.map(b => b.pad)).size).toBe(high.buildings.length)
     expect(botDefenseScore(high.baseLevel)).toBeGreaterThan(botDefenseScore(low.baseLevel))

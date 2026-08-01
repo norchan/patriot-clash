@@ -12,24 +12,20 @@
 export type BuildingType = 'fence' | 'media_tower'
 
 // ── The yard ────────────────────────────────────────────────────────────────
-// 4×4 grid, pad indexes 0..15 laid out row-major. Two pads are FIXED and free:
-// the HQ house and the Print Shop (players already own the farm — it becomes a
-// building). The other 14 are buildable; 6 start unlocked, 8 more are bought
-// with FP in a fixed order (clearing your lot IS progression).
-export const GRID = 4
-export const HQ_PAD = 5          // center-left — the house itself
-export const PRINT_SHOP_PAD = 6  // next to the house
+// 6×6 OPEN grid, cell indexes 0..35 row-major (Michael 2026-07-31: rejected
+// my 16-pad buy-to-unlock version — "your pad idea sucks. Do groks version").
+// Grok's brief: a small open grid, build anywhere. Two cells are FIXED and
+// free — the HQ house and the Print Shop (the farm players already own).
+// Every other cell is buildable from day one; progression is what you BUILD,
+// not land you unlock.
+export const GRID = 6
+export const HQ_PAD = 14          // center — the house itself
+export const PRINT_SHOP_PAD = 15  // next door
 export const FIXED_PADS = [HQ_PAD, PRINT_SHOP_PAD] as const
 
-/** Buildable pads in UNLOCK ORDER: first 6 are free at start, the rest are
- *  purchased left-to-right through this list. Order spirals outward from the
- *  house so an early base clusters around the HQ instead of scattering. */
-export const PAD_UNLOCK_ORDER = [1, 2, 9, 10, 4, 7, 0, 3, 8, 11, 13, 14, 12, 15] as const
-export const FREE_PADS = 6
-
-/** Cost of the Nth purchased pad (0-based past the free ones). Rising — the
- *  15th pad should be a milestone, not pocket change. */
-export const PAD_COSTS = [150, 250, 400, 600, 850, 1100, 1400, 1750] as const
+/** Every buildable cell (the whole lot minus the two fixed ones). */
+export const BUILDABLE_CELLS: readonly number[] =
+  Array.from({ length: GRID * GRID }, (_, i) => i).filter(i => !(FIXED_PADS as readonly number[]).includes(i))
 
 // ── Buildings ───────────────────────────────────────────────────────────────
 export interface BuildingDef {
@@ -79,13 +75,6 @@ export function towerBanked(elapsedSecs: number, level: number): number {
   const rate = TOWER_RATE_BY_LEVEL[Math.max(0, Math.min(TOWER_MAX_LEVEL, level) - 1)] ?? 0
   const intervals = Math.min(TOWER_BANK_INTERVALS, Math.floor(Math.max(0, elapsedSecs) / TOWER_INTERVAL_SECS))
   return intervals * rate
-}
-
-/** Cost to unlock the next pad, or null when the yard is fully open. */
-export function nextPadCost(unlockedCount: number): number | null {
-  const bought = unlockedCount - FREE_PADS
-  if (bought < 0) return PAD_COSTS[0]
-  return bought < PAD_COSTS.length ? PAD_COSTS[bought] : null
 }
 
 export const buildingDef = (t: string): BuildingDef | undefined =>
@@ -164,22 +153,24 @@ function h32(s: string): number {
 export function botBase(botId: string, level: number): BotBase {
   const baseLevel = 1 + Math.min(4, Math.floor(level / 3))
   const seed = h32(botId)
-  const padsOpen = Math.min(PAD_UNLOCK_ORDER.length, FREE_PADS + baseLevel * 2)
+  const cells = BUILDABLE_CELLS
   const buildings: BotBase['buildings'] = []
-  const fences = 1 + baseLevel                 // bigger bot, more fences
-  for (let i = 0; i < fences && i < padsOpen; i++) {
-    buildings.push({ pad: PAD_UNLOCK_ORDER[(seed + i * 7) % padsOpen], type: 'fence', level: Math.min(3, 1 + ((seed >> (i + 2)) % baseLevel)) })
+  // scaled UP for the 6×6 lot: a level-5 bot fills a rich yard (~18 builds),
+  // a level-1 bot has a modest starter patch — the size difference IS the tell
+  const fences = 2 + baseLevel * 2
+  for (let i = 0; i < fences; i++) {
+    buildings.push({ pad: cells[(seed + i * 7) % cells.length], type: 'fence', level: Math.min(3, 1 + ((seed >> (i + 2)) % baseLevel)) })
   }
-  buildings.push({ pad: PAD_UNLOCK_ORDER[(seed + 3) % padsOpen], type: 'media_tower', level: Math.min(3, baseLevel) })
-  // decor pads make big bases LOOK rich (flags, signs — pure rendering)
-  for (let i = 0; i < baseLevel; i++) {
-    buildings.push({ pad: PAD_UNLOCK_ORDER[(seed + 11 + i * 5) % padsOpen], type: 'decor', level: 1 })
+  buildings.push({ pad: cells[(seed + 3) % cells.length], type: 'media_tower', level: Math.min(3, baseLevel) })
+  // decor makes big bases LOOK rich (flags, signs — pure rendering)
+  for (let i = 0; i < 1 + baseLevel; i++) {
+    buildings.push({ pad: cells[(seed + 11 + i * 5) % cells.length], type: 'decor', level: 1 })
   }
   // dedupe by pad, first write wins
   const seen = new Set<number>()
   return {
     baseLevel,
-    padsOpen,
+    padsOpen: cells.length,
     buildings: buildings.filter(b => (seen.has(b.pad) ? false : (seen.add(b.pad), true))),
   }
 }

@@ -3,14 +3,14 @@ import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import {
-  PAD_UNLOCK_ORDER, FREE_PADS, FIXED_PADS, buildingDef, buildingCost,
-  nextPadCost, TOWER_RATE_BY_LEVEL, TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS,
+  GRID, FIXED_PADS, buildingDef, buildingCost,
+  TOWER_RATE_BY_LEVEL, TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS,
   TOWER_MAX_LEVEL, towerBanked,
   PICKUP_INTERVAL_SECS, PICKUP_BANK_CAP, PICKUP_MIN_FP, PICKUP_MAX_FP, pickupsBanked,
 } from '@/config/house'
 
 // CAMPAIGN HQ base — Phase 1 (Michael 2026-07-31).
-// GET  → the whole yard state. POST → build / upgrade / unlock_pad / claim_tower.
+// GET  → the whole yard state. POST → build / upgrade / pickup / claim_tower.
 //
 // Costs are computed HERE from config and passed to atomic SQL functions —
 // the client sends intentions (a pad, a type), never a price. Every mutation
@@ -30,8 +30,6 @@ export async function GET() {
     const sweptElapsed = (Date.now() - +new Date((profile as any).yard_swept_at ?? Date.now())) / 1000
     const shieldUntil = (profile as any).house_shield_until
     return NextResponse.json({
-      pads_unlocked: (profile as any).house_pads ?? FREE_PADS,
-      next_pad_cost: nextPadCost((profile as any).house_pads ?? FREE_PADS),
       trophies: (profile as any).house_trophies ?? 0,
       shield_until: shieldUntil && new Date(shieldUntil) > new Date() ? shieldUntil : null,
       pickups: pickupsBanked(sweptElapsed),
@@ -59,16 +57,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const action = body?.action
 
-    const unlocked: number = (profile as any).house_pads ?? FREE_PADS
-    // the set of pad indexes this player may build on today
-    const openPads = new Set<number>(PAD_UNLOCK_ORDER.slice(0, unlocked))
-
     if (action === 'build') {
       const pad = Number(body.pad)
       const def = buildingDef(String(body.type ?? ''))
       if (!def) return NextResponse.json({ error: 'Unknown building' }, { status: 400 })
-      if (!Number.isInteger(pad) || (FIXED_PADS as readonly number[]).includes(pad) || !openPads.has(pad)) {
-        return NextResponse.json({ error: 'That pad is not open' }, { status: 400 })
+      // open 6×6 grid: any cell that isn't the house or the print shop
+      if (!Number.isInteger(pad) || pad < 0 || pad >= GRID * GRID || (FIXED_PADS as readonly number[]).includes(pad)) {
+        return NextResponse.json({ error: 'That spot is not buildable' }, { status: 400 })
       }
       const cost = buildingCost(def.type, 1)!
       const { error } = await admin.rpc('house_build', {
@@ -111,25 +106,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Could not upgrade' }, { status: 500 })
       }
       return NextResponse.json({ ok: true, spent: cost, level: b.level + 1 })
-    }
-
-    if (action === 'unlock_pad') {
-      const cost = nextPadCost(unlocked)
-      if (cost == null) return NextResponse.json({ error: 'The whole yard is yours already' }, { status: 400 })
-      const { error } = await admin.rpc('house_unlock_pad', {
-        p_profile_id: profile.id, p_expected_count: unlocked, p_cost: cost,
-      })
-      if (error) {
-        if (error.message.includes('INSUFFICIENT_FP')) {
-          return NextResponse.json({ error: 'INSUFFICIENT_FP', message: `Need ${cost} FP to clear that pad` }, { status: 400 })
-        }
-        if (error.message.includes('UNLOCK_CONFLICT')) {
-          return NextResponse.json({ error: 'Try again' }, { status: 409 })
-        }
-        console.error('house_unlock_pad failed:', error)
-        return NextResponse.json({ error: 'Could not unlock' }, { status: 500 })
-      }
-      return NextResponse.json({ ok: true, spent: cost, pads_unlocked: unlocked + 1 })
     }
 
     if (action === 'pickup') {
