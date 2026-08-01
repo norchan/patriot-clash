@@ -345,8 +345,8 @@ import {
 } from '@/config/house'
 
 describe('campaign HQ base (Phase 1)', () => {
-  it('the yard adds up: a 6x6 open grid, every cell fixed or buildable exactly once', () => {
-    expect(GRID).toBe(6)
+  it('the yard adds up: a 10x10 open grid, every cell fixed or buildable exactly once', () => {
+    expect(GRID).toBe(10)
     expect(BUILDABLE_CELLS.length + FIXED_PADS.length).toBe(GRID * GRID)
     expect(BUILDABLE_CELLS).not.toContain(HQ_PAD)
     expect(BUILDABLE_CELLS).not.toContain(PRINT_SHOP_PAD)

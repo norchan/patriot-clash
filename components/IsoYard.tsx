@@ -42,6 +42,8 @@ export interface IsoCellSpec {
   /** show a tappable grass plot diamond under/instead of a sprite */
   plot?: boolean
   img?: string
+  /** second sprite drawn UNDER img at the same anchor — fence corners */
+  img2?: string
   /** sprite width in logical px */
   imgW?: number
   emoji?: string
@@ -278,6 +280,17 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets }:
                     top: -6, width: (c.imgW ?? 120) * 0.8, height: 26,
                     background: 'radial-gradient(ellipse, rgba(0,0,0,0.35), transparent 70%)',
                     transform: 'translateX(-50%)',
+                  }} />
+              )}
+              {/* corner underlay (fences meeting from both axes) */}
+              {c.img2 && !c.dead && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.img2} alt="" className="absolute max-w-none pointer-events-none"
+                  style={{
+                    width: c.imgW ?? 120,
+                    left: 0, top: TILE_H * 0.28,
+                    transform: 'translate(-50%, -100%)',
+                    filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
                   }} />
               )}
               {/* the sprite itself — anchored to the diamond's base */}

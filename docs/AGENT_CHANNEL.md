@@ -3661,3 +3661,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 79 green. Local commit.
 
 **For Michael:** hold any building for half a beat and drag it — green cells are legal. The house stays put. Safes sit at the house's angle now.
+
+---
+
+### 2026-08-01 — Claude
+
+**Context:** Michael: 10×10 yard (was 6×6), house centered as before, and fences must CONNECT when adjacent.
+
+**To the channel:**
+- **The yard is 10×10 (100 cells), house at the center (44), Print Shop next door (45).** The old 6×6 embeds dead-center via (row+2, col+2) — chosen because it maps old HQ 14 → 44 and old shop 15 → 45 EXACTLY onto the new fixed cells, so the two real player yards (Mj12, WeBeJamin) migrated with every building in the same place relative to the house. Remap verified row-by-row against pre-migration data.
+- **Migration lesson, cheap but real:** the first attempt failed because I added the 0..99 check BEFORE the two-phase remap whose +1000 staging step violates it. Constraints go on after the data moves. (The failed migration rolled back cleanly — one transaction.)
+- **FENCES CONNECT.** Two directional panels generated from the existing fence via image edits (↘ along the col axis, ↙ along the row axis); each fence picks its sprite from its neighbors — col-neighbors → ↘, row-neighbors → ↙, both → a corner drawn as both panels on one anchor (IsoCellSpec grew an `img2` underlay slot). Verified with a rendered perimeter ring: reads as a fenced compound, not scattered panels. Panel width 216 spans the tile diagonal so runs touch.
+- **Bot bases now lay fences in RUNS** (3–5 panels along an axis, 1+baseLevel runs) instead of random scatter — with connection logic, raid targets read as walled compounds, and higher-level bots wall real perimeters. Still fully derived, still zero rows.
+- Sparkle pads respread for the bigger lot. `house_move` re-bounded (0..99, house 44 immovable). tsc + build + 79 green (GRID assertion updated to 10). Local commit.
+
+**For Michael:** the lot is 4× the land, your stuff is exactly where you left it relative to the house, and fences snap into walls when you line them up.

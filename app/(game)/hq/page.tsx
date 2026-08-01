@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Trophy, Music, VolumeX } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import {
-  HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
+  GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
   safeImage,
@@ -49,7 +49,7 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
 }
 
 // sparkle pickups live on fixed pads so a refresh doesn't shuffle them
-const SPARKLE_PADS = [3, 21, 33, 9, 26]
+const SPARKLE_PADS = [12, 37, 58, 73, 86]
 
 export default function HqPage() {
   const router = useRouter()
@@ -157,9 +157,22 @@ export default function HqPage() {
   const builtOn = new Map((house?.buildings ?? []).map(b => [b.pad, b]))
   const hasOf = (t: string) => (house?.buildings ?? []).some(b => b.type === t)
 
+  // fences CONNECT: pick each panel's sprite from its fence neighbors —
+  // col-neighbors run the ↘ panel, row-neighbors the ↙ one, both = a corner
+  const fencePads = new Set([...builtOn.values()].filter(b => b.type === 'fence').map(b => b.pad))
+  const fenceSprites = (pad: number) => {
+    const col = pad % GRID, row = Math.floor(pad / GRID)
+    const colN = (col > 0 && fencePads.has(pad - 1)) || (col < GRID - 1 && fencePads.has(pad + 1))
+    const rowN = (row > 0 && fencePads.has(pad - GRID)) || (row < GRID - 1 && fencePads.has(pad + GRID))
+    if (colN && rowN) return { img: '/house/fence_se.png', img2: '/house/fence_sw.png' }
+    if (colN) return { img: '/house/fence_se.png' }
+    if (rowN) return { img: '/house/fence_sw.png' }
+    return { img: '/house/fence.png' }
+  }
+
   // ── map game state onto the iso stage ──────────────────────────────────────
   const cells: IsoCellSpec[] = []
-  for (let pad = 0; pad < 36; pad++) {
+  for (let pad = 0; pad < GRID * GRID; pad++) {
     if (pad === HQ_PAD) {
       cells.push({
         pad, img: hqImage(house?.hq_level ?? 1), imgW: 198,
@@ -186,9 +199,13 @@ export default function HqPage() {
       const sp = SPRITES[b.type]
       const banked = b.type === 'media_tower' ? (house?.tower?.banked ?? 0) : 0
       const stored = b.type === 'safe' ? (house?.safe?.stored ?? 0) : 0
+      const fenceArt = b.type === 'fence' ? fenceSprites(pad) : null
       cells.push({
         pad, movable: true,
-        img: sp?.img(b.level), imgW: sp?.w, emoji: sp ? undefined : buildingDef(b.type)?.emoji,
+        img: fenceArt ? fenceArt.img : sp?.img(b.level),
+        img2: fenceArt?.img2,
+        imgW: fenceArt ? 216 : sp?.w,  // panels span the tile diagonal so runs touch
+        emoji: sp ? undefined : buildingDef(b.type)?.emoji,
         glow: banked > 0,
         onTap: () => setSheet({ pad, building: b }),
         chip: b.upgrade
@@ -210,7 +227,7 @@ export default function HqPage() {
   // every empty cell is a legal landing spot (not the house, not occupied)
   const psPad = house?.print_shop_pad ?? PRINT_SHOP_PAD
   const validTargets = new Set<number>()
-  for (let pad = 0; pad < 36; pad++) {
+  for (let pad = 0; pad < GRID * GRID; pad++) {
     if (pad === HQ_PAD || pad === psPad || builtOn.has(pad)) continue
     validTargets.add(pad)
   }

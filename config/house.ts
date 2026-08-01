@@ -12,15 +12,14 @@
 export type BuildingType = 'fence' | 'media_tower' | 'safe'
 
 // ── The yard ────────────────────────────────────────────────────────────────
-// 6×6 OPEN grid, cell indexes 0..35 row-major (Michael 2026-07-31: rejected
-// my 16-pad buy-to-unlock version — "your pad idea sucks. Do groks version").
-// Grok's brief: a small open grid, build anywhere. Two cells are FIXED and
-// free — the HQ house and the Print Shop (the farm players already own).
-// Every other cell is buildable from day one; progression is what you BUILD,
-// not land you unlock.
-export const GRID = 6
-export const HQ_PAD = 14          // center — the house itself
-export const PRINT_SHOP_PAD = 15  // next door
+// 10×10 OPEN grid, cell indexes 0..99 row-major (Michael 2026-07-31 — grew
+// from Grok's 6×6; the old yard embeds dead-center at (row+2, col+2), which
+// the grid-widening migration applied to every stored pad). Two cells are
+// FIXED and free — the HQ house (center) and the Print Shop next door.
+// Everything else is buildable from day one.
+export const GRID = 10
+export const HQ_PAD = 44          // center — the house itself
+export const PRINT_SHOP_PAD = 45  // next door
 export const FIXED_PADS = [HQ_PAD, PRINT_SHOP_PAD] as const
 
 /** Every buildable cell (the whole lot minus the two fixed ones). */
@@ -227,11 +226,23 @@ export function botBase(botId: string, level: number): BotBase {
   const seed = h32(botId)
   const cells = BUILDABLE_CELLS
   const buildings: BotBase['buildings'] = []
-  // scaled UP for the 6×6 lot: a level-5 bot fills a rich yard (~18 builds),
-  // a level-1 bot has a modest starter patch — the size difference IS the tell
-  const fences = 2 + baseLevel * 2
-  for (let i = 0; i < fences; i++) {
-    buildings.push({ pad: cells[(seed + i * 7) % cells.length], type: 'fence', level: Math.min(3, 1 + ((seed >> (i + 2)) % baseLevel)) })
+  // Fences lay in RUNS so they CONNECT (fence panels link when adjacent) —
+  // bot compounds read as fenced yards, not scattered panels. Runs scale with
+  // level; a level-5 bot walls a real perimeter.
+  const runs = 1 + baseLevel
+  for (let r = 0; r < runs; r++) {
+    const len = 3 + ((seed >> (r * 3)) % 3)          // 3-5 panels per run
+    const alongCols = ((seed >> r) & 1) === 0        // alternate axes
+    let row = 1 + ((seed >> (r * 2)) % (GRID - 2))
+    let col = 1 + ((seed >> (r * 2 + 5)) % (GRID - 2))
+    for (let i = 0; i < len; i++) {
+      const pad = row * GRID + col
+      if (pad >= 0 && pad < GRID * GRID && !(FIXED_PADS as readonly number[]).includes(pad)) {
+        buildings.push({ pad, type: 'fence', level: Math.min(3, 1 + ((seed >> (r + 2)) % baseLevel)) })
+      }
+      if (alongCols) col++; else row++
+      if (col >= GRID || row >= GRID) break
+    }
   }
   buildings.push({ pad: cells[(seed + 3) % cells.length], type: 'media_tower', level: Math.min(3, baseLevel) })
   buildings.push({ pad: cells[(seed + 17) % cells.length], type: 'safe', level: Math.min(5, baseLevel) })
