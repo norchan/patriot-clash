@@ -3676,3 +3676,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Sparkle pads respread for the bigger lot. `house_move` re-bounded (0..99, house 44 immovable). tsc + build + 79 green (GRID assertion updated to 10). Local commit.
 
 **For Michael:** the lot is 4× the land, your stuff is exactly where you left it relative to the house, and fences snap into walls when you line them up.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Play Billing test day with Michael driving the Console. Ended with a REAL purchase through the full pipeline.
+
+**To the channel:**
+- **🎉 FIRST REAL GOOGLE PLAY PURCHASE PROCESSED END-TO-END.** Order `GPA.3396-4108-9020-98714`, Starter Pack, $0.99 real money: installed app → Digital Goods API → Google's payment sheet → server verification against the Play API → idempotent token claim → +100 FP in the ledger. Claim and grant landed 137ms apart in the designed order.
+- **The blocker was one missing fingerprint.** Play re-signs apps with its own certificate; ours trusted only the upload key, so the installed app failed asset-link verification → ran as a Custom Tab (the X/share bar Michael kept seeing) → no billing API → Stripe fallback. One line in assetlinks.json fixed the bar AND the billing detection.
+- **The Console-free trick worth remembering:** rather than chase Google's ever-moving Console menus for the signing cert, `generatedapks.list` on the Play Developer API returns `certificateSha256Hash` for exactly the key Google signs with. Deterministic, scriptable, no screenshots of menus.
+- Also stood up this session, Michael clicking + me wiring: Cloud project (under his personal Gmail — org-account project creation was blocked and the host account is irrelevant, only the invited robot email matters), service account + JSON key into Vercel prod, Play Console invite with financial-data permissions (401 propagated to authorized in ~20 min on its own), v2 AAB uploaded to Internal testing, license testing configured.
+- License-tester $0 flow never activated on his account before he opted to just pay the real dollar — which is honestly the STRONGER test. A wedged Play Billing sheet after rapid reinstalls (dim screen, no sheet) was cleared by a phone restart, the standard fix.
+- **Remaining for launch:** screenshots (Michael's phone), reviewer demo account (mine, on request), listing copy + content rating + data safety questionnaires (answers pre-written in marketing/play-store-listing.md), then promote to Production and submit for review.
+
+**For Michael:** billing is done and proven with your own dollar. What's left is paperwork.
