@@ -65,6 +65,49 @@ export function padAt(x: number, y: number): number | null {
   return row * GRID + col
 }
 
+/** CONNECTED FENCES, done as geometry instead of guesswork (Michael
+ *  2026-08-04: "they definitely don't connect... too large"). Each fence CELL
+ *  renders only a slim post at its anchor; this component draws the panels
+ *  BRIDGING every pair of adjacent fence cells. Instead of hoping generated
+ *  art matches the grid's 2:1 diagonal (it never did — that's why runs
+ *  zigzagged), the plain FRONT-FACING panel is CSS-sheared onto the diagonal:
+ *  verticals stay upright, the baseline follows the exact anchor-to-anchor
+ *  slope, so runs connect pixel-perfectly and corners just meet at the shared
+ *  post. Render as a child of IsoYard so it lives in stage coordinates. */
+const LINK_W = 112   // x-span 112 vs 92 between anchors → overlap hides under posts
+const LINK_H = 64
+export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
+  const links: Array<{ key: string; x: number; y: number; depth: number; shear: 1 | -1 }> = []
+  for (const pad of fencePads) {
+    const col = pad % GRID, row = Math.floor(pad / GRID)
+    // only look "forward" (E and S) so each pair links exactly once
+    if (col < GRID - 1 && fencePads.has(pad + 1)) {
+      const a = isoPos(pad), b = isoPos(pad + 1)
+      links.push({ key: `${pad}e`, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, depth: Math.max(a.depth, b.depth), shear: 1 })
+    }
+    if (row < GRID - 1 && fencePads.has(pad + GRID)) {
+      const a = isoPos(pad), b = isoPos(pad + GRID)
+      links.push({ key: `${pad}s`, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, depth: Math.max(a.depth, b.depth), shear: -1 })
+    }
+  }
+  return (
+    <>
+      {links.map(l => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={l.key} src="/house/fence.png" alt="" className="absolute max-w-none pointer-events-none"
+          style={{
+            width: LINK_W, height: LINK_H,
+            left: l.x - LINK_W / 2, top: l.y + TILE_H * 0.28 - LINK_H,
+            transform: `matrix(1, ${l.shear * 0.5}, 0, 1, 0, 0)`,
+            transformOrigin: '50% 100%',
+            zIndex: l.depth * 10 + 2,
+            filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))',
+          }} />
+      ))}
+    </>
+  )
+}
+
 export default function IsoYard({ cells, bg, children, onMove, validTargets }:
   { cells: IsoCellSpec[]; bg?: string; children?: ReactNode
     /** called after a successful drag-and-drop */
@@ -258,8 +301,11 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets }:
               {/* the plot diamond — tap target + subtle ground marking */}
               {(c.plot || c.onTap) && (
                 <button onClick={c.onTap} disabled={!c.onTap}
+                  // hold-to-drag works from the whole diamond, not just the
+                  // sprite — fences are now a slim post, too thin to grab
+                  onPointerDown={c.movable && onMove ? (e => beginHold(c.pad, e)) : undefined}
                   className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ width: TILE_W, height: TILE_H }}>
+                  style={{ width: TILE_W, height: TILE_H, touchAction: c.movable && onMove ? 'none' : undefined }}>
                   {c.plot && (
                     <span className="absolute inset-1 rounded-[50%/50%] border transition"
                       style={{

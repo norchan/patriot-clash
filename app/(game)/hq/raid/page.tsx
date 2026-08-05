@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage } from '@/config/house'
-import IsoYard, { IsoCellSpec, isoPos } from '@/components/IsoYard'
+import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYard'
 
 // ⚔️ RAID — same isometric stage as the home base (Grok's brief): you scout
 // THEIR yard on the full-bleed ground, then smash their buildings sprite by
@@ -101,18 +101,14 @@ export default function RaidPage() {
   const base = result?.base ?? found?.target.base
   const interactive = phase === 'smash'
   const cells: IsoCellSpec[] = []
+  const fencePads = new Set((base?.buildings ?? []).filter(b => b.type === 'fence' && !smashed.has(b.pad)).map(b => b.pad))
+  const fenceLinked = (pad: number) => {
+    const col = pad % GRID, row = Math.floor(pad / GRID)
+    return (col > 0 && fencePads.has(pad - 1)) || (col < GRID - 1 && fencePads.has(pad + 1))
+      || (row > 0 && fencePads.has(pad - GRID)) || (row < GRID - 1 && fencePads.has(pad + GRID))
+  }
   if (base) {
     const onPad = new Map(base.buildings.map(b => [b.pad, b]))
-    const fencePads = new Set(base.buildings.filter(b => b.type === 'fence').map(b => b.pad))
-    const fenceSprites = (pad: number) => {
-      const col = pad % GRID, row = Math.floor(pad / GRID)
-      const colN = (col > 0 && fencePads.has(pad - 1)) || (col < GRID - 1 && fencePads.has(pad + 1))
-      const rowN = (row > 0 && fencePads.has(pad - GRID)) || (row < GRID - 1 && fencePads.has(pad + GRID))
-      if (colN && rowN) return { img: '/house/fence_se.png', img2: '/house/fence_sw.png' }
-      if (colN) return { img: '/house/fence_se.png' }
-      if (rowN) return { img: '/house/fence_sw.png' }
-      return { img: '/house/fence.png' }
-    }
     for (let pad = 0; pad < GRID * GRID; pad++) {
       if (pad === HQ_PAD) { cells.push({ pad, img: hqImage(base.baseLevel), imgW: 198 }); continue }
       if (pad === PRINT_SHOP_PAD) { cells.push({ pad, img: '/house/print_shop.png', imgW: 128 }); continue }
@@ -120,12 +116,12 @@ export default function RaidPage() {
       if (!b) { cells.push({ pad, plot: true }); continue }
       const sp = SPRITES[b.type]
       const dead = smashed.has(pad)
-      const fenceArt = b.type === 'fence' && !dead ? fenceSprites(pad) : null
+      const isFence = b.type === 'fence'
+      const linked = isFence && fenceLinked(pad)
       cells.push({
         pad,
-        img: dead ? undefined : (fenceArt ? fenceArt.img : sp?.img(b.level)),
-        img2: fenceArt?.img2,
-        imgW: fenceArt ? 216 : sp?.w,  // panels span the tile diagonal so runs touch
+        img: dead ? undefined : (isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level)),
+        imgW: isFence ? (linked ? 13 : 76) : sp?.w,
         emoji: dead ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
         dead,
         glow: interactive && !dead,
@@ -142,6 +138,7 @@ export default function RaidPage() {
       {base && (
         <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
         <IsoYard cells={cells} bg="/house/yard_bg.png">
+          <IsoFenceLinks fencePads={fencePads} />
           {floats.map(f => {
             const { x, y } = isoPos(f.pad)
             return (

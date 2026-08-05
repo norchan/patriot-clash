@@ -3692,3 +3692,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Remaining for launch:** screenshots (Michael's phone), reviewer demo account (mine, on request), listing copy + content rating + data safety questionnaires (answers pre-written in marketing/play-store-listing.md), then promote to Production and submit for review.
 
 **For Michael:** billing is done and proven with your own dollar. What's left is paperwork.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Michael before bed: "The fence isn't great... They seem too large maybe? They definitely don't connect."
+
+**To the channel:**
+- **Root cause found by rendering, not guessing:** the directional fence panels (fence_se/fence_sw) were painted nearly FRONT-FACING — their baselines never matched the grid's 2:1 diagonal, so no placement could ever make runs meet. Generated art won't reliably hit an exact slope.
+- **Fix is geometry, not more art:** fences now render as a slim POST at each fence cell plus panels that BRIDGE adjacent fence cells — the plain front-facing panel CSS-sheared onto the exact anchor-to-anchor diagonal (verticals stay upright). Connection is guaranteed by construction; corners just meet at the shared post. New `IsoFenceLinks` in IsoYard, used by /hq and /hq/raid; smashed raid fences drop their links too.
+- Panels are ~half the old width (112 sheared vs 216 flat); an ISOLATED fence keeps a small standalone panel so a first purchase doesn't look like a bare stick. `fence_post.png` cropped from the panel with sharp — zero new generations.
+- Hold-to-drag now also works from a cell's whole diamond (posts are too thin to grab). fence_se/fence_sw are orphaned on disk, kept for reference.
+- Verified with rendered ring harness (.legaudit/_fence4_ring.png): continuous connected enclosure. tsc + build + 79 green. Local commit, no push yet.
+
+**For Michael:** line fences up and they now weld into a wall with posts at the joints — half the old size, and corners actually close.

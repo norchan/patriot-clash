@@ -10,7 +10,7 @@ import {
   safeImage,
 } from '@/config/house'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
-import IsoYard, { IsoCellSpec, isoPos } from '@/components/IsoYard'
+import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYard'
 
 // 🏠 CAMPAIGN HQ — the personal base, ISOMETRIC (Grok's presentation brief,
 // 2026-07-31: "must feel like CoC — not a flat CSS grid of emoji"). The 6×6
@@ -157,17 +157,13 @@ export default function HqPage() {
   const builtOn = new Map((house?.buildings ?? []).map(b => [b.pad, b]))
   const hasOf = (t: string) => (house?.buildings ?? []).some(b => b.type === t)
 
-  // fences CONNECT: pick each panel's sprite from its fence neighbors —
-  // col-neighbors run the ↘ panel, row-neighbors the ↙ one, both = a corner
+  // fences: the CELL renders only a small post — IsoFenceLinks draws the
+  // panels bridging adjacent fences, so runs connect by construction
   const fencePads = new Set([...builtOn.values()].filter(b => b.type === 'fence').map(b => b.pad))
-  const fenceSprites = (pad: number) => {
+  const fenceLinked = (pad: number) => {
     const col = pad % GRID, row = Math.floor(pad / GRID)
-    const colN = (col > 0 && fencePads.has(pad - 1)) || (col < GRID - 1 && fencePads.has(pad + 1))
-    const rowN = (row > 0 && fencePads.has(pad - GRID)) || (row < GRID - 1 && fencePads.has(pad + GRID))
-    if (colN && rowN) return { img: '/house/fence_se.png', img2: '/house/fence_sw.png' }
-    if (colN) return { img: '/house/fence_se.png' }
-    if (rowN) return { img: '/house/fence_sw.png' }
-    return { img: '/house/fence.png' }
+    return (col > 0 && fencePads.has(pad - 1)) || (col < GRID - 1 && fencePads.has(pad + 1))
+      || (row > 0 && fencePads.has(pad - GRID)) || (row < GRID - 1 && fencePads.has(pad + GRID))
   }
 
   // ── map game state onto the iso stage ──────────────────────────────────────
@@ -199,12 +195,14 @@ export default function HqPage() {
       const sp = SPRITES[b.type]
       const banked = b.type === 'media_tower' ? (house?.tower?.banked ?? 0) : 0
       const stored = b.type === 'safe' ? (house?.safe?.stored ?? 0) : 0
-      const fenceArt = b.type === 'fence' ? fenceSprites(pad) : null
+      const isFence = b.type === 'fence'
+      const linked = isFence && fenceLinked(pad)
       cells.push({
         pad, movable: true,
-        img: fenceArt ? fenceArt.img : sp?.img(b.level),
-        img2: fenceArt?.img2,
-        imgW: fenceArt ? 216 : sp?.w,  // panels span the tile diagonal so runs touch
+        // linked fences show only the joint post (IsoFenceLinks draws the
+        // panels); a lone fence keeps a small panel so it reads as a fence
+        img: isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level),
+        imgW: isFence ? (linked ? 13 : 76) : sp?.w,
         emoji: sp ? undefined : buildingDef(b.type)?.emoji,
         glow: banked > 0,
         onTap: () => setSheet({ pad, building: b }),
@@ -249,6 +247,7 @@ export default function HqPage() {
       {/* the yard stops above the bottom nav — the bar stays (Michael) */}
       <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
       <IsoYard cells={cells} bg="/house/yard_bg.png" onMove={moveBuilding} validTargets={validTargets}>
+        <IsoFenceLinks fencePads={fencePads} />
         {/* sparkle pickups + their pops, in stage coordinates */}
         {sparkles.map(pad => {
           const { x, y, depth } = isoPos(pad)
