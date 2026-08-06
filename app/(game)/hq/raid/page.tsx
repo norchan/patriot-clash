@@ -11,7 +11,7 @@ import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYar
 // sprite. The server settled damage/loot/trophies before the first tap —
 // everything after RAID is choreography over decided numbers.
 
-interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number }>; print_shop_pad?: number }
+interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number; facing?: number }>; print_shop_pad?: number }
 interface Target { id: string; username: string; party: string; level: number; base_level: number; base: TargetBase }
 interface Found { target: Target; cost: number; loot_min: number; loot_max: number }
 interface Result { damage_pct: number; loot: number; trophies: number; base: TargetBase; defender: { username: string; party: string } }
@@ -122,6 +122,7 @@ export default function RaidPage() {
         pad,
         img: dead ? undefined : (isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level)),
         imgW: isFence ? (linked ? 13 : 76) : sp?.w,
+        mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: dead ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
         dead,
         glow: interactive && !dead,

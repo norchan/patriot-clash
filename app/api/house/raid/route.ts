@@ -24,7 +24,7 @@ async function defenderInfo(admin: any, p: { id: string; clerk_user_id: string; 
     return { isBot, level, base: { ...base, print_shop_pad: 15 }, defense: botDefenseScore(base.baseLevel), baseLevel: base.baseLevel }
   }
   const { data: buildings } = await admin.from('house_buildings')
-    .select('pad, type, level').eq('profile_id', p.id)
+    .select('pad, type, level, facing').eq('profile_id', p.id)
   // the HOUSE level IS the human base level — upgrading it raises defense
   const baseLevel = Math.max(1, Math.min(5, p.hq_level ?? 1))
   return {

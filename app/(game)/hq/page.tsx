@@ -21,7 +21,7 @@ import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYar
 
 interface Farm { ready: number; next_in_secs: number | null; rate_hours: number; cap: number }
 interface Upgrade { to: number; done_at: string; rush_cost: number }
-interface Building { pad: number; type: string; level: number; upgrade?: Upgrade | null }
+interface Building { pad: number; type: string; level: number; facing?: number; upgrade?: Upgrade | null }
 interface Tower { level: number; banked: number; next_in_secs: number; rate: number; interval_hours: number }
 interface House {
   print_shop_pad?: number
@@ -56,7 +56,10 @@ export default function HqPage() {
   const { profile, refetch } = useProfile()
   const [farm, setFarm] = useState<Farm | null>(null)
   const [house, setHouse] = useState<House | null>(null)
-  const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean } | null>(null)
+  const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean; ps?: boolean } | null>(null)
+  // menu-driven MOVE MODE (long-press drag fought Chrome's context menu):
+  // the pad currently being moved, or null
+  const [moving, setMoving] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -183,7 +186,7 @@ export default function HqPage() {
       const ready = (farm?.ready ?? 0) > 0
       cells.push({
         pad, img: '/house/print_shop.png', imgW: 128, movable: true,
-        glow: ready, onTap: ready ? claimFarm : undefined,
+        glow: ready, onTap: ready ? claimFarm : () => setSheet({ pad, ps: true }),
         chip: ready
           ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-amber-400 text-black animate-bounce">🧨 CLAIM {farm!.ready}</span>
           : farm ? <span className="text-[10px] font-bold px-1 rounded bg-black/45 text-gray-300">🧨 in {Math.max(1, Math.ceil((farm.next_in_secs ?? 0) / 60))}m</span> : undefined,
@@ -203,6 +206,7 @@ export default function HqPage() {
         // panels); a lone fence keeps a small panel so it reads as a fence
         img: isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level),
         imgW: isFence ? (linked ? 13 : 76) : sp?.w,
+        mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: sp ? undefined : buildingDef(b.type)?.emoji,
         glow: banked > 0,
         onTap: () => setSheet({ pad, building: b }),
@@ -229,6 +233,18 @@ export default function HqPage() {
     if (pad === HQ_PAD || pad === psPad || builtOn.has(pad)) continue
     validTargets.add(pad)
   }
+  // optimistic quarter-turn; the server owns the persisted value
+  async function rotateBuilding(pad: number) {
+    setHouse(h => h ? { ...h, buildings: h.buildings.map(b => b.pad === pad ? { ...b, facing: ((b.facing ?? 0) + 1) % 4 } : b) } : h)
+    try {
+      const res = await fetch('/api/house', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rotate', pad }),
+      })
+      if (!res.ok) load()
+      else { try { navigator.vibrate?.(10) } catch {} }
+    } catch { load() }
+  }
   async function moveBuilding(from: number, to: number) {
     try {
       const res = await fetch('/api/house', {
@@ -246,7 +262,8 @@ export default function HqPage() {
     <div className="fixed inset-0 z-[60] bg-[#0d1512] text-gray-200 select-none">
       {/* the yard stops above the bottom nav — the bar stays (Michael) */}
       <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
-      <IsoYard cells={cells} bg="/house/yard_bg.png" onMove={moveBuilding} validTargets={validTargets}>
+      <IsoYard cells={cells} bg="/house/yard_bg.png" validTargets={validTargets} movingFrom={moving}
+        onMove={(f, t) => { setMoving(null); moveBuilding(f, t) }}>
         <IsoFenceLinks fencePads={fencePads} />
         {/* sparkle pickups + their pops, in stage coordinates */}
         {sparkles.map(pad => {
@@ -283,19 +300,36 @@ export default function HqPage() {
           🛡️ Shielded until {new Date(house.shield_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
         </div>
       )}
-      <div className="absolute right-3 z-[70]" style={{ bottom: '5.5rem' }}>
+      {moving != null && (() => {
+        const mb = builtOn.get(moving)
+        const name = mb ? buildingDef(mb.type)?.name ?? 'Building' : 'Print Shop'
+        return (
+          <div className="absolute left-1/2 -translate-x-1/2 z-[80] flex items-center gap-2 whitespace-nowrap" style={{ bottom: '5.5rem' }}>
+            <span className="px-3 py-2.5 rounded-xl bg-black/75 backdrop-blur text-white text-xs font-bold shadow-xl">
+              Moving {name} — tap a green square
+            </span>
+            {mb && (
+              <button onClick={() => rotateBuilding(moving)}
+                className="w-11 h-11 rounded-xl bg-amber-400 text-black text-xl shadow-xl active:scale-90 active:rotate-90 transition-transform">🔄</button>
+            )}
+            <button onClick={() => setMoving(null)}
+              className="w-11 h-11 rounded-xl bg-gray-800 border border-gray-600 text-white font-black shadow-xl active:scale-90">✕</button>
+          </div>
+        )
+      })()}
+      {moving == null && <div className="absolute right-3 z-[70]" style={{ bottom: '5.5rem' }}>
         <button onClick={() => router.push('/hq/raid')}
           className="px-6 py-3.5 rounded-2xl font-black text-white text-base shadow-xl active:scale-95"
           style={{ background: 'linear-gradient(135deg,#dc2626,#7c2d12)' }}>
           ⚔️ FIND A RAID
         </button>
-      </div>
-      <div className="absolute left-3 z-[70]" style={{ bottom: '5.5rem' }}>
+      </div>}
+      {moving == null && <div className="absolute left-3 z-[70]" style={{ bottom: '5.5rem' }}>
         <button onClick={() => router.push('/collection')}
           className="px-4 py-3.5 rounded-2xl font-black text-sm bg-black/50 backdrop-blur text-white flex items-center gap-2 active:scale-95">
           <Trophy size={16} style={{ color: tint }} /> Collection
         </button>
-      </div>
+      </div>}
 
       {/* build / manage sheet */}
       {sheet && (
@@ -345,7 +379,16 @@ export default function HqPage() {
                   )}
                 </>
               )
-            })() : sheet.building ? (() => {
+            })() : sheet.ps ? (
+              <>
+                <p className="text-white font-black text-lg">🧨 Print Shop</p>
+                <p className="text-gray-500 text-xs mt-1">Cranks out pamphlet bundles on its own — come back and claim them.</p>
+                <button onClick={() => { setMoving(sheet.pad); setSheet(null) }}
+                  className="mt-3 w-full py-2.5 rounded-xl font-black text-white bg-gray-800 border border-gray-700 hover:border-gray-500">
+                  📦 MOVE — pick a new spot
+                </button>
+              </>
+            ) : sheet.building ? (() => {
               const def = buildingDef(sheet.building!.type)!
               const isTower = def.type === 'media_tower'
               const isSafe = def.type === 'safe'
@@ -355,6 +398,10 @@ export default function HqPage() {
                 <>
                   <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-gray-500 text-sm">Lv {sheet.building!.level}</span></p>
                   <p className="text-gray-500 text-xs mt-1">{def.desc}</p>
+                  <button onClick={() => { setMoving(sheet.pad); setSheet(null) }}
+                    className="mt-3 w-full py-2.5 rounded-xl font-black text-white bg-gray-800 border border-gray-700 hover:border-gray-500">
+                    📦 MOVE — pick a new spot, rotate while you're at it
+                  </button>
                   {isSafe && house?.safe && (() => {
                     const st = house.safe!
                     const pct = Math.min(100, Math.round((st.stored / Math.max(1, st.capacity)) * 100))

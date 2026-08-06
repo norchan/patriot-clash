@@ -30,7 +30,7 @@ export async function GET() {
       .eq('id', profile.id).single()
     const { data: buildings } = await admin
       .from('house_buildings')
-      .select('pad, type, level, claimed_at, upgrading_to, upgrade_done_at')
+      .select('pad, type, level, facing, claimed_at, upgrading_to, upgrade_done_at')
       .eq('profile_id', profile.id)
 
     const tower = (buildings ?? []).find(b => b.type === 'media_tower')
@@ -60,7 +60,7 @@ export async function GET() {
         capacity: safeCapacity(safeB.level),
       } : null,
       buildings: (buildings ?? []).map(b => ({
-        pad: b.pad, type: b.type, level: b.level, claimed_at: b.claimed_at,
+        pad: b.pad, type: b.type, level: b.level, facing: b.facing ?? 0, claimed_at: b.claimed_at,
         upgrade: (b.upgrading_to && b.upgrade_done_at)
           ? quote(b.upgrading_to, b.upgrade_done_at, false, buildingCost(b.type, b.upgrading_to) ?? 0)
           : null,
@@ -216,6 +216,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Could not move' }, { status: 500 })
       }
       return NextResponse.json({ ok: true })
+    }
+
+    if (action === 'rotate') {
+      // quarter-turn a building (move-mode 🔄 button). Pure cosmetics — no FP,
+      // no RPC needed; ownership enforced by the profile_id filter.
+      const pad = Number(body.pad)
+      if (!Number.isInteger(pad)) return NextResponse.json({ error: 'pad required' }, { status: 400 })
+      const { data: b } = await admin.from('house_buildings')
+        .select('facing').eq('profile_id', profile.id).eq('pad', pad).maybeSingle()
+      if (!b) return NextResponse.json({ error: 'Nothing there to rotate' }, { status: 400 })
+      const facing = ((b.facing ?? 0) + 1) % 4
+      const { error } = await admin.from('house_buildings')
+        .update({ facing }).eq('profile_id', profile.id).eq('pad', pad)
+      if (error) {
+        console.error('rotate failed:', error)
+        return NextResponse.json({ error: 'Could not rotate' }, { status: 500 })
+      }
+      return NextResponse.json({ facing })
     }
 
     if (action === 'rush') {

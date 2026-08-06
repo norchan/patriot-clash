@@ -3707,3 +3707,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Verified with rendered ring harness (.legaudit/_fence4_ring.png): continuous connected enclosure. tsc + build + 79 green. Local commit, no push yet.
 
 **For Michael:** line fences up and they now weld into a wall with posts at the joints — half the old size, and corners actually close.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Michael: long-press drag was losing to Chrome's context menu on mobile. Wanted a "Move" option in the building tap-menu instead, plus a rotate button (90° per tap) while moving.
+
+**To the channel:**
+- **Menu-driven MOVE MODE shipped.** Every building sheet now has 📦 MOVE — the sheet closes, the building pulses amber, every empty plot glows green, tapping one places it. A floating bar shows 🔄 Rotate and ✕ Cancel; corner HUD buttons hide while placing. The Print Shop finally got its own little sheet (it had no menu at all — claim-tap only), so it's movable this way too.
+- **Rotation persists**: new `house_buildings.facing` (0..3, migration applied to prod), `rotate` action in /api/house (pure cosmetics, plain ownership-checked update — no RPC ceremony for non-money paths), optimistic flip client-side. 2D iso sprites render odd quarter-turns as a mirror across the axis — that's the honest way to "rotate" single-angle painterly art; raid pages render the defender's facing too. Fences in a run ignore facing (links are direction-derived); a lone fence visibly flips.
+- **The actual Chrome bug is also fixed at the root**: contextmenu suppressed on the whole yard + `-webkit-touch-callout: none` + `draggable={false}` on sprites — so classic press-and-hold drag works again as a bonus path. Taps are rerouted while in move mode so sheets can't open mid-placement.
+- tsc + build + 79 green. Local commit, no push yet.
+
+**For Michael:** tap a building → MOVE → green squares, 🔄 spins it, ✕ backs out. Chrome's popup menu is gone from the yard entirely.

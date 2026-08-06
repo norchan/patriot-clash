@@ -50,6 +50,8 @@ export interface IsoCellSpec {
   chip?: ReactNode
   glow?: boolean
   dead?: boolean
+  /** render the sprite flipped — a 90° turn in 2D iso is a mirror across the axis */
+  mirror?: boolean
   onTap?: () => void
   /** press-and-hold lifts this sprite for drag-and-drop */
   movable?: boolean
@@ -108,12 +110,16 @@ export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
   )
 }
 
-export default function IsoYard({ cells, bg, children, onMove, validTargets }:
+export default function IsoYard({ cells, bg, children, onMove, validTargets, movingFrom }:
   { cells: IsoCellSpec[]; bg?: string; children?: ReactNode
-    /** called after a successful drag-and-drop */
+    /** called after a successful drag-and-drop OR tap-to-place in move mode */
     onMove?: (fromPad: number, toPad: number) => void
     /** cells a lifted building may land on */
-    validTargets?: Set<number> }) {
+    validTargets?: Set<number>
+    /** menu-driven MOVE MODE (Michael 2026-08-04: long-press fought Chrome's
+     *  context menu) — the pad being moved. Targets glow, tapping one places
+     *  the building, every other tap is swallowed until the page exits the mode. */
+    movingFrom?: number | null }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [auto, setAuto] = useState(1)       // fit-derived base scale
   const [zoom, setZoom] = useState(1)       // player zoom on top of it
@@ -280,7 +286,10 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets }:
 
   return (
     <div ref={wrapRef} className="absolute inset-0 overflow-auto overscroll-contain"
-      style={{ WebkitOverflowScrolling: 'touch' as any, scrollbarWidth: 'none' }}>
+      // long-press on a sprite must never summon the browser's image menu —
+      // that's what broke drag-and-drop on Chrome/Android
+      onContextMenu={e => e.preventDefault()}
+      style={{ WebkitOverflowScrolling: 'touch' as any, scrollbarWidth: 'none', WebkitTouchCallout: 'none' as any }}>
       {/* the pannable ground — bg lives HERE so grass moves with the buildings */}
       <div className="relative" style={{
         width: Math.max(STAGE_W * scale, wrapRef.current?.clientWidth ?? 0),
@@ -296,14 +305,22 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets }:
       }}>
         {sorted.map(c => {
           const { x, y, depth } = isoPos(c.pad)
+          const inMove = movingFrom != null
+          const isTarget = validTargets?.has(c.pad) ?? false
+          // move mode reroutes every tap: valid plots place the building,
+          // everything else is inert so sheets can't open mid-move
+          const tap = inMove
+            ? (isTarget && onMove ? () => onMove(movingFrom!, c.pad) : undefined)
+            : c.onTap
+          const lifted = (drag != null || inMove) && isTarget
           return (
             <div key={c.pad} className="absolute" style={{ left: x, top: y, zIndex: depth * 10 }}>
               {/* the plot diamond — tap target + subtle ground marking */}
               {(c.plot || c.onTap) && (
-                <button onClick={c.onTap} disabled={!c.onTap}
+                <button onClick={tap} disabled={!tap}
                   // hold-to-drag works from the whole diamond, not just the
                   // sprite — fences are now a slim post, too thin to grab
-                  onPointerDown={c.movable && onMove ? (e => beginHold(c.pad, e)) : undefined}
+                  onPointerDown={c.movable && onMove && !inMove ? (e => beginHold(c.pad, e)) : undefined}
                   className="absolute -translate-x-1/2 -translate-y-1/2"
                   style={{ width: TILE_W, height: TILE_H, touchAction: c.movable && onMove ? 'none' : undefined }}>
                   {c.plot && (
@@ -311,10 +328,10 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets }:
                       style={{
                         transform: 'rotateX(0deg)',
                         clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-                        background: drag && validTargets?.has(c.pad)
-                          ? (drag.hover === c.pad ? 'rgba(52,211,153,0.45)' : 'rgba(52,211,153,0.18)')
+                        background: lifted
+                          ? (drag?.hover === c.pad ? 'rgba(52,211,153,0.45)' : 'rgba(52,211,153,0.18)')
                           : 'rgba(255,255,255,0.06)',
-                        borderColor: drag && validTargets?.has(c.pad) ? 'rgba(52,211,153,0.7)' : 'rgba(255,255,255,0.14)',
+                        borderColor: lifted ? 'rgba(52,211,153,0.7)' : 'rgba(255,255,255,0.14)',
                       }} />
                   )}
                 </button>
@@ -342,20 +359,23 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets }:
               {/* the sprite itself — anchored to the diamond's base */}
               {c.img ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.img} alt=""
-                  onClick={() => { if (Date.now() - justDroppedAt.current > 350) c.onTap?.() }}
-                  onPointerDown={c.movable && onMove ? (e => beginHold(c.pad, e)) : undefined}
-                  className={`absolute max-w-none ${c.onTap ? 'cursor-pointer' : ''} ${c.dead ? 'grayscale opacity-40' : ''} ${c.glow ? 'iso-glow' : ''}`}
+                <img src={c.img} alt="" draggable={false}
+                  onClick={() => { if (!inMove && Date.now() - justDroppedAt.current > 350) c.onTap?.() }}
+                  onPointerDown={c.movable && onMove && !inMove ? (e => beginHold(c.pad, e)) : undefined}
+                  className={`absolute max-w-none ${c.onTap ? 'cursor-pointer' : ''} ${c.dead ? 'grayscale opacity-40' : ''} ${c.glow ? 'iso-glow' : ''} ${movingFrom === c.pad ? 'animate-pulse' : ''}`}
                   style={{
                     width: c.imgW ?? 120,
                     left: 0, top: TILE_H * 0.28,
-                    transform: 'translate(-50%, -100%)',
+                    transform: `translate(-50%, -100%)${c.mirror ? ' scaleX(-1)' : ''}`,
                     opacity: drag?.from === c.pad ? 0.25 : undefined,
-                    filter: c.glow ? 'drop-shadow(0 0 14px rgba(52,211,153,0.9))' : 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
+                    filter: movingFrom === c.pad
+                      ? 'drop-shadow(0 0 16px rgba(251,191,36,0.95)) brightness(1.1)'
+                      : c.glow ? 'drop-shadow(0 0 14px rgba(52,211,153,0.9))' : 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
                     touchAction: c.movable && onMove ? 'none' : undefined,
+                    WebkitTouchCallout: 'none' as any,
                   }} />
               ) : c.emoji ? (
-                <span onClick={c.onTap}
+                <span onClick={inMove ? undefined : c.onTap}
                   className={`absolute -translate-x-1/2 -translate-y-full select-none ${c.dead ? 'grayscale opacity-40' : ''}`}
                   style={{ fontSize: 44, top: TILE_H * 0.24, filter: 'drop-shadow(0 5px 6px rgba(0,0,0,0.4))' }}>
                   {c.emoji}
