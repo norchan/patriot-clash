@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
-import { republicanEnemies, democratEnemies } from '@/config/enemies'
+import { republicanEnemies, democratEnemies, ENEMY_3D_IDS } from '@/config/enemies'
 
 // GET /api/spawns?lat=&lng= — the SHARED sprite spawns near the player.
 // Server-owned: everyone sees the same enemies in the same places. Halls
@@ -22,16 +22,21 @@ function eliteWindowNow(): boolean {
   return ELITE_HOURS_UTC.includes(now.getUTCHours()) && now.getUTCMinutes() < 15
 }
 
+const RIGGED = new Set<string>(ENEMY_3D_IDS)
 function buildRoster() {
   const elite = eliteWindowNow()
-  // DOUBLED (Michael 2026-08-01: "double the number of sprites in each town
-  // hall area... Keep the same rules though"). Every rule stands — elite
+  // Copies per drop: 1 → 2 (Michael 2026-08-01 "double") → 3 (Michael
+  // 2026-08-04 "a few more sprites per town hall"). Every rule stands — elite
   // windows, the 35% rare cycle, opposite-party hunting, 10-min regeneration,
   // 15-min lifetimes, the 5-catch cap — only the copies-per-drop changed.
+  // RIGGED-ONLY: the map must never advertise a character the battle stage
+  // can't render — unrigged ones were silently swapped for a random rigged
+  // sprite at fight start ("wrong characters show up", Michael 2026-08-04).
   return [...republicanEnemies, ...democratEnemies].flatMap(e => {
-    if (ELITES.has(e.id)) return elite ? [{ id: e.id, copies: 2, tier: e.tier }] : []
-    if (e.tier !== 'common') return Math.random() < 0.35 ? [{ id: e.id, copies: 2, tier: e.tier }] : []
-    return [{ id: e.id, copies: 2, tier: e.tier }]
+    if (!RIGGED.has(e.id)) return []
+    if (ELITES.has(e.id)) return elite ? [{ id: e.id, copies: 3, tier: e.tier }] : []
+    if (e.tier !== 'common') return Math.random() < 0.35 ? [{ id: e.id, copies: 3, tier: e.tier }] : []
+    return [{ id: e.id, copies: 3, tier: e.tier }]
   })
 }
 

@@ -3721,3 +3721,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 79 green. Local commit, no push yet.
 
 **For Michael:** tap a building → MOVE → green squares, 🔄 spins it, ✕ backs out. Chrome's popup menu is gone from the yard entirely.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Michael's bug batch: base zoom "not fluent"; sprite-battle countdown sometimes freezing; wrong characters appearing ("beat Ice Agent → 'Dan Dankas got away' with Dan Dankas art"; old sprites like Good Ole Boy showing up); wants a few more sprites per hall (same windows/rules).
+
+**To the channel:**
+- **Battle identity bug — one root cause, two symptoms.** The enemy-load effect depended on the `profile` OBJECT, and useProfile refetches (post-battle settle, focus). Re-run → new `getRandomEnemy()` roll → the result screen named a different character than you fought; mid-fight refetches could swap the sprite live. Now the opponent is picked exactly ONCE per battle (ref guard).
+- **Countdown freeze — a second, independent killer.** The 8s force-start fallback timer was never cancelled when the model loaded normally; if the model reported ready in the ~5.6–8s window, the fallback fired mid-count, the effect re-ran, and its CLEANUP destroyed the live interval → 3…2…frozen. Fallback now cancels on ready, and the countdown interval lives in a ref cleared only on unmount — no dep flip can kill it.
+- **"Wrong characters" root: unrigged enemies in the spawn pool.** The four new Republicans have PvP rigs but no sprite-battle `_idle/_throw` rigs, and 6 others never got theirs — spawns advertised them, battle silently swapped in a random OLD rigged sprite (hence "good ole boy keeps showing up"). Spawn roster and getRandomEnemy are now RIGGED-ONLY: the map never promises a character the stage can't render. The 10 missing rigs are a Meshy task when credits renew Aug 13; add each id to ENEMY_3D_IDS as its pair lands.
+- **Spawns: copies 2 → 3** per enemy per hall (Michael: "a few more"). Windows, 35% rare cycle, elite hours, lifetimes, catch caps — all unchanged.
+- **Zoom rework in IsoYard:** exponential wheel deltas (trackpads glide, notchy mice step), anchored under the cursor / pinch midpoint instead of viewport center, scale + scroll compensation written straight to the DOM in the same event (the old rAF version corrected a frame late = per-tick lurch), and native pan is suppressed while two fingers are down so the scroll container stops fighting the pinch.
+- tsc + build + 79 green. Local commit.
+
+**For Michael:** countdown always finishes, the sprite you fight is the sprite that gets away, the map only shows characters that can actually battle (a few retired until their 3D rigs are built Aug 13), each hall drops ~half again more sprites, and zoom follows your fingers now.

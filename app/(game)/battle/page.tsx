@@ -210,6 +210,12 @@ function BattleContent() {
   const startedRef = useRef(false)
   const [countdown, setCountdown] = useState<number | null>(null)
   const cdRan = useRef(false)
+  const cdIv = useRef<ReturnType<typeof setInterval> | null>(null)
+  // the opponent is picked ONCE per battle. useProfile refetches (after the
+  // battle settles, on focus, ...) used to re-run the load effect, which
+  // re-rolled a random enemy — you'd beat Ice Agent and the result screen
+  // said someone else got away, or the sprite changed mid-fight.
+  const pickedRef = useRef(false)
   const [forceReady, setForceReady] = useState(false)
 
   // Projectiles + effects
@@ -253,7 +259,7 @@ function BattleContent() {
 
   // ── Load the enemy (3D-only: non-rigged enemies swap to a rigged stand-in) ─
   useEffect(() => {
-    if (!profile) return
+    if (!profile || pickedRef.current) return
     const opponentParty = profile.party === 'republican' ? 'democrat' : 'republican'
     let e = enemyId ? getEnemyById(enemyId) : getRandomEnemy(opponentParty)
     if (e && !ENEMY_3D[e.id]) {
@@ -262,6 +268,7 @@ function BattleContent() {
       if (pool.length) e = pool[Math.floor(Math.random() * pool.length)]
     }
     if (e && ENEMY_3D[e.id]) {
+      pickedRef.current = true
       setEnemy(e)
       const hp = Math.round(e.hp * HP_SCALE)
       setEnemyHp(hp); setMaxHp(hp)
@@ -284,10 +291,10 @@ function BattleContent() {
   // If the model somehow never reports ready (broken GLB, dead cache), start
   // anyway after 8s rather than hanging on a black stage
   useEffect(() => {
-    if (!enemy) return
+    if (!enemy || enemy3dReady) return
     const t = setTimeout(() => setForceReady(true), 8000)
     return () => clearTimeout(t)
-  }, [enemy])
+  }, [enemy, enemy3dReady])
 
   // Sprite visible → 3… 2… 1… FIGHT! — only then do the clocks start
   useEffect(() => {
@@ -297,6 +304,7 @@ function BattleContent() {
     setCountdown(3)
     sfx.tap()
     const iv = setInterval(() => {
+      if (iv !== cdIv.current) return
       n -= 1
       if (n > 0) { setCountdown(n); sfx.tap(); return }
       clearInterval(iv)
@@ -312,8 +320,9 @@ function BattleContent() {
       startedRef.current = true
       setStarted(true)
     }, 800)
-    return () => clearInterval(iv)
+    cdIv.current = iv
   }, [enemy, enemy3dReady, forceReady])
+  useEffect(() => () => { if (cdIv.current) clearInterval(cdIv.current) }, [])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function playAnim(name: typeof spriteAnim) { setSpriteAnim(name); setSpriteKey(k => k + 1) }

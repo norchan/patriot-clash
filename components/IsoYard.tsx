@@ -121,9 +121,13 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
      *  the building, every other tap is swallowed until the page exits the mode. */
     movingFrom?: number | null }) {
   const wrapRef = useRef<HTMLDivElement>(null)
+  const spacerRef = useRef<HTMLDivElement>(null)  // the pannable ground
+  const stageRef = useRef<HTMLDivElement>(null)   // the scaled stage
   const [auto, setAuto] = useState(1)       // fit-derived base scale
   const [zoom, setZoom] = useState(1)       // player zoom on top of it
   const zoomRef = useRef(1)
+  const autoRef = useRef(1)
+  const pinchRef = useRef(false)  // two fingers down — native pan must not fight the pinch
   const scale = auto * zoom
   useEffect(() => {
     const el = wrapRef.current
@@ -135,7 +139,9 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       // (capped at 2.2× the width-fit) and let the player PAN — the CoC feel.
       const fitW = r.width / STAGE_W
       const fitH = r.height / STAGE_H
-      setAuto(Math.max(fitW, Math.min(fitH, fitW * 2.2)))
+      const a = Math.max(fitW, Math.min(fitH, fitW * 2.2))
+      autoRef.current = a
+      setAuto(a)
     }
     fit()
     const ro = new ResizeObserver(fit)
@@ -143,46 +149,54 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
     return () => ro.disconnect()
   }, [])
 
-  // ── zoom in/out (Michael 2026-07-31): mouse wheel on desktop, two-finger
-  // pinch on touch. Anchored on the viewport CENTER so the yard doesn't lurch;
-  // pan (scroll) covers whatever the zoom uncovers. ──
-  const applyZoom = (factor: number) => {
-    const el = wrapRef.current
-    if (!el) return
+  // ── zoom in/out (Michael 2026-07-31; reworked 2026-08-04 "needs to be more
+  // fluent"): anchored under the CURSOR / between the FINGERS, and applied by
+  // writing scale + scroll straight to the DOM in the same event — the old
+  // React-state + next-frame-scroll version corrected a frame late, which read
+  // as a lurch on every tick. setZoom() afterwards just keeps React in sync. ──
+  const applyZoom = (factor: number, anchorX?: number, anchorY?: number) => {
+    const el = wrapRef.current, spacer = spacerRef.current, stage = stageRef.current
+    if (!el || !spacer || !stage) return
     const next = Math.max(0.55, Math.min(2.6, zoomRef.current * factor))
     if (next === zoomRef.current) return
     const ratio = next / zoomRef.current
-    const cx = el.scrollLeft + el.clientWidth / 2
-    const cy = el.scrollTop + el.clientHeight / 2
     zoomRef.current = next
+    const r = el.getBoundingClientRect()
+    const ax = anchorX != null ? anchorX - r.left : el.clientWidth / 2
+    const ay = anchorY != null ? anchorY - r.top : el.clientHeight / 2
+    const s = autoRef.current * next
+    spacer.style.width = `${Math.max(STAGE_W * s, el.clientWidth)}px`
+    spacer.style.height = `${Math.max(STAGE_H * s, el.clientHeight)}px`
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`
+    el.scrollLeft = (el.scrollLeft + ax) * ratio - ax
+    el.scrollTop = (el.scrollTop + ay) * ratio - ay
     setZoom(next)
-    requestAnimationFrame(() => {
-      el.scrollLeft = cx * ratio - el.clientWidth / 2
-      el.scrollTop = cy * ratio - el.clientHeight / 2
-    })
   }
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      applyZoom(e.deltaY < 0 ? 1.12 : 1 / 1.12)
+      // exponential in deltaY: notchy mice get solid steps, trackpads with
+      // fine-grained deltas get a perfectly smooth glide
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
+      applyZoom(Math.exp(-dy * 0.0016), e.clientX, e.clientY)
     }
     // pinch: track two pointers by hand — browser pinch is page zoom, not ours
     const pts = new Map<number, { x: number; y: number }>()
     let lastDist = 0
-    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); lastDist = 0 } }
+    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); lastDist = 0; pinchRef.current = pts.size === 2 } }
     const move = (e: PointerEvent) => {
       if (e.pointerType !== 'touch' || !pts.has(e.pointerId)) return
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
       if (pts.size === 2) {
         const [a, b] = [...pts.values()]
         const d = Math.hypot(a.x - b.x, a.y - b.y)
-        if (lastDist > 0) applyZoom(d / lastDist)
+        if (lastDist > 0) applyZoom(d / lastDist, (a.x + b.x) / 2, (a.y + b.y) / 2)
         lastDist = d
       }
     }
-    const up = (e: PointerEvent) => { pts.delete(e.pointerId); lastDist = 0 }
+    const up = (e: PointerEvent) => { pts.delete(e.pointerId); lastDist = 0; pinchRef.current = pts.size === 2 }
     el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('pointerdown', down)
     el.addEventListener('pointermove', move)
@@ -195,6 +209,7 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       el.removeEventListener('pointerup', up)
       el.removeEventListener('pointercancel', up)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── DRAG-AND-DROP (Michael 2026-07-31): press-and-hold lifts a movable
@@ -257,8 +272,9 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       }
       setDrag(null)
     }
-    // suppress native pan while a building is in the air
-    const onTouchMove = (e: TouchEvent) => { if (dragRef.current) e.preventDefault() }
+    // suppress native pan while a building is in the air OR a pinch is live —
+    // otherwise the scroll container pans underneath and the zoom stutters
+    const onTouchMove = (e: TouchEvent) => { if (dragRef.current || pinchRef.current) e.preventDefault() }
     window.addEventListener('pointermove', onMoveEv)
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
@@ -291,7 +307,7 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       onContextMenu={e => e.preventDefault()}
       style={{ WebkitOverflowScrolling: 'touch' as any, scrollbarWidth: 'none', WebkitTouchCallout: 'none' as any }}>
       {/* the pannable ground — bg lives HERE so grass moves with the buildings */}
-      <div className="relative" style={{
+      <div ref={spacerRef} className="relative" style={{
         width: Math.max(STAGE_W * scale, wrapRef.current?.clientWidth ?? 0),
         height: Math.max(STAGE_H * scale, wrapRef.current?.clientHeight ?? 0),
         ...(bg ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
@@ -299,7 +315,7 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       {/* soft vignette so HUD chips read against bright grass */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%)' }} />
-      <div className="absolute left-1/2 top-1/2" style={{
+      <div ref={stageRef} className="absolute left-1/2 top-1/2" style={{
         width: STAGE_W, height: STAGE_H,
         transform: `translate(-50%, -50%) scale(${scale})`,
       }}>

@@ -685,7 +685,10 @@ export function getEnemiesForParty(party: 'democrat' | 'republican'): Enemy[] {
 }
 
 export function getRandomEnemy(party: 'democrat' | 'republican'): Enemy {
-  const enemies = getEnemiesForParty(party)
+  // only enemies that can actually appear on the 3D battle stage — picking an
+  // unrigged one just meant a silent stand-in swap anyway
+  const rigged = new Set<string>(ENEMY_3D_IDS)
+  const enemies = getEnemiesForParty(party).filter(e => rigged.has(e.id))
   const rand = Math.random()
   let pool: Enemy[]
   if (rand < 0.10) {
