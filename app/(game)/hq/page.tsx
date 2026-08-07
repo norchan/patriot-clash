@@ -7,8 +7,9 @@ import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
-  safeImage,
+  safeImage, barracksImage, armyCap,
 } from '@/config/house'
+import { troopsForParty } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYard'
 
@@ -46,6 +47,7 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   fence: { img: () => '/house/fence.png', w: 118 },
   media_tower: { img: () => '/house/media_tower.png', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
+  barracks: { img: l => barracksImage(l), w: 150 },
 }
 
 // sparkle pickups live on fixed pads so a refresh doesn't shuffle them
@@ -56,6 +58,7 @@ export default function HqPage() {
   const { profile, refetch } = useProfile()
   const [farm, setFarm] = useState<Farm | null>(null)
   const [house, setHouse] = useState<House | null>(null)
+  const [army, setArmy] = useState<{ barracks_level: number; capacity: number; counts: Record<string, number>; total: number; power: number; bonus: number } | null>(null)
   const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean; ps?: boolean } | null>(null)
   // menu-driven MOVE MODE (long-press drag fought Chrome's context menu):
   // the pad currently being moved, or null
@@ -69,6 +72,7 @@ export default function HqPage() {
   const load = () => {
     fetch('/api/farm').then(r => r.json()).then(setFarm).catch(() => {})
     fetch('/api/house').then(r => r.json()).then(setHouse).catch(() => {})
+    fetch('/api/house/troops').then(r => r.json()).then(setArmy).catch(() => {})
   }
   useEffect(() => {
     load()
@@ -233,6 +237,25 @@ export default function HqPage() {
     if (pad === HQ_PAD || pad === psPad || builtOn.has(pad)) continue
     validTargets.add(pad)
   }
+  // training keeps the sheet OPEN — it's a multi-tap flow
+  async function train(type: string, count: number) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/house/troops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, count }),
+      })
+      const d = await res.json()
+      if (!res.ok) say(`❌ ${d.message ?? d.error ?? 'Could not train'}`)
+      else {
+        try { navigator.vibrate?.(12) } catch {}
+        say(`🎖️ Trained! (-${d.spent} FP)`)
+        load(); refetch()
+      }
+    } catch { say('❌ Could not train') } finally { setBusy(false) }
+  }
+
   // optimistic quarter-turn; the server owns the persisted value
   async function rotateBuilding(pad: number) {
     setHouse(h => h ? { ...h, buildings: h.buildings.map(b => b.pad === pad ? { ...b, facing: ((b.facing ?? 0) + 1) % 4 } : b) } : h)
@@ -441,6 +464,51 @@ export default function HqPage() {
                       {house.tower.banked > 0 ? `CLAIM ${house.tower.banked} FP` : `Broadcasting… ${house.tower.rate} FP every ${house.tower.interval_hours}h`}
                     </button>
                   )}
+                  {def.type === 'barracks' && (() => {
+                    const lvl = sheet.building!.level
+                    const roster = troopsForParty(profile?.party ?? 'republican')
+                    const room = armyCap(lvl) - (army?.total ?? 0)
+                    return (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-emerald-300">🎖️ Army {army?.total ?? 0}/{armyCap(lvl)}</span>
+                          <span className="text-gray-500">raids hit +{army?.bonus ?? 0} harder</span>
+                        </div>
+                        <div className="mt-1.5 h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round(((army?.total ?? 0) / Math.max(1, armyCap(lvl))) * 100))}%`, background: 'linear-gradient(90deg,#34d399,#059669)' }} />
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {roster.map(tr => {
+                            const locked = lvl < tr.unlockLevel
+                            const n = army?.counts?.[tr.id] ?? 0
+                            return (
+                              <div key={tr.id} className={`bg-gray-800 rounded-xl border border-gray-700 p-2.5 flex items-center gap-3 ${locked ? 'opacity-45' : ''}`}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={tr.img} alt="" className="w-14 h-14 object-contain shrink-0" />
+                                <span className="flex-1 min-w-0">
+                                  <span className="text-white font-bold text-sm block">{tr.emoji} {tr.name}{n > 0 && <span className="text-emerald-400 font-black"> ×{n}</span>}</span>
+                                  <span className="text-amber-300/90 text-[11px] font-bold block">{tr.attack}</span>
+                                  <span className="text-gray-500 text-[10px] block">{tr.desc}</span>
+                                </span>
+                                {locked ? (
+                                  <span className="text-[11px] font-black text-gray-500 whitespace-nowrap shrink-0">🔒 Barracks Lv {tr.unlockLevel}</span>
+                                ) : (
+                                  <span className="flex flex-col items-end gap-1 shrink-0">
+                                    <button disabled={busy || room < 1} onClick={() => train(tr.id, 1)}
+                                      className="px-2.5 py-1.5 rounded-lg font-black text-black text-xs disabled:opacity-35"
+                                      style={{ background: 'linear-gradient(135deg,#34d399,#059669)' }}>+1 ⚡{tr.cost}</button>
+                                    <button disabled={busy || room < 5} onClick={() => train(tr.id, 5)}
+                                      className="px-2.5 py-1 rounded-lg font-black text-white text-[10px] bg-gray-700 disabled:opacity-35">+5 ⚡{tr.cost * 5}</button>
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <p className="text-gray-600 text-[10px] mt-2">Your whole army raids with you automatically. Tanks fall first, Support keeps losses down — retrain the fallen. Upgrade the Barracks for new troop types and a bigger army.</p>
+                      </div>
+                    )
+                  })()}
                   {(() => {
                     const up = (house?.buildings ?? []).find(x => x.pad === sheet.pad)?.upgrade
                     if (up) return (

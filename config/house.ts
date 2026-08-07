@@ -9,7 +9,7 @@
 // costs from HERE and passes them to atomic SQL functions — the client never
 // sends a price, the same trust boundary as the fp-packs catalog.
 
-export type BuildingType = 'fence' | 'media_tower' | 'safe'
+export type BuildingType = 'fence' | 'media_tower' | 'safe' | 'barracks'
 
 // ── The yard ────────────────────────────────────────────────────────────────
 // 10×10 OPEN grid, cell indexes 0..99 row-major (Michael 2026-07-31 — grew
@@ -64,7 +64,23 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     costs: [250, 750, 2000, 5000, 12000],
     unique: true,
   },
+  barracks: {
+    type: 'barracks',
+    name: 'Barracks',
+    emoji: '🎖️',
+    desc: 'Train troops that raid with you — higher levels unlock stronger troop types and a bigger army.',
+    costs: [400, 1000, 2500, 6000, 14000],
+    unique: true,
+  },
 }
+
+// ── The BARRACKS — troop training (Michael 2026-08-04) ─────────────────────
+// Five levels of art (barracks1..5, each generation bigger and better), five
+// troop TYPES per party — see config/troops.ts for the roster. Barracks level
+// N unlocks troop type N and grows the army cap.
+export const barracksImage = (level: number) =>
+  `/house/barracks${Math.max(1, Math.min(5, level))}.png`
+export const armyCap = (barracksLevel: number) => 6 + 4 * Math.max(1, Math.min(5, barracksLevel))
 
 // ── The SAFE — raid-proof FP storage (Michael 2026-07-31) ───────────────────
 // "Allow players to lock a certain portion of their fp in a safe... The higher
@@ -246,6 +262,11 @@ export function botBase(botId: string, level: number): BotBase {
   }
   buildings.push({ pad: cells[(seed + 3) % cells.length], type: 'media_tower', level: Math.min(3, baseLevel) })
   buildings.push({ pad: cells[(seed + 17) % cells.length], type: 'safe', level: Math.min(5, baseLevel) })
+  // level 2+ bots run a barracks too — raid targets should look like the
+  // full game, and it's one more building to smash
+  if (baseLevel >= 2) {
+    buildings.push({ pad: cells[(seed + 29) % cells.length], type: 'barracks', level: Math.min(5, baseLevel) })
+  }
   // decor makes big bases LOOK rich (flags, signs — pure rendering)
   for (let i = 0; i < 1 + baseLevel; i++) {
     buildings.push({ pad: cells[(seed + 11 + i * 5) % cells.length], type: 'decor', level: 1 })

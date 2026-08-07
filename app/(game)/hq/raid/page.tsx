@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
-import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage } from '@/config/house'
+import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracksImage } from '@/config/house'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYard'
 
 // ⚔️ RAID — same isometric stage as the home base (Grok's brief): you scout
@@ -13,8 +13,8 @@ import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYar
 
 interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number; facing?: number }>; print_shop_pad?: number }
 interface Target { id: string; username: string; party: string; level: number; base_level: number; base: TargetBase }
-interface Found { target: Target; cost: number; loot_min: number; loot_max: number }
-interface Result { damage_pct: number; loot: number; trophies: number; base: TargetBase; defender: { username: string; party: string } }
+interface Found { target: Target; cost: number; loot_min: number; loot_max: number; army?: { total: number; power: number; bonus: number } }
+interface Result { damage_pct: number; loot: number; trophies: number; base: TargetBase; defender: { username: string; party: string }; army?: { bonus: number; losses: Array<{ id: string; n: number; name: string; emoji: string }> } }
 
 type PhaseT = 'finding' | 'preview' | 'smash' | 'done'
 
@@ -22,6 +22,7 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   fence: { img: () => '/house/fence.png', w: 118 },
   media_tower: { img: () => '/house/media_tower.png', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
+  barracks: { img: l => barracksImage(l), w: 150 },
   decor: { img: () => '/house/decor_flag.png', w: 84 },
   print_shop: { img: () => '/house/print_shop.png', w: 128 },
 }
@@ -177,6 +178,9 @@ export default function RaidPage() {
           <div className="min-w-0">
             <p className="text-white font-black text-sm truncate">{found.target.username}</p>
             <p className="text-gray-400 text-[11px]">Lv {found.target.level} · Base {found.target.base_level}⭐ · loot ⚡{found.loot_min}–{found.loot_max}</p>
+            {(found.army?.total ?? 0) > 0 && (
+              <p className="text-emerald-400 text-[11px] font-bold">🎖️ {found.army!.total} troops march with you (+{found.army!.bonus} punch)</p>
+            )}
           </div>
           <button onClick={findTarget} className="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center text-gray-300 shrink-0" title="Next target"><RefreshCw size={15} /></button>
           <button onClick={launch} disabled={busy}
@@ -194,6 +198,11 @@ export default function RaidPage() {
             <span className="text-gray-300 font-bold text-xs">{result.damage_pct}% damage</span>
             <span className="text-amber-400 font-black text-xs">🏆 +{result.trophies}</span>
           </div>
+          {(result.army?.losses?.length ?? 0) > 0 && (
+            <div className="absolute top-[6.5rem] left-1/2 -translate-x-1/2 z-[70] bg-black/60 backdrop-blur rounded-xl px-3 py-1.5 text-[11px] font-bold text-red-300 whitespace-nowrap">
+              Fallen: {result.army!.losses.map(l => `${l.emoji} ${l.n} ${l.name}`).join(' · ')}
+            </div>
+          )}
           {phase === 'smash' && (
             <div style={{ bottom: '5.5rem' }} className="absolute left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3">
               <span className="px-3 py-2 rounded-xl bg-black/60 backdrop-blur text-gray-300 text-xs font-bold">

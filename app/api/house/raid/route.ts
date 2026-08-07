@@ -9,6 +9,16 @@ import {
   RAID_SHIELD_HOURS, RAID_LOOT_PCT, raidLootAbsCap, raidDamagePct,
   defenseScore, botDefenseScore, trophiesFor, botBase,
 } from '@/config/house'
+import { armyPower, armyBonus, casualtyPlan, troopById } from '@/config/troops'
+
+/** The attacker's army as {troop_type: count}. */
+async function attackerArmy(admin: any, profileId: string): Promise<Record<string, number>> {
+  const { data } = await admin.from('house_troops')
+    .select('troop_type, count').eq('profile_id', profileId).gt('count', 0)
+  const counts: Record<string, number> = {}
+  for (const r of data ?? []) counts[r.troop_type] = r.count
+  return counts
+}
 
 // PERSONAL BASE RAIDS (Phase 2). GET finds a target; POST resolves the raid.
 // The outcome is decided entirely HERE + in the raid_house SQL function — the
@@ -74,7 +84,10 @@ export async function GET() {
 
     const info = await defenderInfo(admin, target)
     const pot = Math.floor(Math.min(target.fp_balance * RAID_LOOT_PCT, raidLootAbsCap(info.baseLevel)))
+    const counts = await attackerArmy(admin, profile.id)
+    const power = armyPower(counts)
     return NextResponse.json({
+      army: { total: Object.values(counts).reduce((s, n) => s + n, 0), power, bonus: armyBonus(power) },
       target: {
         id: target.id, username: target.username, party: target.party,
         level: info.level, base_level: info.baseLevel, base: info.base,
@@ -109,7 +122,11 @@ export async function POST(req: NextRequest) {
 
     const info = await defenderInfo(admin, defender)
     const attackerLevel = fighterLevel(profile.total_battles_won ?? 0)
-    const damage = raidDamagePct(attackerLevel, info.defense, Math.random())
+    // TROOPS (Michael 2026-08-04): the army marches with every raid — its
+    // power raises the attack side of the damage roll
+    const counts = await attackerArmy(admin, profile.id)
+    const bonus = armyBonus(armyPower(counts))
+    const damage = raidDamagePct(attackerLevel + bonus, info.defense, Math.random())
     const trophies = trophiesFor(damage)
 
     const { data, error } = await admin.rpc('raid_house', {
@@ -148,6 +165,17 @@ export async function POST(req: NextRequest) {
     const row = Array.isArray(data) ? data[0] : data
     const loot = row?.loot ?? 0
 
+    // casualties: defenses bit back — tanks fall first, support keeps the
+    // rate down (config/troops.ts). Fire-and-check: a failure here can only
+    // UNDER-charge the player, never double-charge.
+    const losses = casualtyPlan(counts, info.defense)
+    if (Object.keys(losses).length) {
+      const { error: lossErr } = await admin.rpc('consume_troops', {
+        p_profile_id: profile.id, p_losses: losses,
+      })
+      if (lossErr) console.error('consume_troops failed (losses skipped):', lossErr)
+    }
+
     if (!info.isBot) {
       await notify(admin, {
         profileId: defender.id,
@@ -165,6 +193,10 @@ export async function POST(req: NextRequest) {
       loot,
       trophies: row?.trophies ?? trophies,
       cost: RAID_COST,
+      army: {
+        bonus,
+        losses: Object.entries(losses).map(([id, n]) => ({ id, n, name: troopById(id)?.name ?? id, emoji: troopById(id)?.emoji ?? '💥' })),
+      },
       base: info.base, // the yard the client gets to smash
       defender: { username: defender.username, party: defender.party, level: info.level, base_level: info.baseLevel },
     })

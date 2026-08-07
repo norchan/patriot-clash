@@ -501,3 +501,64 @@ describe('upgrade timers + rush pricing', () => {
     expect(upgradeSecs(1, false)).toBe(UPGRADE_HOURS[0] * 3600)
   })
 })
+
+import { TROOPS, troopsForParty, armyPower, armyBonus, casualtyPlan, ROLE_ORDER } from '@/config/troops'
+import { armyCap, BUILDINGS as HOUSE_BUILDINGS } from '@/config/house'
+
+describe('troops (Michael 2026-08-04): mirrored rosters, capped power, honest casualties', () => {
+  it('each party fields exactly 5 troops, one per role, in unlock order 1..5', () => {
+    for (const party of ['republican', 'democrat'] as const) {
+      const roster = troopsForParty(party)
+      expect(roster).toHaveLength(5)
+      expect(roster.map(t => t.role)).toEqual([...ROLE_ORDER])
+      expect(roster.map(t => t.unlockLevel)).toEqual([1, 2, 3, 4, 5])
+    }
+  })
+
+  it('the rosters are stat-mirrored — neither side out-guns the other', () => {
+    const rep = troopsForParty('republican'), dem = troopsForParty('democrat')
+    for (let i = 0; i < 5; i++) {
+      expect(rep[i].cost).toBe(dem[i].cost)
+      expect(rep[i].power).toBe(dem[i].power)
+      expect(rep[i].unlockLevel).toBe(dem[i].unlockLevel)
+    }
+    for (const t of TROOPS) { expect(t.cost).toBeGreaterThan(0); expect(t.power).toBeGreaterThan(0) }
+  })
+
+  it('the barracks exists, is unique, and has 5 levels like the house', () => {
+    expect(HOUSE_BUILDINGS.barracks.unique).toBe(true)
+    expect(HOUSE_BUILDINGS.barracks.costs).toHaveLength(5)
+    for (let l = 1; l < 5; l++) expect(armyCap(l + 1)).toBeGreaterThan(armyCap(l))
+  })
+
+  it('army bonus is capped — a maxed army is an edge, never an auto-win', () => {
+    expect(armyBonus(0)).toBe(0)
+    expect(armyBonus(armyPower({ rep_pyro_patriot: 999 }))).toBe(15)
+    expect(armyBonus(8)).toBe(2)
+  })
+
+  it('casualties: tanks die first, support dies last, losses never exceed the army', () => {
+    const army = { rep_big_rig: 2, rep_minuteman: 3, rep_revival_preacher: 2 }
+    const plan = casualtyPlan(army, 30) // heavy defense
+    const lost = Object.values(plan).reduce((s, n) => s + n, 0)
+    expect(lost).toBeGreaterThan(0)
+    expect(lost).toBeLessThanOrEqual(7)
+    // tanks absorb before the preacher loses anyone
+    if (plan.rep_revival_preacher) expect(plan.rep_big_rig).toBe(2)
+    for (const [id, n] of Object.entries(plan)) expect(n).toBeLessThanOrEqual((army as any)[id])
+  })
+
+  it('support troops lower the casualty rate', () => {
+    const total = 20
+    const noSupport = casualtyPlan({ rep_minuteman: total }, 10)
+    const withSupport = casualtyPlan({ rep_minuteman: total - 5, rep_revival_preacher: 5 }, 10)
+    const lostA = Object.values(noSupport).reduce((s, n) => s + n, 0)
+    const lostB = Object.values(withSupport).reduce((s, n) => s + n, 0)
+    expect(lostB).toBeLessThan(lostA)
+  })
+
+  it('an empty army loses nobody and adds nothing', () => {
+    expect(casualtyPlan({}, 50)).toEqual({})
+    expect(armyPower({})).toBe(0)
+  })
+})

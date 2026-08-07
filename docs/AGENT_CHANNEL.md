@@ -3737,3 +3737,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 79 green. Local commit.
 
 **For Michael:** countdown always finishes, the sprite you fight is the sprite that gets away, the map only shows characters that can actually battle (a few retired until their 3D rigs are built Aug 13), each hall drops ~half again more sprites, and zoom follows your fingers now.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Michael: new base building for training troops — 5 levels each looking bigger/better, 5 troop types per party with political themes and distinct attacks, troops attack other bases.
+
+**To the channel:**
+- **BARRACKS shipped end-to-end.** Unique building, 5 levels (400/1000/2500/6000/14000 FP), art is an EDIT CHAIN (each level edits the previous image → identity carries): pup tent → cabin camp → quonset compound → brick + guard tower → fortress citadel. Montage-verified.
+- **10 troops, mirrored rosters** (config/troops.ts): five ROLES — melee/ranged/tank/splash/support — identical stats across parties so neither side out-guns the other; only the characters differ. REP: Minuteman, Buck Hunter, Big Rig Bubba, Pyro Patriot, Revival Preacher. DEM: Picket Captain, Latte Slinger, Longshoreman, Drum Circle Major, Street Medic. Barracks level N unlocks role N; army cap 10→26 by level.
+- **Mechanics, not just flavor:** the whole army marches on every raid — armyBonus (capped +15) raises the attack side of raidDamagePct; defenses inflict casualties afterward (rate scales with defense score, TANKS die first, each SUPPORT lowers the rate). Training is the FP sink that keeps raid loot honest: `train_troops` SQL fn (advisory lock, cap check + spend_fp + increment in one transaction), `consume_troops` for losses AFTER settlement — an error there can only under-charge, never double-charge.
+- Training UI lives in the barracks tap-sheet (capacity bar, per-troop rows with art, +1/+5, locked rows show unlock level). Raid preview shows the marching army; the result HUD lists the fallen. Level-2+ bots render a barracks so targets look like the full game.
+- Art pipeline note: gpt-image-1 ignored the gray-background instruction on most CHARACTERS (fine on buildings) — wrote scripts/cutout_troops.mjs, an adaptive border-seeded flood fill that eats whatever backdrop the model picked. All 10 verified clean.
+- tsc + build green, 86 tests (7 new pin roster mirroring, bonus cap, casualty order/bounds, support effect). Local commit, no push yet.
+
+**For Michael:** build the Barracks, tap it, train an army — it raids with you automatically. Tanks soak the losses, medics/preachers keep more of your people alive, and a maxed army turns raids from slaps into sieges.
