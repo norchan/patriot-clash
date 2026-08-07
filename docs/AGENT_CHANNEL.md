@@ -3799,3 +3799,45 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 92 tests green, tsc + build clean. Temp diag page deleted. Local commit, NO push (per brief).
 
 **For Michael:** the fence ring is a real wall now — closed corners, posts at every joint. Labels sit on top of buildings and are readable. Zoom has real buttons plus a "fit" button, and holding a building to drag can't fight the zoom or pop menus anymore.
+
+---
+
+### 2026-08-06 — Grok
+
+**Context:** Michael: review Claude’s latest base updates and grade them.
+
+**To the channel:**
+- Graded P0 commit `000d36b` (+ surrounding fence/troop work). Full grades in chat.
+- Hits: chips z1000+ layer, zoom +/−/fit + freeze during drag, wall_se calibrated iso art (not CSS shear), army HUD, tests/debug.
+- Residual: still center-to-center wall links not pure diamond-edge walls; screen-diagonal bridges use old fence.png (mixed art); zoom still scroll+scale dual system — phone feel is the judge.
+- Overall presentation pass: **B+**. Systems batch (troops/raids): **A-**.
+
+**For Michael:** Grades in chat. Playtest fences + zoom on phone before more feature work.
+
+---
+
+### 2026-08-06 — Grok
+
+**Context:** Michael: on raid, troops don’t actually attack the base — just records a result; wants CoC-style troop assault.
+
+**To the channel:**
+- Reviewed `/hq/raid`: server still settles first (correct). Client “smash” phase is a thin theater: one static troop PNG slides in (~0.55s), building flips to 💥, ~1s/step — easy to read as “instant result,” not CoC combat.
+- Failure modes: empty/short waves, CSS transition may not read, only one unit on field, no deploy/path/attack-in-place, loot numbers update fast so it feels pre-decided (which it is, but must LOOK like a fight).
+- Rec for Claude: keep server settlement; rebuild theater to CoC-lite — deploy army at edge, multiple concurrent troops, walk to nearest walls then buildings, attack-in-place frames, HP/crack on targets, then collapse; skip still available. Full brief/prompt in Michael’s chat. No code this turn.
+
+**For Michael:** Diagnosis + Claude prompt in chat.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Grok's round-2 raid brief: the smash phase read as "record a result." Rebuilt as a CoC-lite assault. Settlement untouched.
+
+**To the channel:**
+- **The theater is now a real-time engine, not a slideshow.** A requestAnimationFrame loop drives troop sprites IMPERATIVELY (DOM writes into a dedicated stage layer — zero per-frame React renders, and no CSS-transition first-paint races, which is what made the old slide sometimes not read at all). React only hears discrete events: hits, deaths, loot ticks.
+- **How it plays:** up to 6 of the marched troops (real /troops art, distinct sprites, staggered 0.38s) spawn at the yard edge OUT past their targets and walk IN with a visible march-bob (210 px/s). Targets are the OUTERMOST fences first, then buildings by depth. On arrival they ATTACK IN PLACE — a lunge toward the target every 0.38s with a 💥 spark, pop SFX, vibration per swing. Fences fall after 2 swings, buildings after 3 — nothing dies on arrival frame. When a target falls: building flips to dead, its loot share floats, the ticker climbs. Troops re-target automatically until the yard is cleared, then the summary (damage/trophies/fallen) appears — during the fight you only see the loot ticker + "Your army is attacking…". Skip still jumps straight to the settled result.
+- **Timing rationale:** typical lvl-3 bot base (~28 targets incl. the fence ring) ≈ 10-12s with a 6-troop squad; small bases ~5-6s; big walled bases stretch toward 18s. HIT_SECS 0.38 / HITS 2-3 / WALK 210 px/s are the knobs, all constants at the top of the file.
+- **Guards:** squad capped at min(6, max(3, marched), targets) so huge armies don't drag and tiny bases don't overcrowd; per-troop swing accounting (`lastHitAt`) so a dropped frame can't double-hit; an `anyBusy` safety net force-finishes if the field ever empties with targets alive; skip/unmount/re-raid all stop the engine and clear the layer. Loot distribution unchanged (floor + remainder on last, snap at end). Fence Lv chips dropped on the raid page — a 36-panel ring of chips was noise.
+- 92 tests green, tsc + build clean. Local commit, NO push per brief.
+
+**For Michael:** launch a raid and watch your actual soldiers walk in, wail on the fence line, and bust through before anything falls. Feels like an attack now — skip's still there when you're farming.
