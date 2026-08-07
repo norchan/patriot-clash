@@ -155,7 +155,7 @@ export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
   )
 }
 
-export default function IsoYard({ cells, bg, children, onMove, validTargets, movingFrom }:
+export default function IsoYard({ cells, bg, children, onMove, validTargets, movingFrom, onStageTap }:
   { cells: IsoCellSpec[]; bg?: string; children?: ReactNode
     /** called after a successful drag-and-drop OR tap-to-place in move mode */
     onMove?: (fromPad: number, toPad: number) => void
@@ -164,7 +164,11 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
     /** menu-driven MOVE MODE (Michael 2026-08-04: long-press fought Chrome's
      *  context menu) — the pad being moved. Targets glow, tapping one places
      *  the building, every other tap is swallowed until the page exits the mode. */
-    movingFrom?: number | null }) {
+    movingFrom?: number | null
+    /** DEPLOY MODE (raids): a short tap anywhere on the yard reports its
+     *  LOGICAL stage coordinates. Pans don't fire (movement > 12px cancels);
+     *  plot buttons go tap-transparent so grass taps reach the stage. */
+    onStageTap?: (x: number, y: number) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const spacerRef = useRef<HTMLDivElement>(null)  // the pannable ground
   const stageRef = useRef<HTMLDivElement>(null)   // the scaled stage
@@ -282,6 +286,7 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
   dragRef.current = drag
   const holdRef = useRef<{ pad: number; x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null)
   const justDroppedAt = useRef(0)
+  const tapStart = useRef<{ x: number; y: number } | null>(null)
 
   const toStage = (clientX: number, clientY: number) => {
     const el = wrapRef.current!
@@ -378,10 +383,20 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       {/* soft vignette so HUD chips read against bright grass */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%)' }} />
-      <div ref={stageRef} className="absolute left-1/2 top-1/2" style={{
-        width: STAGE_W, height: STAGE_H,
-        transform: `translate(-50%, -50%) scale(${scale})`,
-      }}>
+      <div ref={stageRef} className="absolute left-1/2 top-1/2"
+        onPointerDown={onStageTap ? (e => { tapStart.current = { x: e.clientX, y: e.clientY } }) : undefined}
+        onClick={onStageTap ? (e => {
+          const st = tapStart.current
+          if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) > 12) return // that was a pan
+          const stage = stageRef.current
+          if (!stage) return
+          const r = stage.getBoundingClientRect()
+          onStageTap((e.clientX - r.left) / (r.width / STAGE_W), (e.clientY - r.top) / (r.height / STAGE_H))
+        }) : undefined}
+        style={{
+          width: STAGE_W, height: STAGE_H,
+          transform: `translate(-50%, -50%) scale(${scale})`,
+        }}>
         {sorted.map(c => {
           const { x, y, depth } = isoPos(c.pad)
           const inMove = movingFrom != null
@@ -403,7 +418,9 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                   // the build sheet on the plot it landed on.
                   onPointerDown={c.movable && onMove && !inMove ? (e => beginHold(c.pad, e)) : undefined}
                   className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ width: TILE_W, height: TILE_H, touchAction: c.movable && onMove ? 'none' : undefined }}>
+                  style={{ width: TILE_W, height: TILE_H, touchAction: c.movable && onMove ? 'none' : undefined,
+                    // in deploy mode, inert plots must not eat yard taps
+                    pointerEvents: onStageTap && !tap ? 'none' : undefined }}>
                   {c.plot && (
                     <span className="absolute inset-1 rounded-[50%/50%] border transition"
                       style={{

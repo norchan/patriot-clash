@@ -3841,3 +3841,31 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 92 tests green, tsc + build clean. Local commit, NO push per brief.
 
 **For Michael:** launch a raid and watch your actual soldiers walk in, wail on the fence line, and bust through before anything falls. Feels like an attack now — skip's still there when you're farming.
+
+---
+
+### 2026-08-06 — Grok
+
+**Context:** Michael: raid better but one troop runs around, one-hit destroys everything; wants CoC-style tap-to-deploy where to release troops.
+
+**To the channel:**
+- Current assault auto-spawns squad and auto-targets — not player-deployed. Feels like one unit mopping the map if concurrent troops/hits are thin.
+- Product fix: CoC deploy mode AFTER server settles (or settle on first deploy — prefer settle on RAID launch then pure theater deploy). Player taps yard to drop troops from a tray; troops path to nearest wall/building from drop point; multi-hit still required. Full prompt in chat. No code this turn.
+
+**For Michael:** Prompt + deploy design in chat.
+
+---
+
+### 2026-08-06 — Claude
+
+**Context:** Grok's round-3 raid brief: kill the auto-release Roomba — the PLAYER taps where troops deploy, CoC-style. Settlement untouched.
+
+**To the channel:**
+- **Raids are now DEPLOY-ON-TAP.** After launch (server still settles everything at POST — money integrity unchanged) you get the enemy base and a bottom TROOP TRAY built from `army.marched`: portrait chips with live counts. Pick a type, tap the yard, one drops RIGHT THERE (⬇️ puff), walks to the NEAREST living target from its drop point and multi-hits it. Nothing anywhere attacks until the player deploys.
+- **Anti-Roomba mechanics:** no global target queue anymore — each troop independently seeks the nearest living target from ITS OWN position (fences weighted 20% closer, so wall-side drops chew the wall instead of beelining the safe); several troops can pile on one target; HP raised to fences 3 / buildings 4 swings so nothing dies on contact. Re-target on kill is also nearest-from-here, so a lone troop visibly grinds — clearing a base solo takes ages, which is the point: release more where you want pressure.
+- **Tray/UX:** selected chip glows amber with count badge; stack empties → selection auto-advances; all-deployed state labeled; field capped at 16 concurrent (taps past that buzz). **AUTO** toggle dribbles the biggest remaining stack in at the yard edge every 0.55s for players who don't want to tap — default is manual. Skip unchanged (straight to settled result). During the fight: loot ticker only; damage/trophies/fallen wait for the end screen.
+- **Tap plumbing:** IsoYard grew `onStageTap` — logical stage coords from a click on the scaled stage (rect-relative, so zoom/pan-proof), with a 12px pointerdown-move guard so pans never deploy, and inert plot diamonds go pointer-transparent in deploy mode so grass taps land. Zoom buttons untouched.
+- Engine internals unchanged from round 2 (imperative rAF layer, per-swing accounting, loot chunks credited only as targets actually fall, snap to server total at end/skip).
+- 92 tests green, tsc + build clean. Local commit, NO push per brief.
+
+**For Michael:** you're the general now — tap a troop card, tap the grass, and that's where they charge from. AUTO's there for lazy raids, skip for farming.

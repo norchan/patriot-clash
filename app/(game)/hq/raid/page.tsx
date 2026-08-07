@@ -9,14 +9,14 @@ import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, S
 
 // ⚔️ RAID — same isometric stage as the home base. The server settles
 // damage/loot/trophies/casualties the moment you launch; everything after is
-// choreography over decided numbers. The choreography is a CoC-LITE ASSAULT
-// (Grok's brief, 2026-08-04 round 2 — the old one-sprite slideshow "records a
-// result"): several of your trained troops deploy at the yard edge, WALK to
-// the outermost fences, ATTACK IN PLACE over multiple hits, and only then does
-// the target fall and its loot share pop. A requestAnimationFrame engine
-// drives troop sprites imperatively (no per-frame React renders, no
-// CSS-transition first-paint races); React only hears about discrete events —
-// deaths, loot, sparks. Skip fast-forwards to the settled result.
+// choreography over decided numbers. The choreography is CoC-STYLE DEPLOY
+// (Michael via Grok, 2026-08-06: "the player taps where to release troops"):
+// after launch you get the enemy base and a TROOP TRAY — tap a troop type,
+// then tap the yard to drop one there. Dropped troops walk to the NEAREST
+// living target from their drop point (fences preferred), attack in place
+// over multiple swings, and only then does the target fall and its loot share
+// pop. Deploy more while they fight. AUTO dribbles the rest in for players
+// who don't want to tap; skip fast-forwards to the settled result.
 
 interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number; facing?: number }>; print_shop_pad?: number }
 interface Target { id: string; username: string; party: string; level: number; base_level: number; base: TargetBase }
@@ -27,7 +27,7 @@ interface Result {
   army?: { bonus: number; marched?: Array<{ id: string; n: number }>; losses: Array<{ id: string; n: number; name: string; emoji: string }> }
 }
 
-type PhaseT = 'finding' | 'preview' | 'smash' | 'done'
+type PhaseT = 'finding' | 'preview' | 'deploy' | 'done'
 
 const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   fence: { img: () => '/house/fence.png', w: 118 },
@@ -38,14 +38,15 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   print_shop: { img: () => '/house/print_shop.png', w: 128 },
 }
 
-// ── assault tuning (timing rationale in the channel entry) ──
-const WALK_SPEED = 210        // logical px/s — brisk march, still reads as walking
-const HIT_SECS = 0.38         // one swing every ~0.4s
-const HITS_FENCE = 2          // fences crack after two swings
-const HITS_BUILDING = 3       // buildings soak three
-const MAX_TROOPS = 6          // concurrent attackers on screen
-const SPAWN_STAGGER = 0.38    // secs between deploys
+// ── assault tuning (rationale in the channel entry) ──
+const WALK_SPEED = 200        // logical px/s
+const HIT_SECS = 0.4          // one swing every 0.4s
+const HITS_FENCE = 3          // even fences take three swings
+const HITS_BUILDING = 4       // buildings take four
+const FIELD_CAP = 16          // max troops on the field at once
+const AUTO_EVERY = 0.55       // AUTO deploy cadence, secs
 const TROOP_W = 84
+const FENCE_PREF = 0.8        // targeting: fences count as 20% closer
 
 function pop(freq = 220) {
   try {
@@ -60,15 +61,14 @@ function pop(freq = 220) {
 }
 const buzz = (ms: number) => { try { navigator.vibrate?.(ms) } catch {} }
 
-interface AssaultTarget { pad: number; x: number; y: number; hp: number; dead: boolean }
+interface AssaultTarget { pad: number; x: number; y: number; hp: number; dead: boolean; isFence: boolean }
 interface Trooper {
   el: HTMLImageElement
   x: number; y: number
-  state: 'wait' | 'walk' | 'attack' | 'gone'
-  activeAt: number          // engine clock when this troop deploys
-  t: number                 // seconds in current state
-  target: number            // index into targets, -1 = none
-  lastHitAt: number         // whole swings already landed
+  state: 'walk' | 'attack' | 'gone'
+  t: number
+  target: number
+  lastHitAt: number
 }
 
 export default function RaidPage() {
@@ -79,13 +79,19 @@ export default function RaidPage() {
   const [result, setResult] = useState<Result | null>(null)
   const [smashed, setSmashed] = useState<Set<number>>(new Set())
   const [lootShown, setLootShown] = useState(0)
-  const [floats, setFloats] = useState<Array<{ id: number; pad: number; text: string; spark?: boolean; jx?: number }>>([])
+  const [floats, setFloats] = useState<Array<{ id: number; pad?: number; sx?: number; sy?: number; text: string; spark?: boolean; jx?: number }>>([])
+  const [tray, setTray] = useState<Record<string, number>>({})
+  const [sel, setSel] = useState<string | null>(null)
+  const [auto, setAuto] = useState(false)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const floatId = useRef(0)
   const layerRef = useRef<HTMLDivElement>(null)     // imperative troop sprites live here
   const engineRef = useRef<{ raf: number; alive: boolean } | null>(null)
-  const assaultRan = useRef(false)
+  const engineStarted = useRef(false)
+  const trayRef = useRef<Record<string, number>>({})
+  const autoRef = useRef(false)
+  const deployRef = useRef<((type: string, x: number, y: number) => void) | null>(null)
 
   const isRep = (p?: string) => p === 'republican'
 
@@ -95,12 +101,14 @@ export default function RaidPage() {
       cancelAnimationFrame(engineRef.current.raf)
       engineRef.current = null
     }
+    deployRef.current = null
     if (layerRef.current) layerRef.current.innerHTML = ''
   }
 
   async function findTarget() {
-    stopEngine(); assaultRan.current = false
+    stopEngine(); engineStarted.current = false
     setPhase('finding'); setErr(''); setResult(null); setSmashed(new Set()); setLootShown(0)
+    setTray({}); setSel(null); setAuto(false); autoRef.current = false
     try {
       const res = await fetch('/api/house/raid')
       const d = await res.json()
@@ -119,90 +127,55 @@ export default function RaidPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defender_id: found.target.id }),
       })
-      const d = await res.json()
-      if (!res.ok) { setErr(d.message ?? d.error ?? 'Raid failed'); return }
-      setResult(d); setPhase('smash'); buzz(40)
+      const d: Result = await res.json()
+      if (!res.ok) { setErr((d as any).message ?? (d as any).error ?? 'Raid failed'); return }
+      // the tray is the marched army — what you tap is what attacks
+      const t: Record<string, number> = {}
+      for (const m of d.army?.marched ?? []) t[m.id] = m.n
+      trayRef.current = { ...t }
+      setTray(t)
+      setSel(Object.keys(t).find(k => t[k] > 0) ?? null)
+      setResult(d); setPhase('deploy'); buzz(40)
       refetch()
     } catch { setErr('Network error') } finally { setBusy(false) }
   }
 
-  function addFloat(pad: number, text: string, spark = false, life = 900) {
+  function addFloat(f: { pad?: number; sx?: number; sy?: number; text: string; spark?: boolean }, life = 900) {
     const id = ++floatId.current
-    setFloats(f => [...f, { id, pad, text, spark, jx: spark ? Math.random() * 30 - 15 : 0 }])
-    setTimeout(() => setFloats(f => f.filter(x => x.id !== id)), life)
+    setFloats(fl => [...fl, { id, jx: f.spark ? Math.random() * 30 - 15 : 0, ...f }])
+    setTimeout(() => setFloats(fl => fl.filter(x => x.id !== id)), life)
   }
 
-  // ── THE ASSAULT ENGINE ─────────────────────────────────────────────────────
+  // ── THE DEPLOY ENGINE — player taps feed it; it just animates the fight ──
   useEffect(() => {
-    if (phase !== 'smash' || !result || assaultRan.current) return
-    assaultRan.current = true
+    if (phase !== 'deploy' || !result || engineStarted.current) return
+    engineStarted.current = true
     const layer = layerRef.current
     if (!layer) return
 
-    // targets: OUTERMOST fences first (attackers come from outside the wall),
-    // then everything else by depth — the same smashable set as before
-    const cx0 = STAGE_W / 2, cy0 = 210 + (GRID - 1) * 46 // yard center-ish
-    const distC = (pad: number) => { const p = isoPos(pad); return Math.hypot(p.x - cx0, p.y - cy0) }
-    const fences = result.base.buildings.filter(b => b.type === 'fence')
-      .sort((a, b) => distC(b.pad) - distC(a.pad))
-    const others = result.base.buildings.filter(b => b.type !== 'fence')
-      .sort((a, b) => isoPos(a.pad).depth - isoPos(b.pad).depth)
-    const targets: AssaultTarget[] = [...fences, ...others].map(b => ({
+    const targets: AssaultTarget[] = result.base.buildings.map(b => ({
       pad: b.pad, x: isoPos(b.pad).x, y: isoPos(b.pad).y,
       hp: b.type === 'fence' || b.type === 'decor' ? HITS_FENCE : HITS_BUILDING,
       dead: false,
+      isFence: b.type === 'fence',
     }))
     if (!targets.length) { setLootShown(result.loot); setPhase('done'); return }
     const lootPer = Math.floor(result.loot / targets.length)
     let lootGiven = 0
     let targetsLeft = targets.length
-
-    // deploy squad: real marched sprites, 3..6 on screen, staggered entries
-    const marchedIds = (result.army?.marched ?? []).flatMap(m => Array(Math.min(m.n, 4)).fill(m.id))
-    if (!marchedIds.length) marchedIds.push(isRep(profile?.party) ? 'rep_minuteman' : 'dem_picket_captain')
-    const squadN = Math.min(MAX_TROOPS, Math.max(3, marchedIds.length), targets.length)
-
-    let cursor = 0
-    const takeTarget = (): number => {
-      while (cursor < targets.length && targets[cursor].dead) cursor++
-      return cursor < targets.length ? cursor++ : -1
-    }
-
-    const spawnPoint = (tg: AssaultTarget) => {
-      // out past the target, away from the yard center — troops walk IN
-      const dx = tg.x - cx0, dy = tg.y - cy0
-      const len = Math.max(1, Math.hypot(dx, dy))
-      return {
-        x: Math.max(-40, Math.min(STAGE_W + 40, tg.x + (dx / len) * 330)),
-        y: Math.max(60, Math.min(STAGE_H + 40, tg.y + (dy / len) * 330 + 60)),
-      }
-    }
-
     const troops: Trooper[] = []
-    for (let i = 0; i < squadN; i++) {
-      const ti = takeTarget()
-      if (ti < 0) break
-      const tg = targets[ti]
-      const sp = spawnPoint(tg)
-      const el = document.createElement('img')
-      el.src = troopById(marchedIds[i % marchedIds.length])?.img ?? '/troops/rep_minuteman.png'
-      el.draggable = false
-      Object.assign(el.style, {
-        position: 'absolute', width: `${TROOP_W}px`, maxWidth: 'none',
-        left: '0px', top: '0px', zIndex: '1400', pointerEvents: 'none',
-        filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))',
-        opacity: '0', transition: 'opacity .25s',
-      })
-      layer.appendChild(el)
-      troops.push({ el, x: sp.x, y: sp.y, state: 'wait', activeAt: i * SPAWN_STAGGER, t: 0, target: ti, lastHitAt: 0 })
-    }
 
-    const paint = (tr: Trooper, lungeX = 0, lungeY = 0) => {
-      const tg = tr.target >= 0 ? targets[tr.target] : null
-      const flip = tg ? tg.x < tr.x : false
-      tr.el.style.left = `${tr.x + lungeX}px`
-      tr.el.style.top = `${tr.y + lungeY}px`
-      tr.el.style.transform = `translate(-50%, -100%)${flip ? ' scaleX(-1)' : ''}`
+    // nearest LIVING target from a point — fences count 20% closer so drops
+    // near the wall chew through the wall instead of beelining the safe
+    const nearest = (x: number, y: number): number => {
+      let best = -1, bestD = Infinity
+      for (let i = 0; i < targets.length; i++) {
+        const tg = targets[i]
+        if (tg.dead) continue
+        const d = Math.hypot(tg.x - x, tg.y - y) * (tg.isFence ? FENCE_PREF : 1)
+        if (d < bestD) { bestD = d; best = i }
+      }
+      return best
     }
 
     const killTarget = (ti: number) => {
@@ -213,33 +186,78 @@ export default function RaidPage() {
       lootGiven += chunk
       setSmashed(prev => { const n = new Set(prev); n.add(tg.pad); return n })
       setLootShown(v => v + chunk)
-      addFloat(tg.pad, chunk > 0 ? `+${chunk} FP` : '💥')
+      addFloat({ pad: tg.pad, text: chunk > 0 ? `+${chunk} FP` : '💥' })
       pop(150 + Math.random() * 100); buzz(30)
+    }
+
+    const paint = (tr: Trooper, lungeX = 0, lungeY = 0) => {
+      const tg = tr.target >= 0 ? targets[tr.target] : null
+      const flip = tg ? tg.x < tr.x : false
+      tr.el.style.left = `${tr.x + lungeX}px`
+      tr.el.style.top = `${tr.y + lungeY}px`
+      tr.el.style.transform = `translate(-50%, -100%)${flip ? ' scaleX(-1)' : ''}`
+    }
+
+    // the player's tap lands here (and AUTO uses it too)
+    deployRef.current = (type: string, x: number, y: number) => {
+      if ((trayRef.current[type] ?? 0) <= 0) return
+      if (troops.filter(t => t.state !== 'gone').length >= FIELD_CAP) { buzz(20); return }
+      trayRef.current[type]--
+      setTray({ ...trayRef.current })
+      const el = document.createElement('img')
+      el.src = troopById(type)?.img ?? '/troops/rep_minuteman.png'
+      el.draggable = false
+      Object.assign(el.style, {
+        position: 'absolute', width: `${TROOP_W}px`, maxWidth: 'none',
+        left: '0px', top: '0px', zIndex: '1400', pointerEvents: 'none',
+        filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))',
+        opacity: '0', transition: 'opacity .2s',
+      })
+      layer.appendChild(el)
+      requestAnimationFrame(() => { el.style.opacity = '1' })
+      const tr: Trooper = { el, x, y, state: 'walk', t: 0, target: nearest(x, y), lastHitAt: 0 }
+      paint(tr)
+      troops.push(tr)
+      addFloat({ sx: x, sy: y - 20, text: '⬇️', spark: true }, 500)
+      pop(500); buzz(15)
     }
 
     const engine = { raf: 0, alive: true }
     engineRef.current = engine
     let last = performance.now()
     let clock = 0
+    let lastAuto = 0
     const tick = (now: number) => {
       if (!engine.alive) return
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       clock += dt
 
-      let anyBusy = false
+      // AUTO: dribble the remaining tray in at the yard edge near living targets
+      if (autoRef.current && clock - lastAuto >= AUTO_EVERY) {
+        const type = Object.keys(trayRef.current).sort((a, b) => (trayRef.current[b] ?? 0) - (trayRef.current[a] ?? 0))[0]
+        if (type && (trayRef.current[type] ?? 0) > 0) {
+          const living = targets.filter(t => !t.dead)
+          if (living.length) {
+            lastAuto = clock
+            const tg = living[Math.floor(Math.random() * living.length)]
+            const cx0 = STAGE_W / 2, cy0 = 210 + (GRID - 1) * 46
+            const dx = tg.x - cx0, dy = tg.y - cy0
+            const len = Math.max(1, Math.hypot(dx, dy))
+            deployRef.current?.(type,
+              Math.max(-40, Math.min(STAGE_W + 40, tg.x + (dx / len) * 300)),
+              Math.max(60, Math.min(STAGE_H + 40, tg.y + (dy / len) * 300 + 50)))
+          }
+        }
+      }
+
       for (const tr of troops) {
         if (tr.state === 'gone') continue
-        if (tr.state === 'wait') {
-          if (clock >= tr.activeAt) { tr.state = 'walk'; tr.el.style.opacity = '1'; paint(tr) }
-          anyBusy = true
-          continue
-        }
-        // a squadmate may have finished this target — pick the next one
         if (tr.target < 0 || targets[tr.target].dead) {
-          const ti = takeTarget()
-          if (ti < 0) { tr.state = 'gone'; tr.el.style.opacity = '0'; continue }
-          tr.target = ti; tr.state = 'walk'
+          // re-target the nearest living from wherever this troop stands
+          tr.target = nearest(tr.x, tr.y)
+          if (tr.target < 0) { tr.state = 'gone'; tr.el.style.opacity = '0'; continue }
+          tr.state = 'walk'
         }
         const tg = targets[tr.target]
         if (tr.state === 'walk') {
@@ -250,13 +268,10 @@ export default function RaidPage() {
             const step = Math.min(d, WALK_SPEED * dt)
             tr.x += (dx / d) * step
             tr.y += (dy / d) * step
-            // light march-bob so the walk reads as walking, not sliding
-            paint(tr, 0, Math.sin(clock * 14) * 2.5)
+            paint(tr, 0, Math.sin(clock * 14) * 2.5)  // march-bob
           }
-          anyBusy = true
         } else if (tr.state === 'attack') {
           tr.t += dt
-          // lunge toward the target on every swing
           const dx = tg.x - tr.x, dy = tg.y - tr.y
           const d = Math.max(1, Math.hypot(dx, dy))
           const s = Math.max(0, Math.sin((tr.t % HIT_SECS) / HIT_SECS * Math.PI))
@@ -264,12 +279,13 @@ export default function RaidPage() {
           const hitsDue = Math.floor(tr.t / HIT_SECS)
           if (hitsDue > tr.lastHitAt) {
             tr.lastHitAt = hitsDue
-            tg.hp -= 1
-            addFloat(tg.pad, '💥', true, 420)
-            pop(320 + Math.random() * 160); buzz(12)
-            if (tg.hp <= 0) killTarget(tr.target)
+            if (!tg.dead) {
+              tg.hp -= 1
+              addFloat({ pad: tg.pad, text: '💥', spark: true }, 420)
+              pop(320 + Math.random() * 160); buzz(12)
+              if (tg.hp <= 0) killTarget(tr.target)
+            }
           }
-          anyBusy = true
         }
       }
 
@@ -277,14 +293,7 @@ export default function RaidPage() {
         engine.alive = false
         for (const tr of troops) tr.el.style.opacity = '0'
         setLootShown(result.loot) // snap over rounding dust
-        setTimeout(() => { if (assaultRan.current) { stopEngine(); setPhase('done') } }, 750)
-        return
-      }
-      if (!anyBusy) { // safety net: nobody active but targets remain — force-finish
-        engine.alive = false
-        setSmashed(new Set(result.base.buildings.map(b => b.pad)))
-        setLootShown(result.loot)
-        setTimeout(() => setPhase('done'), 400)
+        setTimeout(() => { stopEngine(); setPhase('done') }, 750)
         return
       }
       engine.raf = requestAnimationFrame(tick)
@@ -292,6 +301,16 @@ export default function RaidPage() {
     engine.raf = requestAnimationFrame(tick)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, result])
+
+  function handleStageTap(x: number, y: number) {
+    if (phase !== 'deploy' || !sel) return
+    if (x < -40 || x > STAGE_W + 40 || y < 40 || y > STAGE_H + 40) return
+    deployRef.current?.(sel, x, y)
+    // auto-advance selection when the stack runs dry
+    if ((trayRef.current[sel] ?? 0) <= 0) {
+      setSel(Object.keys(trayRef.current).find(k => (trayRef.current[k] ?? 0) > 0) ?? null)
+    }
+  }
 
   function skipAssault() {
     if (!result) return
@@ -331,22 +350,26 @@ export default function RaidPage() {
     }
   }
 
+  const trayEntries = Object.entries(tray)
+  const trayTotal = trayEntries.reduce((s, [, n]) => s + n, 0)
+
   return (
     <div className="fixed inset-0 z-[60] bg-[#150f0d] text-gray-200 select-none">
       {base && (
         <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
-        <IsoYard cells={cells} bg="/house/yard_bg.png">
+        <IsoYard cells={cells} bg="/house/yard_bg.png"
+          onStageTap={phase === 'deploy' ? handleStageTap : undefined}>
           <IsoFenceLinks fencePads={fencePads} />
-          {/* the assault engine paints troop sprites into this layer */}
+          {/* the deploy engine paints troop sprites into this layer */}
           <div ref={layerRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1400 }} />
           {floats.map(f => {
-            const { x, y } = isoPos(f.pad)
+            const p = f.pad != null ? isoPos(f.pad) : { x: f.sx ?? 0, y: f.sy ?? 0 }
             return f.spark ? (
               <span key={f.id} className="absolute pointer-events-none -translate-x-1/2"
-                style={{ left: x + (f.jx ?? 0), top: y - 42, zIndex: 1600, fontSize: 15 }}>💥</span>
+                style={{ left: p.x + (f.jx ?? 0), top: p.y - 42, zIndex: 1600, fontSize: 15 }}>{f.text}</span>
             ) : (
               <span key={f.id} className="absolute text-yellow-300 font-black text-base animate-bounce pointer-events-none -translate-x-1/2"
-                style={{ left: x, top: y - 56, zIndex: 1600 }}>{f.text}</span>
+                style={{ left: p.x, top: p.y - 56, zIndex: 1600 }}>{f.text}</span>
             )
           })}
         </IsoYard>
@@ -403,18 +426,43 @@ export default function RaidPage() {
         )
       })()}
 
-      {phase === 'smash' && result && (
+      {phase === 'deploy' && result && (
         <>
-          {/* during the fight: just the loot ticker — the full report waits */}
+          {/* fight HUD: loot ticker only — the report waits for the end */}
           <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[70] bg-black/60 backdrop-blur rounded-2xl px-4 py-2">
             <span className="text-yellow-300 font-black text-lg">⚡ +{lootShown}</span>
           </div>
-          <div style={{ bottom: '5.5rem' }} className="absolute left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3">
-            <span className="px-3 py-2 rounded-xl bg-black/60 backdrop-blur text-gray-200 text-xs font-bold animate-pulse">
-              ⚔️ Your army is attacking {result.defender.username}'s base…
+          {/* TROOP TRAY — pick a troop, tap the yard to release */}
+          <div style={{ bottom: '5rem' }} className="absolute inset-x-0 z-[70] flex flex-col items-center gap-1.5 px-2">
+            <span className="px-3 py-1 rounded-lg bg-black/60 backdrop-blur text-gray-300 text-[11px] font-bold">
+              {trayTotal > 0 ? '👇 Tap the yard to release troops' : 'All troops deployed!'}
             </span>
-            <button onClick={skipAssault}
-              className="px-3 py-2 rounded-xl bg-black/40 text-gray-500 text-xs font-bold">skip →</button>
+            <div className="flex items-end gap-1.5 max-w-full overflow-x-auto px-1 py-1">
+              {trayEntries.map(([id, n]) => {
+                const def = troopById(id)
+                const active = sel === id
+                return (
+                  <button key={id} onClick={() => setSel(id)} disabled={n <= 0}
+                    className={`relative shrink-0 rounded-xl border-2 p-1 bg-black/60 backdrop-blur transition
+                      ${active ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]' : 'border-gray-700'}
+                      ${n <= 0 ? 'opacity-35 grayscale' : 'active:scale-95'}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={def?.img} alt={def?.name ?? id} className="w-12 h-12 object-contain" />
+                    <span className={`absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full text-[11px] font-black flex items-center justify-center
+                      ${active ? 'bg-amber-400 text-black' : 'bg-gray-800 text-gray-200 border border-gray-600'}`}>{n}</span>
+                  </button>
+                )
+              })}
+              <button onClick={() => { autoRef.current = !autoRef.current; setAuto(autoRef.current) }}
+                className={`shrink-0 px-3 h-12 rounded-xl border-2 font-black text-xs backdrop-blur transition
+                  ${auto ? 'border-emerald-400 bg-emerald-950/70 text-emerald-300' : 'border-gray-700 bg-black/60 text-gray-400'}`}>
+                AUTO
+              </button>
+              <button onClick={skipAssault}
+                className="shrink-0 px-3 h-12 rounded-xl border-2 border-gray-700 bg-black/40 text-gray-500 text-xs font-bold">
+                skip →
+              </button>
+            </div>
           </div>
         </>
       )}
