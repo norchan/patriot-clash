@@ -11,7 +11,7 @@ import {
 } from '@/config/house'
 import { troopsForParty } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
-import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks } from '@/components/IsoYard'
+import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency } from '@/components/IsoYard'
 
 // 🏠 CAMPAIGN HQ — the personal base, ISOMETRIC (Grok's presentation brief,
 // 2026-07-31: "must feel like CoC — not a flat CSS grid of emoji"). The 6×6
@@ -167,11 +167,7 @@ export default function HqPage() {
   // fences: the CELL renders only a small post — IsoFenceLinks draws the
   // panels bridging adjacent fences, so runs connect by construction
   const fencePads = new Set([...builtOn.values()].filter(b => b.type === 'fence').map(b => b.pad))
-  const fenceLinked = (pad: number) => {
-    const col = pad % GRID, row = Math.floor(pad / GRID)
-    return (col > 0 && fencePads.has(pad - 1)) || (col < GRID - 1 && fencePads.has(pad + 1))
-      || (row > 0 && fencePads.has(pad - GRID)) || (row < GRID - 1 && fencePads.has(pad + GRID))
-  }
+  const fenceLinkedSet = fenceAdjacency(fencePads).linked
 
   // ── map game state onto the iso stage ──────────────────────────────────────
   const cells: IsoCellSpec[] = []
@@ -203,7 +199,7 @@ export default function HqPage() {
       const banked = b.type === 'media_tower' ? (house?.tower?.banked ?? 0) : 0
       const stored = b.type === 'safe' ? (house?.safe?.stored ?? 0) : 0
       const isFence = b.type === 'fence'
-      const linked = isFence && fenceLinked(pad)
+      const linked = isFence && fenceLinkedSet.has(pad)
       cells.push({
         pad, movable: true,
         // linked fences show only the joint post (IsoFenceLinks draws the

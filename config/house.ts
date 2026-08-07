@@ -242,23 +242,19 @@ export function botBase(botId: string, level: number): BotBase {
   const seed = h32(botId)
   const cells = BUILDABLE_CELLS
   const buildings: BotBase['buildings'] = []
-  // Fences lay in RUNS so they CONNECT (fence panels link when adjacent) —
-  // bot compounds read as fenced yards, not scattered panels. Runs scale with
-  // level; a level-5 bot walls a real perimeter.
-  const runs = 1 + baseLevel
-  for (let r = 0; r < runs; r++) {
-    const len = 3 + ((seed >> (r * 3)) % 3)          // 3-5 panels per run
-    const alongCols = ((seed >> r) & 1) === 0        // alternate axes
-    let row = 1 + ((seed >> (r * 2)) % (GRID - 2))
-    let col = 1 + ((seed >> (r * 2 + 5)) % (GRID - 2))
-    for (let i = 0; i < len; i++) {
-      const pad = row * GRID + col
-      if (pad >= 0 && pad < GRID * GRID && !(FIXED_PADS as readonly number[]).includes(pad)) {
-        buildings.push({ pad, type: 'fence', level: Math.min(3, 1 + ((seed >> (r + 2)) % baseLevel)) })
-      }
-      if (alongCols) col++; else row++
-      if (col >= GRID || row >= GRID) break
-    }
+  // Fences ring the OUTSIDE PERIMETER "as a fence should be" (Michael
+  // 2026-08-04) — one contiguous arc along the yard border, longer with level:
+  // a level-1 bot fences part of the lot, a level-5 bot closes the whole ring.
+  const ring: number[] = []
+  for (let c = 0; c < GRID; c++) ring.push(c)
+  for (let r = 1; r < GRID; r++) ring.push(r * GRID + GRID - 1)
+  for (let c = GRID - 2; c >= 0; c--) ring.push((GRID - 1) * GRID + c)
+  for (let r = GRID - 2; r >= 1; r--) ring.push(r * GRID)
+  const cover = Math.min(ring.length, Math.round(ring.length * (0.3 + 0.14 * baseLevel)))
+  const start = seed % ring.length
+  for (let i = 0; i < cover; i++) {
+    const pad = ring[(start + i) % ring.length]
+    buildings.push({ pad, type: 'fence', level: Math.min(3, 1 + ((seed >> (i % 5)) % baseLevel)) })
   }
   buildings.push({ pad: cells[(seed + 3) % cells.length], type: 'media_tower', level: Math.min(3, baseLevel) })
   buildings.push({ pad: cells[(seed + 17) % cells.length], type: 'safe', level: Math.min(5, baseLevel) })

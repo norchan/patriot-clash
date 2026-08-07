@@ -562,3 +562,57 @@ describe('troops (Michael 2026-08-04): mirrored rosters, capped power, honest ca
     expect(armyPower({})).toBe(0)
   })
 })
+
+import { fenceAdjacency } from '@/components/IsoYard'
+import { GRID as G } from '@/config/house'
+
+describe('fence adjacency (Michael 2026-08-04 round 2: "they should connect")', () => {
+  it('grid-edge neighbors always link', () => {
+    const { links, linked } = fenceAdjacency(new Set([11, 12, 22]))
+    expect(links).toHaveLength(2)
+    expect(linked).toEqual(new Set([11, 12, 22]))
+  })
+
+  it('screen-side-by-side pairs (grid diagonals) get a straight bridge', () => {
+    // (2,7) and (1,8): visually side by side on screen
+    const { links } = fenceAdjacency(new Set([27, 18]))
+    expect(links).toHaveLength(1)
+    expect(links[0].shear).toBe(0)
+    // stacked on screen: (8,2) and (9,3)
+    const v = fenceAdjacency(new Set([82, 93]))
+    expect(v.links).toHaveLength(1)
+  })
+
+  it('corner bridges are SKIPPED when the pair already connects through a shared fence', () => {
+    // L corner 22,23,32: 23-32 are screen-horizontal but share fence 22
+    const { links } = fenceAdjacency(new Set([22, 23, 32]))
+    expect(links.filter(l => l.shear === 0)).toHaveLength(0)
+    expect(links).toHaveLength(2) // just the two edge links through 22
+  })
+
+  it('a lone fence stays unlinked (renders as a panel, not a bare post)', () => {
+    expect(fenceAdjacency(new Set([55])).linked.size).toBe(0)
+  })
+})
+
+describe('bot bases: perimeter fences', () => {
+  it('every bot fence sits on the outside border of the lot', () => {
+    for (const level of [1, 3, 5]) {
+      const base = botBase('bot-abc-' + level, level * 8)
+      const fences = base.buildings.filter(b => b.type === 'fence')
+      expect(fences.length).toBeGreaterThan(6)
+      for (const f of fences) {
+        const col = f.pad % G, row = Math.floor(f.pad / G)
+        expect(col === 0 || col === G - 1 || row === 0 || row === G - 1).toBe(true)
+      }
+    }
+  })
+
+  it('higher-level bots close more of the ring, base level 5 closes all of it', () => {
+    // botBase derives baseLevel = 1 + min(4, floor(fighterLevel / 3))
+    const count = (fighterLvl: number) => botBase('bot-xyz', fighterLvl).buildings.filter(b => b.type === 'fence').length
+    expect(count(12)).toBe(4 * G - 4)  // baseLevel 5 → the full ring
+    expect(count(0)).toBeLessThan(count(6))
+    expect(count(6)).toBeLessThan(count(12))
+  })
+})

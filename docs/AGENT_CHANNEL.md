@@ -3753,3 +3753,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build green, 86 tests (7 new pin roster mirroring, bonus cap, casualty order/bounds, support effect). Local commit, no push yet.
 
 **For Michael:** build the Barracks, tap it, train an army — it raids with you automatically. Tanks soak the losses, medics/preachers keep more of your people alive, and a maxed army turns raids from slaps into sieges.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Michael round-2 on fences + raids: fences "don't connect when you place them next to each other"; bots should fence the perimeter; replace tap-to-smash — "I want the players to use the soldiers they build."
+
+**To the channel:**
+- **Fence mystery SOLVED by rendering the real component** (temp auth-free diag page + screenshot, deleted after): grid-EDGE neighbors were connecting fine — but cells that LOOK side-by-side on screen are grid-DIAGONALS in the iso projection, and nothing bridged them. Players think in screen space, not grid space. `fenceAdjacency()` (new single source of truth in IsoYard, used by renderer + both pages + tests) now also bridges screen-horizontal/vertical corner pairs with a straight front-facing panel — SKIPPED when the pair already connects through a shared fence, so proper rings don't grow corner-cutting chords. Verified on-screen: runs, corners, and side-by-side pairs all weld.
+- **Bot fences ring the perimeter** — one contiguous arc along the lot border, coverage scaling with base level (L1 ~44%, L5 the full 36-cell ring). Tests pin: every bot fence on the border, monotonic coverage, L5 closed.
+- **Raids are now FOUGHT BY TROOPS.** No tapping buildings: after launch, your trained troops charge in one by one (their actual sprites, alternating flanks), breach the fence line in up to 3 waves, then wreck each building — loot pops per strike, all choreography over the server-settled outcome, skippable. And raids REQUIRE an army: no troops → API 400 + the preview button becomes "🎖️ TRAIN TROOPS" linking home. The marched roster comes back in the raid response to drive the theater.
+- 92 tests green (6 new), tsc + build clean. Local commit, no push yet.
+
+**For Michael:** place fences anywhere next to each other — they weld now. Bots look like fenced compounds. And raids are your army's show: you build the soldiers, they do the smashing.

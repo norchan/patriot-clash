@@ -78,29 +78,55 @@ export function padAt(x: number, y: number): number | null {
  *  post. Render as a child of IsoYard so it lives in stage coordinates. */
 const LINK_W = 112   // x-span 112 vs 92 between anchors → overlap hides under posts
 const LINK_H = 64
-export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
-  const links: Array<{ key: string; x: number; y: number; depth: number; shear: 1 | -1 }> = []
+
+export interface FenceLink { key: string; x: number; y: number; depth: number; shear: 0 | 1 | -1; w: number }
+
+/** Single source of truth for which fences count as connected and what panels
+ *  to draw. Two senses of "next to each other" (Michael 2026-08-04, round 2 —
+ *  "the fences don't connect when you place them next to each other"):
+ *  - GRID-EDGE neighbors (the diamonds share an edge) → sheared diagonal panel
+ *  - SCREEN-AXIS corner neighbors (the diamonds a player sees side-by-side or
+ *    stacked, which the grid calls diagonal) → straight front-facing panel,
+ *    SKIPPED when the pair already connects through a shared fence neighbor,
+ *    so proper rings don't grow corner-cutting chords. */
+export function fenceAdjacency(fencePads: Set<number>): { links: FenceLink[]; linked: Set<number> } {
+  const links: FenceLink[] = []
+  const linked = new Set<number>()
+  const join = (a: number, b: number, key: string, shear: 0 | 1 | -1, w: number) => {
+    const pa = isoPos(a), pb = isoPos(b)
+    links.push({ key, x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2, depth: Math.max(pa.depth, pb.depth), shear, w })
+    linked.add(a); linked.add(b)
+  }
   for (const pad of fencePads) {
     const col = pad % GRID, row = Math.floor(pad / GRID)
-    // only look "forward" (E and S) so each pair links exactly once
-    if (col < GRID - 1 && fencePads.has(pad + 1)) {
-      const a = isoPos(pad), b = isoPos(pad + 1)
-      links.push({ key: `${pad}e`, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, depth: Math.max(a.depth, b.depth), shear: 1 })
+    // grid-edge pairs — only look "forward" (E and S) so each links exactly once
+    if (col < GRID - 1 && fencePads.has(pad + 1)) join(pad, pad + 1, `${pad}e`, 1, LINK_W)
+    if (row < GRID - 1 && fencePads.has(pad + GRID)) join(pad, pad + GRID, `${pad}s`, -1, LINK_W)
+    // screen-horizontal pair: (row-1, col+1) sits directly RIGHT on screen
+    if (row > 0 && col < GRID - 1 && fencePads.has(pad - GRID + 1)
+      && !fencePads.has(pad + 1) && !fencePads.has(pad - GRID)) {
+      join(pad, pad - GRID + 1, `${pad}h`, 0, TILE_W + 18)
     }
-    if (row < GRID - 1 && fencePads.has(pad + GRID)) {
-      const a = isoPos(pad), b = isoPos(pad + GRID)
-      links.push({ key: `${pad}s`, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, depth: Math.max(a.depth, b.depth), shear: -1 })
+    // screen-vertical pair: (row+1, col+1) sits directly BELOW on screen
+    if (row < GRID - 1 && col < GRID - 1 && fencePads.has(pad + GRID + 1)
+      && !fencePads.has(pad + 1) && !fencePads.has(pad + GRID)) {
+      join(pad, pad + GRID + 1, `${pad}v`, 0, 96)
     }
   }
+  return { links, linked }
+}
+
+export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
+  const { links } = fenceAdjacency(fencePads)
   return (
     <>
       {links.map(l => (
         // eslint-disable-next-line @next/next/no-img-element
         <img key={l.key} src="/house/fence.png" alt="" className="absolute max-w-none pointer-events-none"
           style={{
-            width: LINK_W, height: LINK_H,
-            left: l.x - LINK_W / 2, top: l.y + TILE_H * 0.28 - LINK_H,
-            transform: `matrix(1, ${l.shear * 0.5}, 0, 1, 0, 0)`,
+            width: l.w, height: LINK_H,
+            left: l.x - l.w / 2, top: l.y + TILE_H * 0.28 - LINK_H,
+            transform: l.shear ? `matrix(1, ${l.shear * 0.5}, 0, 1, 0, 0)` : undefined,
             transformOrigin: '50% 100%',
             zIndex: l.depth * 10 + 2,
             filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))',

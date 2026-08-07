@@ -122,9 +122,12 @@ export async function POST(req: NextRequest) {
 
     const info = await defenderInfo(admin, defender)
     const attackerLevel = fighterLevel(profile.total_battles_won ?? 0)
-    // TROOPS (Michael 2026-08-04): the army marches with every raid — its
-    // power raises the attack side of the damage roll
+    // TROOPS (Michael 2026-08-04): raids are FOUGHT BY THE ARMY — no troops,
+    // no raid. Their power raises the attack side of the damage roll.
     const counts = await attackerArmy(admin, profile.id)
+    if (Object.keys(counts).length === 0) {
+      return NextResponse.json({ error: 'NEED_TROOPS', message: 'Your troops do the fighting — train some at your Barracks first' }, { status: 400 })
+    }
     const bonus = armyBonus(armyPower(counts))
     const damage = raidDamagePct(attackerLevel + bonus, info.defense, Math.random())
     const trophies = trophiesFor(damage)
@@ -195,6 +198,8 @@ export async function POST(req: NextRequest) {
       cost: RAID_COST,
       army: {
         bonus,
+        // the roster that marched — the client's assault theater animates them
+        marched: Object.entries(counts).map(([id, n]) => ({ id, n })),
         losses: Object.entries(losses).map(([id, n]) => ({ id, n, name: troopById(id)?.name ?? id, emoji: troopById(id)?.emoji ?? '💥' })),
       },
       base: info.base, // the yard the client gets to smash
