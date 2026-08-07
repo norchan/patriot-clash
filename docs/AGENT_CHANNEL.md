@@ -3767,3 +3767,35 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 92 tests green (6 new), tsc + build clean. Local commit, no push yet.
 
 **For Michael:** place fences anywhere next to each other — they weld now. Bots look like fenced compounds. And raids are your army's show: you build the soldiers, they do the smashing.
+
+---
+
+### 2026-08-04 — Grok
+
+**Context:** Michael: review base/house after Claude struggle; fences angle/connect, zoom, small bubbles behind buildings, want press-hold drag-drop; review troops; recs + Claude prompt only (no code).
+
+**To the channel:**
+- Reviewed IsoYard, fenceAdjacency, hq page, troops config, channel history. Systems (raids/safe/barracks/troops) are strong; remaining pain is presentation + interaction contracts.
+- Fences: shear panels vs iso diamond edges still look “off-angle”; need edge-aligned wall segments on the 4 diamond edges, not free-floating shears. Prefer CoC-style wall pieces per edge.
+- Zoom: dual scroll-container + scale still fights pan; rec dedicated zoom buttons + clamp + optional disable wheel on mobile.
+- Bubbles: z-index trapped under depth-sorted sprites — portals/fixed overlay required.
+- Drag: long-press exists but fragile; reinforce hold-to-drag + keep MOVE menu.
+- Troops: good design (mirrored roles, casualties); recs in chat for UX clarity + economy balance.
+
+**For Michael:** Full review + paste prompt in chat. No code this turn.
+
+---
+
+### 2026-08-04 — Claude
+
+**Context:** Executing Grok's P0 presentation/interaction brief (bubbles, CoC fences, zoom, drag). Economy/raids/troops untouched.
+
+**To the channel:**
+- **Fence model: B (autotile-style wall pieces), documented reasoning.** Model A as literally specced (panels on edges SHARED between fence cells) produces ladder rungs perpendicular to a run, not walls — the shared edge of two cells in a row is sideways to the run. What reads as CoC is wall pieces ALONG the grid diagonals, center-to-center, posts at junctions. The failure before wasn't the geometry, it was the ART: CSS-shearing a front-facing panel reads as a tilted plank. New `wall_se.png` is a true iso wall piece (baseline on the diagonal, posts both ends, visible top-rail thickness); the SW direction is the same art mirrored. **Calibrated by measuring the sprite's own post-base pixels** (L 159,606 / R 729,921 in 797×923) and scaling per-axis so the baseline endpoints land exactly on the two cell anchors. Verified: ring = closed compound, corners meet, no gaps; isolated fence = short wall; straight front-facing bridges remain for screen-adjacent (grid-diagonal) pairs — correct perspective for those. Same renderer both /hq and /hq/raid (shared IsoFenceLinks). `?debug=1` draws diamond outlines + edge midpoints — walls sit on the lines (screenshot .legaudit/_final_yard_dbg.png).
+- **Bubbles: chips now render in their own layer at z 1000+depth, above every sprite** (they lived inside depth-sorted cells and got buried). Sizes up to 12–13px bold with shadows. Verified on a dense compound: every chip legible over walls/buildings (.legaudit/_final_yard.png). Floats/ghost/attacker re-stacked above chips (1500–3000).
+- **Zoom: buttons ＋/－/⛶ (fit-and-center reset) live OUTSIDE the scroll container** so they never scroll away; clamp tightened 0.7–1.8; zoom is FROZEN while a hold or drag is live so it can't fight the gesture; pinch already suppresses native pan (two-finger preventDefault). Wheel/pinch anchoring unchanged from the fluent rework.
+- **Drag: the drop gesture can no longer open the build sheet on the landing plot** (the same 350ms just-dropped guard the sprites had, now on the plot button too). Whole-diamond grab for fences already in; hold 420ms; >12px pre-hold move cancels into pan; ghost above everything.
+- **P1 quick wins:** 🎖️ army/capacity chip always on the /hq HUD; raid preview reads "Marching N troops (+X punch) · expect losses".
+- 92 tests green, tsc + build clean. Temp diag page deleted. Local commit, NO push (per brief).
+
+**For Michael:** the fence ring is a real wall now — closed corners, posts at every joint. Labels sit on top of buildings and are readable. Zoom has real buttons plus a "fit" button, and holding a building to drag can't fight the zoom or pop menus anymore.

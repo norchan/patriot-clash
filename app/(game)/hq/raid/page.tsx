@@ -188,7 +188,7 @@ export default function RaidPage() {
         emoji: dead ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
         dead,
         chip: !dead && b.type !== 'decor'
-          ? <span className="text-[10px] font-bold px-1 rounded bg-black/45 text-gray-300">Lv {b.level}</span>
+          ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>
           : undefined,
       })
     }
@@ -209,7 +209,7 @@ export default function RaidPage() {
                 left: attacker.x, top: attacker.y,
                 transform: `translate(-50%, -100%)${attacker.flip ? ' scaleX(-1)' : ''}`,
                 transition: 'left .55s cubic-bezier(.3,.8,.4,1), top .55s cubic-bezier(.3,.8,.4,1)',
-                zIndex: 950,
+                zIndex: 1500,
                 filter: 'drop-shadow(0 10px 12px rgba(0,0,0,0.5))',
               }} />
           )}
@@ -217,7 +217,7 @@ export default function RaidPage() {
             const { x, y } = isoPos(f.pad)
             return (
               <span key={f.id} className="absolute text-yellow-300 font-black text-base animate-bounce pointer-events-none -translate-x-1/2"
-                style={{ left: x, top: y - 56, zIndex: 900 }}>{f.text}</span>
+                style={{ left: x, top: y - 56, zIndex: 1600 }}>{f.text}</span>
             )
           })}
         </IsoYard>
@@ -254,7 +254,7 @@ export default function RaidPage() {
             <p className="text-gray-400 text-[11px]">Lv {found.target.level} · Base {found.target.base_level}⭐ · loot ⚡{found.loot_min}–{found.loot_max}</p>
             {noTroops
               ? <p className="text-red-400 text-[11px] font-bold">🎖️ Your troops do the fighting — train some first</p>
-              : <p className="text-emerald-400 text-[11px] font-bold">🎖️ {found.army!.total} troops ready to march (+{found.army!.bonus} punch)</p>}
+              : <p className="text-emerald-400 text-[11px] font-bold">🎖️ Marching {found.army!.total} troops (+{found.army!.bonus} punch) · expect losses</p>}
           </div>
           <button onClick={findTarget} className="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center text-gray-300 shrink-0" title="Next target"><RefreshCw size={15} /></button>
           {noTroops ? (

@@ -177,8 +177,8 @@ export default function HqPage() {
         pad, img: hqImage(house?.hq_level ?? 1), imgW: 198,
         onTap: () => setSheet({ pad, hq: true }),
         chip: house?.hq_upgrade
-          ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-amber-500 text-black">🔨 {fmtLeft(house.hq_upgrade.done_at, now)}</span>
-          : <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md" style={{ background: `${tint}cc`, color: '#fff' }}>Lv {house?.hq_level ?? 1}</span>,
+          ? <span className="text-[13px] font-black px-2 py-0.5 rounded-md bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(house.hq_upgrade.done_at, now)}</span>
+          : <span className="text-[13px] font-black px-2 py-0.5 rounded-md shadow-lg" style={{ background: `${tint}cc`, color: '#fff' }}>Lv {house?.hq_level ?? 1}</span>,
       })
       continue
     }
@@ -188,8 +188,8 @@ export default function HqPage() {
         pad, img: '/house/print_shop.png', imgW: 128, movable: true,
         glow: ready, onTap: ready ? claimFarm : () => setSheet({ pad, ps: true }),
         chip: ready
-          ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-amber-400 text-black animate-bounce">🧨 CLAIM {farm!.ready}</span>
-          : farm ? <span className="text-[10px] font-bold px-1 rounded bg-black/45 text-gray-300">🧨 in {Math.max(1, Math.ceil((farm.next_in_secs ?? 0) / 60))}m</span> : undefined,
+          ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-amber-400 text-black animate-bounce shadow-lg">🧨 CLAIM {farm!.ready}</span>
+          : farm ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200">🧨 {Math.max(1, Math.ceil((farm.next_in_secs ?? 0) / 60))}m</span> : undefined,
       })
       continue
     }
@@ -211,12 +211,12 @@ export default function HqPage() {
         glow: banked > 0,
         onTap: () => setSheet({ pad, building: b }),
         chip: b.upgrade
-          ? <span className="text-[10px] font-black px-1 rounded bg-amber-500 text-black">🔨 {fmtLeft(b.upgrade.done_at, now)}</span>
+          ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(b.upgrade.done_at, now)}</span>
           : banked > 0
-            ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-emerald-400 text-black animate-bounce">+{banked} FP</span>
+            ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-emerald-400 text-black animate-bounce shadow-lg">+{banked} FP</span>
             : stored > 0
-              ? <span className="text-[10px] font-black px-1 rounded bg-black/45 text-amber-300">🔐 {stored.toLocaleString()}</span>
-              : <span className="text-[10px] font-bold px-1 rounded bg-black/45 text-gray-300">Lv {b.level}</span>,
+              ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-black/60 text-amber-300 shadow-lg">🔐 {stored.toLocaleString()}</span>
+              : <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>,
       })
       continue
     }
@@ -297,7 +297,7 @@ export default function HqPage() {
           const { x, y } = isoPos(p.pad)
           return (
             <span key={p.id} className="absolute text-yellow-300 font-black text-base animate-bounce pointer-events-none -translate-x-1/2"
-              style={{ left: x, top: y - 46, zIndex: 900 }}>{p.text}</span>
+              style={{ left: x, top: y - 46, zIndex: 1600 }}>{p.text}</span>
           )
         })}
       </IsoYard>
@@ -311,6 +311,9 @@ export default function HqPage() {
         </button>
       </div>
       <div className="absolute top-3 right-3 z-[70] flex items-center gap-2">
+        {(army?.capacity ?? 0) > 0 && (
+          <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-emerald-300 font-black text-sm">🎖️ {army!.total}/{army!.capacity}</span>
+        )}
         <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-amber-400 font-black text-sm">🏆 {house?.trophies ?? 0}</span>
         <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
       </div>
