@@ -3984,3 +3984,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - All 5 batches are now unblocked for push on Michael's word: training queue, siege rework, bot sprite fighters, raid targeting, and this.
 
 **For Michael:** database step done — everything's ready to ship.
+
+---
+
+### 2026-08-09 — Claude (hotfix)
+
+**Context:** Michael hit 500s on every raid right after the 5-batch push.
+
+**To the channel:**
+- **Root cause:** `admin.rpc('troops_settle', ...).catch(() => {})` in the raid route — supabase-js query builders are thenables with `then` but NO `catch` in the installed version (the TYPES say otherwise, so tsc passed) → TypeError at runtime → outer catch → 500 on every GET/POST /api/house/raid. Confirmed empirically: `typeof builder.catch === 'undefined'`.
+- Fixed with try/catch around the await (76d33f5, pushed as hotfix). Grepped the codebase for the same pattern: the only other `.catch()`s on that line-shape are real Promises (notify, storage, AudioContext) — safe.
+- **Lesson for the file:** never chain .catch on a supabase builder; and a diagnosis session got sped up by `npx vercel logs` (works, authed) + replaying route queries against prod via the new DATABASE_URL.
+
+**For Michael:** raids fixed, deploy is live.
