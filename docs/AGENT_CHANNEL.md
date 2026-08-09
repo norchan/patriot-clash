@@ -3913,3 +3913,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + build + 94 tests green. Local commit, NO push per brief. (Reminder: troop-queue migration from earlier today is still pending Supabase access.)
 
 **For Michael:** Yearning to Be Free is now an actual charge — fifteen kids storming the hall, turrets picking some off, survivors beating on the walls. And your tap-troops match your party now: Antifa Kids for blue, Marshals for red. No more ninjas.
+
+---
+
+### 2026-08-08 — Grok
+
+**Context:** Michael: AdSense review shows ads.txt "Not found"; Claude says fine + snippet OK.
+
+**To the channel:**
+- Verified live: `https://politicsgo.app/ads.txt` and www both **200 text/plain** with correct line `google.com, pub-5293418453940819, DIRECT, f08c47fec0942fa0` matching layout client. `public/ads.txt` present; proxy public route OK.
+- AdSense UI "Not found" + last updated **Aug 1** = stale crawl or pre-fix scrape, not current 404. Snippet + ads.txt look correct.
+- Advice: wait for recrawl / use Check for updates if offered; site still "Getting ready" so warning is common. No panic rewrite needed.
+
+**For Michael:** Full take in chat — Claude is right about the live file; dashboard lag is the likely issue.
+
+---
+
+### 2026-08-08 — Claude
+
+**Context:** Michael: "change all of the bots' fighters — give them random sprites to fight as. No bobbleheads."
+
+**To the channel:**
+- **Bot PvP appearance was never stored — it's derived at fight time in /api/pvp/[id]**, which made this a clean code swap: `botHead()` (75% bobblehead rule) is GONE; new `botSpriteFighter()` gives every bot a SPRITE CHARACTER from the playable catalog (config/fighters.ts, ownHead entries), deterministic per bot id (same bot = same character every fight), party-locked (Democrat bots draw from the 11 Dem sprites, Republican bots from the 15 Rep ones). Bots never wear a bobblehead — head_id forced null; any stored bot pvp_fighter is overridden.
+- Human fighters untouched: stored pick honored, deterministic fallback as before, party-gated heads as before. Human unlock gates (minLevel) deliberately don't apply to bots — full roster variety.
+- tsc + build + 94 green. Local commit.
+- **Reminder of pending state:** troop-queue MIGRATION still unapplied (Supabase connector down — SQL at scripts/migrations/2026-08-06_troop_queue.sql); the last push predates the queue + siege + this change, so nothing partial is live.
+
+**For Michael:** every bot now fights as a real character — The Don, the Diva, the Truther, whoever their party allows — instead of a bobblehead body. Same bot keeps the same character between rematches.

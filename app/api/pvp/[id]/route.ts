@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { headMeta, HEADS } from '@/config/heads'
+import { headMeta } from '@/config/heads'
+import { FIGHTERS } from '@/config/fighters'
 import { requireProfile } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fighterLevel, sanitizeFighter } from '@/lib/fighter'
@@ -15,15 +16,16 @@ function partyHead(headId?: string | null, party?: string | null): string | null
   return hp && hp !== party ? null : headId
 }
 
-// 75% of bots wear a bobblehead (Michael) — deterministic per bot id so a
-// bot keeps the same face between fights, party-appropriate, well mixed.
-function botHead(id: string, party?: string | null): string | null {
+// Bots fight as SPRITE CHARACTERS, never bobbleheads (Michael 2026-08-08:
+// "give them random sprites to fight as. No bobble heads"). Deterministic per
+// bot id so a bot keeps the same identity between fights, party-locked so a
+// Democrat bot never fights as The Don. Human unlock gates don't apply to
+// bots — the whole roster adds variety.
+function botSpriteFighter(id: string, party?: string | null): string {
+  const pool = FIGHTERS.filter(f => f.ownHead && (!f.party || f.party === party))
   let h = 0
-  for (let i = 0; i < id.length; i++) h = (Math.imul(33, h) + id.charCodeAt(i)) | 0
-  if (Math.abs(h) % 100 >= 75) return null // the bare-headed 25%
-  const pool = HEADS.filter(x => !x.party || x.party === party)
-  if (!pool.length) return null
-  return pool[Math.abs(Math.imul(h, 2654435761)) % pool.length].id
+  for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0
+  return pool.length ? pool[Math.abs(h) % pool.length].id : 'fighter1'
 }
 
 function pickFighter(id: string, party?: string | null): string {
@@ -111,13 +113,18 @@ export async function GET(
         defender_level: fighterLevel(d?.total_battles_won ?? 0),
         challenger_fighter: sanitizeFighter(c?.fighter, challenge.challenger_id),
         defender_fighter: sanitizeFighter(d?.fighter, challenge.defender_id),
-        // chosen 3D fighter (falls back deterministically if unset, e.g. bots)
-        challenger_pvp_fighter: c?.pvp_fighter ?? pickFighter(challenge.challenger_id, c?.party),
-        defender_pvp_fighter: d?.pvp_fighter ?? pickFighter(challenge.defender_id, d?.party),
-        challenger_head_id: partyHead(c?.head_id, c?.party)
-          ?? (c?.clerk_user_id?.startsWith('bot_') ? botHead(challenge.challenger_id, c?.party) : null),
-        defender_head_id: partyHead(d?.head_id, d?.party)
-          ?? (d?.clerk_user_id?.startsWith('bot_') ? botHead(challenge.defender_id, d?.party) : null),
+        // chosen 3D fighter. BOTS always fight as sprite characters (their
+        // stored pick, if any, is overridden); humans fall back
+        // deterministically when unset.
+        challenger_pvp_fighter: c?.clerk_user_id?.startsWith('bot_')
+          ? botSpriteFighter(challenge.challenger_id, c?.party)
+          : (c?.pvp_fighter ?? pickFighter(challenge.challenger_id, c?.party)),
+        defender_pvp_fighter: d?.clerk_user_id?.startsWith('bot_')
+          ? botSpriteFighter(challenge.defender_id, d?.party)
+          : (d?.pvp_fighter ?? pickFighter(challenge.defender_id, d?.party)),
+        // sprite fighters own their heads — bots never wear a bobblehead
+        challenger_head_id: c?.clerk_user_id?.startsWith('bot_') ? null : partyHead(c?.head_id, c?.party),
+        defender_head_id: d?.clerk_user_id?.startsWith('bot_') ? null : partyHead(d?.head_id, d?.party),
         challenger_is_bot: !!c?.clerk_user_id?.startsWith('bot_'),
         defender_is_bot: !!d?.clerk_user_id?.startsWith('bot_'),
       })
