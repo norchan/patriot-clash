@@ -36,7 +36,7 @@ interface Projectile {
 
 interface Soldier {
   id: number
-  kind: 'troop' | 'poor'
+  kind: 'troop' | 'poor' | 'free'
   x: number; y: number     // current position (%)
   tx: number; ty: number   // fight position at the walls (%)
   flip: boolean            // mirror the sprite to face the travel direction
@@ -45,6 +45,10 @@ interface Soldier {
   lastHit: number
   hits: number
   maxHits: number
+  /** strike-pool damage this soldier chips PER HIT (poor/free kinds). Fixes a
+   *  silent bug: the old code read strikePool.chunk which was never written,
+   *  so mob hits chipped zero and the bar only snapped at the end. */
+  chip?: number
 }
 
 interface Spark { id: number; x: number; y: number; text: string; color: string }
@@ -88,8 +92,12 @@ const DEFENSE_GUNS = [
 ]
 const KILL_BASE = { march: 0.022, fight: 0.028 } // per 200ms tick
 
-const TROOP_RUN = ['/halls/soldier_run1.png', '/halls/soldier_run3.png', '/halls/soldier_run2.png']
-const TROOP_ATK = ['/halls/soldier_atk1.png', '/halls/soldier_atk3.png', '/halls/soldier_atk2.png']
+// Party-true ground troops (Grok's siege brief 2026-08-06 — no more
+// ninja/soldier fantasy): Democrats field Antifa Kids, Republicans Marshals.
+const ANTIFA_RUN = ['/siege/antifa_run1.png', '/siege/antifa_run3.png', '/siege/antifa_run2.png']
+const ANTIFA_ATK = ['/siege/antifa_atk1.png', '/siege/antifa_atk2.png']
+const MARSHAL_RUN = ['/siege/marshal_run1.png', '/siege/marshal_run3.png', '/siege/marshal_run2.png']
+const MARSHAL_ATK = ['/siege/marshal_atk1.png', '/siege/marshal_atk2.png']
 // Free ground game per 100 FP assault (siege rework A2) — no unlimited spam;
 // pressure beyond this comes from owned gear and party specials
 const FREE_TROOPS = 5
@@ -176,9 +184,11 @@ function SiegePage() {
   const [troopsLeft, setTroopsLeft] = useState(FREE_TROOPS)
   const [powerFlash, setPowerFlash] = useState<number | null>(null)
 
-  // Party ground game (siege rework A1): Democrats field Canvassers,
-  // Republicans field Marshals — same troops, party-true names
-  const troopName = profile?.party === 'republican' ? 'Marshals' : 'Canvassers'
+  // Party ground game (siege rework A1 + 2026-08-06): Democrats field
+  // Antifa Kids, Republicans field Marshals — party-true art AND names
+  const troopName = profile?.party === 'republican' ? 'Marshals' : 'Antifa Kids'
+  const runFrames = profile?.party === 'republican' ? MARSHAL_RUN : ANTIFA_RUN
+  const atkFrames = profile?.party === 'republican' ? MARSHAL_ATK : ANTIFA_ATK
 
   // Higher-level attackers field deadlier, hardier troops
   const playerLevel = fighterLevel(profile?.total_battles_won ?? 0)
@@ -540,6 +550,7 @@ function SiegePage() {
             lastHit: 0,
             hits: 0,
             maxHits: 3,
+            chip: chunk,
           }
           soldiersRef.current = [...soldiersRef.current, soldier]
           setSoldiers(soldiersRef.current)
@@ -549,29 +560,56 @@ function SiegePage() {
     }
 
     if (attackId === 'free') {
-      // the huddled masses charge in a cloud of smoke
-      const deadFree = doomed(6)
-      for (let i = 0; i < 6; i++) {
-        schedule(i * 120, () => {
-          addFx({ emoji: '💨', x0: 20 + Math.random() * 60, y0: 100, x1: 30 + Math.random() * 40, y1: 42 + Math.random() * 16, size: 64 + Math.random() * 40, dur: 1400 }, 1900)
+      // YEARNING TO BE FREE, rebuilt (Grok's brief 2026-08-06): a MASS CHARGE
+      // of Antifa Kids — 15 individual runners storm the hall from the whole
+      // bottom edge, turret flak clips some mid-run, the survivors reach the
+      // walls and CHIP while swinging. Smoke is under their feet now, not the
+      // show. The server already docked flak damage: survivors' chips total
+      // `damage` exactly.
+      const n = 15
+      const dead = doomed(n)
+      const survivors = Math.max(1, n - dead.size)
+      const hitsEach = 3
+      const chunk = damage / (survivors * hitsEach)
+      for (let i = 0; i < n; i++) {
+        const isDead = dead.has(i)
+        schedule(i * 90, () => {
+          const sx = 4 + Math.random() * 92
+          const tx = HALL_X - 14 + Math.random() * 28
+          const ty = HALL_Y + 3 + Math.random() * 10
+          // dust kicked up at the spawn line — secondary FX only
+          if (i % 3 === 0) addFx({ emoji: '💨', x0: sx, y0: 101, x1: sx + (Math.random() * 8 - 4), y1: 96, size: 30, dur: 700 }, 750)
+          const soldier: Soldier = {
+            id: ++idRef.current,
+            kind: 'free',
+            x: sx, y: 100,
+            tx, ty,
+            flip: tx < sx,
+            state: 'march',
+            spawnedAt: Date.now(),
+            lastHit: 0,
+            hits: 0,
+            maxHits: hitsEach,
+            chip: isDead ? 0 : chunk,
+          }
+          soldiersRef.current = [...soldiersRef.current, soldier]
+          setSoldiers(soldiersRef.current)
+          if (isDead) {
+            // turret flak clips this one mid-run — tracer, burst, poof
+            const mx = (sx + tx) / 2, my = (100 + ty) / 2
+            shootDown(mx, my, 380 + Math.random() * 300)
+            schedule(600 + Math.random() * 200, () => {
+              soldiersRef.current = soldiersRef.current.map(sl =>
+                sl.id === soldier.id ? { ...sl, state: 'poof' as const, hits: sl.maxHits, lastHit: Date.now(), x: mx, y: my } : sl)
+              setSoldiers(soldiersRef.current)
+            })
+          }
         })
       }
-      // Turrets rake the charge. The damage was already docked server-side, so
-      // these are pure visuals — the chip chunks below still total `damage`.
-      deadFree.forEach(i => shootDown(28 + i * 9, 58 + Math.random() * 10, 500 + i * 160))
-      schedule(200, () => {
-        addFx({ src: '/siege/crowd.png', x0: 50, y0: 96, x1: 50, y1: 56, size: 240, dur: 1500 }, 2600)
-      })
-      const chunks = 4
-      const chunk = damage / chunks
-      for (let i = 0; i < chunks; i++) {
-        schedule(1500 + i * 220, () => {
-          chipStrike(chunk, 42 + Math.random() * 16, 40 + Math.random() * 12)
-          shakeScreen(true)
-        })
-      }
-      schedule(1500, () => addFx({ boom: true, emoji: '💥', x0: 50, y0: 46, x1: 50, y1: 46, size: 84, dur: 750 }, 800))
-      return 2900
+      // the wave slams home — big shake as the front rank arrives
+      schedule(MARCH_MS + 300, () => shakeScreen(true))
+      schedule(MARCH_MS + n * 90, () => shakeScreen(true))
+      return n * 90 + MARCH_MS + hitsEach * SOLDIER_HIT_MS + 700
     }
 
     if (attackId === 'peace') {
@@ -741,11 +779,15 @@ function SiegePage() {
         }
         if (s.state === 'march' && now - s.spawnedAt >= MARCH_MS + 250) {
           changed = true
+          // dust as they land at the walls (juice pass D)
+          addFx({ emoji: '💨', x0: s.tx, y0: s.ty + 2, x1: s.tx + (Math.random() * 8 - 4), y1: s.ty - 2, size: 24, dur: 500 }, 550)
           return { ...s, state: 'fight' as const, lastHit: now }
         }
         if (s.state === 'fight' && now - s.lastHit >= SOLDIER_HIT_MS && !st.ended) {
           changed = true
-          if (s.kind === 'poor') chipStrike(strikePool.current.chunk, s.tx, s.ty - 6)
+          // hit spark on every swing, specials and free troops alike
+          addFx({ boom: true, emoji: '💥', x0: s.tx + (Math.random() * 6 - 3), y0: s.ty - 8, x1: s.tx, y1: s.ty - 8, size: 26, dur: 420 }, 450)
+          if (s.kind !== 'troop') chipStrike(s.chip ?? 0, s.tx, s.ty - 6)
           else applyDamage(st.budget * 0.03 * troopPower * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
           const hits = s.hits + 1
           return hits >= s.maxHits
@@ -885,12 +927,14 @@ function SiegePage() {
               width: 56,
               height: s.state === 'fight' ? 60 : 64,
               animation: s.state === 'march' ? 'sgRun 0.34s ease-in-out infinite' : 'sgLunge 0.62s ease-in-out infinite',
-              filter: `drop-shadow(0 0 6px ${s.kind === 'poor' ? '#60a5fa' : myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
+              filter: `drop-shadow(0 0 6px ${s.kind === 'poor' ? '#60a5fa' : s.kind === 'free' ? '#93c5fd' : myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
             }}>
               <Flipbook
                 frames={s.kind === 'poor'
                   ? (s.state === 'fight' ? POOR_ATK : POOR_RUN)
-                  : (s.state === 'fight' ? TROOP_ATK : TROOP_RUN)}
+                  : s.kind === 'free'
+                    ? (s.state === 'fight' ? ANTIFA_ATK : ANTIFA_RUN)
+                    : (s.state === 'fight' ? atkFrames : runFrames)}
                 cycleMs={s.state === 'fight' ? 640 : 330}
               />
             </span>

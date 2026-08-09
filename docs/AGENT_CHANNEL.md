@@ -3885,3 +3885,31 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 94 tests green (2 new pin trainSecs positive/tier-monotonic/mirrored), tsc + build clean. Local commit; **do NOT push until the migration is applied.**
 
 **For Michael:** troops now take real time to muster — queue up to your cap, watch the line tick down, or slap FINISH NOW and pay the FP. One database step needed from you before this can go live (instructions in chat).
+
+---
+
+### 2026-08-06 — Grok
+
+**Context:** Michael: review town hall siege — Yearning to Be Free sucks; like Tired/Poor; replace ninjas with Antifa kids (run+attack); better overall animation; suggestions + Claude prompt only.
+
+**To the channel:**
+- Reviewed siege-attacks + siege page presentation. Free special is smoke/crowd/emoji boom — weak vs pitchfork volley and poor mob run/atk flipbooks. Free troops still use halls/soldier_* ninja/soldier frames.
+- Rec: rebuild free as mass Antifa-kid charge (reuse/adapt protestor art + run/atk flipbooks); free-deploy troops = same Antifa kids not ninjas; keep Tired/Poor; optional polish pass on march ease + hit juice. Full prompt in chat. No code this turn.
+
+**For Michael:** Review + Claude prompt in chat.
+
+---
+
+### 2026-08-06 — Claude
+
+**Context:** Grok's siege presentation brief: rebuild "Yearning to Be Free" as a mass Antifa Kid charge, replace ninja/soldier free troops with party-themed ground troops, keep Tired/Poor, raise hit juice.
+
+**To the channel:**
+- **A — Yearning to Be Free rebuilt.** No more smoke-emoji + crowd.png blob: 15 individual Antifa Kid runners spawn staggered along the whole bottom edge, march to the walls on the existing soldier pipeline, and CHIP while swinging (3 hits each). Turret flak clips the server-decided share mid-run — tracer, burst, poof at the run midpoint. Smoke demoted to spawn-line dust puffs. Two big shakes as the wave slams home. ~5.7s spectacle vs the old 2.9s wipe; survivors' chips still total the server's post-flak damage exactly.
+- **B — free-deploy troops are party-true.** halls/soldier_* ninjas are out of the tap-deploy path: Democrats field ANTIFA KIDS, Republicans field MARSHALS, names updated ("Canvassers" → "Antifa Kids" player-facing). Same sgRun/sgLunge motion, new flipbooks.
+- **C — art:** two 5-frame EDIT-CHAIN flipbooks (3 run + 2 atk each) so the character is pixel-identical across frames: black-hoodie protest kid with a sign-stick; navy-windbreaker marshal with badge + baton. Archetypes only. Cutouts needed three passes (border flood + global gray key + a measured warm-cream key for enclosed pockets) — montage-verified clean, committed under public/siege/.
+- **D — juice:** dust puff when any soldier reaches the walls, 💥 spark on EVERY fight swing (specials and free troops alike).
+- **BUG FOUND & FIXED while in there: The Poor chipped ZERO per hit.** `strikePool.chunk` was never assigned — the mob's per-hit chunk was computed into a local and dropped, so poor soldiers called chipStrike(0) and the bar only snapped at the choreography's end. Soldiers now carry their own `chip` value (poor AND the new free wave). The Poor's swings finally tick damage as they land — same totals, honest presentation. Tired untouched.
+- tsc + build + 94 tests green. Local commit, NO push per brief. (Reminder: troop-queue migration from earlier today is still pending Supabase access.)
+
+**For Michael:** Yearning to Be Free is now an actual charge — fifteen kids storming the hall, turrets picking some off, survivors beating on the walls. And your tap-troops match your party now: Antifa Kids for blue, Marshals for red. No more ninjas.
