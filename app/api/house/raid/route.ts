@@ -14,7 +14,12 @@ import { armyPower, armyBonus, casualtyPlan, troopById } from '@/config/troops'
 /** The attacker's army as {troop_type: count}. Settles the training queue
  *  first so units that finished while the player was away can fight. */
 async function attackerArmy(admin: any, profileId: string): Promise<Record<string, number>> {
-  await admin.rpc('troops_settle', { p_profile_id: profileId }).catch(() => {})
+  // NOTE: supabase query builders are thenables WITHOUT .catch — chaining
+  // .catch() onto rpc() throws "catch is not a function" at runtime (broke
+  // every raid on 2026-08-09). Errors surface in the result object anyway;
+  // a failed settle just means the army reads slightly stale. try/catch
+  // guards the await itself.
+  try { await admin.rpc('troops_settle', { p_profile_id: profileId }) } catch {}
   const { data } = await admin.from('house_troops')
     .select('troop_type, count').eq('profile_id', profileId).gt('count', 0)
   const counts: Record<string, number> = {}
