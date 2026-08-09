@@ -9,7 +9,7 @@
 // costs from HERE and passes them to atomic SQL functions — the client never
 // sends a price, the same trust boundary as the fp-packs catalog.
 
-export type BuildingType = 'fence' | 'media_tower' | 'safe' | 'barracks'
+export type BuildingType = 'fence' | 'media_tower' | 'safe' | 'barracks' | 'solar' | 'doberman'
 
 // ── The yard ────────────────────────────────────────────────────────────────
 // 10×10 OPEN grid, cell indexes 0..99 row-major (Michael 2026-07-31 — grew
@@ -72,6 +72,51 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     costs: [400, 1000, 2500, 6000, 14000],
     unique: true,
   },
+  solar: {
+    type: 'solar',
+    name: 'Solar Array',
+    emoji: '☀️',
+    desc: 'Soaks up sunshine into FP. Slower than the Media Tower, but stores a full day before it overflows.',
+    costs: [400, 900, 1800],
+    unique: true,
+  },
+  doberman: {
+    type: 'doberman',
+    name: 'Doberman',
+    emoji: '🐕',
+    desc: 'A red Doberman guards your yard — bites raiders until they wear him down and he trots off. Always back, full strength, next raid. Never dies.',
+    costs: [2000],
+    unique: true,
+  },
+}
+
+// ── SOLAR ARRAY (Michael 2026-08-09) — second income building ──────────────
+// Same claim pattern as the tower (lazy, banked intervals) but tuned as the
+// patient option: lower rate, four banked intervals — a full day of sunshine.
+export const SOLAR_RATE_BY_LEVEL = [15, 30, 50] as const   // FP per payout, L1..L3
+export const SOLAR_BANK_INTERVALS = 4
+export const SOLAR_MAX_LEVEL = SOLAR_RATE_BY_LEVEL.length
+export const solarImage = (level: number) =>
+  `/house/solar${Math.max(1, Math.min(3, level))}.png`
+export function solarBanked(elapsedSecs: number, level: number): number {
+  const intervals = Math.min(SOLAR_BANK_INTERVALS, Math.floor(elapsedSecs / TOWER_INTERVAL_SECS))
+  return intervals * (SOLAR_RATE_BY_LEVEL[level - 1] ?? 0)
+}
+
+// ── REPAIRS (Michael 2026-08-09) — raids leave real scars ──────────────────
+// After a successful raid every defender building (never the dog) is DAMAGED:
+// countdown scales with level, fences mend faster than buildings, and the
+// countdown lapsing IS the repair — no claim step. Damaged buildings produce
+// no income and damaged fences don't defend. Instant repair uses the same
+// rush pricing shape as upgrades.
+export const REPAIR_FENCE_SECS_PER_LEVEL = 300      // 5m / 10m / 15m
+export const REPAIR_BUILDING_SECS_PER_LEVEL = 600   // 10m per level
+export function repairSecsFor(type: string, level: number): number {
+  return (type === 'fence' ? REPAIR_FENCE_SECS_PER_LEVEL : REPAIR_BUILDING_SECS_PER_LEVEL) * Math.max(1, level)
+}
+export function repairCost(type: string, level: number, remainingSecs: number): number {
+  const base = buildingCost(type, level) ?? 100
+  return rushCost(base * 0.5, remainingSecs, repairSecsFor(type, level))
 }
 
 // ── The BARRACKS — troop training (Michael 2026-08-04) ─────────────────────
@@ -206,12 +251,16 @@ export function raidDamagePct(attackerLevel: number, defenseScore: number, roll:
   return Math.max(35, Math.min(100, 55 + (attackerLevel - defenseScore) * 4 + noise))
 }
 
-/** Defender defense score from their real buildings. */
-export function defenseScore(buildings: Array<{ type: string; level: number }>, baseLevel: number): number {
+/** Defender defense score from their real buildings. Damaged buildings
+ *  (post-raid, still under their repair countdown) don't defend; the Doberman
+ *  is the big-ticket defense and is never damaged — full strength every raid. */
+export function defenseScore(buildings: Array<{ type: string; level: number; damaged?: boolean }>, baseLevel: number): number {
   let s = baseLevel
   for (const b of buildings) {
+    if (b.damaged) continue
     if (b.type === 'fence') s += b.level * 2
     if (b.type === 'media_tower') s += 1 // a tower is a target, barely a defense
+    if (b.type === 'doberman') s += 4    // 2000 FP of teeth
   }
   return s
 }
@@ -263,6 +312,12 @@ export function botBase(botId: string, level: number): BotBase {
   if (baseLevel >= 2) {
     buildings.push({ pad: cells[(seed + 29) % cells.length], type: 'barracks', level: Math.min(5, baseLevel) })
   }
+  // level 3+ bots add a solar array AND a doberman — raiders should meet the
+  // dog out in the wild before deciding to buy their own
+  if (baseLevel >= 3) {
+    buildings.push({ pad: cells[(seed + 41) % cells.length], type: 'solar', level: Math.min(3, baseLevel - 1) })
+    buildings.push({ pad: cells[(seed + 53) % cells.length], type: 'doberman', level: 1 })
+  }
   // decor makes big bases LOOK rich (flags, signs — pure rendering)
   for (let i = 0; i < 1 + baseLevel; i++) {
     buildings.push({ pad: cells[(seed + 11 + i * 5) % cells.length], type: 'decor', level: 1 })
@@ -276,7 +331,8 @@ export function botBase(botId: string, level: number): BotBase {
   }
 }
 
-export const botDefenseScore = (baseLevel: number) => baseLevel * 3
+export const botDefenseScore = (baseLevel: number) =>
+  baseLevel * 3 + (baseLevel >= 3 ? 4 : 0)  // level-3+ bots keep a doberman
 
 // ── Yard pickups — the little endorphin taps ────────────────────────────────
 // Sparkles appear on your own yard over time; each tap claims a few FP.

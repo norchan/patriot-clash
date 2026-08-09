@@ -7,7 +7,7 @@ import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
-  safeImage, barracksImage, armyCap,
+  safeImage, barracksImage, armyCap, solarImage,
 } from '@/config/house'
 import { troopsForParty, troopById } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
@@ -22,12 +22,12 @@ import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency } from '@/c
 
 interface Farm { ready: number; next_in_secs: number | null; rate_hours: number; cap: number }
 interface Upgrade { to: number; done_at: string; rush_cost: number }
-interface Building { pad: number; type: string; level: number; facing?: number; upgrade?: Upgrade | null }
+interface Building { pad: number; type: string; level: number; facing?: number; upgrade?: Upgrade | null; damaged_until?: string | null; repair_cost?: number | null }
 interface Tower { level: number; banked: number; next_in_secs: number; rate: number; interval_hours: number }
 interface House {
   print_shop_pad?: number
   hq_level: number; hq_upgrade: Upgrade | null
-  buildings: Building[]; tower: Tower | null
+  buildings: Building[]; tower: Tower | null; solar: Tower | null
   trophies: number; shield_until: string | null; pickups: number
   safe: { level: number; stored: number; capacity: number } | null
 }
@@ -48,6 +48,8 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   media_tower: { img: () => '/house/media_tower.png', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
   barracks: { img: l => barracksImage(l), w: 150 },
+  solar: { img: l => solarImage(l), w: 134 },
+  doberman: { img: () => '/house/doberman.png', w: 104 },
 }
 
 // sparkle pickups live on fixed pads so a refresh doesn't shuffle them
@@ -115,6 +117,7 @@ export default function HqPage() {
     const iv = setInterval(() => {
       setNow(Date.now())
       const due = [house?.hq_upgrade?.done_at, ...(house?.buildings ?? []).map(b => b.upgrade?.done_at),
+        ...(house?.buildings ?? []).map(b => b.damaged_until ?? undefined),
         ...(army?.queue ?? []).map(q => q.next_unit_at)]
         .some(d => d && +new Date(d) <= Date.now())
       if (due) load() // the server settles it and finished work lands
@@ -173,7 +176,9 @@ export default function HqPage() {
 
   // fences: the CELL renders only a small post — IsoFenceLinks draws the
   // panels bridging adjacent fences, so runs connect by construction
-  const fencePads = new Set([...builtOn.values()].filter(b => b.type === 'fence').map(b => b.pad))
+  const fencePads = new Set([...builtOn.values()]
+    .filter(b => b.type === 'fence' && !(b.damaged_until && +new Date(b.damaged_until) > now))
+    .map(b => b.pad))
   const fenceLinkedSet = fenceAdjacency(fencePads).linked
 
   // ── map game state onto the iso stage ──────────────────────────────────────
@@ -203,7 +208,10 @@ export default function HqPage() {
     const b = builtOn.get(pad)
     if (b) {
       const sp = SPRITES[b.type]
-      const banked = b.type === 'media_tower' ? (house?.tower?.banked ?? 0) : 0
+      const damaged = !!b.damaged_until && +new Date(b.damaged_until) > now
+      const banked = damaged ? 0
+        : b.type === 'media_tower' ? (house?.tower?.banked ?? 0)
+        : b.type === 'solar' ? (house?.solar?.banked ?? 0) : 0
       const stored = b.type === 'safe' ? (house?.safe?.stored ?? 0) : 0
       const isFence = b.type === 'fence'
       const linked = isFence && fenceLinkedSet.has(pad)
@@ -216,14 +224,17 @@ export default function HqPage() {
         mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: sp ? undefined : buildingDef(b.type)?.emoji,
         glow: banked > 0,
+        dead: damaged,   // post-raid rubble until the countdown (or a repair) clears it
         onTap: () => setSheet({ pad, building: b }),
-        chip: b.upgrade
-          ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(b.upgrade.done_at, now)}</span>
-          : banked > 0
-            ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-emerald-400 text-black animate-bounce shadow-lg">+{banked} FP</span>
-            : stored > 0
-              ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-black/60 text-amber-300 shadow-lg">🔐 {stored.toLocaleString()}</span>
-              : <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>,
+        chip: damaged
+          ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-orange-600 text-white shadow-lg">🔧 {fmtLeft(b.damaged_until!, now)}</span>
+          : b.upgrade
+            ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(b.upgrade.done_at, now)}</span>
+            : banked > 0
+              ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-emerald-400 text-black animate-bounce shadow-lg">+{banked} FP</span>
+              : stored > 0
+                ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-black/60 text-amber-300 shadow-lg">🔐 {stored.toLocaleString()}</span>
+                : <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>,
       })
       continue
     }
@@ -437,6 +448,24 @@ export default function HqPage() {
               const isSafe = def.type === 'safe'
               const maxLv = isTower ? TOWER_MAX_LEVEL : def.costs.length
               const nextCost = buildingCost(def.type, sheet.building!.level + 1)
+              const dmgB = (house?.buildings ?? []).find(x => x.pad === sheet.pad)
+              const isDamaged = !!dmgB?.damaged_until && +new Date(dmgB.damaged_until) > now
+              if (isDamaged) return (
+                <>
+                  <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-orange-400 text-sm">damaged</span></p>
+                  <p className="text-gray-500 text-xs mt-1">Raiders wrecked it. It repairs itself on the countdown — or pay the crew to fix it now.</p>
+                  <div className="mt-4 flex items-center justify-between bg-gray-800/60 rounded-xl p-3 border border-orange-700/50">
+                    <span className="text-orange-300 font-black text-sm">🔧 Repairing</span>
+                    <span className="text-white font-black text-sm">{fmtLeft(dmgB!.damaged_until!, now)}</span>
+                  </div>
+                  <button disabled={busy}
+                    onClick={() => act({ action: 'repair', pad: sheet.pad }, d => d.spent > 0 ? `🔧 Fixed! (-${d.spent} FP)` : '🔧 Fixed!')}
+                    className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
+                    style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                    🔧 REPAIR NOW — {(dmgB?.repair_cost ?? 0).toLocaleString()} FP
+                  </button>
+                </>
+              )
               return (
                 <>
                   <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-gray-500 text-sm">Lv {sheet.building!.level}</span></p>
@@ -482,6 +511,14 @@ export default function HqPage() {
                       className="mt-4 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
                       style={{ background: 'linear-gradient(135deg,#34d399,#059669)' }}>
                       {house.tower.banked > 0 ? `CLAIM ${house.tower.banked} FP` : `Broadcasting… ${house.tower.rate} FP every ${house.tower.interval_hours}h`}
+                    </button>
+                  )}
+                  {def.type === 'solar' && house?.solar && (
+                    <button disabled={busy || (house.solar.banked ?? 0) <= 0}
+                      onClick={() => act({ action: 'claim_solar' }, d => `☀️ +${d.claimed} FP of sunshine!`)}
+                      className="mt-4 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
+                      style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
+                      {house.solar.banked > 0 ? `CLAIM ${house.solar.banked} FP` : `Charging… ${house.solar.rate} FP every ${house.solar.interval_hours}h (stores 4)`}
                     </button>
                   )}
                   {def.type === 'barracks' && (() => {

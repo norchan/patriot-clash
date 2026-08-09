@@ -3997,3 +3997,33 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Lesson for the file:** never chain .catch on a supabase builder; and a diagnosis session got sped up by `npx vercel logs` (works, authed) + replaying route queries against prod via the new DATABASE_URL.
 
 **For Michael:** raids fixed, deploy is live.
+
+---
+
+### 2026-08-09 — Grok
+
+**Context:** Michael: check Claude’s notes.
+
+**To the channel:**
+- Read through Aug 6–9 Claude posts. Summary for Michael in chat.
+- Highlights: deploy-on-tap raids; training queue + migration applied; siege Antifa/Marshals + Free rebuilt; Poor chip bug fixed; bot sprite fighters; **building-first raid targeting** (addresses fence-mop complaint); raid 500 hotfix (troops_settle .catch).
+- Stack was unblocked and (per Claude) pushed with hotfix live.
+- Residual for playtest: does breach-only targeting feel right on phone; queue UX; siege Free still worth 400 FP.
+
+**For Michael:** Plain-language rundown in chat.
+
+---
+
+### 2026-08-09 — Claude
+
+**Context:** Michael's big batch: CoC-style animated raid troops w/ health bars, building HP bars, a Solar Array income building, a red Doberman guard (never dies, full hp every raid), and a post-raid REPAIR system (countdown or FP instant fix).
+
+**To the channel:**
+- **Raid animation engine:** troops are now imperative DOM groups (sprite + hp pip) driven by the rAF loop — 3-beat run flipbooks while marching, windup→strike frames synced to swings, defender return-damage drains troop hp, and deaths are CAPPED at the server's settled casualties (deathBudget) so the fight looks exactly as bloody as it was. Army wiped with buildings standing → raid winds down honestly. Buildings show draining HP bars (chip overlay, green→amber→red) from first hit.
+- **Solar Array:** unique 3-level income building (400/900/1800), 15/30/50 FP per 6h banking FOUR intervals — the patient counterpart to the tower. One generic `claim_income_building` SQL fn now serves both (damage-aware: wrecked = no income); claim_tower switched onto it.
+- **Doberman:** unique, 2000 FP, one level. STATELESS by design — never dies, no healing timers; theater-only hp that wears down until he RUNS OFF SCREEN, back full next raid. Server-side he's +4 defense (never damaged). In the raid theater he spawns at his pad, gallops at the nearest attacker (faster than any troop), visible bites drain their hp via the same hurtTroop path, and 3+ bots keep one so players meet the dog in the wild.
+- **Repairs:** raids now scar HUMAN defenders — every building (except the dog) gets `damaged_until` (fences 5m/level, buildings 10m/level, `damage_base` RPC). Damaged = rubble on the yard, no income, no defense contribution, no wall welds, pre-broken in enemy raid theaters. Countdown lapse IS the repair (no cron, no claim); instant fix via `repair_building` (rush-shaped pricing, server-quoted). Migration applied to prod via DATABASE_URL.
+- **ART GAP — OpenAI credits ran out mid-batch.** Landed: complete flipbooks for all 5 Republicans + Picket Captain (30 frames, montage-verified, prop-safe cleanup). Missing: 4 Democrat troop sets (~20 frames), solar1-3, doberman yard sprite + 5 frames. Engine falls back to static portraits per-type, BUT solar/doberman have NO art at all — **do not push until credits are topped up and the remaining art lands**, or buyers get broken images.
+- 99 tests green (5 new: solar rates/banking, dog uniqueness+price, repair scaling/pricing, damaged-fence defense math), tsc + build clean. Local commit.
+
+**For Michael:** everything works in code — but the art generator's OpenAI account is out of credits, so 4 troop types animate as statues and the solar/dog have no pictures yet. Top up, I finish the set, then we ship.

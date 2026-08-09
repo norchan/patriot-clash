@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
-import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracksImage } from '@/config/house'
+import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracksImage, solarImage } from '@/config/house'
 import { troopById } from '@/config/troops'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, STAGE_H } from '@/components/IsoYard'
 
@@ -21,7 +21,7 @@ import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, S
 // settled result. The fight ends when the buildings are down — an untouched
 // wall ring stays standing.
 
-interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number; facing?: number }>; print_shop_pad?: number }
+interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number; facing?: number; damaged?: boolean }>; print_shop_pad?: number }
 interface Target { id: string; username: string; party: string; level: number; base_level: number; base: TargetBase }
 interface Found { target: Target; cost: number; loot_min: number; loot_max: number; army?: { total: number; power: number; bonus: number } }
 interface Result {
@@ -37,6 +37,8 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   media_tower: { img: () => '/house/media_tower.png', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
   barracks: { img: l => barracksImage(l), w: 150 },
+  solar: { img: l => solarImage(l), w: 134 },
+  doberman: { img: () => '/house/doberman.png', w: 104 },
   decor: { img: () => '/house/decor_flag.png', w: 84 },
   print_shop: { img: () => '/house/print_shop.png', w: 128 },
 }
@@ -53,6 +55,21 @@ const TROOP_W = 84
 // blocks the way): a living fence within this perpendicular distance of the
 // straight line to the goal building counts as blocking
 const BLOCK_PERP = 46
+// ── CoC-style animation (Michael 2026-08-09: "it should appear that they are
+// running... animations for when they are attacking... health bars") ──
+const RUN_ORDER = ['run1', 'run3', 'run2'] as const   // 3-beat stride cycle
+const RUN_FRAME_SECS = 0.12
+const TROOP_H = 92            // flipbook frames render by height (side profile)
+const RETURN_HIT_SECS = 0.85  // defenders punch back while a troop fights
+// THE DOBERMAN (Michael 2026-08-09): the defender's guard dog. Never dies —
+// his health wears down and he RUNS OFF SCREEN, back at full strength next
+// raid. Faster than any troop; his bite is the visible face of return damage.
+const DOG_SPEED = 260
+const DOG_BITE_SECS = 0.85
+const DOG_BITE_DMG = 13       // extra hp the victim loses per bite
+const DOG_WEAR = 9            // hp the dog loses per bite exchange
+const DOG_H = 74
+const frameSrc = (id: string, f: string) => `/troops/anim/${id}_${f}.png`
 
 function pop(freq = 220) {
   try {
@@ -67,16 +84,22 @@ function pop(freq = 220) {
 }
 const buzz = (ms: number) => { try { navigator.vibrate?.(ms) } catch {} }
 
-interface AssaultTarget { pad: number; x: number; y: number; hp: number; dead: boolean; isFence: boolean }
+interface AssaultTarget { pad: number; x: number; y: number; hp: number; maxHp: number; dead: boolean; isFence: boolean }
 interface Trooper {
-  el: HTMLImageElement
+  root: HTMLDivElement      // positioned group: sprite + hp bar
+  img: HTMLImageElement
+  barFill: HTMLDivElement
   x: number; y: number
   type: string              // troop id — splash roles play wall-breaker
-  state: 'walk' | 'attack' | 'gone'
+  state: 'walk' | 'attack' | 'gone' | 'dead'
   t: number
   goal: number              // the BUILDING this troop is working toward
   target: number            // what it's actually swinging at (goal, or a blocking fence)
   lastHitAt: number
+  hp: number                // 0..100, drained by defender return hits
+  retT: number              // time since last return hit
+  animT: number             // run-cycle clock
+  curFrame: string
 }
 
 export default function RaidPage() {
@@ -100,6 +123,8 @@ export default function RaidPage() {
   const trayRef = useRef<Record<string, number>>({})
   const statsRef = useRef({ fences: 0, buildings: 0 })
   const [hitPad, setHitPad] = useState<number | null>(null)
+  // pad → hp fraction (0..1) for the building HP bars; absent = untouched
+  const [dmg, setDmg] = useState<Record<number, number>>({})
   const hitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoRef = useRef(false)
   const deployRef = useRef<((type: string, x: number, y: number) => void) | null>(null)
@@ -120,7 +145,7 @@ export default function RaidPage() {
     stopEngine(); engineStarted.current = false
     statsRef.current = { fences: 0, buildings: 0 }
     setPhase('finding'); setErr(''); setResult(null); setSmashed(new Set()); setLootShown(0)
-    setTray({}); setSel(null); setAuto(false); autoRef.current = false
+    setDmg({}); setTray({}); setSel(null); setAuto(false); autoRef.current = false
     try {
       const res = await fetch('/api/house/raid')
       const d = await res.json()
@@ -171,12 +196,17 @@ export default function RaidPage() {
     const layer = layerRef.current
     if (!layer) return
 
-    const targets: AssaultTarget[] = result.base.buildings.map(b => ({
-      pad: b.pad, x: isoPos(b.pad).x, y: isoPos(b.pad).y,
-      hp: b.type === 'fence' || b.type === 'decor' ? HITS_FENCE : HITS_BUILDING,
-      dead: false,
-      isFence: b.type === 'fence',
-    }))
+    const targets: AssaultTarget[] = result.base.buildings
+      .filter(b => b.type !== 'doberman' && !b.damaged)  // the dog can't be attacked; rubble is pre-broken
+      .map(b => {
+      const hp = b.type === 'fence' || b.type === 'decor' ? HITS_FENCE : HITS_BUILDING
+      return {
+        pad: b.pad, x: isoPos(b.pad).x, y: isoPos(b.pad).y,
+        hp, maxHp: hp,
+        dead: false,
+        isFence: b.type === 'fence',
+      }
+    })
     if (!targets.length) { setLootShown(result.loot); setPhase('done'); return }
     // loot rides on BUILDINGS — walls are obstacles, not piñatas. A base that
     // is ONLY fences (rare, human-built) falls back to fences carrying it.
@@ -252,6 +282,7 @@ export default function RaidPage() {
     const killTarget = (ti: number) => {
       const tg = targets[ti]
       tg.dead = true
+      setDmg(prev => { const n = { ...prev }; delete n[tg.pad]; return n })
       const carriesLoot = fenceOnlyBase || !tg.isFence
       let chunk = 0
       if (carriesLoot) {
@@ -270,29 +301,138 @@ export default function RaidPage() {
     const paint = (tr: Trooper, lungeX = 0, lungeY = 0) => {
       const tg = tr.target >= 0 ? targets[tr.target] : null
       const flip = tg ? tg.x < tr.x : false
-      tr.el.style.left = `${tr.x + lungeX}px`
-      tr.el.style.top = `${tr.y + lungeY}px`
-      tr.el.style.transform = `translate(-50%, -100%)${flip ? ' scaleX(-1)' : ''}`
+      tr.root.style.left = `${tr.x + lungeX}px`
+      tr.root.style.top = `${tr.y + lungeY}px`
+      tr.img.style.transform = `translate(-50%, -100%)${flip ? ' scaleX(-1)' : ''}`
+    }
+
+    // ── flipbooks: preload every marched type's frames once; a type whose
+    // frames are missing falls back to its static portrait (no cycling) ──
+    const staticIds = new Set<string>()
+    for (const id of Object.keys(trayRef.current)) {
+      for (const f of ['run1', 'run2', 'run3', 'atk1', 'atk2']) {
+        const im = new Image()
+        im.onerror = () => staticIds.add(id)
+        im.src = frameSrc(id, f)
+      }
+    }
+    // deaths in the theater are CAPPED at the server's settled casualties —
+    // the fight can only look as bloody as it actually was
+    const deathBudget = (result.army?.losses ?? []).reduce((sum, l) => sum + l.n, 0)
+    let deathsUsed = 0
+
+    const hurtTroop = (tr: Trooper, amount: number): boolean => {
+      tr.hp -= amount
+      updateBar(tr)
+      tr.img.style.filter = 'drop-shadow(0 8px 10px rgba(0,0,0,0.45)) brightness(1.5) saturate(2)'
+      setTimeout(() => { tr.img.style.filter = 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))' }, 110)
+      if (tr.hp <= 0) {
+        if (deathsUsed < deathBudget) { deathsUsed++; dieTroop(tr); return true }
+        tr.hp = 8 // out of scripted casualties — this one grits its teeth
+        updateBar(tr)
+      }
+      return false
+    }
+
+    // ── the guard dog ──
+    const dogRow = result.base.buildings.find(b => b.type === 'doberman' && !b.damaged)
+    interface Dog {
+      root: HTMLDivElement; img: HTMLImageElement; barFill: HTMLDivElement
+      x: number; y: number; hp: number
+      state: 'idle' | 'chase' | 'bite' | 'flee' | 'gone'
+      victim: Trooper | null; biteT: number; animT: number; curFrame: string
+    }
+    let dog: Dog | null = null
+    const dogFrames = { available: true }
+    if (dogRow) {
+      const at = isoPos(dogRow.pad)
+      const root = document.createElement('div')
+      Object.assign(root.style, { position: 'absolute', left: '0px', top: '0px', zIndex: '1450', pointerEvents: 'none', transition: 'opacity .3s' })
+      const img = document.createElement('img')
+      img.src = frameSrc('doberman', 'run1')
+      img.onerror = () => { dogFrames.available = false; img.src = '/house/doberman.png' }
+      img.draggable = false
+      Object.assign(img.style, {
+        position: 'absolute', height: String(DOG_H) + 'px', maxWidth: 'none', left: '0px', top: '0px',
+        transform: 'translate(-50%, -100%)',
+        filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.45))',
+      })
+      const bar = document.createElement('div')
+      Object.assign(bar.style, {
+        position: 'absolute', left: '-20px', top: '-' + String(DOG_H + 12) + 'px',
+        width: '40px', height: '5px', background: 'rgba(0,0,0,0.55)',
+        border: '1px solid rgba(0,0,0,0.45)', borderRadius: '3px', overflow: 'hidden',
+      })
+      const barFill = document.createElement('div')
+      Object.assign(barFill.style, { height: '100%', width: '100%', background: '#4ade80', transition: 'width .18s' })
+      bar.appendChild(barFill)
+      root.appendChild(img); root.appendChild(bar)
+      layer.appendChild(root)
+      dog = { root, img, barFill, x: at.x, y: at.y, hp: 100, state: 'idle', victim: null, biteT: 0, animT: 0, curFrame: 'run1' }
+      root.style.left = String(at.x) + 'px'
+      root.style.top = String(at.y) + 'px'
+    }
+    const paintDog = (lx = 0, ly = 0) => {
+      if (!dog) return
+      const flip = dog.victim ? dog.victim.x < dog.x : (dog.state === 'flee' && dog.x < STAGE_W / 2)
+      dog.root.style.left = String(dog.x + lx) + 'px'
+      dog.root.style.top = String(dog.y + ly) + 'px'
+      dog.img.style.transform = 'translate(-50%, -100%)' + (flip ? ' scaleX(-1)' : '')
+    }
+
+    const updateBar = (tr: Trooper) => {
+      const pct = Math.max(0, Math.min(100, tr.hp))
+      tr.barFill.style.width = `${pct}%`
+      tr.barFill.style.background = pct > 50 ? '#4ade80' : pct > 25 ? '#fbbf24' : '#ef4444'
+    }
+    const dieTroop = (tr: Trooper) => {
+      tr.state = 'dead'
+      tr.root.style.opacity = '0'
+      addFloat({ sx: tr.x, sy: tr.y - 44, text: '💀', spark: true }, 700)
+      pop(120); buzz(25)
+      setTimeout(() => tr.root.remove(), 400)
     }
 
     // the player's tap lands here (and AUTO uses it too)
     deployRef.current = (type: string, x: number, y: number) => {
       if ((trayRef.current[type] ?? 0) <= 0) return
-      if (troops.filter(t => t.state !== 'gone').length >= FIELD_CAP) { buzz(20); return }
+      if (troops.filter(t => t.state === 'walk' || t.state === 'attack').length >= FIELD_CAP) { buzz(20); return }
       trayRef.current[type]--
       setTray({ ...trayRef.current })
-      const el = document.createElement('img')
-      el.src = troopById(type)?.img ?? '/troops/rep_minuteman.png'
-      el.draggable = false
-      Object.assign(el.style, {
-        position: 'absolute', width: `${TROOP_W}px`, maxWidth: 'none',
-        left: '0px', top: '0px', zIndex: '1400', pointerEvents: 'none',
-        filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))',
-        opacity: '0', transition: 'opacity .2s',
+      const root = document.createElement('div')
+      Object.assign(root.style, {
+        position: 'absolute', left: '0px', top: '0px', zIndex: '1400',
+        pointerEvents: 'none', opacity: '0', transition: 'opacity .2s',
       })
-      layer.appendChild(el)
-      requestAnimationFrame(() => { el.style.opacity = '1' })
-      const tr: Trooper = { el, x, y, type, state: 'walk', t: 0, goal: -1, target: -1, lastHitAt: 0 }
+      const img = document.createElement('img')
+      const isStatic = staticIds.has(type)
+      img.src = isStatic ? (troopById(type)?.img ?? '/troops/rep_minuteman.png') : frameSrc(type, 'run1')
+      img.onerror = () => { staticIds.add(type); img.src = troopById(type)?.img ?? '/troops/rep_minuteman.png' }
+      img.draggable = false
+      Object.assign(img.style, {
+        position: 'absolute', height: `${TROOP_H}px`, maxWidth: 'none',
+        left: '0px', top: '0px',
+        transform: 'translate(-50%, -100%)',
+        filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))',
+      })
+      // CoC-style hp pip above the sprite
+      const bar = document.createElement('div')
+      Object.assign(bar.style, {
+        position: 'absolute', left: '-22px', top: `-${TROOP_H + 12}px`,
+        width: '44px', height: '5px', background: 'rgba(0,0,0,0.55)',
+        border: '1px solid rgba(0,0,0,0.45)', borderRadius: '3px', overflow: 'hidden',
+      })
+      const barFill = document.createElement('div')
+      Object.assign(barFill.style, { height: '100%', width: '100%', background: '#4ade80', transition: 'width .18s' })
+      bar.appendChild(barFill)
+      root.appendChild(img)
+      root.appendChild(bar)
+      layer.appendChild(root)
+      requestAnimationFrame(() => { root.style.opacity = '1' })
+      const tr: Trooper = {
+        root, img, barFill, x, y, type, state: 'walk', t: 0, goal: -1, target: -1,
+        lastHitAt: 0, hp: 100, retT: 0, animT: Math.random(), curFrame: 'run1',
+      }
       pickTarget(tr)
       paint(tr)
       troops.push(tr)
@@ -331,19 +471,27 @@ export default function RaidPage() {
       }
 
       for (const tr of troops) {
-        if (tr.state === 'gone') continue
+        if (tr.state === 'gone' || tr.state === 'dead') continue
         // target dead (a squadmate finished it) or goal gone → re-path.
         // The goal is KEPT while alive: after a breach the troop resumes
         // toward the same building, never "next fence anywhere".
         if (tr.target < 0 || targets[tr.target].dead || tr.goal < 0 || targets[tr.goal].dead) {
           pickTarget(tr)
-          if (tr.target < 0) { tr.state = 'gone'; tr.el.style.opacity = '0'; continue }
+          if (tr.target < 0) { tr.state = 'gone'; tr.root.style.opacity = '0'; continue }
         }
         const tg = targets[tr.target]
+        // ── flipbook: stride cycle while running, windup→strike while fighting ──
+        tr.animT += dt
+        if (!staticIds.has(tr.type)) {
+          const f = tr.state === 'walk'
+            ? RUN_ORDER[Math.floor(tr.animT / RUN_FRAME_SECS) % RUN_ORDER.length]
+            : ((tr.t % HIT_SECS) / HIT_SECS < 0.55 ? 'atk1' : 'atk2')
+          if (f !== tr.curFrame) { tr.curFrame = f; tr.img.src = frameSrc(tr.type, f) }
+        }
         if (tr.state === 'walk') {
           const dx = tg.x - tr.x, dy = (tg.y + 6) - tr.y
           const d = Math.hypot(dx, dy)
-          if (d <= 30) { tr.state = 'attack'; tr.t = 0; tr.lastHitAt = 0 }
+          if (d <= 30) { tr.state = 'attack'; tr.t = 0; tr.lastHitAt = 0; tr.retT = 0 }
           else {
             const step = Math.min(d, WALK_SPEED * dt)
             tr.x += (dx / d) * step
@@ -361,10 +509,95 @@ export default function RaidPage() {
             tr.lastHitAt = hitsDue
             if (!tg.dead) {
               tg.hp -= 1
+              setDmg(prev => ({ ...prev, [tg.pad]: Math.max(0, tg.hp) / tg.maxHp }))
               addFloat({ pad: tg.pad, text: '💥', spark: true }, 420)
               hitFlash(tg.pad)
               pop(320 + Math.random() * 160); buzz(12)
               if (tg.hp <= 0) killTarget(tr.target)
+            }
+          }
+          // ── defenders punch back: hp drains while fighting; when it empties
+          // a troop FALLS — but never more than the server's casualty count ──
+          tr.retT += dt
+          if (tr.retT >= RETURN_HIT_SECS) {
+            tr.retT = 0
+            if (hurtTroop(tr, 9 + Math.random() * 9)) continue
+          }
+        }
+      }
+
+      // army spent with buildings still standing → the raid winds down (the
+      // loot was settled at launch; the theater just ran out of soldiers)
+      const fieldAlive = troops.some(t => t.state === 'walk' || t.state === 'attack')
+      const trayLeft = Object.values(trayRef.current).reduce((sm, n) => sm + n, 0)
+      if (!fieldAlive && troops.length > 0 && trayLeft === 0 && goalsLeft > 0) {
+        engine.alive = false
+        setLootShown(result.loot)
+        setTimeout(() => { stopEngine(); setPhase('done') }, 900)
+        return
+      }
+
+      // ── the dog does his rounds ──
+      if (dog && dog.state !== 'gone') {
+        dog.animT += dt
+        if (dogFrames.available) {
+          const f = dog.state === 'bite'
+            ? (dog.biteT % DOG_BITE_SECS < DOG_BITE_SECS / 2 ? 'atk1' : 'atk2')
+            : dog.state === 'idle' ? 'run1'
+            : RUN_ORDER[Math.floor(dog.animT / 0.1) % RUN_ORDER.length]
+          if (f !== dog.curFrame) { dog.curFrame = f; dog.img.src = frameSrc('doberman', f) }
+        }
+        const living = troops.filter(t => t.state === 'walk' || t.state === 'attack')
+        if (dog.state === 'flee') {
+          const edgeX = dog.x < STAGE_W / 2 ? -90 : STAGE_W + 90
+          dog.x += (edgeX < dog.x ? -1 : 1) * DOG_SPEED * 1.2 * dt
+          paintDog(0, Math.sin(clock * 16) * 3)
+          if (dog.x < -80 || dog.x > STAGE_W + 80) { dog.state = 'gone'; dog.root.style.opacity = '0' }
+        } else if (!living.length) {
+          dog.state = 'idle'
+          dog.victim = null
+          paintDog(0, Math.sin(clock * 2.2) * 1.5)   // alert sway at his post
+        } else {
+          if (!dog.victim || dog.victim.state === 'dead' || dog.victim.state === 'gone') {
+            let best: Trooper | null = null, bd = Infinity
+            for (const t of living) {
+              const d = Math.hypot(t.x - dog.x, t.y - dog.y)
+              if (d < bd) { bd = d; best = t }
+            }
+            dog.victim = best
+            dog.state = 'chase'
+          }
+          const v = dog.victim!
+          const d = Math.hypot(v.x - dog.x, v.y - dog.y)
+          if (dog.state === 'chase') {
+            if (d <= 34) { dog.state = 'bite'; dog.biteT = 0 }
+            else {
+              dog.x += ((v.x - dog.x) / Math.max(1, d)) * DOG_SPEED * dt
+              dog.y += ((v.y - dog.y) / Math.max(1, d)) * DOG_SPEED * dt
+              paintDog(0, Math.sin(clock * 16) * 3)  // gallop bob
+            }
+          } else if (dog.state === 'bite') {
+            if (d > 60) { dog.state = 'chase' }  // victim moved on
+            else {
+              dog.biteT += dt
+              const lunge = Math.max(0, Math.sin((dog.biteT % DOG_BITE_SECS) / DOG_BITE_SECS * Math.PI))
+              paintDog(((v.x - dog.x) / Math.max(1, d)) * lunge * 10, ((v.y - dog.y) / Math.max(1, d)) * lunge * 10)
+              if (dog.biteT >= DOG_BITE_SECS) {
+                dog.biteT = 0
+                addFloat({ sx: v.x, sy: v.y - 50, text: '🦷', spark: true }, 420)
+                pop(600); buzz(14)
+                hurtTroop(v, DOG_BITE_DMG)
+                // they fight back — the dog wears down, then RUNS (never dies)
+                dog.hp -= DOG_WEAR
+                const pct = Math.max(0, dog.hp)
+                dog.barFill.style.width = String(pct) + '%'
+                dog.barFill.style.background = pct > 50 ? '#4ade80' : pct > 25 ? '#fbbf24' : '#ef4444'
+                if (dog.hp <= 0) {
+                  dog.state = 'flee'
+                  dog.victim = null
+                  addFloat({ sx: dog.x, sy: dog.y - 44, text: '💨', spark: true }, 600)
+                }
+              }
             }
           }
         }
@@ -374,7 +607,7 @@ export default function RaidPage() {
       // stay standing (a closed ring is breached, not mopped)
       if (goalsLeft <= 0) {
         engine.alive = false
-        for (const tr of troops) tr.el.style.opacity = '0'
+        for (const tr of troops) tr.root.style.opacity = '0'
         setLootShown(result.loot) // snap over rounding dust
         setTimeout(() => { stopEngine(); setPhase('done') }, 750)
         return
@@ -406,7 +639,7 @@ export default function RaidPage() {
   // map the TARGET's yard onto the stage
   const base = result?.base ?? found?.target.base
   const cells: IsoCellSpec[] = []
-  const fencePads = new Set((base?.buildings ?? []).filter(b => b.type === 'fence' && !smashed.has(b.pad)).map(b => b.pad))
+  const fencePads = new Set((base?.buildings ?? []).filter(b => b.type === 'fence' && !smashed.has(b.pad) && !b.damaged).map(b => b.pad))
   const fenceLinkedSet = fenceAdjacency(fencePads).linked
   if (base) {
     const onPad = new Map(base.buildings.map(b => [b.pad, b]))
@@ -416,7 +649,7 @@ export default function RaidPage() {
       const b = onPad.get(pad)
       if (!b) { cells.push({ pad, plot: true }); continue }
       const sp = SPRITES[b.type]
-      const dead = smashed.has(pad)
+      const dead = smashed.has(pad) || (!!b.damaged && b.type !== 'doberman')
       const isFence = b.type === 'fence'
       const linked = isFence && fenceLinkedSet.has(pad)
       cells.push({
@@ -427,9 +660,15 @@ export default function RaidPage() {
         emoji: dead ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
         dead,
         jiggle: pad === hitPad,
-        chip: !dead && b.type !== 'decor' && b.type !== 'fence'
-          ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>
-          : undefined,
+        chip: !dead && dmg[pad] != null && dmg[pad] < 1
+          ? (
+            <span className="block rounded-sm overflow-hidden shadow-lg" style={{ width: 48, height: 7, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(0,0,0,0.5)' }}>
+              <span className="block h-full" style={{ width: `${Math.round(dmg[pad] * 100)}%`, background: dmg[pad] > 0.5 ? '#4ade80' : dmg[pad] > 0.25 ? '#fbbf24' : '#ef4444', transition: 'width .18s' }} />
+            </span>
+          )
+          : !dead && b.type !== 'decor' && b.type !== 'fence'
+            ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>
+            : undefined,
       })
     }
   }

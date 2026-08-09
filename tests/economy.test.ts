@@ -633,3 +633,40 @@ describe('troop training queue (Michael 2026-08-06: timers + queue + rush)', () 
     for (let i = 0; i < 5; i++) expect(rep[i].trainSecs).toBe(dem[i].trainSecs)
   })
 })
+
+import { SOLAR_RATE_BY_LEVEL, solarBanked, repairSecsFor, repairCost, TOWER_INTERVAL_SECS as TIS } from '@/config/house'
+
+describe('solar array + repairs (Michael 2026-08-09)', () => {
+  it('solar rates rise with level and bank at most 4 intervals', () => {
+    for (let i = 1; i < SOLAR_RATE_BY_LEVEL.length; i++) {
+      expect(SOLAR_RATE_BY_LEVEL[i]).toBeGreaterThan(SOLAR_RATE_BY_LEVEL[i - 1])
+    }
+    expect(solarBanked(TIS * 99, 1)).toBe(4 * SOLAR_RATE_BY_LEVEL[0]) // AFK caps out
+    expect(solarBanked(TIS - 1, 3)).toBe(0)                            // nothing before an interval
+  })
+
+  it('the doberman is a unique 2000 FP one-level guard', () => {
+    expect(BUILDINGS.doberman.unique).toBe(true)
+    expect(BUILDINGS.doberman.costs).toEqual([2000])
+  })
+
+  it('repair countdowns scale with level; fences mend faster than buildings', () => {
+    expect(repairSecsFor('fence', 2)).toBeLessThan(repairSecsFor('safe', 2))
+    expect(repairSecsFor('safe', 3)).toBeGreaterThan(repairSecsFor('safe', 1))
+  })
+
+  it('instant repair gets cheaper as the countdown runs and never hits zero', () => {
+    const full = repairCost('media_tower', 2, repairSecsFor('media_tower', 2))
+    const half = repairCost('media_tower', 2, repairSecsFor('media_tower', 2) / 2)
+    expect(half).toBeLessThan(full)
+    expect(repairCost('fence', 1, 1)).toBeGreaterThanOrEqual(5)
+  })
+
+  it('damaged fences and the dog change the defense math', () => {
+    const base = [{ type: 'fence', level: 3 }, { type: 'doberman', level: 1 }]
+    const whole = defenseScore(base, 1)
+    const broken = defenseScore([{ type: 'fence', level: 3, damaged: true }, { type: 'doberman', level: 1 }], 1)
+    expect(whole).toBe(1 + 6 + 4)
+    expect(broken).toBe(1 + 4) // broken fence contributes nothing; the dog always does
+  })
+})

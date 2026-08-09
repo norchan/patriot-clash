@@ -6,6 +6,8 @@ import {
   GRID, FIXED_PADS, buildingDef, buildingCost, hqUpgradeCost, HQ_MAX_LEVEL,
   safeCapacity, SAFE_MAX_LEVEL, upgradeSecs, rushCost,
   TOWER_RATE_BY_LEVEL, TOWER_INTERVAL_SECS, TOWER_BANK_INTERVALS,
+  SOLAR_RATE_BY_LEVEL, SOLAR_BANK_INTERVALS, solarBanked,
+  repairSecsFor, repairCost,
   TOWER_MAX_LEVEL, towerBanked,
   PICKUP_INTERVAL_SECS, PICKUP_BANK_CAP, PICKUP_MIN_FP, PICKUP_MAX_FP, pickupsBanked,
 } from '@/config/house'
@@ -30,12 +32,15 @@ export async function GET() {
       .eq('id', profile.id).single()
     const { data: buildings } = await admin
       .from('house_buildings')
-      .select('pad, type, level, facing, claimed_at, upgrading_to, upgrade_done_at')
+      .select('pad, type, level, facing, claimed_at, upgrading_to, upgrade_done_at, damaged_until')
       .eq('profile_id', profile.id)
 
     const tower = (buildings ?? []).find(b => b.type === 'media_tower')
+    const solarB = (buildings ?? []).find(b => b.type === 'solar')
     const safeB = (buildings ?? []).find(b => b.type === 'safe')
     const elapsed = tower ? (Date.now() - +new Date(tower.claimed_at)) / 1000 : 0
+    const solarElapsed = solarB ? (Date.now() - +new Date(solarB.claimed_at)) / 1000 : 0
+    const isDamaged = (b: any) => !!b.damaged_until && new Date(b.damaged_until) > new Date()
     const sweptElapsed = (Date.now() - +new Date(fresh?.yard_swept_at ?? Date.now())) / 1000
     const shieldUntil = fresh?.house_shield_until
     // live rush quote per pending upgrade. The same math re-runs at pay time,
@@ -64,12 +69,25 @@ export async function GET() {
         upgrade: (b.upgrading_to && b.upgrade_done_at)
           ? quote(b.upgrading_to, b.upgrade_done_at, false, buildingCost(b.type, b.upgrading_to) ?? 0)
           : null,
+        // post-raid scars: countdown + live instant-repair quote (re-priced at
+        // pay time, same trust shape as rushes)
+        damaged_until: isDamaged(b) ? b.damaged_until : null,
+        repair_cost: isDamaged(b)
+          ? repairCost(b.type, b.level, Math.max(0, (+new Date(b.damaged_until) - Date.now()) / 1000))
+          : null,
       })),
       tower: tower ? {
         level: tower.level,
-        banked: towerBanked(elapsed, tower.level),
+        banked: isDamaged(tower) ? 0 : towerBanked(elapsed, tower.level),
         next_in_secs: Math.max(0, TOWER_INTERVAL_SECS - (elapsed % TOWER_INTERVAL_SECS)),
         rate: TOWER_RATE_BY_LEVEL[tower.level - 1] ?? 0,
+        interval_hours: TOWER_INTERVAL_SECS / 3600,
+      } : null,
+      solar: solarB ? {
+        level: solarB.level,
+        banked: isDamaged(solarB) ? 0 : solarBanked(solarElapsed, solarB.level),
+        next_in_secs: Math.max(0, TOWER_INTERVAL_SECS - (solarElapsed % TOWER_INTERVAL_SECS)),
+        rate: SOLAR_RATE_BY_LEVEL[solarB.level - 1] ?? 0,
         interval_hours: TOWER_INTERVAL_SECS / 3600,
       } : null,
     })
@@ -285,18 +303,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, claimed: data ?? 0 })
     }
 
-    if (action === 'claim_tower') {
-      const { data, error } = await admin.rpc('claim_media_tower', {
+    if (action === 'claim_tower' || action === 'claim_solar') {
+      // one damage-aware claim path for every income building
+      const solar = action === 'claim_solar'
+      const { data, error } = await admin.rpc('claim_income_building', {
         p_profile_id: profile.id,
-        p_rates: TOWER_RATE_BY_LEVEL as unknown as number[],
+        p_type: solar ? 'solar' : 'media_tower',
+        p_rates: (solar ? SOLAR_RATE_BY_LEVEL : TOWER_RATE_BY_LEVEL) as unknown as number[],
         p_interval_secs: TOWER_INTERVAL_SECS,
-        p_bank_intervals: TOWER_BANK_INTERVALS,
+        p_bank_intervals: solar ? SOLAR_BANK_INTERVALS : TOWER_BANK_INTERVALS,
+        p_desc: solar ? 'Solar Array payout' : 'Media Tower broadcast payout',
       })
       if (error) {
-        console.error('claim_media_tower failed:', error)
+        console.error('claim_income_building failed:', error)
         return NextResponse.json({ error: 'Could not claim' }, { status: 500 })
       }
       return NextResponse.json({ ok: true, claimed: data ?? 0 })
+    }
+
+    if (action === 'repair') {
+      // instant repair: server re-quotes from remaining time, RPC pays+clears
+      const pad = Number(body.pad)
+      if (!Number.isInteger(pad)) return NextResponse.json({ error: 'pad required' }, { status: 400 })
+      const { data: b } = await admin.from('house_buildings')
+        .select('type, level, damaged_until').eq('profile_id', profile.id).eq('pad', pad).maybeSingle()
+      if (!b) return NextResponse.json({ error: 'Nothing there' }, { status: 404 })
+      if (!b.damaged_until || new Date(b.damaged_until) <= new Date()) {
+        return NextResponse.json({ error: 'Nothing to repair' }, { status: 400 })
+      }
+      const remaining = Math.max(0, (+new Date(b.damaged_until) - Date.now()) / 1000)
+      const cost = repairCost(b.type, b.level, remaining)
+      const { error } = await admin.rpc('repair_building', {
+        p_profile_id: profile.id, p_pad: pad, p_cost: cost,
+      })
+      if (error) {
+        if (error.message.includes('INSUFFICIENT_FP')) {
+          return NextResponse.json({ error: 'INSUFFICIENT_FP', message: `Need ${cost} FP to repair` }, { status: 400 })
+        }
+        if (error.message.includes('REPAIR_NOT_NEEDED')) return NextResponse.json({ ok: true, spent: 0 })
+        console.error('repair_building failed:', error)
+        return NextResponse.json({ error: 'Could not repair' }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true, spent: cost })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

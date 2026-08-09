@@ -8,6 +8,7 @@ import {
   RAID_COST, RAID_DAILY_CAP, BOT_LOOT_DAILY_CAP, RAID_PAIR_COOLDOWN_HOURS,
   RAID_SHIELD_HOURS, RAID_LOOT_PCT, raidLootAbsCap, raidDamagePct,
   defenseScore, botDefenseScore, trophiesFor, botBase,
+  REPAIR_FENCE_SECS_PER_LEVEL, REPAIR_BUILDING_SECS_PER_LEVEL,
 } from '@/config/house'
 import { armyPower, armyBonus, casualtyPlan, troopById } from '@/config/troops'
 
@@ -40,14 +41,20 @@ async function defenderInfo(admin: any, p: { id: string; clerk_user_id: string; 
     const base = botBase(p.id, level)
     return { isBot, level, base: { ...base, print_shop_pad: 15 }, defense: botDefenseScore(base.baseLevel), baseLevel: base.baseLevel }
   }
-  const { data: buildings } = await admin.from('house_buildings')
-    .select('pad, type, level, facing').eq('profile_id', p.id)
+  const { data: rows } = await admin.from('house_buildings')
+    .select('pad, type, level, facing, damaged_until').eq('profile_id', p.id)
+  // damaged buildings (still under their repair countdown) don't defend and
+  // aren't targets in the theater — they're already rubble
+  const buildings = (rows ?? []).map((b: any) => ({
+    pad: b.pad, type: b.type, level: b.level, facing: b.facing,
+    damaged: !!b.damaged_until && new Date(b.damaged_until) > new Date(),
+  }))
   // the HOUSE level IS the human base level — upgrading it raises defense
   const baseLevel = Math.max(1, Math.min(5, p.hq_level ?? 1))
   return {
     isBot, level, baseLevel,
-    base: { baseLevel, padsOpen: 6, buildings: buildings ?? [] },
-    defense: defenseScore(buildings ?? [], baseLevel),
+    base: { baseLevel, padsOpen: 6, buildings },
+    defense: defenseScore(buildings, baseLevel),
   }
 }
 
@@ -174,6 +181,18 @@ export async function POST(req: NextRequest) {
 
     const row = Array.isArray(data) ? data[0] : data
     const loot = row?.loot ?? 0
+
+    // the defender's base carries SCARS (Michael 2026-08-09): buildings enter
+    // their repair countdowns — fences mend faster, the doberman is exempt.
+    // Bots derive their bases, nothing to mark.
+    if (!info.isBot) {
+      const { error: dmgErr } = await admin.rpc('damage_base', {
+        p_profile_id: defender.id,
+        p_fence_secs_per_level: REPAIR_FENCE_SECS_PER_LEVEL,
+        p_building_secs_per_level: REPAIR_BUILDING_SECS_PER_LEVEL,
+      })
+      if (dmgErr) console.error('damage_base failed (scars skipped):', dmgErr)
+    }
 
     // casualties: defenses bit back — tanks fall first, support keeps the
     // rate down (config/troops.ts). Fire-and-check: a failure here can only
