@@ -50,6 +50,8 @@ export interface IsoCellSpec {
   chip?: ReactNode
   glow?: boolean
   dead?: boolean
+  /** brief shudder — raids flash this on the cell being hit */
+  jiggle?: boolean
   /** render the sprite flipped — a 90° turn in 2D iso is a mirror across the axis */
   mirror?: boolean
   onTap?: () => void
@@ -408,7 +410,8 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
             : c.onTap
           const lifted = (drag != null || inMove) && isTarget
           return (
-            <div key={c.pad} className="absolute" style={{ left: x, top: y, zIndex: depth * 10 }}>
+            <div key={c.pad} className="absolute" style={{ left: x, top: y, zIndex: depth * 10,
+              animation: c.jiggle ? 'rdJiggle 0.26s ease-in-out' : undefined }}>
               {/* the plot diamond — tap target + subtle ground marking */}
               {(c.plot || c.onTap) && (
                 <button onClick={tap ? () => { if (Date.now() - justDroppedAt.current > 350) tap() } : undefined} disabled={!tap}

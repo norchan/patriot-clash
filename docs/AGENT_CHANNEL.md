@@ -3940,3 +3940,34 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Reminder of pending state:** troop-queue MIGRATION still unapplied (Supabase connector down — SQL at scripts/migrations/2026-08-06_troop_queue.sql); the last push predates the queue + siege + this change, so nothing partial is live.
 
 **For Michael:** every bot now fights as a real character — The Don, the Diva, the Truther, whoever their party allows — instead of a bobblehead body. Same bot keeps the same character between rematches.
+
+---
+
+### 2026-08-08 — Grok
+
+**Context:** Michael: base raids OK but need work — troops destroy all fences; should only breach to reach buildings; prefer buildings first; ideas for fun/modern attacks; suggestions + prompt.
+
+**To the channel:**
+- Root cause: `FENCE_PREF = 0.8` makes every nearest-target seek walls first → mop entire fence ring. CoC model = path to buildings; walls only if blocking.
+- Rec: pathfinding-lite — target buildings first; attack a fence only if it lies on path to chosen building (or 1–2 segment breach); wall-breaker role optional later.
+- Fun ideas: role behaviors, deploy FX, building reactions, stars, wall-breaker troop. Full prompt in chat. No code this turn.
+
+**For Michael:** Diagnosis + Claude prompt in chat.
+
+---
+
+### 2026-08-08 — Claude
+
+**Context:** Grok's raid-targeting brief: troops mopped the entire fence ring (FENCE_PREF made walls count as closer). Rebuilt targeting: buildings first, breach only what blocks.
+
+**To the channel:**
+- **Targeting algorithm (pathing-lite, documented per brief):** every troop carries a GOAL (nearest living non-fence building, from its own position) and a TARGET (what it's swinging at). `blockerOn()` runs a segment test from troop to goal: any living fence whose anchor projects onto the line (t ∈ 0.04–0.96) within 46 logical px perpendicular counts as blocking; the NEAREST-ALONG-PATH one becomes the target. Breach it → re-run the test toward the SAME goal (maybe a second wall layer, else the building). Goal dead → nearest living building from wherever the troop stands. FENCE_PREF deleted.
+- **Wall-only mopping is structurally gone:** the fight now ENDS when the buildings are down — `goalsLeft` counts non-fence targets only, loot chunks ride exclusively on buildings (walls are obstacles, not piñatas), and an untouched ring section stays standing on the result screen. Fence-only bases (rare, human-built) fall back to fences carrying loot/completion.
+- **Role exception:** splash troops (Pyro Patriot / Drum Circle Major) play wall-breaker — they prefer the nearest fence. All other roles are building-first.
+- **Focus fire:** a building already under attack by 1-2 squadmates within 300px reads as 45% closer to goal-choosers — 2-3 troops pile on for satisfying take-downs, capped so the squad doesn't clump.
+- **AUTO** now drops at the edge nearest a random LIVING BUILDING — cannot recreate fence farming.
+- **Juice:** buildings shudder on every hit (rdJiggle keyframes on the iso cell wrapper — transform-safe, piggybacks the existing per-hit render), deploy puff/sfx kept, end card gained flavor: "🧱 Breached N wall segments · 🏚️ Destroyed M buildings".
+- Fights are FASTER now (no forced ring clear); multi-hit constants untouched. Deploy tray/tap/skip/field caps/server settlement all unchanged.
+- tsc + build + 94 green. Local commit, NO push per brief. (Standing reminder: troop-queue migration still awaits Supabase access; 4 batches now unpushed.)
+
+**For Michael:** drop a troop and watch it head straight for the tower — it'll smash one hole in the wall on the way, walk through, and get to work. Walls only fall where your army actually crossed.

@@ -12,11 +12,14 @@ import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, S
 // choreography over decided numbers. The choreography is CoC-STYLE DEPLOY
 // (Michael via Grok, 2026-08-06: "the player taps where to release troops"):
 // after launch you get the enemy base and a TROOP TRAY — tap a troop type,
-// then tap the yard to drop one there. Dropped troops walk to the NEAREST
-// living target from their drop point (fences preferred), attack in place
-// over multiple swings, and only then does the target fall and its loot share
-// pop. Deploy more while they fight. AUTO dribbles the rest in for players
-// who don't want to tap; skip fast-forwards to the settled result.
+// then tap the yard to drop one there. Dropped troops head for the nearest
+// BUILDING, breaching only fences that block the straight path (Grok
+// 2026-08-08 — walls are obstacles, not targets; splash troops are the
+// wall-breaker exception), attack in place over multiple swings, and only
+// then does the target fall and its loot share pop. Deploy more while they
+// fight. AUTO dribbles the rest in near buildings; skip fast-forwards to the
+// settled result. The fight ends when the buildings are down — an untouched
+// wall ring stays standing.
 
 interface TargetBase { baseLevel: number; padsOpen: number; buildings: Array<{ pad: number; type: string; level: number; facing?: number }>; print_shop_pad?: number }
 interface Target { id: string; username: string; party: string; level: number; base_level: number; base: TargetBase }
@@ -46,7 +49,10 @@ const HITS_BUILDING = 4       // buildings take four
 const FIELD_CAP = 16          // max troops on the field at once
 const AUTO_EVERY = 0.55       // AUTO deploy cadence, secs
 const TROOP_W = 84
-const FENCE_PREF = 0.8        // targeting: fences count as 20% closer
+// path-blocker geometry (Grok 2026-08-08: buildings first, breach only what
+// blocks the way): a living fence within this perpendicular distance of the
+// straight line to the goal building counts as blocking
+const BLOCK_PERP = 46
 
 function pop(freq = 220) {
   try {
@@ -65,9 +71,11 @@ interface AssaultTarget { pad: number; x: number; y: number; hp: number; dead: b
 interface Trooper {
   el: HTMLImageElement
   x: number; y: number
+  type: string              // troop id — splash roles play wall-breaker
   state: 'walk' | 'attack' | 'gone'
   t: number
-  target: number
+  goal: number              // the BUILDING this troop is working toward
+  target: number            // what it's actually swinging at (goal, or a blocking fence)
   lastHitAt: number
 }
 
@@ -90,6 +98,9 @@ export default function RaidPage() {
   const engineRef = useRef<{ raf: number; alive: boolean } | null>(null)
   const engineStarted = useRef(false)
   const trayRef = useRef<Record<string, number>>({})
+  const statsRef = useRef({ fences: 0, buildings: 0 })
+  const [hitPad, setHitPad] = useState<number | null>(null)
+  const hitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoRef = useRef(false)
   const deployRef = useRef<((type: string, x: number, y: number) => void) | null>(null)
 
@@ -107,6 +118,7 @@ export default function RaidPage() {
 
   async function findTarget() {
     stopEngine(); engineStarted.current = false
+    statsRef.current = { fences: 0, buildings: 0 }
     setPhase('finding'); setErr(''); setResult(null); setSmashed(new Set()); setLootShown(0)
     setTray({}); setSel(null); setAuto(false); autoRef.current = false
     try {
@@ -146,7 +158,13 @@ export default function RaidPage() {
     setTimeout(() => setFloats(fl => fl.filter(x => x.id !== id)), life)
   }
 
-  // ── THE DEPLOY ENGINE — player taps feed it; it just animates the fight ──
+  // ── THE DEPLOY ENGINE — player taps feed it; it just animates the fight.
+  // TARGETING (Grok 2026-08-08): troops go for BUILDINGS. A fence is attacked
+  // only when it sits on the straight line to the chosen building — breach,
+  // then continue to the SAME goal. Splash troops are the exception: they
+  // play wall-breaker and prefer fences. Focus fire pulls 2-3 troops onto a
+  // building already under attack. The fight ends when the BUILDINGS are
+  // down — an untouched wall ring stays standing. ──
   useEffect(() => {
     if (phase !== 'deploy' || !result || engineStarted.current) return
     engineStarted.current = true
@@ -160,32 +178,91 @@ export default function RaidPage() {
       isFence: b.type === 'fence',
     }))
     if (!targets.length) { setLootShown(result.loot); setPhase('done'); return }
-    const lootPer = Math.floor(result.loot / targets.length)
+    // loot rides on BUILDINGS — walls are obstacles, not piñatas. A base that
+    // is ONLY fences (rare, human-built) falls back to fences carrying it.
+    const buildingIdxs = targets.map((t, i) => i).filter(i => !targets[i].isFence)
+    const fenceOnlyBase = buildingIdxs.length === 0
+    const goalPool = fenceOnlyBase ? targets.map((_, i) => i) : buildingIdxs
+    let goalsLeft = goalPool.length
+    const lootPer = Math.floor(result.loot / goalPool.length)
     let lootGiven = 0
-    let targetsLeft = targets.length
     const troops: Trooper[] = []
 
-    // nearest LIVING target from a point — fences count 20% closer so drops
-    // near the wall chew through the wall instead of beelining the safe
-    const nearest = (x: number, y: number): number => {
-      let best = -1, bestD = Infinity
-      for (let i = 0; i < targets.length; i++) {
-        const tg = targets[i]
-        if (tg.dead) continue
-        const d = Math.hypot(tg.x - x, tg.y - y) * (tg.isFence ? FENCE_PREF : 1)
-        if (d < bestD) { bestD = d; best = i }
+    const dist = (i: number, x: number, y: number) => Math.hypot(targets[i].x - x, targets[i].y - y)
+    const attackersOn = (gi: number) => troops.reduce((s, t) => s + (t.state !== 'gone' && t.goal === gi ? 1 : 0), 0)
+
+    const chooseGoal = (tr: Trooper): number => {
+      // wall-breaker flavor: splash troops (Pyro Patriot / Drum Circle) hunt walls
+      if (troopById(tr.type)?.role === 'splash') {
+        let bf = -1, bfd = Infinity
+        for (let i = 0; i < targets.length; i++) {
+          if (targets[i].dead || !targets[i].isFence) continue
+          const d = dist(i, tr.x, tr.y)
+          if (d < bfd) { bfd = d; bf = i }
+        }
+        if (bf >= 0) return bf
+      }
+      let best = -1, bd = Infinity
+      for (const i of goalPool) {
+        if (targets[i].dead) continue
+        let d = dist(i, tr.x, tr.y)
+        // focus fire: join a building 1-2 squadmates already hit — capped so
+        // the whole squad doesn't clump on one target
+        const a = attackersOn(i)
+        if (a >= 1 && a < 3 && d < 300) d *= 0.55
+        if (d < bd) { bd = d; best = i }
       }
       return best
+    }
+
+    // first living fence sitting ON the straight line from (x,y) to the goal
+    const blockerOn = (x: number, y: number, gi: number): number => {
+      const g = targets[gi]
+      const dx = g.x - x, dy = g.y - y
+      const len = Math.hypot(dx, dy)
+      if (len < 40) return -1
+      let best = -1, bestT = Infinity
+      for (let i = 0; i < targets.length; i++) {
+        const f = targets[i]
+        if (f.dead || !f.isFence) continue
+        const t = ((f.x - x) * dx + (f.y - y) * dy) / (len * len)
+        if (t < 0.04 || t > 0.96) continue
+        const perp = Math.abs((f.x - x) * dy - (f.y - y) * dx) / len
+        if (perp > BLOCK_PERP) continue
+        if (t < bestT) { bestT = t; best = i }
+      }
+      return best
+    }
+
+    // goal first, then: breach whatever blocks the path, else hit the goal
+    const pickTarget = (tr: Trooper) => {
+      if (tr.goal < 0 || targets[tr.goal].dead) tr.goal = chooseGoal(tr)
+      if (tr.goal < 0) { tr.target = -1; return }
+      const blk = targets[tr.goal].isFence ? -1 : blockerOn(tr.x, tr.y, tr.goal)
+      tr.target = blk >= 0 ? blk : tr.goal
+      tr.state = 'walk'
+    }
+
+    const hitFlash = (pad: number) => {
+      setHitPad(pad)
+      if (hitTimer.current) clearTimeout(hitTimer.current)
+      hitTimer.current = setTimeout(() => setHitPad(null), 260)
     }
 
     const killTarget = (ti: number) => {
       const tg = targets[ti]
       tg.dead = true
-      targetsLeft--
-      const chunk = targetsLeft === 0 ? result.loot - lootGiven : lootPer
-      lootGiven += chunk
+      const carriesLoot = fenceOnlyBase || !tg.isFence
+      let chunk = 0
+      if (carriesLoot) {
+        goalsLeft--
+        chunk = goalsLeft === 0 ? result.loot - lootGiven : lootPer
+        lootGiven += chunk
+      }
+      if (tg.isFence) statsRef.current.fences++
+      else statsRef.current.buildings++
       setSmashed(prev => { const n = new Set(prev); n.add(tg.pad); return n })
-      setLootShown(v => v + chunk)
+      if (chunk > 0) setLootShown(v => v + chunk)
       addFloat({ pad: tg.pad, text: chunk > 0 ? `+${chunk} FP` : '💥' })
       pop(150 + Math.random() * 100); buzz(30)
     }
@@ -215,7 +292,8 @@ export default function RaidPage() {
       })
       layer.appendChild(el)
       requestAnimationFrame(() => { el.style.opacity = '1' })
-      const tr: Trooper = { el, x, y, state: 'walk', t: 0, target: nearest(x, y), lastHitAt: 0 }
+      const tr: Trooper = { el, x, y, type, state: 'walk', t: 0, goal: -1, target: -1, lastHitAt: 0 }
+      pickTarget(tr)
       paint(tr)
       troops.push(tr)
       addFloat({ sx: x, sy: y - 20, text: '⬇️', spark: true }, 500)
@@ -233,11 +311,12 @@ export default function RaidPage() {
       last = now
       clock += dt
 
-      // AUTO: dribble the remaining tray in at the yard edge near living targets
+      // AUTO: dribble the tray in at the edge nearest LIVING BUILDINGS —
+      // never optimized for fence farming
       if (autoRef.current && clock - lastAuto >= AUTO_EVERY) {
         const type = Object.keys(trayRef.current).sort((a, b) => (trayRef.current[b] ?? 0) - (trayRef.current[a] ?? 0))[0]
         if (type && (trayRef.current[type] ?? 0) > 0) {
-          const living = targets.filter(t => !t.dead)
+          const living = goalPool.filter(i => !targets[i].dead).map(i => targets[i])
           if (living.length) {
             lastAuto = clock
             const tg = living[Math.floor(Math.random() * living.length)]
@@ -253,11 +332,12 @@ export default function RaidPage() {
 
       for (const tr of troops) {
         if (tr.state === 'gone') continue
-        if (tr.target < 0 || targets[tr.target].dead) {
-          // re-target the nearest living from wherever this troop stands
-          tr.target = nearest(tr.x, tr.y)
+        // target dead (a squadmate finished it) or goal gone → re-path.
+        // The goal is KEPT while alive: after a breach the troop resumes
+        // toward the same building, never "next fence anywhere".
+        if (tr.target < 0 || targets[tr.target].dead || tr.goal < 0 || targets[tr.goal].dead) {
+          pickTarget(tr)
           if (tr.target < 0) { tr.state = 'gone'; tr.el.style.opacity = '0'; continue }
-          tr.state = 'walk'
         }
         const tg = targets[tr.target]
         if (tr.state === 'walk') {
@@ -274,14 +354,15 @@ export default function RaidPage() {
           tr.t += dt
           const dx = tg.x - tr.x, dy = tg.y - tr.y
           const d = Math.max(1, Math.hypot(dx, dy))
-          const s = Math.max(0, Math.sin((tr.t % HIT_SECS) / HIT_SECS * Math.PI))
-          paint(tr, (dx / d) * s * 13, (dy / d) * s * 13)
+          const sw = Math.max(0, Math.sin((tr.t % HIT_SECS) / HIT_SECS * Math.PI))
+          paint(tr, (dx / d) * sw * 13, (dy / d) * sw * 13)
           const hitsDue = Math.floor(tr.t / HIT_SECS)
           if (hitsDue > tr.lastHitAt) {
             tr.lastHitAt = hitsDue
             if (!tg.dead) {
               tg.hp -= 1
               addFloat({ pad: tg.pad, text: '💥', spark: true }, 420)
+              hitFlash(tg.pad)
               pop(320 + Math.random() * 160); buzz(12)
               if (tg.hp <= 0) killTarget(tr.target)
             }
@@ -289,7 +370,9 @@ export default function RaidPage() {
         }
       }
 
-      if (targetsLeft <= 0) {
+      // the fight is over when the BUILDINGS are down — walls left standing
+      // stay standing (a closed ring is breached, not mopped)
+      if (goalsLeft <= 0) {
         engine.alive = false
         for (const tr of troops) tr.el.style.opacity = '0'
         setLootShown(result.loot) // snap over rounding dust
@@ -343,6 +426,7 @@ export default function RaidPage() {
         mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: dead ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
         dead,
+        jiggle: pad === hitPad,
         chip: !dead && b.type !== 'decor' && b.type !== 'fence'
           ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>
           : undefined,
@@ -474,6 +558,11 @@ export default function RaidPage() {
             <span className="text-gray-300 font-bold text-xs">{result.damage_pct}% damage</span>
             <span className="text-amber-400 font-black text-xs">🏆 +{result.trophies}</span>
           </div>
+          {(statsRef.current.fences > 0 || statsRef.current.buildings > 0) && (
+            <div className="absolute top-[9rem] left-1/2 -translate-x-1/2 z-[70] bg-black/60 backdrop-blur rounded-xl px-3 py-1.5 text-[11px] font-bold text-gray-300 whitespace-nowrap">
+              {statsRef.current.fences > 0 ? `🧱 Breached ${statsRef.current.fences} wall segment${statsRef.current.fences === 1 ? '' : 's'} · ` : ''}🏚️ Destroyed {statsRef.current.buildings} building{statsRef.current.buildings === 1 ? '' : 's'}
+            </div>
+          )}
           {(result.army?.losses?.length ?? 0) > 0 && (
             <div className="absolute top-[6.5rem] left-1/2 -translate-x-1/2 z-[70] bg-black/60 backdrop-blur rounded-xl px-3 py-1.5 text-[11px] font-bold text-red-300 whitespace-nowrap">
               Fallen: {result.army!.losses.map(l => `${l.emoji} ${l.n} ${l.name}`).join(' · ')}
