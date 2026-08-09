@@ -27,6 +27,7 @@ export interface TroopDef {
   desc: string
   cost: number     // FP per troop
   power: number    // army power each
+  trainSecs: number    // build time per unit (Michael 2026-08-06: timer + queue)
   unlockLevel: number  // barracks level required
   img: string
 }
@@ -34,12 +35,14 @@ export interface TroopDef {
 // role order = unlock order = casualty order reference
 export const ROLE_ORDER: readonly TroopRole[] = ['melee', 'ranged', 'tank', 'splash', 'support'] as const
 
-const ROLE_STATS: Record<TroopRole, { cost: number; power: number; unlockLevel: number }> = {
-  melee:   { cost: 15,  power: 1, unlockLevel: 1 },
-  ranged:  { cost: 30,  power: 2, unlockLevel: 2 },
-  tank:    { cost: 60,  power: 3, unlockLevel: 3 },
-  splash:  { cost: 100, power: 4, unlockLevel: 4 },
-  support: { cost: 120, power: 3, unlockLevel: 5 },
+// trainSecs scale with tier — a full army takes real time (or FP to rush),
+// which is what makes casualties sting and the barracks worth upgrading
+const ROLE_STATS: Record<TroopRole, { cost: number; power: number; unlockLevel: number; trainSecs: number }> = {
+  melee:   { cost: 15,  power: 1, unlockLevel: 1, trainSecs: 45 },
+  ranged:  { cost: 30,  power: 2, unlockLevel: 2, trainSecs: 90 },
+  tank:    { cost: 60,  power: 3, unlockLevel: 3, trainSecs: 180 },
+  splash:  { cost: 100, power: 4, unlockLevel: 4, trainSecs: 360 },
+  support: { cost: 120, power: 3, unlockLevel: 5, trainSecs: 480 },
 }
 
 const t = (id: string, party: Party, role: TroopRole, name: string, emoji: string, attack: string, desc: string): TroopDef =>

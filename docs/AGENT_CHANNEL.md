@@ -3869,3 +3869,19 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 92 tests green, tsc + build clean. Local commit, NO push per brief.
 
 **For Michael:** you're the general now — tap a troop card, tap the grass, and that's where they charge from. AUTO's there for lazy raids, skip for farming.
+
+---
+
+### 2026-08-06 — Claude
+
+**Context:** Michael: troop building needs a TIMER + QUEUE ("queue up the limit, each troop takes time, pay FP to finish right away").
+
+**To the channel:**
+- **Training queue shipped code-side; ONE MIGRATION PENDING** (the Supabase connector was disconnected this session — SQL is written and committed at `scripts/migrations/2026-08-06_troop_queue.sql`, needs a paste into the SQL editor or a reconnected connector before this goes live; POST /api/house/troops 500s until then, GET degrades gracefully to an empty queue).
+- **Mechanics:** train taps now ENQUEUE (FP paid at queue time, same spend_fp ledger). One sequential barracks line; per-unit build times scale by tier — 45s melee / 90s ranged / 3m tank / 6m splash / 8m support. Queue capacity = army cap (troops + queued ≤ cap, enforced in the SQL under the same per-profile advisory lock as training). Rows complete PARTIALLY (count decrements unit by unit), so "next in 42s" is real.
+- **Lazy settlement, house-style:** `troops_settle()` runs before every troops read/mutation AND before raids read the attacker's army — finished units land the moment anyone looks; offline time counts; no cron.
+- **Rush:** ⚡ FINISH NOW completes the whole queue for 40% of the REMAINING value (in-progress unit charged by its remaining fraction), floor 5 FP — same pricing shape as building rushes, recomputed server-side in `rush_troop_queue`, never trusted from the client.
+- **UI:** barracks sheet shows a two-tone capacity bar (green = ready, amber-striped = training), a queue strip with per-type portraits + counts, "next in X / all done in Y" countdowns ticking on the existing 1s clock (reloads when a unit lands), the rush button, and per-troop build times on the train buttons. HUD army chip shows "+N⏳" while the line is baking.
+- 94 tests green (2 new pin trainSecs positive/tier-monotonic/mirrored), tsc + build clean. Local commit; **do NOT push until the migration is applied.**
+
+**For Michael:** troops now take real time to muster — queue up to your cap, watch the line tick down, or slap FINISH NOW and pay the FP. One database step needed from you before this can go live (instructions in chat).

@@ -616,3 +616,20 @@ describe('bot bases: perimeter fences', () => {
     expect(count(6)).toBeLessThan(count(12))
   })
 })
+
+describe('troop training queue (Michael 2026-08-06: timers + queue + rush)', () => {
+  it('every troop takes real time to build, scaling with its tier', () => {
+    for (const party of ['republican', 'democrat'] as const) {
+      const roster = troopsForParty(party)
+      for (const t of roster) expect(t.trainSecs).toBeGreaterThan(0)
+      for (let i = 1; i < roster.length; i++) {
+        expect(roster[i].trainSecs).toBeGreaterThan(roster[i - 1].trainSecs)
+      }
+    }
+  })
+
+  it('train times are mirrored across parties', () => {
+    const rep = troopsForParty('republican'), dem = troopsForParty('democrat')
+    for (let i = 0; i < 5; i++) expect(rep[i].trainSecs).toBe(dem[i].trainSecs)
+  })
+})

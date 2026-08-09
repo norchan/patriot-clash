@@ -9,7 +9,7 @@ import {
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
   safeImage, barracksImage, armyCap,
 } from '@/config/house'
-import { troopsForParty } from '@/config/troops'
+import { troopsForParty, troopById } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency } from '@/components/IsoYard'
 
@@ -58,7 +58,12 @@ export default function HqPage() {
   const { profile, refetch } = useProfile()
   const [farm, setFarm] = useState<Farm | null>(null)
   const [house, setHouse] = useState<House | null>(null)
-  const [army, setArmy] = useState<{ barracks_level: number; capacity: number; counts: Record<string, number>; total: number; power: number; bonus: number } | null>(null)
+  const [army, setArmy] = useState<{
+    barracks_level: number; capacity: number; counts: Record<string, number>
+    total: number; power: number; bonus: number
+    queue: Array<{ type: string; count: number; secs_each: number; next_unit_at: string; done_at: string }>
+    queued_total: number; queue_done_at: string | null; rush_cost: number
+  } | null>(null)
   const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean; ps?: boolean } | null>(null)
   // menu-driven MOVE MODE (long-press drag fought Chrome's context menu):
   // the pad currently being moved, or null
@@ -104,16 +109,18 @@ export default function HqPage() {
   // actually upgrading, and reloads state when a timer crosses zero
   const [now, setNow] = useState(Date.now())
   const anyUpgrading = !!house?.hq_upgrade || (house?.buildings ?? []).some(b => b.upgrade)
+    || (army?.queue?.length ?? 0) > 0
   useEffect(() => {
     if (!anyUpgrading) return
     const iv = setInterval(() => {
       setNow(Date.now())
-      const due = [house?.hq_upgrade?.done_at, ...(house?.buildings ?? []).map(b => b.upgrade?.done_at)]
+      const due = [house?.hq_upgrade?.done_at, ...(house?.buildings ?? []).map(b => b.upgrade?.done_at),
+        ...(army?.queue ?? []).map(q => q.next_unit_at)]
         .some(d => d && +new Date(d) <= Date.now())
-      if (due) load() // the server settles it and the scaffolding comes down
+      if (due) load() // the server settles it and finished work lands
     }, 1000)
     return () => clearInterval(iv)
-  }, [anyUpgrading, house])
+  }, [anyUpgrading, house, army])
 
   // sparkle pickups — each tap is a real server grant, popped at its pad
   const [popped, setPopped] = useState<Array<{ id: number; pad: number; text: string }>>([])
@@ -246,10 +253,24 @@ export default function HqPage() {
       if (!res.ok) say(`❌ ${d.message ?? d.error ?? 'Could not train'}`)
       else {
         try { navigator.vibrate?.(12) } catch {}
-        say(`🎖️ Trained! (-${d.spent} FP)`)
+        say(`🎖️ Queued ${d.queued}! (-${d.spent} FP)`)
         load(); refetch()
       }
     } catch { say('❌ Could not train') } finally { setBusy(false) }
+  }
+
+  async function rushTroops() {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/house/troops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rush: true }),
+      })
+      const d = await res.json()
+      if (!res.ok) say(`❌ ${d.message ?? d.error ?? 'Could not rush'}`)
+      else { say(`⚡ Troops ready! (-${d.spent} FP)`); load(); refetch() }
+    } catch { say('❌ Could not rush') } finally { setBusy(false) }
   }
 
   // optimistic quarter-turn; the server owns the persisted value
@@ -312,7 +333,7 @@ export default function HqPage() {
       </div>
       <div className="absolute top-3 right-3 z-[70] flex items-center gap-2">
         {(army?.capacity ?? 0) > 0 && (
-          <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-emerald-300 font-black text-sm">🎖️ {army!.total}/{army!.capacity}</span>
+          <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-emerald-300 font-black text-sm">🎖️ {army!.total}/{army!.capacity}{(army!.queued_total ?? 0) > 0 ? <span className="text-amber-300"> +{army!.queued_total}⏳</span> : null}</span>
         )}
         <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-amber-400 font-black text-sm">🏆 {house?.trophies ?? 0}</span>
         <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
@@ -466,16 +487,44 @@ export default function HqPage() {
                   {def.type === 'barracks' && (() => {
                     const lvl = sheet.building!.level
                     const roster = troopsForParty(profile?.party ?? 'republican')
-                    const room = armyCap(lvl) - (army?.total ?? 0)
+                    const queued = army?.queued_total ?? 0
+                    const room = armyCap(lvl) - (army?.total ?? 0) - queued
                     return (
                       <div className="mt-4">
                         <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-emerald-300">🎖️ Army {army?.total ?? 0}/{armyCap(lvl)}</span>
+                          <span className="text-emerald-300">🎖️ Army {army?.total ?? 0}/{armyCap(lvl)}{queued > 0 && <span className="text-amber-300"> +{queued} training</span>}</span>
                           <span className="text-gray-500">raids hit +{army?.bonus ?? 0} harder</span>
                         </div>
-                        <div className="mt-1.5 h-2.5 bg-gray-800 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round(((army?.total ?? 0) / Math.max(1, armyCap(lvl))) * 100))}%`, background: 'linear-gradient(90deg,#34d399,#059669)' }} />
+                        <div className="mt-1.5 h-2.5 bg-gray-800 rounded-full overflow-hidden flex">
+                          <div className="h-full" style={{ width: `${Math.min(100, Math.round(((army?.total ?? 0) / Math.max(1, armyCap(lvl))) * 100))}%`, background: 'linear-gradient(90deg,#34d399,#059669)' }} />
+                          <div className="h-full" style={{ width: `${Math.min(100, Math.round((queued / Math.max(1, armyCap(lvl))) * 100))}%`, background: 'repeating-linear-gradient(45deg,#f59e0b,#f59e0b 4px,#b45309 4px,#b45309 8px)' }} />
                         </div>
+                        {(army?.queue?.length ?? 0) > 0 && (
+                          <div className="mt-3 bg-gray-800/60 rounded-xl border border-amber-700/50 p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-amber-300 font-black text-sm">🔨 Training</span>
+                              <span className="text-white font-black text-sm">next in {fmtLeft(army!.queue[0].next_unit_at, now)}</span>
+                            </div>
+                            <div className="mt-2 flex items-center gap-2 overflow-x-auto">
+                              {army!.queue.map((q, i) => {
+                                const qd = troopById(q.type)
+                                return (
+                                  <span key={i} className="shrink-0 relative">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={qd?.img} alt="" className="w-9 h-9 object-contain opacity-80" />
+                                    <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-gray-900 border border-gray-600 text-[10px] font-black text-gray-200 flex items-center justify-center">{q.count}</span>
+                                  </span>
+                                )
+                              })}
+                              <span className="text-gray-500 text-[11px] font-bold whitespace-nowrap ml-1">all done in {fmtLeft(army!.queue_done_at!, now)}</span>
+                            </div>
+                            <button disabled={busy || (army?.rush_cost ?? 0) <= 0} onClick={rushTroops}
+                              className="mt-2.5 w-full py-2.5 rounded-xl font-black text-black disabled:opacity-35"
+                              style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                              ⚡ FINISH NOW — {(army?.rush_cost ?? 0).toLocaleString()} FP
+                            </button>
+                          </div>
+                        )}
                         <div className="mt-3 space-y-2">
                           {roster.map(tr => {
                             const locked = lvl < tr.unlockLevel
@@ -498,6 +547,7 @@ export default function HqPage() {
                                       style={{ background: 'linear-gradient(135deg,#34d399,#059669)' }}>+1 ⚡{tr.cost}</button>
                                     <button disabled={busy || room < 5} onClick={() => train(tr.id, 5)}
                                       className="px-2.5 py-1 rounded-lg font-black text-white text-[10px] bg-gray-700 disabled:opacity-35">+5 ⚡{tr.cost * 5}</button>
+                                    <span className="text-[9px] text-gray-500 font-bold">{tr.trainSecs >= 60 ? `${Math.round(tr.trainSecs / 60)}m` : `${tr.trainSecs}s`} each</span>
                                   </span>
                                 )}
                               </div>
