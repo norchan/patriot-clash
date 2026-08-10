@@ -7,7 +7,7 @@ import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
-  safeImage, barracksImage, armyCap, solarImage,
+  safeImage, barracksImage, armyCap, solarImage, ART_GATE_SOLAR_DOG,
 } from '@/config/house'
 import { troopsForParty, troopById } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
@@ -626,7 +626,9 @@ export default function HqPage() {
               <>
                 <p className="text-white font-black text-lg">Build here</p>
                 <div className="mt-3 space-y-2">
-                  {Object.values(BUILDINGS).map(def => {
+                  {Object.values(BUILDINGS)
+                    .filter(def => !(ART_GATE_SOLAR_DOG && (def.type === 'solar' || def.type === 'doberman')))
+                    .map(def => {
                     const blocked = def.unique && hasOf(def.type)
                     const thumb = SPRITES[def.type]?.img(1)
                     return (

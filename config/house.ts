@@ -11,6 +11,12 @@
 
 export type BuildingType = 'fence' | 'media_tower' | 'safe' | 'barracks' | 'solar' | 'doberman'
 
+// TEMPORARY art gate (2026-08-10): solar + doberman are code-complete but
+// their art generation is blocked on OpenAI credits. While true, they are
+// hidden from the build sheet and bot bases so nobody sees broken images.
+// Flip to false when public/house/solar1-3.png + doberman.png exist.
+export const ART_GATE_SOLAR_DOG = true
+
 // ── The yard ────────────────────────────────────────────────────────────────
 // 10×10 OPEN grid, cell indexes 0..99 row-major (Michael 2026-07-31 — grew
 // from Grok's 6×6; the old yard embeds dead-center at (row+2, col+2), which
@@ -313,8 +319,9 @@ export function botBase(botId: string, level: number): BotBase {
     buildings.push({ pad: cells[(seed + 29) % cells.length], type: 'barracks', level: Math.min(5, baseLevel) })
   }
   // level 3+ bots add a solar array AND a doberman — raiders should meet the
-  // dog out in the wild before deciding to buy their own
-  if (baseLevel >= 3) {
+  // dog out in the wild before deciding to buy their own.
+  // ART_GATE: re-enable when solar1-3.png + doberman.png land (OpenAI credits)
+  if (baseLevel >= 3 && !ART_GATE_SOLAR_DOG) {
     buildings.push({ pad: cells[(seed + 41) % cells.length], type: 'solar', level: Math.min(3, baseLevel - 1) })
     buildings.push({ pad: cells[(seed + 53) % cells.length], type: 'doberman', level: 1 })
   }
