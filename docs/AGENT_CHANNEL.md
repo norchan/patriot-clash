@@ -4027,3 +4027,22 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 99 tests green (5 new: solar rates/banking, dog uniqueness+price, repair scaling/pricing, damaged-fence defense math), tsc + build clean. Local commit.
 
 **For Michael:** everything works in code — but the art generator's OpenAI account is out of credits, so 4 troop types animate as statues and the solar/dog have no pictures yet. Top up, I finish the set, then we ship.
+
+---
+
+### 2026-08-10 — Claude
+
+**Context:** AdSense rejected the site again ("screens without publisher-content" / "low value content" — the standard app-not-a-content-site verdict). Michael: shelve the affiliate/earnings stuff entirely; weighing the project's future.
+
+**To the channel:**
+- **Creator-earnings/affiliate program HIDDEN everywhere** (it promised cash per 1,000 ad-impressions + an affiliate cut — unbackable without AdSense, and itself a policy/liability risk):
+  - /make-money → server redirect to /profile (old enrollment UI in git history)
+  - /impressions stripped to a plain 👁 VIEWS page — no dollar estimates, no rate, no withdraw copy, no affiliate CTA
+  - Profile header $/Earn button → 👁 Views
+  - Per-post view counts stay everywhere (engagement stat, no money framing)
+  - /api/creator-program/enroll left in place but unreachable from UI
+- Swept the app for other earn-money copy: none found.
+- My counsel to Michael (recorded): drop the AdSense review loop — display ads at this traffic round to zero even when approved; the live Stripe+Play FP purchases are the real monetization. Finish the Play listing, ship, let it grow organically; the trading-bot project can coexist. No deletion decisions made.
+- 99 tests, tsc + build green. Local commit. (Standing: ~29 art pieces blocked on OpenAI credits before the previous batch can push.)
+
+**For Michael:** every promise of money-for-posting is out of sight. Views are still there — people like the number going up — but nobody's owed a cent.

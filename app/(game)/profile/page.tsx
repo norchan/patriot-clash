@@ -423,11 +423,13 @@ export default function ProfilePage() {
           {/* Both badges share a fixed 24px icon row and the same label size so
               the ⚡/number column lines up with the $/Earn column (Michael) */}
           <div className="flex gap-2 self-start mt-11">
+            {/* $/Earn button hidden (Michael 2026-08-10) — the creator-earnings
+                program is shelved with AdSense; /impressions is plain views now */}
             <button onClick={() => router.push('/impressions')}
               className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"
-              aria-label="Earnings — tap for impressions">
-              <span className="h-6 flex items-center justify-center text-green-400 font-black text-xl leading-none">$</span>
-              <span className="text-green-400 font-black text-sm leading-tight mt-0.5">Earn</span>
+              aria-label="Views on your posts">
+              <span className="h-6 flex items-center justify-center text-gray-300 font-black text-xl leading-none">👁</span>
+              <span className="text-gray-400 font-black text-sm leading-tight mt-0.5">Views</span>
             </button>
             <button onClick={() => router.push('/shop')}
               className="flex flex-col items-center px-2 py-1 rounded-xl hover:bg-white/5 active:scale-95 transition"

@@ -2,7 +2,10 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { CREATOR_EARNINGS, estimatedEarnings } from '@/config/creator-earnings'
+
+// Plain VIEW COUNTS. The old "Impre$$ions" earnings page (rates, estimated
+// dollars, affiliate CTA) is shelved (Michael 2026-08-10) — it promised cash
+// tied to ad revenue that doesn't exist. Views are a fun stat on their own.
 
 function ImpressionsContent() {
   const router = useRouter()
@@ -11,7 +14,7 @@ function ImpressionsContent() {
   const paramCount = parseInt(searchParams.get('count') || '0', 10)
 
   // Opened from a post → show that post's count. Opened from the profile
-  // header $ → sum impressions across all of the player's own posts.
+  // header 👁 → sum views across all of the player's own posts.
   const [totalCount, setTotalCount] = useState<number | null>(postId ? paramCount : null)
   useEffect(() => {
     if (postId) return
@@ -22,8 +25,6 @@ function ImpressionsContent() {
   }, [postId])
 
   const count = totalCount ?? 0
-  const earned = estimatedEarnings(count)
-  const rate = CREATOR_EARNINGS.USD_PER_1000_IMPRESSIONS.toFixed(2)
 
   return (
     <div className="min-h-screen bg-gray-950 pb-6">
@@ -32,53 +33,21 @@ function ImpressionsContent() {
           <ArrowLeft size={16} /> <span className="text-sm">Back</span>
         </button>
 
-        {/* Earnings card */}
-        <div className="bg-gradient-to-br from-green-900/30 to-green-900/10 border border-green-800 rounded-2xl p-6 mb-6">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
           <div className="text-center">
-            <div className="text-gray-400 text-sm mb-2">Impre$$ions</div>
-            <div className="text-white font-bold text-3xl mb-4">
+            <div className="text-gray-400 text-sm mb-2">👁 Views</div>
+            <div className="text-white font-bold text-3xl mb-2">
               {totalCount === null ? '…' : count.toLocaleString()}
             </div>
-            <div className="text-gray-400 text-sm mb-4">
+            <div className="text-gray-400 text-sm">
               {postId ? 'views on this post' : 'views across all your posts'}
-            </div>
-            <div className="bg-green-900/50 rounded-xl p-4">
-              <div className="text-gray-400 text-xs mb-1">Estimated earnings</div>
-              <div className="text-green-400 font-bold text-2xl">${earned}</div>
             </div>
           </div>
         </div>
 
-        {/* Earn pitch */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
-          <h2 className="text-white font-bold text-lg mb-3">Anyone can earn money on PoliticsGo</h2>
-          <p className="text-gray-400 text-sm mb-4">
-            Current rate: ${rate} per 1,000 views. Earn money posting pictures, videos, and more! A view counts when someone opens your content on a screen that shows an ad.
-          </p>
-          <ul className="text-gray-400 text-sm space-y-2">
-            <li>✓ <strong>Profile posts</strong> — share photos and thoughts</li>
-            <li>✓ <strong>Board posts</strong> — the pSubs, where the ads live</li>
-            <li>✓ <strong>Town hall posts</strong> — engage your community</li>
-            <li>✓ <strong>Reels</strong> — coming soon</li>
-          </ul>
-        </div>
-
-        {/* Affiliate section */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-          <h2 className="text-white font-bold text-lg mb-2">Want to earn more?</h2>
-          <p className="text-gray-400 text-sm mb-4">
-            Invite friends to PoliticsGo and earn money when they post. Join the affiliate program to grow your earnings.
-          </p>
-          <button onClick={() => router.push('/make-money')}
-            className="w-full px-4 py-3 bg-purple-700 text-white font-bold rounded-lg hover:bg-purple-600 transition">
-            Learn about earnings & affiliate
-          </button>
-        </div>
-
-        {/* Withdraw info */}
-        <div className="mt-6 bg-gray-900/50 border border-gray-800 rounded-xl p-4 text-center">
+        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 text-center">
           <p className="text-gray-500 text-xs">
-            Earnings available after {CREATOR_EARNINGS.HOLD_DAYS} days. Minimum ${CREATOR_EARNINGS.MIN_WITHDRAW_USD.toFixed(2)} to cash out. Rates are current and may change as the program grows.
+            A view counts each time someone opens your post. Keep posting to the boards, town halls, and your profile to grow your reach.
           </p>
         </div>
       </div>
