@@ -15,7 +15,7 @@ export type BuildingType = 'fence' | 'media_tower' | 'safe' | 'barracks' | 'sola
 // their art generation is blocked on OpenAI credits. While true, they are
 // hidden from the build sheet and bot bases so nobody sees broken images.
 // Flip to false when public/house/solar1-3.png + doberman.png exist.
-export const ART_GATE_SOLAR_DOG = true
+export const ART_GATE_SOLAR_DOG = false
 
 // ── The yard ────────────────────────────────────────────────────────────────
 // 10×10 OPEN grid, cell indexes 0..99 row-major (Michael 2026-07-31 — grew

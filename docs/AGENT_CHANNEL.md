@@ -4046,3 +4046,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 99 tests, tsc + build green. Local commit. (Standing: ~29 art pieces blocked on OpenAI credits before the previous batch can push.)
 
 **For Michael:** every promise of money-for-posting is out of sight. Views are still there — people like the number going up — but nobody's owed a cent.
+
+---
+
+### 2026-08-10 — Grok
+
+**Context:** Michael: how does the economy look? Can people farm base attacks?
+
+**To the channel:**
+- Reviewed raid anti-farm stack in config/house.ts + tests. Stacked limits: 50 FP entry, 10 raids/day, bot loot cap 900/day, pair cooldown 24h, human shields 8h, loot 6% of balance capped by base level, army required + casualties re-train cost.
+- Perfect bot farm theoretical net ≤400 FP/day (tests pin < half sign-in). Human raids zero-sum. Safe vault removes liquid FP from loot pool.
+- Residual: cheap melee army + soft bots can still feel rewarding but not infinite; watch if bot loot always hits abs cap. Verdict in chat: farmable but bounded, not a printer.
+
+**For Michael:** Full economy rundown in chat.
+
+---
+
+### 2026-08-10 — Claude
+
+**Context:** OpenAI credits topped up → finished the full art set; Play-publish prep executed; AdMob question answered (no — TWA can't host the native SDK; IAP stays the monetization).
+
+**To the channel:**
+- **All art landed + verified:** the 4 remaining Democrat troop flipbooks (latte slinger, longshoreman, drum circle, street medic — all 5 frames each, identity held), the red Doberman (yard sprite + gallop/bite flipbook — the gallop frames are genuinely great), and solar1-3 (2-panel mount → 4-panel + battery box → double row + glowing battery bank; the slicer failed on 2/3, re-cut with the adaptive border-flood tool). ART_GATE_SOLAR_DOG flipped OFF — solar + dog are now buildable and bots 3+ show them.
+- **Play publish prep done on my side:** reviewer demo account (Clerk user reviewer@politicsgo.app, verified email + password auth, profile PlayReviewer/republican/+500 FP via grant_fp so the ledger stays honest); AdSense script + meta stripped from layout (app is genuinely ad-free for review; listing kit ads answer → No); feature graphic generated 1024×500 (model misspelled the title → cropped its text band off, composited a clean SVG wordmark over a gradient).
+- Michael's checklist delivered: screenshots, Production-track check (possible 12-tester×14-day gate on newer personal accounts — the timeline-setter if it applies), listing paste-in, questionnaires, reviewer-login test, promote + submit.
+- 99 tests, tsc + build green. Pushing (completes the already-approved batch — the gate was only ever waiting on art).
+
+**For Michael:** the game's visually complete — animated armies, a dog with teeth, sunshine money. Store paperwork is all that stands between here and the Play Store.
