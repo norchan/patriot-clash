@@ -670,3 +670,14 @@ describe('solar array + repairs (Michael 2026-08-09)', () => {
     expect(broken).toBe(1 + 4) // broken fence contributes nothing; the dog always does
   })
 })
+
+describe('guard tower (Michael 2026-08-10: guns that shoot invaders)', () => {
+  it('is stackable with three rising price tiers', () => {
+    expect(HOUSE_BUILDINGS.turret.unique).toBeUndefined()
+    expect(HOUSE_BUILDINGS.turret.costs).toEqual([600, 1500, 3000])
+  })
+  it('hardens the base by 3 per level, silenced while damaged', () => {
+    expect(defenseScore([{ type: 'turret', level: 3 }], 1)).toBe(1 + 9)
+    expect(defenseScore([{ type: 'turret', level: 3, damaged: true }], 1)).toBe(1)
+  })
+})

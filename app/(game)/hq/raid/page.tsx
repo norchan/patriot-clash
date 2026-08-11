@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
-import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracksImage, solarImage } from '@/config/house'
+import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracksImage, solarImage, turretImage } from '@/config/house'
 import { troopById } from '@/config/troops'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, STAGE_H } from '@/components/IsoYard'
 
@@ -39,6 +39,7 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   barracks: { img: l => barracksImage(l), w: 150 },
   solar: { img: l => solarImage(l), w: 134 },
   doberman: { img: () => '/house/doberman.png', w: 104 },
+  turret: { img: l => turretImage(l), w: 118 },
   decor: { img: () => '/house/decor_flag.png', w: 84 },
   print_shop: { img: () => '/house/print_shop.png', w: 128 },
 }
@@ -69,6 +70,10 @@ const DOG_BITE_SECS = 0.85
 const DOG_BITE_DMG = 13       // extra hp the victim loses per bite
 const DOG_WEAR = 9            // hp the dog loses per bite exchange
 const DOG_H = 74
+// GUARD TOWERS (Michael 2026-08-10): living turrets fire on troops in range.
+const TURRET_RANGE = 330
+const TURRET_SHOT_SECS = [1.8, 1.5, 1.2]   // per level, faster guns up top
+const TURRET_DMG = [7, 10, 13]             // troop hp per hit, per level
 const frameSrc = (id: string, f: string) => `/troops/anim/${id}_${f}.png`
 
 function pop(freq = 220) {
@@ -372,6 +377,31 @@ export default function RaidPage() {
       root.style.left = String(at.x) + 'px'
       root.style.top = String(at.y) + 'px'
     }
+    // ── the turret battery: every LIVING turret tracks and fires. A smashed
+    // or pre-damaged turret goes silent — raiders can shoot the guns first. ──
+    interface Turret { pad: number; x: number; y: number; level: number; cd: number }
+    const turrets: Turret[] = result.base.buildings
+      .filter(b => b.type === 'turret' && !b.damaged)
+      .map(b => {
+        const at = isoPos(b.pad)
+        return { pad: b.pad, x: at.x, y: at.y - 46, level: Math.max(1, Math.min(3, b.level)), cd: 0.6 + Math.random() * 1.2 }
+      })
+    const targetByPad = new Map(targets.map((t, i) => [t.pad, i]))
+    const fireTracer = (fx: number, fy: number, tx: number, ty: number) => {
+      const tr = document.createElement('div')
+      const ang = Math.atan2(ty - fy, tx - fx) * 180 / Math.PI
+      Object.assign(tr.style, {
+        position: 'absolute', left: String(fx) + 'px', top: String(fy) + 'px',
+        width: '16px', height: '3px', background: '#fde047', borderRadius: '2px',
+        boxShadow: '0 0 6px #fde047', zIndex: '1440', pointerEvents: 'none',
+        transform: 'rotate(' + ang + 'deg)',
+        transition: 'left 0.13s linear, top 0.13s linear',
+      })
+      layer.appendChild(tr)
+      requestAnimationFrame(() => { tr.style.left = String(tx) + 'px'; tr.style.top = String(ty) + 'px' })
+      setTimeout(() => tr.remove(), 200)
+    }
+
     const paintDog = (lx = 0, ly = 0) => {
       if (!dog) return
       const flip = dog.victim ? dog.victim.x < dog.x : (dog.state === 'flee' && dog.x < STAGE_W / 2)
@@ -535,6 +565,28 @@ export default function RaidPage() {
         setLootShown(result.loot)
         setTimeout(() => { stopEngine(); setPhase('done') }, 900)
         return
+      }
+
+      // ── the turret battery fires ──
+      for (const tu of turrets) {
+        const ti = targetByPad.get(tu.pad)
+        if (ti != null && targets[ti].dead) continue  // smashed — silenced
+        tu.cd -= dt
+        if (tu.cd > 0) continue
+        const living = troops.filter(t => (t.state === 'walk' || t.state === 'attack')
+          && Math.hypot(t.x - tu.x, t.y - (tu.y + 46)) <= TURRET_RANGE)
+        if (!living.length) { tu.cd = 0.25; continue }
+        tu.cd = TURRET_SHOT_SECS[tu.level - 1]
+        const v = living[Math.floor(Math.random() * living.length)]
+        fireTracer(tu.x, tu.y, v.x, v.y - 40)
+        pop(700 + Math.random() * 200); buzz(8)
+        const victim = v
+        setTimeout(() => {
+          if (victim.state === 'walk' || victim.state === 'attack') {
+            addFloat({ sx: victim.x, sy: victim.y - 52, text: '💥', spark: true }, 380)
+            hurtTroop(victim, TURRET_DMG[tu.level - 1])
+          }
+        }, 140)
       }
 
       // ── the dog does his rounds ──

@@ -9,7 +9,7 @@
 // costs from HERE and passes them to atomic SQL functions — the client never
 // sends a price, the same trust boundary as the fp-packs catalog.
 
-export type BuildingType = 'fence' | 'media_tower' | 'safe' | 'barracks' | 'solar' | 'doberman'
+export type BuildingType = 'fence' | 'media_tower' | 'safe' | 'barracks' | 'solar' | 'doberman' | 'turret'
 
 // TEMPORARY art gate (2026-08-10): solar + doberman are code-complete but
 // their art generation is blocked on OpenAI credits. While true, they are
@@ -94,7 +94,21 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     costs: [2000],
     unique: true,
   },
+  turret: {
+    type: 'turret',
+    name: 'Guard Tower',
+    emoji: '🗼',
+    desc: 'A mounted gun that fires on raiders in range. Build several — crossfire wins. Raiders can destroy it mid-raid to silence it.',
+    costs: [600, 1500, 3000],
+  },
 }
+
+// ── GUARD TOWER (Michael 2026-08-10: "guns that shoot the invaders") ────────
+// Stackable defense. Server-side it hardens the base (defenseScore below);
+// in the raid theater every living tower tracks troops in range and fires
+// visible shots that drain their hp — until raiders smash it.
+export const turretImage = (level: number) =>
+  `/house/turret${Math.max(1, Math.min(3, level))}.png`
 
 // ── SOLAR ARRAY (Michael 2026-08-09) — second income building ──────────────
 // Same claim pattern as the tower (lazy, banked intervals) but tuned as the
@@ -267,6 +281,7 @@ export function defenseScore(buildings: Array<{ type: string; level: number; dam
     if (b.type === 'fence') s += b.level * 2
     if (b.type === 'media_tower') s += 1 // a tower is a target, barely a defense
     if (b.type === 'doberman') s += 4    // 2000 FP of teeth
+    if (b.type === 'turret') s += b.level * 3 // guns beat walls
   }
   return s
 }
@@ -325,6 +340,13 @@ export function botBase(botId: string, level: number): BotBase {
     buildings.push({ pad: cells[(seed + 41) % cells.length], type: 'solar', level: Math.min(3, baseLevel - 1) })
     buildings.push({ pad: cells[(seed + 53) % cells.length], type: 'doberman', level: 1 })
   }
+  // guard towers from level 2 — raiders should be getting SHOT AT
+  if (baseLevel >= 2) {
+    buildings.push({ pad: cells[(seed + 61) % cells.length], type: 'turret', level: Math.min(3, baseLevel - 1) })
+  }
+  if (baseLevel >= 4) {
+    buildings.push({ pad: cells[(seed + 71) % cells.length], type: 'turret', level: Math.min(3, baseLevel - 2) })
+  }
   // decor makes big bases LOOK rich (flags, signs — pure rendering)
   for (let i = 0; i < 1 + baseLevel; i++) {
     buildings.push({ pad: cells[(seed + 11 + i * 5) % cells.length], type: 'decor', level: 1 })
@@ -340,6 +362,7 @@ export function botBase(botId: string, level: number): BotBase {
 
 export const botDefenseScore = (baseLevel: number) =>
   baseLevel * 3 + (baseLevel >= 3 ? 4 : 0)  // level-3+ bots keep a doberman
+  + (baseLevel >= 2 ? 3 : 0) + (baseLevel >= 4 ? 3 : 0)  // and turrets
 
 // ── Yard pickups — the little endorphin taps ────────────────────────────────
 // Sparkles appear on your own yard over time; each tap claims a few FP.

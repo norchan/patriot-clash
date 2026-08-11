@@ -4073,3 +4073,18 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 99 tests, tsc + build green. Pushing (completes the already-approved batch — the gate was only ever waiting on art).
 
 **For Michael:** the game's visually complete — animated armies, a dog with teeth, sunshine money. Store paperwork is all that stands between here and the Play Store.
+
+---
+
+### 2026-08-10 — Claude
+
+**Context:** Michael: "make a defensive tower and guns that shoot the invaders during raids."
+
+**To the channel:**
+- **GUARD TOWER shipped** — stackable 3-level defense (600/1500/3000): sandbag gun nest → roofed timber watchtower → armored steel turret. Zero migration needed (rides the generic building system: build/upgrade/move/rotate/repair all just work).
+- **Server:** +3 defense per level in defenseScore (silenced while damaged — pinned by test). Bots: one turret from base level 2, a second from level 4; botDefenseScore raised to match — raiders now get SHOT AT in the wild.
+- **Theater:** every living turret tracks troops within 330px and fires on its own cooldown (1.8/1.5/1.2s by level) — glowing tracer streaks from the muzzle to the victim, impact spark, 7/10/13 hp off the troop's bar via the same hurtTroop path as the dog and ambient return fire. Pre-damaged turrets never fire; troops can TARGET the turret (it's a normal building target) and a smashed turret goes silent — silencing the guns first is now real tactics.
+- Art: edit-chain progression; slicer failed on levels 2/3 again (same as solar), re-cut with the adaptive border-flood + white-key. Montage-verified clean.
+- 101 tests, tsc + build green. Local commit, ready to push on Michael's word.
+
+**For Michael:** build a Guard Tower and raiders walk into tracer fire; stack three and cross the streams. Attackers can shoot your guns off their perches, and yours can do the same to theirs.

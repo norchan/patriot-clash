@@ -7,7 +7,7 @@ import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
-  safeImage, barracksImage, armyCap, solarImage, ART_GATE_SOLAR_DOG,
+  safeImage, barracksImage, armyCap, solarImage, turretImage, ART_GATE_SOLAR_DOG,
 } from '@/config/house'
 import { troopsForParty, troopById } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
@@ -50,6 +50,7 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   barracks: { img: l => barracksImage(l), w: 150 },
   solar: { img: l => solarImage(l), w: 134 },
   doberman: { img: () => '/house/doberman.png', w: 104 },
+  turret: { img: l => turretImage(l), w: 118 },
 }
 
 // sparkle pickups live on fixed pads so a refresh doesn't shuffle them
