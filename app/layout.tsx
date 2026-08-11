@@ -1,13 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
-import Script from 'next/script'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 // Public AdSense publisher id (visible in page source anyway) — hardcoded so
 // verification works without extra env setup; env can override.
-const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || 'ca-pub-5293418453940819'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://politicsgo.app'),
@@ -49,7 +47,6 @@ export const metadata: Metadata = {
   other: {
     'mobile-web-app-capable': 'yes',
     // AdSense site-ownership verification
-    'google-adsense-account': ADSENSE_CLIENT,
   },
 }
 
@@ -72,14 +69,9 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           {children}
-          {ADSENSE_CLIENT && (
-            <Script
-              id="adsbygoogle-init"
-              strategy="beforeInteractive"
-              crossOrigin="anonymous"
-              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-            />
-          )}
+          {/* AdSense shelved (Michael 2026-08-10) — no ads served, script
+              removed so the Play review sees a clean, ad-free app. Re-add the
+              Script tag (git history) if ads ever return. */}
         </body>
       </html>
     </ClerkProvider>
