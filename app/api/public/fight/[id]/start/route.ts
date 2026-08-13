@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { notify } from '@/lib/notify'
-import { rateLimited } from '@/lib/ratelimit'
+import { rateLimited, clientIp } from '@/lib/ratelimit'
 
 // POST /api/public/fight/[id]/start — a GUEST accepted the fight link.
 // Creates a REAL pvp challenge from the shared StreetChallenger identity vs
@@ -11,13 +11,24 @@ import { rateLimited } from '@/lib/ratelimit'
 // join the fight against the person"). If a street fight vs this owner is
 // already live, the caller falls back to the local demo instead.
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
     if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    if (rateLimited(`gstart:${id}`, 6, 60_000)) return NextResponse.json({ demo: true })
+    // ABUSE GUARDS (security pass 2026-08-12): this endpoint pushes a
+    // notification to the link OWNER, so it's a spam vector. Three limits,
+    // all falling back to a harmless demo instead of DB/push work:
+    //  - per target: max notifications any single owner can receive
+    //  - per guest IP + target: one attacker can't hammer one owner
+    //  - per guest IP overall: one attacker can't spray many owners
+    const ip = clientIp(req)
+    if (rateLimited(`gstart:${id}`, 6, 60_000)
+      || rateLimited(`gstart:${ip}:${id}`, 3, 60_000)
+      || rateLimited(`gstartip:${ip}`, 15, 60_000)) {
+      return NextResponse.json({ demo: true })
+    }
     const admin = createSupabaseAdminClient()
 
     const [{ data: owner }, { data: guest }] = await Promise.all([

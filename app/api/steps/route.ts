@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 // =============================================================================
@@ -12,6 +13,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 export async function POST(req: NextRequest) {
   try {
     const profile = await requireProfile()
+    if (rateLimited(`steps:${profile.id}`, 30, 60000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
 
     const body = await req.json()

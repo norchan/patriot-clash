@@ -4139,3 +4139,32 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Claude: treat that paste as the task list when Michael sends it.
 
 **For Michael:** Copy the prompt from chat into Claude.
+
+---
+
+### 2026-08-12 — Claude
+
+**Context:** Executed the full P0/P1/P2 security hardening pass (Grok's prompt via Michael). Architecture unchanged: server-only DB via service role, browser = storage + Realtime only. No JWT/RLS-per-user rewrite, no full combat sim.
+
+**P0 — DONE + verified (DB changes are LIVE already; grants apply on run, not on push):**
+- **RPC EXECUTE lockdown** (migration 2026-08-12_lock_rpc_execute.sql): revoked EXECUTE from public/anon/authenticated on ALL 51 public functions, granted service_role, flipped default privileges so future fns are born locked. NEGATIVE TEST via real anon key: grant_fp/spend_fp/slots_settle → `42501 permission denied`; raid_house → PGRST202. service_role still calls all 51. Owner (postgres) keeps rights → pg_cron/triggers unaffected.
+- **Residual RLS:** re-scanned — 0 tables with RLS off. Confirmed the leftover anon INSERT/UPDATE/DELETE *grants* are inert: anon INSERT house_troops / UPDATE battles → `42501 RLS policy` (RLS-with-no-policy denies regardless of grant).
+- **Dead money surface:** /api/creator-program/enroll → 410 Gone (only creator/withdraw mutating route; grep clean). Historical tables stay RLS-locked.
+- **Link-preview SSRF:** new `safeFetchUrl` (http(s) only, no URL creds, DNS-resolve-and-block loopback/RFC1918/link-local/CGNAT/metadata/IPv6 ULA+link-local+v4-mapped) + `safeFetch` (manual per-hop redirect re-validation). Wired into both fetch sites. 4 vitest cases (host blocklist).
+
+**P1 — audited + hardened:**
+- **Ownership/IDOR:** spot-checked collection sell, house paths, chat delete, clique post delete, friends respond, hall-comment delete, PvP fight, push sub/delete, profile photos. ALL correctly scoped (double `.eq(profile_id)` or fetch-check-then-mutate). No gaps found — the codebase already had consistent ownership discipline. Nothing to fix.
+- **Public surfaces:** /public/fight/start gained per-IP + per-IP×target limits on top of per-target (3 layers, all fall back to harmless demo — no push/DB spam). /public/world gained per-IP burst limit; confirmed response is party+lat/lng only (no ids/names/avatars). Added `clientIp()` helper.
+- **Rate-limit sweep:** added limiters to the 3 money/spam paths that lacked them — battles (PvE settle), steps, pvp/[id]/fight. gyms/*, play-verify, chat, friends, raid already had them.
+- **Client outcomes:** battles already enforce move-cap + per-move damage ceiling + victory-requires-damage≥HP (verified, only the rate limit was missing). PvP settle is atomic (accepted→resolving claim, 2nd submitter gets 409, stake server-side, pot clamped, rollback) — first-claim-wins is the documented choice, no double-pay possible.
+- **Realtime (practical bar per prompt):** FP never settles on the wire — only via API (verified: zero browser .rpc/.from). Channels carry presence/broadcast only, no secrets in payloads, server is source of truth. Full private-channel token-mint deferred as too heavy this pass (Grok-endorsed); documented as accepted residual.
+
+**P2 — hygiene:**
+- supabase-server.ts: replaced the misleading "uses admin for now" comment with a loud ⚠️ that BOTH clients are service-role / bypass RLS / ownership must be enforced in app code.
+- Token logging: audited — no token/secret VALUES logged (3 hits log absence/status only).
+- Storage: avatars bucket public-READ (needed for display); anon list folders → empty (blocked), anon upload → `42501 RLS`. Uploads server-side under albums/{profile.id}/. Locked.
+- 105 tests green (4 new SSRF), tsc + build clean.
+
+**Advisor status:** RLS + RPC advisors should clear next scan. Accepted residuals: in-memory rate limits are per-instance burst guards (not global quota — documented); Realtime channels not per-user-token-gated (server remains authoritative). Both were explicitly in-scope-to-accept.
+
+**For Michael:** what a bad actor CAN'T do now: mint FP, read/alter troops/pushes/etc via the public key, call any money function, make our server hit internal IPs, spam street-fight pushes, or enroll in the dead creator program. What they still CAN (accepted): burst a public endpoint until one server instance's counter trips, or listen to a Realtime channel if they know a UUID (but FP only ever moves through the server). **The critical DB fixes are already live; the code fixes deploy on push.**

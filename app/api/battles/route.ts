@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { getEnemyById } from '@/config/enemies'
 import { ATTACK_BY_NAME, TIER_DEFENSE } from '@/config/attacks'
@@ -23,6 +24,7 @@ const CAPTURE_ODDS = {
 export async function POST(req: NextRequest) {
   try {
     const profile = await requireProfile()
+    if (rateLimited(`battle:${profile.id}`, 60, 20000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
 
     const body = await req.json()

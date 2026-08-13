@@ -36,3 +36,12 @@ export function rateLimitResponse() {
     { status: 429 },
   )
 }
+
+/** Best-effort client IP for UNAUTHENTICATED rate-limit keys (Vercel sets
+ *  x-forwarded-for). Falls back to a constant so the limiter still buckets
+ *  when the header is absent — never throws. */
+export function clientIp(req: Request): string {
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) return xff.split(',')[0].trim()
+  return req.headers.get('x-real-ip') ?? 'noip'
+}

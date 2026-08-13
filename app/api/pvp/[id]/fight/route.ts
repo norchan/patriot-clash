@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireProfile } from '@/lib/auth'
+import { rateLimited, rateLimitResponse } from '@/lib/ratelimit'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { settleInteractiveFight } from '@/lib/pvp'
 
@@ -13,6 +14,7 @@ export async function POST(
 ) {
   try {
     const profile = await requireProfile()
+    if (rateLimited(`pvpfight:${profile.id}`, 20, 60000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
     const { id } = await params
     const body = await req.json()

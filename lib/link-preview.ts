@@ -2,12 +2,91 @@
 // (title + thumbnail + domain). Best effort: any failure returns just the
 // domain so a post never fails because a site was slow.
 
+import { lookup } from 'node:dns/promises'
+import net from 'node:net'
+
 export interface LinkPreview {
   url: string
   title: string | null
   image: string | null
   domain: string
   description: string | null
+}
+
+// ── SSRF GUARD (security pass 2026-08-12) ──────────────────────────────────
+// This server fetches attacker-influenced URLs (a pasted post link). Without
+// guarding, a link like http://169.254.169.254/… or http://10.0.0.5/ would
+// make our server hit cloud metadata / internal hosts. Block them: http(s)
+// only, no credentials in the URL, and the RESOLVED IP must be public. Every
+// redirect hop is re-checked (an open redirect can't tunnel to a private IP).
+
+/** True if an IP literal is loopback / private / link-local / metadata / ULA. */
+export function isBlockedIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number)
+    if (a === 10) return true                          // RFC1918
+    if (a === 172 && b >= 16 && b <= 31) return true   // RFC1918
+    if (a === 192 && b === 168) return true            // RFC1918
+    if (a === 127) return true                         // loopback
+    if (a === 169 && b === 254) return true            // link-local + metadata (169.254.169.254)
+    if (a === 100 && b >= 64 && b <= 127) return true  // CGNAT 100.64/10
+    if (a === 0) return true                           // this-network
+    if (a >= 224) return true                          // multicast / reserved
+    return false
+  }
+  if (net.isIPv6(ip)) {
+    const x = ip.toLowerCase()
+    if (x === '::1' || x === '::') return true          // loopback / unspecified
+    if (x.startsWith('fe80')) return true               // link-local
+    if (x.startsWith('fc') || x.startsWith('fd')) return true // unique-local
+    // IPv4-mapped (::ffff:a.b.c.d) → check the embedded v4
+    const m = /::ffff:(\d+\.\d+\.\d+\.\d+)/.exec(x)
+    if (m) return isBlockedIp(m[1])
+    if (x.startsWith('::ffff:0:')) return true
+    return false
+  }
+  return true // not a recognizable IP → refuse
+}
+
+const BLOCKED_HOSTS = new Set(['metadata.google.internal', 'metadata'])
+
+/** Validate a URL string for outbound fetch. Returns the parsed URL or null. */
+export async function safeFetchUrl(raw: string): Promise<URL | null> {
+  let url: URL
+  try { url = new URL(raw) } catch { return null }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+  if (url.username || url.password) return null // no creds in URL
+  const host = url.hostname.toLowerCase().replace(/\.$/, '')
+  if (BLOCKED_HOSTS.has(host)) return null
+  // if the host is already an IP literal, check it directly
+  if (net.isIP(host)) { return isBlockedIp(host) ? null : url }
+  // otherwise resolve EVERY address and refuse if any is private (a hostname
+  // can resolve to multiple / rebind between checks — reject on any hit)
+  try {
+    const addrs = await lookup(host, { all: true })
+    if (!addrs.length) return null
+    for (const a of addrs) if (isBlockedIp(a.address)) return null
+    return url
+  } catch { return null }
+}
+
+/** fetch() with SSRF-checked manual redirects (each hop re-validated). */
+async function safeFetch(url: URL, init: RequestInit, maxHops = 4): Promise<Response | null> {
+  let current: URL | null = url
+  for (let hop = 0; hop <= maxHops; hop++) {
+    if (!current) return null
+    const checked = await safeFetchUrl(current.toString())
+    if (!checked) return null
+    const res = await fetch(checked.toString(), { ...init, redirect: 'manual' })
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location')
+      if (!loc) return res
+      try { current = new URL(loc, checked) } catch { return null }
+      continue
+    }
+    return res
+  }
+  return null // too many redirects
 }
 
 function pickMeta(html: string, names: string[]): string | null {
@@ -22,17 +101,16 @@ function pickMeta(html: string, names: string[]): string | null {
 }
 
 export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview | null> {
-  let url: URL
-  try {
-    url = new URL(rawUrl)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-  } catch { return null }
+  // SSRF guard: parse + resolve + reject private/metadata targets up front
+  const url = await safeFetchUrl(rawUrl)
+  if (!url) return null
 
   const base: LinkPreview = { url: url.toString(), title: null, image: null, domain: url.hostname.replace(/^www\./, ''), description: null }
 
   // TikTok's pages are JS-walled from datacenter IPs (og scrape gets nothing)
   // but its oEmbed endpoint answers cleanly — real thumbnail + title, which is
-  // what the reels pager and feed cards need (A1 reels brief, Phase 2)
+  // what the reels pager and feed cards need (A1 reels brief, Phase 2).
+  // The oEmbed host is a fixed constant (tiktok.com), not user input — safe.
   if (/(^|\.)tiktok\.com$/.test(url.hostname.replace(/^www\./, ''))) {
     try {
       const ctrl = new AbortController()
@@ -51,14 +129,16 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview | nu
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 4500)
-    const res = await fetch(url.toString(), {
+    // manual, per-hop-revalidated redirects: an open redirect on a public host
+    // can't bounce us into a private IP
+    const res = await safeFetch(url, {
       signal: ctrl.signal,
-      redirect: 'follow',
       // plain browser UA: Google News (and others) serve bot-labeled UAs a
       // stripped page with no og:image
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36' },
     })
     clearTimeout(timer)
+    if (!res) return base
     if (!res.ok || !(res.headers.get('content-type') ?? '').includes('text/html')) return base
 
     // Only read the head-ish part — enough for meta tags

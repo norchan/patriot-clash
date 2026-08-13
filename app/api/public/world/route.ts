@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase-server'
+import { rateLimited, clientIp } from '@/lib/ratelimit'
 
 // PUBLIC (no auth): the anonymized world snapshot for the guest preview map.
 // Halls come back with position/party/name; players come back as party-
@@ -8,6 +9,10 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 
 export async function GET(req: NextRequest) {
   try {
+    // unauth endpoint → light per-IP burst guard (security pass 2026-08-12)
+    if (rateLimited(`world:${clientIp(req)}`, 30, 60_000)) {
+      return NextResponse.json({ gyms: [], players: [] })
+    }
     const admin = createSupabaseAdminClient()
     const lat = parseFloat(req.nextUrl.searchParams.get('lat') ?? '')
     const lng = parseFloat(req.nextUrl.searchParams.get('lng') ?? '')
