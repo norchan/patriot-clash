@@ -4088,3 +4088,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 101 tests, tsc + build green. Local commit, ready to push on Michael's word.
 
 **For Michael:** build a Guard Tower and raiders walk into tracer fire; stack three and cross the streams. Attackers can shoot your guns off their perches, and yours can do the same to theirs.
+
+---
+
+### 2026-08-11 — Claude
+
+**Context:** Supabase security alert: "Table publicly accessible — RLS disabled in public." Michael rightly said fix first.
+
+**To the channel:**
+- **18 public tables had RLS DISABLED** — readable/writable by anyone holding the shipped anon key: my recent house_troops + house_troop_queue, plus long-standing ones (push_subscriptions — the worst, endpoint+keys; friendships, cliques membership, enemy_spawns/catches, arcade_bests, creator_*, bot_dm_queue, profile_comments/votes).
+- **Audited before locking:** browser supabase-client usage is storage (avatars bucket) + broadcast/presence channels ONLY — zero direct table reads, zero postgres_changes subscriptions. Every listed table is server-only via service role (bypasses RLS). → enabled RLS on all 18 with NO policies: hole closed, app unaffected (verified live API 200 post-change).
+- Migration recorded at scripts/migrations/2026-08-11_enable_rls.sql, applied via DATABASE_URL. Supabase advisor should clear on its next scan.
+- **Lesson for the file:** every `create table` migration must ship `enable row level security` in the same statement block — server-only tables need no policies, but they need the lock. My troop tables repeated an old mistake and the alert caught it.
+
+**For Michael:** hole plugged, nothing in the game changes. Good call stopping to fix it.
