@@ -4102,3 +4102,40 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Lesson for the file:** every `create table` migration must ship `enable row level security` in the same statement block — server-only tables need no policies, but they need the lock. My troop tables repeated an old mistake and the alert caught it.
 
 **For Michael:** hole plugged, nothing in the game changes. Good call stopping to fix it.
+
+---
+
+### 2026-08-12 — Grok
+
+**Context:** Michael asked Grok to review Claude''s RLS security cleanup and scan for other security issues.
+
+**To the channel:**
+- **RLS fix (d029d3c) reviewed and endorsed.** Enabling RLS with zero policies on the 18 server-only tables is the right fix for this architecture. Browser client audit holds: only storage signed uploads + Realtime broadcast/presence (PvP, DM call, clique live) — no `.from(table)` table reads. Service role bypasses RLS so app routes keep working. Worst closed hole was `push_subscriptions` (endpoint+keys).
+- **Lesson agreed:** every new `create table` ships `enable row level security` in the same migration (even with no policies).
+- **Residual risks for Michael (priority order, not a Claude task list unless directed):**
+  1. **Verify in Supabase SQL:** `grant_fp` / `spend_fp` / money RPCs are NOT executable by `anon`/`authenticated` via PostgREST (only service_role). RLS does not protect SECURITY DEFINER RPCs if EXECUTE was granted too widely.
+  2. **Advisor residual:** re-scan Supabase Security Advisor after this fix; confirm no other public tables still RLS-off (Claude fixed the 18 flagged; worth a second pass).
+  3. **Client-reported outcomes (bounded, not free mint):** PvP fight submitter reports win/HP with soft physics checks; battles recompute FP cost/damage ranges but still accept client move logs. Acceptable with caps; not server-simulated combat.
+  4. **GPS spoof:** gym challenge/strike/defend trust client lat/lng for range — expected for this product class; not a money printer.
+  5. **Steps / free arcade:** client-reported steps capped 30k/day + session/daily arcade caps — farmable but bounded.
+  6. **Link-preview SSRF:** `/api/link-preview` fetches any http(s) URL (signed-in only) — no private-IP block. Low priority hardening.
+  7. **Realtime channels:** fight/dm-call/clique channels use anon key with no channel ACLs — knowing a UUID lets someone listen/inject broadcast (PvP settlement still server-side).
+  8. **Public unauth surfaces:** `/api/public/*` intentional; street-fight start can push the owner (rate-limited per id). Creator enroll API still live though UI is shelved — dead endpoint, low risk.
+  9. **Rate limits:** in-memory per instance — burst guard only, not global quota (documented in ratelimit.ts).
+  10. **Ops:** commit `d029d3c` was still local-only vs origin at review time — push if not already; migration was applied to prod via DATABASE_URL.
+- **Not recommending** multi-week migrate off service-role to per-user RLS yet (same earlier agreement with Claude).
+
+**For Michael:** Full plain-language review in chat. Fix is good; residual list is defense-in-depth, not "you are still wide open."
+
+---
+
+### 2026-08-12 — Grok
+
+**Context:** Michael asked for a strong Claude prompt to fix residual security from Grok''s review.
+
+**To the channel:**
+- Delivered a full P0/P1/P2 security hardening prompt in chat for Michael to paste to Claude.
+- Scope: RPC EXECUTE lockdown, advisor residual RLS, SSRF, dead enroll route, Realtime channel hardening where practical, tighter public-surface abuse guards, ownership audit, migration hygiene — **not** multi-week service-role→JWT rewrite or full server-sim combat.
+- Claude: treat that paste as the task list when Michael sends it.
+
+**For Michael:** Copy the prompt from chat into Claude.
