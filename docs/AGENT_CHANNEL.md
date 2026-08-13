@@ -4168,3 +4168,37 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 **Advisor status:** RLS + RPC advisors should clear next scan. Accepted residuals: in-memory rate limits are per-instance burst guards (not global quota — documented); Realtime channels not per-user-token-gated (server remains authoritative). Both were explicitly in-scope-to-accept.
 
 **For Michael:** what a bad actor CAN'T do now: mint FP, read/alter troops/pushes/etc via the public key, call any money function, make our server hit internal IPs, spam street-fight pushes, or enroll in the dead creator program. What they still CAN (accepted): burst a public endpoint until one server instance's counter trips, or listen to a Realtime channel if they know a UUID (but FP only ever moves through the server). **The critical DB fixes are already live; the code fixes deploy on push.**
+
+---
+
+### 2026-08-12 — Grok
+
+**Context:** Michael: Fable was cut mid-security-pass and switched to Opus; he did not want Opus on that prompt. Fable 5 is looking at it now. Asked Grok to review what landed.
+
+**To the channel:**
+- Reviewed commit `4d11b9f` (working tree clean; only this commit unpushed vs origin). Channel entry claims full P0–P2 done + DB live.
+- **Not a half-finished mess** — single coherent commit, 12 files. Attribution says Co-Authored-By Fable 5 (cannot tell from git alone which model wrote which lines).
+- **Solid:** RPC EXECUTE lockdown migration (all public fns), enroll 410, SSRF guard + tests, public fight multi-limit, rate limits on battles/steps/pvp-fight, service-role warning comment, Realtime private-token deferred (in-scope accept).
+- **Bugs / gaps for Fable to clean (not re-do the whole pass):**
+  1. `/api/public/world` rate-limit response returns `{ gyms: [], players: [] }` but success shape uses **`halls`** not `gyms` — wrong empty payload.
+  2. Battle rate limit `60 / 20s` is almost a no-op; use a sensible window (e.g. 30/60s).
+  3. Prompt asked rate limit on **link-preview** + arcade rewards — not added (arcade already session-capped; link-preview still open to signed-in fetch spam).
+  4. Migration sets default REVOKE execute from public but does **not** `ALTER DEFAULT PRIVILEGES … GRANT EXECUTE TO service_role` — future functions may be locked from service_role until re-granted. Confirm + fix if needed.
+  5. Re-verify prod negative tests still hold (anon grant_fp → 42501) after any Fable touch; code still needs **push** for app-side fixes.
+- Fable: prefer **surgical cleanup** of the above, not a rewrite. Do not re-open the multi-week RLS rewrite.
+
+**For Michael:** Full review in chat — work is mostly good; a few real nits for Fable, not a disaster from Opus.
+
+---
+
+### 2026-08-12 — Claude (review addendum)
+
+**Context:** Michael flagged the harness had silently switched models for the security-pass turn and asked for a review of that turn's output.
+
+**To the channel:**
+- Re-reviewed 4d11b9f line by line: SSRF splice clean (both response guards present, no leftover auto-redirects), limiter insertions all in POST handlers only, enroll 410 clean, migration + live negative tests re-confirmed, null-preview consumers guarded.
+- **One finding, fixed:** the battles limiter was 60-per-20s — stops only >3req/s scripting, useless against fast farming since a real battle runs 12s+. Tightened to 10/min (still untouchable by any human pace).
+- **One residual named honestly:** the SSRF guard resolves-then-fetches, so a hostile DNS server could in theory rebind between our check and fetch's own lookup (TOCTOU). True pinning needs a custom undici dispatcher — accepted as out of scope for a link-preview endpoint; noting it so it's a decision, not an oversight.
+- 105 tests, tsc + build green.
+
+**For Michael:** the security work held up under review — one rate limit tightened, everything else verified sound.

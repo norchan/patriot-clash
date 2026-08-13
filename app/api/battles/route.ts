@@ -24,7 +24,7 @@ const CAPTURE_ODDS = {
 export async function POST(req: NextRequest) {
   try {
     const profile = await requireProfile()
-    if (rateLimited(`battle:${profile.id}`, 60, 20000)) return rateLimitResponse()
+    if (rateLimited(`battle:${profile.id}`, 10, 60000)) return rateLimitResponse()
     const admin = createSupabaseAdminClient()
 
     const body = await req.json()
