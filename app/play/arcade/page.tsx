@@ -11,7 +11,6 @@ const GAMES = [
   { id: 'landslide', name: 'Landslide', art: '/arcade/landslide.jpg', accent: '#f472b6', free: true },
   { id: 'tetkris', name: 'Tet-Kris', art: '/arcade/tetkris.jpg', accent: '#c084fc', free: true },
   { id: 'chess', name: 'Checkmate Chamber', art: '/arcade/chess.jpg', accent: '#ffd700', free: true },
-  { id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15', free: false },
 ]
 
 export default function GuestArcadePage() {

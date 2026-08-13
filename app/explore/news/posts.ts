@@ -63,7 +63,7 @@ export const POSTS: NewsPost[] = [
     body: [
       'The Arcade next to your town hall doubled in size. Pic Hunt is a classic spot-the-differences — two photographs, six changes, two minutes, with pre-made puzzle variations so no two rounds play the same. Checkmate Chamber brings 148 machine-verified chess puzzles, mate-in-one through mate-in-three, on a classic wooden board — and any move that forces the mate counts, not just one scripted answer.',
       'The classics got love too: the slot machines now render as proper 3D cabinets with curved spinning reels, and Tet-Kris blocks became beveled 3D pieces. Landslide picked up a per-level clock and a fix for its infamous Ring level.',
-      'Free arcade games pay out up to 5,000 FP a day. The slots, as always, pay from your bets — the house respects a budget.',
+      'Free arcade games pay out up to 5,000 FP a day — the arcade respects a budget.',
     ],
   },
   {

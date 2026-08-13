@@ -15,7 +15,8 @@ interface GameEntry {
   badge?: string
 }
 
-// Michael's order: Solitaire · Landslide · Block Drop · Checkmate · Slots ·
+// Slots REMOVED (Michael 2026-08-12 — simplifies the Play content rating;
+// code lives in git history). Order: Solitaire · Landslide · Block Drop · Checkmate ·
 // Pic Hunt last, flagged (beta) until it's finished
 const GAMES: GameEntry[] = [
   {
@@ -33,10 +34,6 @@ const GAMES: GameEntry[] = [
   {
     id: 'chess', name: 'Checkmate Chamber', art: '/arcade/chess.jpg', accent: '#ffd700',
     tagline: 'Chess puzzles · mate in 1, 2 or 3 · classic board', href: '/arcade/chess', badge: 'EARN FP',
-  },
-  {
-    id: 'slots', name: 'Slots Salute', art: '/arcade/slots.jpg', accent: '#facc15',
-    tagline: '3 machines · bet FP · match 3 to win big', href: '/arcade/slots', badge: 'BET FP',
   },
   {
     id: 'spotit', name: 'Pic Hunt (beta)', art: '/arcade/spotit.jpg', accent: '#38bdf8',
@@ -107,7 +104,7 @@ export default function ArcadePage() {
         </div>
 
         <p className="text-center text-gray-600 text-[11px] pt-1">
-          Free games earn up to 5,000 FP a day · slots pay from your bets
+          Free games earn up to 5,000 FP a day
         </p>
       </div>
     </div>

@@ -84,8 +84,8 @@ export default function GuidePage() {
         <p className="mt-2 text-gray-400">
           Next to your local hall you&apos;ll also find the Arcade: Pic Hunt (spot the
           differences), Checkmate Chamber (chess puzzles), Landslide (match-3), Tet-Kris
-          (stack and clear), and the Slots Salute machines. Free arcade games pay out up to
-          5,000 FP a day; slots take FP bets.
+          (stack and clear), and more. Free arcade games pay out up to
+          5,000 FP a day.
         </p>
 
         <h2 className="text-2xl font-black text-white mt-12">The full character roster</h2>
