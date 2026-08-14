@@ -346,6 +346,7 @@ export default function RaidPage() {
       x: number; y: number; hp: number
       state: 'idle' | 'chase' | 'bite' | 'flee' | 'gone'
       victim: Trooper | null; biteT: number; animT: number; curFrame: string
+      dustT: number
     }
     let dog: Dog | null = null
     const dogFrames = { available: true }
@@ -354,11 +355,17 @@ export default function RaidPage() {
       const root = document.createElement('div')
       Object.assign(root.style, { position: 'absolute', left: '0px', top: '0px', zIndex: '1450', pointerEvents: 'none', transition: 'opacity .3s' })
       const img = document.createElement('img')
-      img.src = frameSrc('doberman', 'run1')
-      img.onerror = () => { dogFrames.available = false; img.src = '/house/doberman.png' }
+      // he STARTS as the exact building-sprite art at the exact pad spot, so
+      // the yard-cell → live-actor handoff is invisible; switching to run
+      // frames then reads as the dog GETTING UP (Michael 2026-08-13)
+      img.src = '/house/doberman.png'
+      const probe = new Image()
+      probe.onerror = () => { dogFrames.available = false }
+      probe.src = frameSrc('doberman', 'run1')
       img.draggable = false
       Object.assign(img.style, {
-        position: 'absolute', height: String(DOG_H) + 'px', maxWidth: 'none', left: '0px', top: '0px',
+        // sized like the yard cell (width 104, statue pose) until he moves
+        position: 'absolute', width: '104px', height: 'auto', maxWidth: 'none', left: '0px', top: '0px',
         transform: 'translate(-50%, -100%)',
         filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.45))',
       })
@@ -367,13 +374,14 @@ export default function RaidPage() {
         position: 'absolute', left: '-20px', top: '-' + String(DOG_H + 12) + 'px',
         width: '40px', height: '5px', background: 'rgba(0,0,0,0.55)',
         border: '1px solid rgba(0,0,0,0.45)', borderRadius: '3px', overflow: 'hidden',
+        opacity: '0', transition: 'opacity .25s', // hidden until he takes wear, like building chips
       })
       const barFill = document.createElement('div')
       Object.assign(barFill.style, { height: '100%', width: '100%', background: '#4ade80', transition: 'width .18s' })
       bar.appendChild(barFill)
       root.appendChild(img); root.appendChild(bar)
       layer.appendChild(root)
-      dog = { root, img, barFill, x: at.x, y: at.y, hp: 100, state: 'idle', victim: null, biteT: 0, animT: 0, curFrame: 'run1' }
+      dog = { root, img, barFill, x: at.x, y: at.y, hp: 100, state: 'idle', victim: null, biteT: 0, animT: 0, curFrame: 'sit', dustT: 0 }
       root.style.left = String(at.x) + 'px'
       root.style.top = String(at.y) + 'px'
     }
@@ -595,9 +603,18 @@ export default function RaidPage() {
         if (dogFrames.available) {
           const f = dog.state === 'bite'
             ? (dog.biteT % DOG_BITE_SECS < DOG_BITE_SECS / 2 ? 'atk1' : 'atk2')
-            : dog.state === 'idle' ? 'run1'
+            : dog.state === 'idle' ? 'sit'
             : RUN_ORDER[Math.floor(dog.animT / 0.1) % RUN_ORDER.length]
-          if (f !== dog.curFrame) { dog.curFrame = f; dog.img.src = frameSrc('doberman', f) }
+          if (f !== dog.curFrame) {
+            dog.curFrame = f
+            if (f === 'sit') { // at his post he IS the yard statue, same art + size
+              dog.img.src = '/house/doberman.png'
+              dog.img.style.width = '104px'; dog.img.style.height = 'auto'
+            } else {
+              dog.img.src = frameSrc('doberman', f)
+              dog.img.style.width = 'auto'; dog.img.style.height = String(DOG_H) + 'px'
+            }
+          }
         }
         const living = troops.filter(t => t.state === 'walk' || t.state === 'attack')
         if (dog.state === 'flee') {
@@ -616,6 +633,12 @@ export default function RaidPage() {
               const d = Math.hypot(t.x - dog.x, t.y - dog.y)
               if (d < bd) { bd = d; best = t }
             }
+            // waking from his post → a bark beat before the sprint, so the
+            // statue visibly BECOMES the attacker (Michael 2026-08-13)
+            if (dog.state === 'idle') {
+              addFloat({ sx: dog.x, sy: dog.y - 60, text: '❗', spark: true }, 500)
+              pop(880); buzz(20)
+            }
             dog.victim = best
             dog.state = 'chase'
           }
@@ -627,6 +650,12 @@ export default function RaidPage() {
               dog.x += ((v.x - dog.x) / Math.max(1, d)) * DOG_SPEED * dt
               dog.y += ((v.y - dog.y) / Math.max(1, d)) * DOG_SPEED * dt
               paintDog(0, Math.sin(clock * 16) * 3)  // gallop bob
+              // dust kicked up at his heels while sprinting
+              dog.dustT += dt
+              if (dog.dustT >= 0.22) {
+                dog.dustT = 0
+                addFloat({ sx: dog.x - ((v.x - dog.x) / Math.max(1, d)) * 26, sy: dog.y - 8, text: '💨', spark: true }, 350)
+              }
             }
           } else if (dog.state === 'bite') {
             if (d > 60) { dog.state = 'chase' }  // victim moved on
@@ -642,6 +671,7 @@ export default function RaidPage() {
                 // they fight back — the dog wears down, then RUNS (never dies)
                 dog.hp -= DOG_WEAR
                 const pct = Math.max(0, dog.hp)
+                ;(dog.barFill.parentElement as HTMLDivElement).style.opacity = '1'
                 dog.barFill.style.width = String(pct) + '%'
                 dog.barFill.style.background = pct > 50 ? '#4ade80' : pct > 25 ? '#fbbf24' : '#ef4444'
                 if (dog.hp <= 0) {
@@ -700,6 +730,12 @@ export default function RaidPage() {
       if (pad === PRINT_SHOP_PAD) { cells.push({ pad, img: '/house/print_shop.png', imgW: 128 }); continue }
       const b = onPad.get(pad)
       if (!b) { cells.push({ pad, plot: true }); continue }
+      // during the assault the dog is a LIVE ACTOR in the troop layer — the
+      // yard must not also draw him as a building, or you get a statue that
+      // a "ghost dog" runs out of (Michael 2026-08-13). He starts as the
+      // same art at the same spot, so hiding this cell is invisible; the
+      // statue returns on 'done' (he never dies — back at his post).
+      if (b.type === 'doberman' && phase === 'deploy') { cells.push({ pad, plot: true }); continue }
       const sp = SPRITES[b.type]
       const dead = smashed.has(pad) || (!!b.damaged && b.type !== 'doberman')
       const isFence = b.type === 'fence'

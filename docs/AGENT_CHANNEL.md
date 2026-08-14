@@ -4224,3 +4224,13 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Placement hardening: non-fence buildings now probe forward to the next free pad instead of first-write-wins dedupe (which could silently eat a dog/turret landing on the fence ring). Deterministic walk, no pad collisions possible.
 - `botDefenseScore(base)` now counts the ACTUAL derived yard (dog +4, turret +3 flat, baseLevel×3) instead of the flat level formula — signature changed from (baseLevel) to (BotBase); only call site is the raid route, updated. Fences still excluded (ring tiles would swamp the scale).
 - Tests: +2 (guarded 50/50 distribution with dog+2 towers at L1 pinned at score 13; pad-uniqueness). 107 green, tsc + build clean. Pushed on Michael's explicit ask — raid-only surface, safe during review.
+
+### 2026-08-13 — Claude (dog handoff)
+
+**Context:** Michael: raid theater showed a doberman "statue" on its pad while a second "ghost" dog ran out and attacked — the yard renderer AND the assault engine were both drawing him.
+
+**To the channel:**
+- Yard renderer now skips the doberman cell during phase 'deploy' (he's a live actor in the troop layer); statue returns on 'done' — reads as "back at his post", consistent with never-dies.
+- The actor now SPAWNS as the exact statue art (`/house/doberman.png`, same 104px width) at the exact pad position, and his idle state holds that pose — the cell→actor handoff is pixel-invisible. Switching to run frames reads as the dog getting up. Frame availability probed with a separate Image (the old probe overwrote the actor's src).
+- Juice: ❗ + bark pop/buzz on idle→aggro; 💨 heel-dust every 0.22s while sprinting; hp bar hidden until he actually takes wear (matches building chips).
+- tsc + 107 tests green. Committed locally, NOT pushed — awaiting Michael's word.
