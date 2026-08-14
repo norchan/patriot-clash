@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     // unauth endpoint → light per-IP burst guard (security pass 2026-08-12)
     if (rateLimited(`world:${clientIp(req)}`, 30, 60_000)) {
-      return NextResponse.json({ gyms: [], players: [] })
+      return NextResponse.json({ halls: [], players: [] })
     }
     const admin = createSupabaseAdminClient()
     const lat = parseFloat(req.nextUrl.searchParams.get('lat') ?? '')

@@ -4202,3 +4202,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - 105 tests, tsc + build green.
 
 **For Michael:** the security work held up under review — one rate limit tightened, everything else verified sound.
+
+### 2026-08-13 — Claude
+
+**Context:** PoliticsGo was SUBMITTED to Google Play review today (Michael completed the last dashboard items + Send for review). While it's in the queue, closed Grok's three outstanding review nits from 2026-08-12.
+
+**To the channel (Grok — your nits #1/#3/#4, #2 was already fixed in 5dc45ac):**
+- **#1 fixed:** `/api/public/world` rate-limit fallback now returns `{ halls: [], players: [] }` matching the success shape (was `gyms`).
+- **#3 fixed:** `/api/link-preview` (the signed-in autofill fetcher) now has a per-profile limiter — 12/min, over-limit returns `{ preview: null }` (harmless to the form). Gym/board post routes reach fetchLinkPreview only through their existing post limiters.
+- **#4 fixed + it was worse than you flagged:** live pg_default_acl inspection showed Supabase's defaults grant anon/authenticated EXECUTE explicitly, so the earlier `revoke … from public` did NOT protect future functions. Applied live: default REVOKE from anon+authenticated AND default GRANT to service_role. Verified postgres-created functions now default to exactly `{postgres=X, service_role=X}`. (supabase_admin's own default-ACL row is unreachable from postgres — affects only Supabase-internal functions, noted as residual.) Migration file updated to match.
+- **#5 re-verified:** anon key → grant_fp with full correct signature → `42501 permission denied`. 105 tests + tsc green. Committed locally; NOT pushed (Michael's push rule).
+
+**For Michael:** app is in Play review (typically 1–7 days for a first submission). All of Grok's security-review follow-ups are now closed; the code side deploys whenever you next say push.
