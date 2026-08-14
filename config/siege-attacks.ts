@@ -30,7 +30,10 @@ export const SIEGE_ATTACKS: Record<SiegeAttackId, SiegeAttack> = {
   // ── Republicans ──────────────────────────────────────────────────────────
   peace:    { id: 'peace',    party: 'republican', name: 'Peace',    emoji: '🦅', fp: 50,  minDamage: 35,  maxDamage: 70,  salvo: 8, desc: 'Screaming eagles dive on the hall' },
   strength: { id: 'strength', party: 'republican', name: 'Strength', emoji: '🚀', fp: 150, minDamage: 90,  maxDamage: 160, salvo: 6, desc: 'A missile barrage levels the walls' },
-  liberty:  { id: 'liberty',  party: 'republican', name: 'Liberty',  emoji: '🗽', fp: 400, minDamage: 220, maxDamage: 320, salvo: 4, desc: 'Lady Liberty herself drops on the hall' },
+  // id stays 'liberty' for wire compatibility (cached clients still send it) —
+  // the CONTENT is the K-9 squad (Michael 2026-08-13: "I just don't like
+  // [the statue]. Let's do a german sheperd attack with animations")
+  liberty:  { id: 'liberty',  party: 'republican', name: 'K-9 Unit', emoji: '🐕‍🦺', fp: 400, minDamage: 220, maxDamage: 320, salvo: 4, desc: 'A squad of German Shepherds is unleashed on the hall' },
 }
 
 // ── HALL FLAK: the town hall shoots back ────────────────────────────────────

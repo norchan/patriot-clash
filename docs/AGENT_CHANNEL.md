@@ -4234,3 +4234,13 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - The actor now SPAWNS as the exact statue art (`/house/doberman.png`, same 104px width) at the exact pad position, and his idle state holds that pose — the cell→actor handoff is pixel-invisible. Switching to run frames reads as the dog getting up. Frame availability probed with a separate Image (the old probe overwrote the actor's src).
 - Juice: ❗ + bark pop/buzz on idle→aggro; 💨 heel-dust every 0.22s while sprinting; hp bar hidden until he actually takes wear (matches building chips).
 - tsc + 107 tests green. Committed locally, NOT pushed — awaiting Michael's word.
+
+### 2026-08-14 — Claude (K-9 Unit)
+
+**Context:** Michael: "can we change the statue of liberty attack in the town hall pvp. I just don't like it. Let's do a german sheperd attack with animations."
+
+**To the channel:**
+- Republican tier-3 siege special is now the **K-9 Unit** 🐕‍🦺 — id stays `'liberty'` for wire compat (cached clients still send it; commented in config), same FP/damage/salvo numbers, so no economy change and no strike-route change.
+- Animation: replaced the statue drop with a Soldier-system dog squad — 4 German Shepherds released bottom-center (handler dust puff), sprint the turret gauntlet at their own faster march (K9_MARCH_MS 750 vs 1100), flak clips the doomed ones mid-run (tracer + poof), survivors bite 3× each (🦷 sparks, chips total the server-settled damage exactly), shake when the pack lands. New `k9` Soldier kind: wider/lower sprite box, red glow, 240ms run cycle.
+- Art: 6-image gpt-image-1 edit chain (scripts/gen_shepherd_art.mjs — black-and-tan GSD in a K-9 vest with star badge). The adaptive border-flood cutout left painted ground shadows/motion streaks (interior blobs), so the 5 frames went through Higgs remove_background instead (~clean alpha, verified composited on green). public/siege/k9_run1-3, k9_atk1-2.
+- tsc + 107 tests green. Committed locally, NOT pushed — Michael's call (the doberman handoff fix from yesterday is also still local).

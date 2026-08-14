@@ -36,7 +36,7 @@ interface Projectile {
 
 interface Soldier {
   id: number
-  kind: 'troop' | 'poor' | 'free'
+  kind: 'troop' | 'poor' | 'free' | 'k9'
   x: number; y: number     // current position (%)
   tx: number; ty: number   // fight position at the walls (%)
   flip: boolean            // mirror the sprite to face the travel direction
@@ -103,6 +103,12 @@ const MARSHAL_ATK = ['/siege/marshal_atk1.png', '/siege/marshal_atk2.png']
 const FREE_TROOPS = 5
 const POOR_RUN = ['/siege/poor_run1.png', '/siege/poor_run2.png']
 const POOR_ATK = ['/siege/poor_atk.png']
+// K-9 Unit (Michael 2026-08-13, replaced the Statue of Liberty drop): a squad
+// of German Shepherds released at the hall. Dogs sprint faster than any
+// two-legged soldier — they get their own march time.
+const K9_RUN = ['/siege/k9_run1.png', '/siege/k9_run3.png', '/siege/k9_run2.png']
+const K9_ATK = ['/siege/k9_atk1.png', '/siege/k9_atk2.png']
+const K9_MARCH_MS = 750
 
 // N-frame flipbook: stacked images alternating opacity via keyframes
 function Flipbook({ frames, cycleMs }: { frames: string[]; cycleMs: number }) {
@@ -660,26 +666,60 @@ function SiegePage() {
       return n * 260 + 1100
     }
 
-    // liberty — Lady Liberty herself drops on the hall
-    const chunk = damage / 3
-    addFx({ src: '/siege/statue.png', x0: 50, y0: -30, x1: 50, y1: 42, size: 240, dur: 950, easeIn: true }, 2400)
-    // Nothing stops a falling statue, but the turrets empty into it on the way
-    // down — flak bursts around her, damage already docked server-side.
-    doomed(4).forEach(i => shootDown(40 + i * 7, 16 + i * 8, 200 + i * 170))
-    schedule(950, () => {
-      shakeScreen(true)
-      const id = ++idRef.current
-      setShockwaves(w => [...w, { id, x: 50, y: 50 }])
-      schedule(900, () => setShockwaves(w => w.filter(s => s.id !== id)))
-      for (let i = 0; i < 5; i++) {
-        addFx({ emoji: '💨', x0: 50, y0: 50, x1: 26 + i * 12, y1: 44 + Math.random() * 12, size: 52, dur: 800 }, 900)
+    // liberty (now the K-9 UNIT, Michael 2026-08-13) — a handler releases a
+    // squad of German Shepherds at the bottom of the map; they sprint the
+    // gauntlet, flak clips some mid-run, and the survivors maul the hall.
+    // Same Soldier march→fight machinery as the mob charge, dog frames + a
+    // faster march. Server already docked flak damage: survivors' bites
+    // total `damage` exactly.
+    {
+      const n = 4
+      const dead = doomed(n)
+      const survivors = Math.max(1, n - dead.size)
+      const hitsEach = 3
+      const chunk = damage / (survivors * hitsEach)
+      // the release point: bottom-center, like a handler dropping leashes
+      addFx({ emoji: '💨', x0: 50, y0: 101, x1: 50, y1: 97, size: 34, dur: 600 }, 650)
+      for (let i = 0; i < n; i++) {
+        const isDead = dead.has(i)
+        schedule(i * 160, () => {
+          sfx.whoosh?.()
+          const sx = 36 + i * 8 + Math.random() * 4          // pack spread at release
+          const tx = HALL_X - 12 + Math.random() * 24
+          const ty = HALL_Y + 4 + Math.random() * 9
+          const dogSoldier: Soldier = {
+            id: ++idRef.current,
+            kind: 'k9',
+            x: sx, y: 100,
+            tx, ty,
+            flip: tx < sx,
+            state: 'march',
+            spawnedAt: Date.now(),
+            lastHit: 0,
+            hits: 0,
+            maxHits: hitsEach,
+            chip: isDead ? 0 : chunk,
+          }
+          soldiersRef.current = [...soldiersRef.current, dogSoldier]
+          setSoldiers(soldiersRef.current)
+          // dust kicked up at the release line behind every dog
+          addFx({ emoji: '💨', x0: sx, y0: 100, x1: sx - 4, y1: 96, size: 26, dur: 500 }, 550)
+          if (isDead) {
+            // turret flak clips this one mid-sprint — tracer, burst, poof
+            const mx = (sx + tx) / 2, my = (100 + ty) / 2
+            shootDown(mx, my, 260 + Math.random() * 200)
+            schedule(430 + Math.random() * 150, () => {
+              soldiersRef.current = soldiersRef.current.map(sl =>
+                sl.id === dogSoldier.id ? { ...sl, state: 'poof' as const, hits: sl.maxHits, lastHit: Date.now(), x: mx, y: my } : sl)
+              setSoldiers(soldiersRef.current)
+            })
+          }
+        })
       }
-      addFx({ boom: true, emoji: '💥', x0: 50, y0: 42, x1: 50, y1: 42, size: 110, dur: 750 }, 800)
-    })
-    for (let i = 0; i < 3; i++) {
-      schedule(1000 + i * 240, () => chipStrike(chunk, 42 + Math.random() * 16, 40 + Math.random() * 10))
+      // the pack hits the walls — shake as the first jaws land
+      schedule(K9_MARCH_MS + 400, () => shakeScreen(true))
+      return n * 160 + K9_MARCH_MS + hitsEach * SOLDIER_HIT_MS + 700
     }
-    return 2700
   }
 
   // ── Swipe → rock / firecracker along the swipe line ──────────────────────
@@ -777,7 +817,7 @@ function SiegePage() {
           changed = true
           return { ...s, x: s.tx, y: s.ty }
         }
-        if (s.state === 'march' && now - s.spawnedAt >= MARCH_MS + 250) {
+        if (s.state === 'march' && now - s.spawnedAt >= (s.kind === 'k9' ? K9_MARCH_MS : MARCH_MS) + 250) {
           changed = true
           // dust as they land at the walls (juice pass D)
           addFx({ emoji: '💨', x0: s.tx, y0: s.ty + 2, x1: s.tx + (Math.random() * 8 - 4), y1: s.ty - 2, size: 24, dur: 500 }, 550)
@@ -785,8 +825,8 @@ function SiegePage() {
         }
         if (s.state === 'fight' && now - s.lastHit >= SOLDIER_HIT_MS && !st.ended) {
           changed = true
-          // hit spark on every swing, specials and free troops alike
-          addFx({ boom: true, emoji: '💥', x0: s.tx + (Math.random() * 6 - 3), y0: s.ty - 8, x1: s.tx, y1: s.ty - 8, size: 26, dur: 420 }, 450)
+          // hit spark on every swing, specials and free troops alike (dogs bite)
+          addFx({ boom: true, emoji: s.kind === 'k9' ? '🦷' : '💥', x0: s.tx + (Math.random() * 6 - 3), y0: s.ty - 8, x1: s.tx, y1: s.ty - 8, size: 26, dur: 420 }, 450)
           if (s.kind !== 'troop') chipStrike(s.chip ?? 0, s.tx, s.ty - 6)
           else applyDamage(st.budget * 0.03 * troopPower * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
           const hits = s.hits + 1
@@ -917,25 +957,28 @@ function SiegePage() {
         <div key={s.id} className="absolute z-20 pointer-events-none" style={{
           left: `${s.x}%`,
           top: `${s.y}%`,
-          transition: s.state === 'march' ? `left ${MARCH_MS}ms linear, top ${MARCH_MS}ms linear` : undefined,
+          transition: s.state === 'march' ? `left ${s.kind === 'k9' ? K9_MARCH_MS : MARCH_MS}ms linear, top ${s.kind === 'k9' ? K9_MARCH_MS : MARCH_MS}ms linear` : undefined,
           transform: `translate(-50%, -90%)${s.flip ? ' scaleX(-1)' : ''}`,
         }}>
           {s.state === 'poof' ? (
             <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>💨</span>
           ) : (
             <span className="block relative" style={{
-              width: 56,
-              height: s.state === 'fight' ? 60 : 64,
+              // dogs are long and low — wider box, shorter stance
+              width: s.kind === 'k9' ? 76 : 56,
+              height: s.kind === 'k9' ? (s.state === 'fight' ? 50 : 54) : (s.state === 'fight' ? 60 : 64),
               animation: s.state === 'march' ? 'sgRun 0.34s ease-in-out infinite' : 'sgLunge 0.62s ease-in-out infinite',
-              filter: `drop-shadow(0 0 6px ${s.kind === 'poor' ? '#60a5fa' : s.kind === 'free' ? '#93c5fd' : myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
+              filter: `drop-shadow(0 0 6px ${s.kind === 'poor' ? '#60a5fa' : s.kind === 'free' ? '#93c5fd' : s.kind === 'k9' ? '#fca5a5' : myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
             }}>
               <Flipbook
                 frames={s.kind === 'poor'
                   ? (s.state === 'fight' ? POOR_ATK : POOR_RUN)
                   : s.kind === 'free'
                     ? (s.state === 'fight' ? ANTIFA_ATK : ANTIFA_RUN)
-                    : (s.state === 'fight' ? atkFrames : runFrames)}
-                cycleMs={s.state === 'fight' ? 640 : 330}
+                    : s.kind === 'k9'
+                      ? (s.state === 'fight' ? K9_ATK : K9_RUN)
+                      : (s.state === 'fight' ? atkFrames : runFrames)}
+                cycleMs={s.state === 'fight' ? 640 : s.kind === 'k9' ? 240 : 330}
               />
             </span>
           )}
