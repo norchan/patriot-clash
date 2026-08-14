@@ -326,43 +326,67 @@ export function botBase(botId: string, level: number): BotBase {
     const pad = ring[(start + i) % ring.length]
     buildings.push({ pad, type: 'fence', level: Math.min(3, 1 + ((seed >> (i % 5)) % baseLevel)) })
   }
-  buildings.push({ pad: cells[(seed + 3) % cells.length], type: 'media_tower', level: Math.min(3, baseLevel) })
-  buildings.push({ pad: cells[(seed + 17) % cells.length], type: 'safe', level: Math.min(5, baseLevel) })
+  // Non-fence buildings probe forward to the next FREE pad (2026-08-13; the
+  // old first-write-wins dedupe silently ATE a building whose pad landed on
+  // the fence ring — tolerable for decor, not for a guarded bot's promised
+  // doberman). Deterministic: same seed → same walk → same yard.
+  const used = new Set<number>(buildings.map(b => b.pad))
+  const place = (offset: number): number => {
+    let i = (seed + offset) % cells.length
+    while (used.has(cells[i])) i = (i + 1) % cells.length
+    used.add(cells[i])
+    return cells[i]
+  }
+  buildings.push({ pad: place(3), type: 'media_tower', level: Math.min(3, baseLevel) })
+  buildings.push({ pad: place(17), type: 'safe', level: Math.min(5, baseLevel) })
   // level 2+ bots run a barracks too — raid targets should look like the
   // full game, and it's one more building to smash
   if (baseLevel >= 2) {
-    buildings.push({ pad: cells[(seed + 29) % cells.length], type: 'barracks', level: Math.min(5, baseLevel) })
+    buildings.push({ pad: place(29), type: 'barracks', level: Math.min(5, baseLevel) })
   }
-  // level 3+ bots add a solar array AND a doberman — raiders should meet the
-  // dog out in the wild before deciding to buy their own.
-  // ART_GATE: re-enable when solar1-3.png + doberman.png land (OpenAI credits)
+  // HALF of all bots are "guarded" (Michael 2026-08-13): a doberman + towers
+  // regardless of level, so raiders meet real defenses from their very first
+  // targets — not only at high-level bases. Deterministic per bot (seed
+  // parity), so the same bot always shows the same yard.
+  const guarded = seed % 2 === 0
+  // level 3+ bots add a solar array — an income building worth smashing
+  // ART_GATE: solar + dog art both live behind the same credit gate
   if (baseLevel >= 3 && !ART_GATE_SOLAR_DOG) {
-    buildings.push({ pad: cells[(seed + 41) % cells.length], type: 'solar', level: Math.min(3, baseLevel - 1) })
-    buildings.push({ pad: cells[(seed + 53) % cells.length], type: 'doberman', level: 1 })
+    buildings.push({ pad: place(41), type: 'solar', level: Math.min(3, baseLevel - 1) })
   }
-  // guard towers from level 2 — raiders should be getting SHOT AT
-  if (baseLevel >= 2) {
-    buildings.push({ pad: cells[(seed + 61) % cells.length], type: 'turret', level: Math.min(3, baseLevel - 1) })
+  // the dog: every guarded bot, plus every level-3+ bot
+  if ((guarded || baseLevel >= 3) && !ART_GATE_SOLAR_DOG) {
+    buildings.push({ pad: place(53), type: 'doberman', level: 1 })
   }
-  if (baseLevel >= 4) {
-    buildings.push({ pad: cells[(seed + 71) % cells.length], type: 'turret', level: Math.min(3, baseLevel - 2) })
+  // guard towers — raiders should be getting SHOT AT. Guarded bots always
+  // run two; unguarded bots grow into them at levels 2 and 4.
+  if (guarded || baseLevel >= 2) {
+    buildings.push({ pad: place(61), type: 'turret', level: Math.max(1, Math.min(3, baseLevel - 1)) })
+  }
+  if (guarded || baseLevel >= 4) {
+    buildings.push({ pad: place(71), type: 'turret', level: Math.max(1, Math.min(3, baseLevel - 2)) })
   }
   // decor makes big bases LOOK rich (flags, signs — pure rendering)
   for (let i = 0; i < 1 + baseLevel; i++) {
-    buildings.push({ pad: cells[(seed + 11 + i * 5) % cells.length], type: 'decor', level: 1 })
+    buildings.push({ pad: place(11 + i * 5), type: 'decor', level: 1 })
   }
-  // dedupe by pad, first write wins
-  const seen = new Set<number>()
-  return {
-    baseLevel,
-    padsOpen: cells.length,
-    buildings: buildings.filter(b => (seen.has(b.pad) ? false : (seen.add(b.pad), true))),
-  }
+  return { baseLevel, padsOpen: cells.length, buildings }
 }
 
-export const botDefenseScore = (baseLevel: number) =>
-  baseLevel * 3 + (baseLevel >= 3 ? 4 : 0)  // level-3+ bots keep a doberman
-  + (baseLevel >= 2 ? 3 : 0) + (baseLevel >= 4 ? 3 : 0)  // and turrets
+// Bot defense counts the ACTUAL derived yard (2026-08-13, was a flat
+// level formula): guarded low-level bots now carry a dog + towers, so the
+// score must come from what's really standing. Fences deliberately DON'T
+// count here — bot rings are dozens of tiles and would swamp the scale
+// (that's why this isn't defenseScore()). Same weights as the human table:
+// dog 4, turret 3 flat.
+export const botDefenseScore = (base: BotBase) => {
+  let s = base.baseLevel * 3
+  for (const b of base.buildings) {
+    if (b.type === 'doberman') s += 4
+    if (b.type === 'turret') s += 3
+  }
+  return s
+}
 
 // ── Yard pickups — the little endorphin taps ────────────────────────────────
 // Sparkles appear on your own yard over time; each tap claims a few FP.

@@ -440,7 +440,35 @@ describe('campaign HQ raids (Phase 2 anti-farm math)', () => {
       expect(b.pad).toBeLessThan(GRID * GRID)
     }
     expect(new Set(high.buildings.map(b => b.pad)).size).toBe(high.buildings.length)
-    expect(botDefenseScore(high.baseLevel)).toBeGreaterThan(botDefenseScore(low.baseLevel))
+    expect(botDefenseScore(high)).toBeGreaterThan(botDefenseScore(low))
+  })
+
+  it('half of all bots are guarded: doberman + two towers at any level (Michael 2026-08-13)', () => {
+    // sample many bot ids at the LOWEST level — guarded bots must still
+    // carry a dog and two towers there, and roughly half must be guarded
+    let dogs = 0
+    for (let i = 0; i < 200; i++) {
+      const base = botBase(`bot-sample-${i}`, 1)
+      const hasDog = base.buildings.some(b => b.type === 'doberman')
+      const towers = base.buildings.filter(b => b.type === 'turret').length
+      if (hasDog) {
+        dogs++
+        expect(towers).toBe(2) // placement probes to a free pad — never eaten
+        // dog(4) + towers(3+3) on top of baseLevel*3 = 13 for a guarded L1
+        expect(botDefenseScore(base)).toBe(13)
+      } else {
+        expect(towers).toBe(0) // unguarded level-1 bots stay naked
+      }
+    }
+    expect(dogs).toBeGreaterThan(60)   // ~50% of 200, loose bounds —
+    expect(dogs).toBeLessThan(140)     // seed parity isn't exactly uniform
+  })
+
+  it('no two bot buildings ever share a pad (probed placement)', () => {
+    for (let i = 0; i < 50; i++) {
+      const base = botBase(`bot-pads-${i}`, 14)
+      expect(new Set(base.buildings.map(b => b.pad)).size).toBe(base.buildings.length)
+    }
   })
 
   it('yard pickups are pocket change: hard daily ceiling under 100 FP', () => {

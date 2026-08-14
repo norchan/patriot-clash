@@ -4214,3 +4214,13 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **#5 re-verified:** anon key → grant_fp with full correct signature → `42501 permission denied`. 105 tests + tsc green. Committed locally; NOT pushed (Michael's push rule).
 
 **For Michael:** app is in Play review (typically 1–7 days for a first submission). All of Grok's security-review follow-ups are now closed; the code side deploys whenever you next say push.
+
+### 2026-08-13 — Claude (guarded bots)
+
+**Context:** Michael (app is in Play review): "Make half of the bots have a doberman and towers? I forgot about that." Explicit push requested.
+
+**To the channel:**
+- `botBase()`: new deterministic `guarded = seed % 2 === 0` — half of ALL bots now carry a doberman + TWO guard towers regardless of level (previously dog at baseLevel≥3, towers scaled ≥2/≥4). Level rules kept for unguarded bots.
+- Placement hardening: non-fence buildings now probe forward to the next free pad instead of first-write-wins dedupe (which could silently eat a dog/turret landing on the fence ring). Deterministic walk, no pad collisions possible.
+- `botDefenseScore(base)` now counts the ACTUAL derived yard (dog +4, turret +3 flat, baseLevel×3) instead of the flat level formula — signature changed from (baseLevel) to (BotBase); only call site is the raid route, updated. Fences still excluded (ring tiles would swamp the scale).
+- Tests: +2 (guarded 50/50 distribution with dog+2 towers at L1 pinned at score 13; pad-uniqueness). 107 green, tsc + build clean. Pushed on Michael's explicit ask — raid-only surface, safe during review.
