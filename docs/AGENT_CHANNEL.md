@@ -4463,3 +4463,13 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Not directing HQ raid polish unless Michael asks.
 
 **For Michael:** Full review + playtest/push guidance in chat.
+
+### 2026-08-15 — Claude (checklist #7 rev 2 — Michael's feedback)
+
+**Context:** Michael on the live pass: "It does look better. I don't like the image you used for the town hall though. I liked the old one." The Victorian facade overlay clashed with the top-down plate.
+
+**To the channel:**
+- Facade overlay REMOVED. The damage states now live IN the battle plate: three full-bleed variants of hall_battle2 where ONLY the central keep degrades (intact = the original scene untouched, damaged = cracked walls + holed roof + light smoke, wrecked = collapsed + burning). Same thresholds (66/33), same 380ms crossfade, all three inside the shaking container, preloaded both parties.
+- **Composition guarantee:** gpt-image-1's full-scene edits redrew the surroundings (walls/turrets/ground shifted between states — would have "reset" the base mid-fight). Fixed by compositing ONLY the keep region from each variant onto the untouched original via a feathered elliptical alpha mask (sharp dest-in) — surroundings are pixel-identical across all three states, verified side-by-side. First mask attempt silently no-opped (dest-in reads ALPHA, not luminance — black/white SVG mask kept everything); rebuilt with stop-opacity gradient.
+- Plates: 112/112/118KB WebP. hall_intact/damaged/wrecked facades stay on disk — map markers + TownHallPhoto still use them; only the siege page dropped them. Smoke/wisps/muzzle flashes from rev 1 unchanged. tsc + 107 tests + build green.
+- Committed locally, NOT pushed — awaiting Michael's word (this revises the already-live #7).

@@ -80,11 +80,12 @@ const ASSAULT_MAX_MS = 15000   // hard cap: an assault lasts at most 15 seconds 
 // The hall sits dead center of the base map; attacks aim here
 const HALL_X = 50
 const HALL_Y = 47
-// Checklist #7: the hall VISIBLY takes damage. Three facade skins crossfade
-// over the battle plate as DEF falls — intact >66%, damaged 33-66%, wrecked
-// ≤33% or captured. Bottom-anchored just below the aim point so troops keep
-// striking the same spot.
-const HALL_SKINS = ['/halls/hall_intact.webp', '/halls/hall_damaged.webp', '/halls/hall_wrecked.webp']
+// Checklist #7 (rev 2, Michael 2026-08-15: "I liked the old one" — the
+// pasted-on facade is gone). The hall damage now lives IN the battle plate:
+// three full-bleed variants of the same scene where only the central keep
+// degrades — intact >66% DEF, damaged 33-66%, wrecked ≤33% or captured.
+// Same composition in all three, so troops aim at the same keep.
+const HALL_PLATES = ['/halls/plate_intact.webp', '/halls/plate_damaged.webp', '/halls/plate_wrecked.webp']
 
 // Corner defense turrets (screen %). Every tick they may pick off a troop —
 // the closer he is to a turret, the deadlier. The free troops are capped, and the
@@ -614,9 +615,9 @@ function SiegePage() {
   // Strength missile (#6). Neither downloads the other's set.
   useEffect(() => {
     if (!profile?.party) return
-    // hall damage skins load for everyone — the crossfade must not pop in
+    // hall damage plates load for everyone — the crossfade must not pop in
     // a cold image mid-assault (checklist #7)
-    const warm = [...runFrames, ...atkFrames, ...HALL_SKINS]
+    const warm = [...runFrames, ...atkFrames, ...HALL_PLATES]
     if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK, PITCHFORK)
     else warm.push(...K9_RUN, ...K9_ATK, ...EAGLE_FRAMES, MISSILE)
     for (const src of warm) {
@@ -1086,23 +1087,18 @@ function SiegePage() {
       onPointerUp={onPointerUp}
     >
       {/* ── The base map — 9:16 aerial, fills the whole screen, hall at the
-             center X. The hall FACADE layers live inside so they shake with
-             the ground (checklist #7). ─────────────────────────────────── */}
+             center X. Three DEF-driven variants of the SAME plate crossfade
+             (only the keep degrades), all inside one shaking container
+             (checklist #7 rev 2). ──────────────────────────────────────── */}
       <div className="absolute inset-0" style={{
-        backgroundImage: 'url(/halls/hall_battle2.webp)',
-        backgroundSize: 'cover', backgroundPosition: 'center',
         animation: bigShake ? 'sgShakeBig 0.5s ease-in-out' : shaking ? 'sgShake 0.24s ease-in-out' : undefined,
       }}>
-        {/* DEF-driven damage skins: all three stay mounted, opacity crossfades */}
-        {HALL_SKINS.map((src, i) => (
-          <img key={src} src={src} alt="" draggable={false} style={{
-            position: 'absolute', left: `${HALL_X}%`, top: `${HALL_Y + 9}%`,
-            transform: 'translate(-50%, -100%)',
-            height: '30%', width: 'auto', maxWidth: 'none',
+        {HALL_PLATES.map((src, i) => (
+          <div key={src} className="absolute inset-0" style={{
+            backgroundImage: `url(${src})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
             opacity: hallState === i ? 1 : 0,
-            transition: 'opacity 320ms ease',
-            pointerEvents: 'none',
-            filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.45))',
+            transition: 'opacity 380ms ease',
           }} />
         ))}
         {/* faint persistent wisps once the hall is visibly hurt */}
