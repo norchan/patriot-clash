@@ -4244,3 +4244,57 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Animation: replaced the statue drop with a Soldier-system dog squad — 4 German Shepherds released bottom-center (handler dust puff), sprint the turret gauntlet at their own faster march (K9_MARCH_MS 750 vs 1100), flak clips the doomed ones mid-run (tracer + poof), survivors bite 3× each (🦷 sparks, chips total the server-settled damage exactly), shake when the pack lands. New `k9` Soldier kind: wider/lower sprite box, red glow, 240ms run cycle.
 - Art: 6-image gpt-image-1 edit chain (scripts/gen_shepherd_art.mjs — black-and-tan GSD in a K-9 vest with star badge). The adaptive border-flood cutout left painted ground shadows/motion streaks (interior blobs), so the 5 frames went through Higgs remove_background instead (~clean alpha, verified composited on green). public/siege/k9_run1-3, k9_atk1-2.
 - tsc + 107 tests green. Committed locally, NOT pushed — Michael's call (the doberman handoff fix from yesterday is also still local).
+
+---
+
+### 2026-08-14 — Grok
+
+**Context:** Michael asked for an app review + why Pokémon Go / Clash of Clans animations & graphics feel better; open to change suggestions (not implementing).
+
+**To the channel:**
+- Full product/visual comparison in chat for Michael. Core thesis: theirs feel better because of **discipline + craft pipeline + juice density**, not because PoliticsGo lacks content. PoliticsGo has lots of assets (AI stills, short flipbooks, 318 GLBs, mixed 2D/3D) but lower **frame density, motion continuity, VFX layers, and style unity**.
+- Suggested product priority if Michael wants polish: pick ONE surface (raid theater or wild battle) as the flagship feel, invest in longer looping cycles + impact FX + shared art bible, shrink AI still size / re-export for mobile, idle life on HQ.
+- Not directing Claude unless Michael pastes a build brief.
+
+**For Michael:** Review in chat.
+
+---
+
+### 2026-08-14 — Grok
+
+**Context:** Michael chose **town hall sieges** as the first animation/graphics polish flagship; personal HQ bases after mastering TH battles.
+
+**To the channel:**
+- Endorsed sequencing: siege is one stage, one camera, 6 party specials + free troops + flak — simpler learning surface than iso HQ raids.
+- Current state: `app/(game)/battle/siege/page.tsx` (~1140 lines) already has Soldier/Flipbook, flak, strike pool, K-9, Antifa/Marshals — juice is thin (emoji booms, 2–3 frame cycles, ~1.5–2MB PNG frames).
+- Delivered product plan + Claude brief for Michael in chat. Scope: **siege feel pass only** — no HQ raid rework, no economy retune unless needed for wire-compat.
+- Claude: wait for Michael paste; flagship = town hall assault theater.
+
+**For Michael:** Plan + prompt in chat.
+
+---
+
+### 2026-08-14 — Grok
+
+**Context:** Michael wants a checklist for town hall battle polish, where to start, and a Claude prompt for checklist item #1 only.
+
+**To the channel:**
+- Checklist in chat: 8 steps (juice kit → free troops frames → specials parity → hall damage states → file size → SFX polish → playtest pass → freeze & copy kit to HQ later).
+- **Start at #1 Shared impact kit** — pure code, no art gen, wires every hit the same; biggest feel win per hour.
+- Claude prompt for #1 only delivered in chat. Do not expand into frame generation or HQ raids.
+
+**For Michael:** Paste item-1 prompt when ready.
+
+### 2026-08-14 — Claude (checklist #1 done)
+
+**Context:** Grok's siege checklist item #1 — shared impact kit for the town hall stage. Implemented exactly to the brief; nothing else touched (no new frames, no economy, no HQ raids).
+
+**To the channel:**
+- **One entry point** `impactAt({xPct, yPct, damage?, intensity?, kind?})` in siege/page.tsx: hall flash (radial screen-blend pulse — flashes THE HALL for `hit`/`gear`, the impact point for `flak`/`kill`), shared SVG spark burst (8 spokes + hot core, per-impact rotation, color by kind: amber/orange/white), gold floating −N (via existing addSpark), shake mapped light=none / medium=small / heavy=big+shockwave, sfx.siegeBlow for hall damage vs sfx.block tick for mid-air pops (each throttled 70ms so volleys read as barrage, not clipping), 💨 dust on medium+ (emoji, swap-for-art-later), extra buzz on heavy. Impacts capped at 14 concurrent; self-remove at 420ms.
+- **Wired ALL damage paths:** free-troop swings + throws + idle trickle (applyDamage → kit), all special chips (chipStrike → kit; new optional intensity arg), missiles now chip 'heavy' (replaces manual big-shake), firecracker throws land 'heavy', gear → 'heavy'/'gear' (replaces hand-rolled spark+shockwave+sfx block), flak shoot-downs → 'light'/'flak', turret troop-kills → 'light'/'kill'.
+- **Removed the scattered one-offs** that meant "damage landed": generic 💥 swing boom (kit covers), throw-landing 💥/🧨💥 text spark, gear's manual number/shockwave/sfx. **Kept as flavor (intentional):** gear item boom emoji (🚀💥/💣💥/🧨💥 identity), eagle 🪶 feather, K-9 🦷 bite accent, march/land dust, tracers. Choreography beats (mob-wave + K-9-pack big shakes) kept — they're arrival moments, not damage.
+- **Correctness preserved:** zero math changes — kit only presents server-decided numbers; strike overlap/additive pool untouched; spammable strike lock untouched; assault timer/capture/finishAssault untouched. tsc + 107 tests + build green.
+- **Still emoji-only inside the kit:** the 💨 dust puff. Everything else damage-related is now the shared SVG/CSS language.
+- Committed locally, NOT pushed. Stopping here per brief — waiting for Michael's playtest + the #2 prompt.
+
+**For Michael:** playtest the 6 acceptance checks — troops, cheap special, flak, gear, no-crash, normal ending. Say push when you want it live.

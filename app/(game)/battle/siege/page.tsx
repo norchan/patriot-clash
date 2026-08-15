@@ -160,6 +160,68 @@ function FxItem({ f }: { f: Fx }) {
   )
 }
 
+// ═══ IMPACT KIT (siege checklist #1, Grok's brief 2026-08-14) ═══════════════
+// One shared visual language for "damage landed": hall flash + spark burst +
+// gold number + shake + thump + dust, scaled by intensity. Every damage path
+// (troops, specials, gear, flak, turret kills) calls impactAt() so the whole
+// stage feels like one game. The burst is inline SVG — art can replace
+// ImpactFxItem later without touching a single call site.
+type ImpactIntensity = 'light' | 'medium' | 'heavy'
+type ImpactKind = 'hit' | 'flak' | 'gear' | 'kill'
+interface Impact {
+  id: number
+  x: number; y: number     // burst point (%)
+  fx: number; fy: number   // flash center — the hall for hall damage, the point for mid-air pops
+  kind: ImpactKind
+  intensity: ImpactIntensity
+}
+const IMPACT_COLOR: Record<ImpactKind, string> = {
+  hit: '#fbbf24',   // amber — hall damage
+  gear: '#fb923c',  // hotter orange — explosives
+  flak: '#e7e5e4',  // white-gray — mid-air intercept
+  kill: '#e7e5e4',  // white-gray — troop shot down
+}
+const IMPACT_SIZE: Record<ImpactIntensity, number> = { light: 36, medium: 54, heavy: 80 }
+
+function ImpactFxItem({ im }: { im: Impact }) {
+  const color = IMPACT_COLOR[im.kind]
+  const size = IMPACT_SIZE[im.intensity]
+  const flashW = im.intensity === 'heavy' ? '44vw' : im.intensity === 'medium' ? '26vw' : '15vw'
+  return (
+    <>
+      {/* flash — brief brightness pulse (screen-blends over the hall art) */}
+      <div className="absolute z-20 pointer-events-none" style={{
+        left: `${im.fx}%`, top: `${im.fy}%`, width: flashW, height: flashW,
+        transform: 'translate(-50%, -50%)',
+        background: 'radial-gradient(circle, rgba(255,252,235,0.85) 0%, rgba(255,244,200,0.32) 45%, transparent 72%)',
+        mixBlendMode: 'screen',
+        animation: 'sgFlash 0.2s ease-out forwards',
+      }} />
+      {/* spark burst at the impact point — 8 radiating spokes + hot core */}
+      <svg className="absolute z-30 pointer-events-none" viewBox="-50 -50 100 100"
+        width={size} height={size}
+        style={{
+          left: `${im.x}%`, top: `${im.y}%`,
+          animation: 'sgBurst 0.34s ease-out forwards',
+          filter: `drop-shadow(0 0 6px ${color})`,
+        }}>
+        {[0, 1, 2, 3, 4, 5, 6, 7].map(i => {
+          const a = (i / 8) * Math.PI * 2 + (im.id % 7) * 0.13 // per-impact rotation so bursts don't look stamped
+          const r1 = i % 2 === 0 ? 44 : 31
+          return (
+            <line key={i}
+              x1={Math.cos(a) * 12} y1={Math.sin(a) * 12}
+              x2={Math.cos(a) * r1} y2={Math.sin(a) * r1}
+              stroke={color} strokeWidth={i % 2 === 0 ? 7 : 5} strokeLinecap="round" />
+          )
+        })}
+        <circle r="15" fill={color} opacity="0.45" />
+        <circle r="9" fill="#fff" opacity="0.9" />
+      </svg>
+    </>
+  )
+}
+
 function SiegePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -181,6 +243,7 @@ function SiegePage() {
   const [soldiers, setSoldiers] = useState<Soldier[]>([])
   const [sparks, setSparks] = useState<Spark[]>([])
   const [fx, setFx] = useState<Fx[]>([])
+  const [impacts, setImpacts] = useState<Impact[]>([])
   const [shockwaves, setShockwaves] = useState<{ id: number; x: number; y: number }[]>([])
   const [strikeBusy, setStrikeBusy] = useState(false)
   const [boostBusy, setBoostBusy] = useState(false)
@@ -276,8 +339,53 @@ function SiegePage() {
     }
   }
 
+  // ── THE IMPACT KIT entry point ────────────────────────────────────────────
+  // Presents damage that is ALREADY decided (server / strikePool) — never
+  // computes any. Sound is throttled per channel so a 9-piece volley reads as
+  // one barrage instead of nine clipped blasts.
+  const sndRef = useRef({ blow: 0, tick: 0 })
+  function impactAt(o: { xPct: number; yPct: number; damage?: number; intensity?: ImpactIntensity; kind?: ImpactKind }) {
+    const intensity = o.intensity ?? 'medium'
+    const kind = o.kind ?? 'hit'
+    const id = ++idRef.current
+    // hall damage flashes THE HALL; mid-air flak/kills flash their own point
+    const onHall = kind === 'hit' || kind === 'gear'
+    setImpacts(prev => prev.length > 14 ? prev : [...prev, {
+      id, x: o.xPct, y: o.yPct,
+      fx: onHall ? HALL_X : o.xPct, fy: onHall ? HALL_Y : o.yPct,
+      kind, intensity,
+    }])
+    schedule(420, () => setImpacts(prev => prev.filter(i => i.id !== id)))
+    // floating gold number — same style everywhere
+    if (o.damage != null && o.damage > 0) {
+      addSpark(o.xPct, o.yPct, `-${Math.round(o.damage).toLocaleString()}`, '#facc15')
+    }
+    // shake + shockwave by intensity
+    if (intensity === 'heavy') {
+      shakeScreen(true)
+      const wid = ++idRef.current
+      setShockwaves(w => [...w, { id: wid, x: o.xPct, y: o.yPct }])
+      schedule(900, () => setShockwaves(w => w.filter(s => s.id !== wid)))
+    } else if (intensity === 'medium') {
+      shakeScreen()
+    }
+    // dust puff drifting off the impact (emoji for now — swap for art later)
+    if (intensity !== 'light') {
+      addFx({ emoji: '💨', x0: o.xPct, y0: o.yPct + 1, x1: o.xPct + (Math.random() * 10 - 5), y1: o.yPct + 6, size: intensity === 'heavy' ? 40 : 26, dur: 550 }, 600)
+    }
+    // sound + haptic: cannon for hall damage, light tick for mid-air pops
+    const now = Date.now()
+    if (kind === 'flak' || kind === 'kill') {
+      if (now - sndRef.current.tick > 70) { sndRef.current.tick = now; sfx.block() }
+    } else if (now - sndRef.current.blow > 70) {
+      sndRef.current.blow = now
+      sfx.siegeBlow() // buzzes on its own
+      if (intensity === 'heavy') buzz([60, 30, 60])
+    }
+  }
+
   // ── Assault damage: every hit spends part of the challenge's budget ──────
-  function applyDamage(chunk: number, xPct: number, yPct: number) {
+  function applyDamage(chunk: number, xPct: number, yPct: number, intensity: ImpactIntensity = 'medium') {
     const st = S.current
     if (st.ended || phase !== 'assault') return
     const applied = Math.round(Math.min(st.budget - st.dealt, chunk))
@@ -289,15 +397,12 @@ function SiegePage() {
       if (next <= 0 && st.captured && !st.ended) finishAssault()
       return next
     })
-    addSpark(xPct, yPct, `-${applied.toLocaleString()}`, '#facc15')
-    shakeScreen()
-    sfx.siegeBlow()
-    buzz(30)
+    impactAt({ xPct, yPct, damage: applied, intensity, kind: 'hit' })
     if (st.dealt >= st.budget - 0.5) finishAssault()
   }
 
   // ── Strike damage: chips the server-approved special-attack roll ─────────
-  function chipStrike(chunk: number, xPct: number, yPct: number) {
+  function chipStrike(chunk: number, xPct: number, yPct: number, intensity: ImpactIntensity = 'medium') {
     const pool = strikePool.current
     if (pool.pending <= 0) return
     const d = Math.round(Math.min(chunk, pool.pending))
@@ -305,10 +410,7 @@ function SiegePage() {
     pool.pending -= d
     // target can be 0 — lethal specials are allowed to finish the hall
     setDefense(prev => Math.max(pool.target, prev - d))
-    addSpark(xPct, yPct, `-${d.toLocaleString()}`, '#fbbf24')
-    shakeScreen()
-    sfx.siegeBlow()
-    buzz(35)
+    impactAt({ xPct, yPct, damage: d, intensity, kind: 'hit' })
   }
 
   function finishAssault() {
@@ -465,14 +567,11 @@ function SiegePage() {
       st.remaining = data.defense_remaining ?? 0
       // gear damage is REAL hall damage; lethal gear can capture (DEF → 0)
       const x = HALL_X - 6 + Math.random() * 12, y = HALL_Y - 4 + Math.random() * 8
+      // the item's own explosion keeps its identity; the KIT carries the
+      // damage language (flash/burst/number/shake/shockwave/sound)
       addFx({ boom: true, emoji: item === 'rocket' ? '🚀💥' : item === 'dynamite' ? '💣💥' : '🧨💥', x0: x, y0: y, x1: x, y1: y, size: item === 'rocket' ? 64 : 48, dur: 750 }, 800)
-      addSpark(x, y - 6, `-${data.damage.toLocaleString()}`, '#fbbf24')
-      const id = ++idRef.current
-      setShockwaves(w => [...w, { id, x, y }])
-      schedule(900, () => setShockwaves(w => w.filter(s => s.id !== id)))
+      impactAt({ xPct: x, yPct: y - 6, damage: data.damage, intensity: 'heavy', kind: 'gear' })
       setDefense(Math.max(0, data.defense_remaining ?? 0))
-      sfx.siegeBlow()
-      buzz(40)
       if (data.captured) {
         st.captured = true
         st.remaining = 0
@@ -511,8 +610,9 @@ function SiegePage() {
       const gun = DEFENSE_GUNS[Math.floor(Math.random() * DEFENSE_GUNS.length)]
       schedule(atMs, () => {
         addFx({ emoji: '⚡', x0: gun.x, y0: gun.y, x1: x, y1: y, size: 30, dur: 200 }, 220)
+        // kit: mid-air pop — white burst + point flash + light tick, no hall shake
         schedule(200, () => {
-          addFx({ boom: true, emoji: '💥', x0: x, y0: y, x1: x, y1: y, size: 58, dur: 500 }, 540)
+          impactAt({ xPct: x, yPct: y, intensity: 'light', kind: 'flak' })
           addFx({ emoji: '💨', x0: x, y0: y, x1: x + (Math.random() * 10 - 5), y1: y + 8, size: 40, dur: 600 }, 640)
         })
       })
@@ -658,8 +758,7 @@ function SiegePage() {
           if (hit) shootDown(x1, y1 + 30, 390)
           else schedule(720, () => {
             addFx({ boom: true, emoji: '💥', x0: x1, y0: y1, x1, y1, size: 92, dur: 750 }, 800)
-            chipStrike(chunk, x1, y1 - 5)
-            shakeScreen(true)
+            chipStrike(chunk, x1, y1 - 5, 'heavy') // kit: big shake + shockwave
           })
         })
       }
@@ -749,8 +848,8 @@ function SiegePage() {
       setProjectiles(p => p.filter(pr => pr.id !== id))
       const xPct = (endX / rect.width) * 100
       const yPct = (targetY / rect.height) * 100
-      addSpark(xPct - 2, yPct - 3, kind === 'firecracker' ? '🧨💥' : '💥', '#fb923c')
-      applyDamage(st.budget * (kind === 'firecracker' ? 0.10 : 0.055) * (0.85 + Math.random() * 0.3), xPct, yPct - 7)
+      // kit inside applyDamage covers flash/burst/number; firecrackers land harder
+      applyDamage(st.budget * (kind === 'firecracker' ? 0.10 : 0.055) * (0.85 + Math.random() * 0.3), xPct, yPct - 7, kind === 'firecracker' ? 'heavy' : 'medium')
     })
   }
 
@@ -809,7 +908,7 @@ function SiegePage() {
             changed = true
             const gun = DEFENSE_GUNS.reduce((a, b) => Math.hypot(px - a.x, py - a.y) < Math.hypot(px - b.x, py - b.y) ? a : b)
             addFx({ emoji: '⚫', x0: gun.x, y0: gun.y, x1: px, y1: py, size: 16, dur: 260, easeIn: true }, 280)
-            schedule(260, () => addFx({ boom: true, emoji: '💥', x0: px, y0: py, x1: px, y1: py, size: 42, dur: 700 }, 750))
+            schedule(260, () => impactAt({ xPct: px, yPct: py, intensity: 'light', kind: 'kill' }))
             return { ...s, state: 'poof' as const, hits: s.maxHits, lastHit: now }
           }
         }
@@ -825,8 +924,9 @@ function SiegePage() {
         }
         if (s.state === 'fight' && now - s.lastHit >= SOLDIER_HIT_MS && !st.ended) {
           changed = true
-          // hit spark on every swing, specials and free troops alike (dogs bite)
-          addFx({ boom: true, emoji: s.kind === 'k9' ? '🦷' : '💥', x0: s.tx + (Math.random() * 6 - 3), y0: s.ty - 8, x1: s.tx, y1: s.ty - 8, size: 26, dur: 420 }, 450)
+          // damage language comes from the kit (via chip/apply); the dog keeps
+          // his 🦷 bite accent as flavor on top
+          if (s.kind === 'k9') addFx({ boom: true, emoji: '🦷', x0: s.tx + (Math.random() * 6 - 3), y0: s.ty - 8, x1: s.tx, y1: s.ty - 8, size: 26, dur: 420 }, 450)
           if (s.kind !== 'troop') chipStrike(s.chip ?? 0, s.tx, s.ty - 6)
           else applyDamage(st.budget * 0.03 * troopPower * (0.85 + Math.random() * 0.3), s.tx, s.ty - 6)
           const hits = s.hits + 1
@@ -987,6 +1087,9 @@ function SiegePage() {
 
       {/* ── special-attack fx ────────────────────────────────────────────── */}
       {fx.map(f => <FxItem key={f.id} f={f} />)}
+
+      {/* ── impact kit: flash + spark burst for every damage moment ──────── */}
+      {impacts.map(im => <ImpactFxItem key={im.id} im={im} />)}
 
       {/* ── shockwaves ───────────────────────────────────────────────────── */}
       {shockwaves.map(w => (
@@ -1184,6 +1287,8 @@ function SiegePage() {
         @keyframes sgLunge { 0%,100%{transform:translateX(-2px)} 45%{transform:translateX(3px) scale(1.05)} }
         @keyframes sgPoof { 0%{transform:scale(0.7);opacity:1} 100%{transform:scale(1.8) translateY(-14px);opacity:0} }
         @keyframes sgBoom { 0%{transform:scale(0.2);opacity:0} 20%{transform:scale(1.25);opacity:1} 100%{transform:scale(1.6);opacity:0} }
+        @keyframes sgFlash { 0%{opacity:0.95} 100%{opacity:0} }
+        @keyframes sgBurst { 0%{transform:translate(-50%,-50%) scale(0.25);opacity:1} 55%{opacity:1} 100%{transform:translate(-50%,-50%) scale(1.18);opacity:0} }
         @keyframes sgShockwave { 0%{width:30px;height:30px;opacity:0.9} 100%{width:70vw;height:70vw;opacity:0} }
         @keyframes sgF2_0 { 0%,49%{opacity:1} 50%,100%{opacity:0} }
         @keyframes sgF2_1 { 0%,49%{opacity:0} 50%,100%{opacity:1} }
