@@ -104,8 +104,12 @@ const MARSHAL_ATK = ['/siege/marshal_atk1.webp', '/siege/marshal_atk2.webp', '/s
 // Free ground game per 100 FP assault (siege rework A2) — no unlimited spam;
 // pressure beyond this comes from owned gear and party specials
 const FREE_TROOPS = 5
-const POOR_RUN = ['/siege/poor_run1.png', '/siege/poor_run2.png']
-const POOR_ATK = ['/siege/poor_atk.png']
+// The Poor mob (checklist #4, 2026-08-15): densified 2→6 run / 1→4 attack,
+// photoreal family edit-chained from the original weathered-man cutouts.
+// 256px WebP like the free troops. Cycle: flight → passing → push-off →
+// airborne → opposite flight → gather.
+const POOR_RUN = ['/siege/poor_run1.webp', '/siege/poor_run3.webp', '/siege/poor_run4.webp', '/siege/poor_run5.webp', '/siege/poor_run2.webp', '/siege/poor_run6.webp']
+const POOR_ATK = ['/siege/poor_atk1.webp', '/siege/poor_atk2.webp', '/siege/poor_atk3.webp', '/siege/poor_atk4.webp']
 // K-9 Unit (Michael 2026-08-13, replaced the Statue of Liberty drop): a squad
 // of German Shepherds released at the hall. Dogs sprint faster than any
 // two-legged soldier — they get their own march time.
@@ -551,9 +555,13 @@ function SiegePage() {
   // Preload MY party's troop frames while the ready screen shows, so the
   // first tap-deploy doesn't flicker through 10 cold loads (checklist #3).
   // Only the player's own party — the other side's set never renders here.
+  // Democrats also warm the Poor mob (their special); Republicans never
+  // load it (checklist #4).
   useEffect(() => {
     if (!profile?.party) return
-    for (const src of [...runFrames, ...atkFrames]) {
+    const warm = [...runFrames, ...atkFrames]
+    if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK)
+    for (const src of warm) {
       const im = new Image()
       im.src = src
     }
@@ -660,6 +668,8 @@ function SiegePage() {
         schedule(i * 130, () => {
           const sx = 6 + Math.random() * 88
           const tx = HALL_X - 10 + Math.random() * 20
+          // heel dust along the spawn wave (parity with the free-troop drop)
+          if (i % 2 === 0) addFx({ emoji: '💨', x0: sx, y0: 101, x1: sx - 3, y1: 97, size: 24, dur: 500 }, 550)
           const soldier: Soldier = {
             id: ++idRef.current,
             kind: 'poor',
@@ -1080,9 +1090,10 @@ function SiegePage() {
           {s.state === 'poof' ? (
             <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>💨</span>
           ) : (
-            // outer span: one-shot deploy pop for tapped-in troops (runs once
-            // on mount; specials spawn offscreen so they skip it)
-            <span className="block" style={{ animation: s.kind === 'troop' ? 'sgDeploy 0.22s ease-out' : undefined }}>
+            // outer span: one-shot deploy pop (runs once on mount) — tapped-in
+            // troops AND the bottom-edge mob waves (poor/free); the dog skips
+            // it, his statue-handoff is its own entrance
+            <span className="block" style={{ animation: s.kind !== 'k9' ? 'sgDeploy 0.22s ease-out' : undefined }}>
             <span className="block relative" style={{
               // dogs are long and low — wider box, shorter stance
               width: s.kind === 'k9' ? 76 : 56,
@@ -1098,10 +1109,9 @@ function SiegePage() {
                     : s.kind === 'k9'
                       ? (s.state === 'fight' ? K9_ATK : K9_RUN)
                       : (s.state === 'fight' ? atkFrames : runFrames)}
-                // free troops: 6-frame sprint (~60ms/frame) + 4-frame swing
-                cycleMs={s.kind === 'troop'
-                  ? (s.state === 'fight' ? 640 : 360)
-                  : s.state === 'fight' ? 640 : s.kind === 'k9' ? 240 : 330}
+                // dense human cycles: 6-frame sprint (~60ms/frame) + 4-frame
+                // swing for troop/free/poor alike; only the dog runs faster
+                cycleMs={s.state === 'fight' ? 640 : s.kind === 'k9' ? 240 : 360}
               />
             </span>
             </span>

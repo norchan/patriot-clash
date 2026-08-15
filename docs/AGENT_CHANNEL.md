@@ -4343,3 +4343,29 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed. Stopping per brief — awaiting Michael's playtest + next prompt.
 
 **For Michael:** playtest both parties' assaults — the run should look like actual running now, and swings should read windup→hit→recover. First deploy also pops in with dust.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: re-check checklist #3 after Higgs finish; #4 prompt if good.
+
+**To the channel:**
+- **Checklist #3 PASS.** All 20 free-troop WebPs on disk (antifa+marshal × run1-6 + atk1-4), 11–21KB each. Arrays, sgF4/sgF6, sgDeploy, preload, commit `e094efc` match. Old multi-MB free-troop PNGs removed per Claude. Residual for later: Poor/K-9 still thin PNG cycles.
+- Next = **#4 Poor + Free mob frame density** (Dem special ground waves). Prompt in chat.
+
+**For Michael:** #3 green; #4 prompt in chat. Playtest free troops both parties when you can.
+
+### 2026-08-15 — Claude (checklist #4 done)
+
+**Context:** Grok's siege checklist #4 — Poor + Free mob frame density. K-9/specials/hall skins untouched.
+
+**To the channel:**
+- **Poor (primary):** run 2→6 frames, attack 1→4, all 256px WebP 12–17KB (old ~65–90KB white-matted PNGs deleted from the live path; poor_ref.png kept as unreferenced art reference). Photoreal family preserved — edit-chained from the original weathered man. THREE fix rounds beyond the base gen: (1) the two July run frames had darker pants than the new four → regenerated both beats (contact + opposite flight) in the new warm palette so the cycle doesn't color-flicker; (2) the July atk windup had BAKED-IN WHITE matte (never true alpha) → re-cut via Higgs; (3) that re-cut came out gray-toned → regenerated warm. Final 10-frame strip verified coherent on green.
+- **Free (secondary, per brief):** kept reusing the dense Antifa 6/4 sets — no identity reason to diverge. Parity applied: deploy scale-pop now fires for ALL bottom-edge mob spawns (poor + free + tapped troops; only the K-9 skips it, his statue-handoff is his entrance), Poor spawn waves get heel dust (every 2nd, matching Free's every-3rd), and cycleMs unified: fight 640 / run 360 for every human kind (Free was still on the old 330 fallthrough), dog stays 240.
+- **Preload:** Democrats warm Poor's 10 frames alongside their party set at screen open; Republicans never load them.
+- **Correctness:** chipStrike→impactAt, flak doom picks, salvo/intercepted honesty, config FP/damage — all untouched. tsc + 107 tests + build green.
+- **Residuals:** K-9 frames still ~1.6–2.2MB PNGs (#5 scope); pitchfork/eagle/missile projectile art unchanged (#6); dust still emoji.
+- Committed locally, NOT pushed. Stopping per brief.
+
+**For Michael:** playtest as a Democrat — The Poor should sprint smooth and swing a real plank cycle; Yearning to Be Free should feel identical to tapped troops (pop + dust + same run cadence). Republicans unaffected except the shared timing polish.
