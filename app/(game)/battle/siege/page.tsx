@@ -58,6 +58,7 @@ interface Fx {
   id: number
   src?: string          // image sprite
   src2?: string         // second frame — flaps between src/src2
+  frames?: string[]     // N-frame flipbook (checklist #6: eagles flap for real)
   emoji?: string
   boom?: boolean        // static pop-in explosion instead of flight
   x0: number; y0: number
@@ -67,6 +68,7 @@ interface Fx {
   spin?: boolean
   flip?: boolean
   easeIn?: boolean
+  trail?: boolean       // exhaust streak below the sprite (missiles)
 }
 
 const MARCH_MS = 1100          // soldier travel time to the walls
@@ -119,6 +121,12 @@ const POOR_ATK = ['/siege/poor_atk1.webp', '/siege/poor_atk2.webp', '/siege/poor
 const K9_RUN = ['/siege/k9_run1.webp', '/siege/k9_run4.webp', '/siege/k9_run3.webp', '/siege/k9_run6.webp', '/siege/k9_run5.webp', '/siege/k9_run2.webp']
 const K9_ATK = ['/siege/k9_atk1.webp', '/siege/k9_atk2.webp', '/siege/k9_atk3.webp', '/siege/k9_atk4.webp']
 const K9_MARCH_MS = 750
+// Projectile specials (checklist #6): eagles flap a real 4-beat cycle
+// (up → level → down → level, all photoreal — the old eagle2 was a cartoon
+// from a different art family); pitchforks + missile are small WebPs.
+const EAGLE_FRAMES = ['/siege/eagle_a.webp', '/siege/eagle_b.webp', '/siege/eagle_c.webp', '/siege/eagle_b.webp']
+const PITCHFORK = '/siege/pitchfork.webp'
+const MISSILE = '/siege/missile.webp'
 
 // N-frame flipbook: stacked images alternating opacity via keyframes
 function Flipbook({ frames, cycleMs }: { frames: string[]; cycleMs: number }) {
@@ -145,9 +153,25 @@ function FxItem({ f }: { f: Fx }) {
   }, [])
   const inner = f.boom ? (
     <span style={{ fontSize: f.size, animation: 'sgBoom 0.75s ease-out forwards' }}>{f.emoji ?? '💥'}</span>
-  ) : f.src ? (
+  ) : (f.src || f.frames) ? (
     <span className="block relative" style={{ height: f.size, width: f.size * 1.2 }}>
-      {f.src2 ? (
+      {/* exhaust streak trails BELOW the sprite — missiles fly near-vertical */}
+      {f.trail && (
+        <span style={{
+          position: 'absolute', left: '50%', top: '88%', transform: 'translateX(-50%)',
+          width: 6, height: f.size * 0.8, borderRadius: 3,
+          background: 'linear-gradient(180deg, #fde047, rgba(251,146,60,0.6), transparent)',
+          filter: 'blur(2px)',
+        }} />
+      )}
+      {f.frames ? (
+        f.frames.map((src, fi) => (
+          <img key={src + fi} src={src} alt="" style={{
+            position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain',
+            animation: `sgF${f.frames!.length}_${fi} 300ms steps(1) infinite`,
+          }} />
+        ))
+      ) : f.src2 ? (
         <>
           <img src={f.src} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_0 240ms steps(1) infinite' }} />
           <img src={f.src2} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_1 240ms steps(1) infinite' }} />
@@ -558,13 +582,14 @@ function SiegePage() {
   // Preload MY party's troop frames while the ready screen shows, so the
   // first tap-deploy doesn't flicker through 10 cold loads (checklist #3).
   // Only the player's own party — the other side's set never renders here.
-  // Each party also warms its own special's mob: Democrats the Poor (#4),
-  // Republicans the K-9 squad (#5). Neither downloads the other's.
+  // Each party also warms its own specials: Democrats the Poor mob (#4) +
+  // Tired pitchfork; Republicans the K-9 squad (#5) + Peace eagles +
+  // Strength missile (#6). Neither downloads the other's set.
   useEffect(() => {
     if (!profile?.party) return
     const warm = [...runFrames, ...atkFrames]
-    if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK)
-    else warm.push(...K9_RUN, ...K9_ATK)
+    if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK, PITCHFORK)
+    else warm.push(...K9_RUN, ...K9_ATK, ...EAGLE_FRAMES, MISSILE)
     for (const src of warm) {
       const im = new Image()
       im.src = src
@@ -655,8 +680,10 @@ function SiegePage() {
         const y1 = 38 + Math.random() * 12
         const hit = dead.has(i)
         schedule(i * 100, () => {
-          // shot-down pitchforks die halfway up, short of the hall
-          addFx({ src: '/siege/pitchfork.png', x0: 8 + Math.random() * 84, y0: 106, x1, y1: hit ? y1 + 26 : y1, size: 54, dur: hit ? 380 : 650, spin: true, easeIn: true }, hit ? 400 : 700)
+          // shot-down pitchforks die halfway up, short of the hall.
+          // ±10% size + random mirror so the volley reads as many forks,
+          // not one icon stamped nine times (checklist #6)
+          addFx({ src: PITCHFORK, x0: 8 + Math.random() * 84, y0: 106, x1, y1: hit ? y1 + 26 : y1, size: 49 + Math.random() * 11, dur: hit ? 380 : 650, spin: true, easeIn: true, flip: Math.random() < 0.5 }, hit ? 400 : 700)
           if (hit) shootDown(x1, y1 + 26, 340)
           else schedule(650, () => chipStrike(chunk, x1, y1 - 4))
         })
@@ -760,7 +787,7 @@ function SiegePage() {
         // a downed eagle is clipped mid-dive and drops well short
         const ex = hit ? (fromLeft ? x1 - 18 : x1 + 18) : x1
         schedule(i * 200, () => {
-          addFx({ src: '/siege/eagle1.png', src2: '/siege/eagle2.png', x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1: ex, y1: hit ? y1 + 14 : y1, size: 66, dur: hit ? 620 : 950, flip: !fromLeft }, hit ? 660 : 1050)
+          addFx({ frames: EAGLE_FRAMES, x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1: ex, y1: hit ? y1 + 14 : y1, size: 66, dur: hit ? 620 : 950, flip: !fromLeft }, hit ? 660 : 1050)
           if (hit) shootDown(ex, y1 + 14, 580)
           else schedule(950, () => {
             chipStrike(chunk, x1, y1 - 3)
@@ -782,12 +809,13 @@ function SiegePage() {
         const hit = dead.has(i)
         schedule(i * 260, () => {
           sfx.whoosh?.()
-          // intercepted missiles are detonated early, below the walls
-          addFx({ src: '/siege/missile.png', x0: 20 + i * 30, y0: 110, x1, y1: hit ? y1 + 30 : y1, size: 90, dur: hit ? 430 : 720, easeIn: true }, hit ? 450 : 740)
+          // intercepted missiles are detonated early, below the walls;
+          // survivors dive with an exhaust trail and land as ONE coherent
+          // kit-heavy boom (the old 92px emoji 💥 doubled the explosion)
+          addFx({ src: MISSILE, x0: 20 + i * 30, y0: 110, x1, y1: hit ? y1 + 30 : y1, size: 90, dur: hit ? 430 : 720, easeIn: true, trail: true }, hit ? 450 : 740)
           if (hit) shootDown(x1, y1 + 30, 390)
           else schedule(720, () => {
-            addFx({ boom: true, emoji: '💥', x0: x1, y0: y1, x1, y1, size: 92, dur: 750 }, 800)
-            chipStrike(chunk, x1, y1 - 5, 'heavy') // kit: big shake + shockwave
+            chipStrike(chunk, x1, y1 - 5, 'heavy') // kit: flash + burst + shockwave + big shake
           })
         })
       }

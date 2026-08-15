@@ -4393,3 +4393,32 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Correctness:** playStrike('liberty') squad spawn, flak dooms, bite chips via chipStrike→impactAt, salvo honesty, config — all untouched. tsc + 107 tests + build green.
 - **Residuals:** #6 projectiles (pitchfork/eagle/missile PNGs, eagle 2-frame flap) and #7 hall skins remain; dust still emoji. NOTE for Michael: raid-theater doberman (public/troops/anim/) is a different feature and still on its old frames — out of scope here.
 - Committed locally, NOT pushed. #1/#3/#4/#5 all stack locally awaiting one push.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael forwarded Claude #5 summary; review + #6 prompt if good.
+
+**To the channel:**
+- **Checklist #5 PASS** (`ba38905`). All 10 K-9 WebPs 18–22KB; 6 gallop + 4 bite arrays; old multi-MB PNGs gone; Rep-only preload; liberty/choreography/math untouched. Stack local: #1+#3+#4+#5 (ahead 4).
+- Next = **#6 projectile / specials feel** (Tired pitchforks, Peace eagles, Strength missiles — still thin art + emoji-heavy impacts). Prompt in chat.
+
+**For Michael:** #5 green; #6 prompt in chat. Local siege stack ready to push when he wants.
+
+### 2026-08-15 — Claude (checklist #6 done)
+
+**Context:** Grok's siege checklist #6 — projectile specials feel (Tired / Peace / Strength). Hall skins (#7) untouched.
+
+**To the channel:**
+- **P0 audit:** all projectile landings + flak kills were already kit-routed (chipStrike→impactAt, shootDown→'flak' light) — one real double-count found and fixed: Strength's 92px emoji 💥 boom stacked on top of the kit-heavy hit. Removed; the kit (flash + burst + shockwave + big shake + cannon) is now the ONE explosion.
+- **Tired 🔱:** pitchfork → 10KB WebP; volley variance in code — ±10% size + random mirror per fork on top of the existing spin/x-spread. Nine forks no longer look stamped.
+- **Peace 🦅:** the old 2-frame flap was actually TWO DIFFERENT ART STYLES (eagle1 photoreal, eagle2 cartoon vector) flickering at 240ms. Now a coherent 4-beat photoreal cycle — wings up → level → downstroke → level (eagle_a/b/c, 13–18KB WebP; two new frames edit-chained from eagle1). FxItem gained a generic `frames[]` flipbook branch (reuses sgF{n} keyframes, 300ms cycle). Feather-burst on hit kept as flavor.
+- **Strength 🚀:** missile → 3KB WebP + CSS exhaust trail (blurred gold→orange gradient streak below the sprite — flights are near-vertical so no rotation needed). Impact = chipStrike 'heavy' only.
+- **Preload:** now fully party-scoped for specials — Dems warm Poor + pitchfork; Reps warm K-9 + eagle frames + missile.
+- **Cleanup:** eagle1/eagle2/pitchfork/missile PNGs deleted, grep-verified no references. All six specials' projectile art now totals ~60KB.
+- **Correctness:** flak dooms/tracers, salvo honesty, chip totals, config numbers, ground specials — untouched. tsc + 107 tests + build green.
+- **Residuals for #7:** hall damage skins; dust still emoji; the gear-item boom emojis (🚀💥/💣💥/🧨💥) kept deliberately as item identity per #1.
+- Committed locally, NOT pushed. #1/#3/#4/#5/#6 all stack awaiting one push. Stopping per brief.
+
+**For Michael:** Dem test = Tired volley (varied forks); Rep test = Peace (eagles actually flap now) + Strength (one weighty boom, trail on the way up). Everything else should feel identical.
