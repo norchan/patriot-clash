@@ -80,6 +80,11 @@ const ASSAULT_MAX_MS = 15000   // hard cap: an assault lasts at most 15 seconds 
 // The hall sits dead center of the base map; attacks aim here
 const HALL_X = 50
 const HALL_Y = 47
+// Checklist #7: the hall VISIBLY takes damage. Three facade skins crossfade
+// over the battle plate as DEF falls — intact >66%, damaged 33-66%, wrecked
+// ≤33% or captured. Bottom-anchored just below the aim point so troops keep
+// striking the same spot.
+const HALL_SKINS = ['/halls/hall_intact.webp', '/halls/hall_damaged.webp', '/halls/hall_wrecked.webp']
 
 // Corner defense turrets (screen %). Every tick they may pick off a troop —
 // the closer he is to a turret, the deadlier. The free troops are capped, and the
@@ -278,6 +283,7 @@ function SiegePage() {
   const [sparks, setSparks] = useState<Spark[]>([])
   const [fx, setFx] = useState<Fx[]>([])
   const [impacts, setImpacts] = useState<Impact[]>([])
+  const [smokes, setSmokes] = useState<{ id: number; x: number; y: number; size: number }[]>([])
   const [shockwaves, setShockwaves] = useState<{ id: number; x: number; y: number }[]>([])
   const [strikeBusy, setStrikeBusy] = useState(false)
   const [boostBusy, setBoostBusy] = useState(false)
@@ -336,6 +342,12 @@ function SiegePage() {
       })
       .catch(() => {})
   }, [gymId])
+
+  // Hall damage state (checklist #7): intact > 66% DEF, damaged 33-66%,
+  // wrecked ≤ 33% — and capture always lands on wrecked (finishAssault
+  // zeroes the bar, so the ratio handles it; result guard covers replays)
+  const defRatio = maxDefense > 0 ? defense / maxDefense : 1
+  const hallState: 0 | 1 | 2 = (result?.captured || defense <= 0) ? 2 : defRatio > 0.66 ? 0 : defRatio > 0.33 ? 1 : 2
 
   const holderColor = gym?.holder_party === 'democrat' ? '#2563eb' : gym?.holder_party === 'republican' ? '#dc2626' : '#9ca3af'
   const myColor = profile?.party === 'democrat' ? '#2563eb' : '#dc2626'
@@ -406,6 +418,21 @@ function SiegePage() {
     // dust puff drifting off the impact (emoji for now — swap for art later)
     if (intensity !== 'light') {
       addFx({ emoji: '💨', x0: o.xPct, y0: o.yPct + 1, x1: o.xPct + (Math.random() * 10 - 5), y1: o.yPct + 6, size: intensity === 'heavy' ? 40 : 26, dur: 550 }, 600)
+      // smoke rises off the WALLS on real hall hits (checklist #7) — heavy
+      // hits smoke more; capped so spammed specials can't flood the DOM
+      if (kind === 'hit' || kind === 'gear') {
+        const n = intensity === 'heavy' ? 2 : 1
+        for (let i = 0; i < n; i++) {
+          const sid = ++idRef.current
+          setSmokes(prev => prev.length > 8 ? prev : [...prev, {
+            id: sid,
+            x: o.xPct + (Math.random() * 8 - 4),
+            y: o.yPct - 1 - i * 3,
+            size: (intensity === 'heavy' ? 44 : 30) + Math.random() * 10,
+          }])
+          schedule(950, () => setSmokes(prev => prev.filter(s => s.id !== sid)))
+        }
+      }
     }
     // sound + haptic: cannon for hall damage, light tick for mid-air pops
     const now = Date.now()
@@ -587,7 +614,9 @@ function SiegePage() {
   // Strength missile (#6). Neither downloads the other's set.
   useEffect(() => {
     if (!profile?.party) return
-    const warm = [...runFrames, ...atkFrames]
+    // hall damage skins load for everyone — the crossfade must not pop in
+    // a cold image mid-assault (checklist #7)
+    const warm = [...runFrames, ...atkFrames, ...HALL_SKINS]
     if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK, PITCHFORK)
     else warm.push(...K9_RUN, ...K9_ATK, ...EAGLE_FRAMES, MISSILE)
     for (const src of warm) {
@@ -661,6 +690,8 @@ function SiegePage() {
     const shootDown = (x: number, y: number, atMs: number) => {
       const gun = DEFENSE_GUNS[Math.floor(Math.random() * DEFENSE_GUNS.length)]
       schedule(atMs, () => {
+        // muzzle flash at the gun that fired (checklist #7 P3, cheap)
+        addFx({ boom: true, emoji: '✨', x0: gun.x, y0: gun.y, x1: gun.x, y1: gun.y, size: 22, dur: 260 }, 300)
         addFx({ emoji: '⚡', x0: gun.x, y0: gun.y, x1: x, y1: y, size: 30, dur: 200 }, 220)
         // kit: mid-air pop — white burst + point flash + light tick, no hall shake
         schedule(200, () => {
@@ -966,6 +997,7 @@ function SiegePage() {
           if (Math.random() < KILL_BASE[s.state] * danger) {
             changed = true
             const gun = DEFENSE_GUNS.reduce((a, b) => Math.hypot(px - a.x, py - a.y) < Math.hypot(px - b.x, py - b.y) ? a : b)
+            addFx({ boom: true, emoji: '✨', x0: gun.x, y0: gun.y, x1: gun.x, y1: gun.y, size: 20, dur: 240 }, 280)
             addFx({ emoji: '⚫', x0: gun.x, y0: gun.y, x1: px, y1: py, size: 16, dur: 260, easeIn: true }, 280)
             schedule(260, () => impactAt({ xPct: px, yPct: py, intensity: 'light', kind: 'kill' }))
             return { ...s, state: 'poof' as const, hits: s.maxHits, lastHit: now }
@@ -1054,12 +1086,36 @@ function SiegePage() {
       onPointerUp={onPointerUp}
     >
       {/* ── The base map — 9:16 aerial, fills the whole screen, hall at the
-             center X ─────────────────────────────────────────────────────── */}
+             center X. The hall FACADE layers live inside so they shake with
+             the ground (checklist #7). ─────────────────────────────────── */}
       <div className="absolute inset-0" style={{
         backgroundImage: 'url(/halls/hall_battle2.webp)',
         backgroundSize: 'cover', backgroundPosition: 'center',
         animation: bigShake ? 'sgShakeBig 0.5s ease-in-out' : shaking ? 'sgShake 0.24s ease-in-out' : undefined,
-      }} />
+      }}>
+        {/* DEF-driven damage skins: all three stay mounted, opacity crossfades */}
+        {HALL_SKINS.map((src, i) => (
+          <img key={src} src={src} alt="" draggable={false} style={{
+            position: 'absolute', left: `${HALL_X}%`, top: `${HALL_Y + 9}%`,
+            transform: 'translate(-50%, -100%)',
+            height: '30%', width: 'auto', maxWidth: 'none',
+            opacity: hallState === i ? 1 : 0,
+            transition: 'opacity 320ms ease',
+            pointerEvents: 'none',
+            filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.45))',
+          }} />
+        ))}
+        {/* faint persistent wisps once the hall is visibly hurt */}
+        {hallState >= 1 && [0, 1].map(i => (
+          <span key={i} className="pointer-events-none" style={{
+            position: 'absolute', left: `${HALL_X + (i === 0 ? -5 : 6)}%`, top: `${HALL_Y - 9 + i * 3}%`,
+            width: 34 + i * 10, height: 34 + i * 10, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(70,70,78,0.5) 0%, transparent 70%)',
+            filter: 'blur(4px)',
+            animation: `sgWisp ${2.6 + i * 0.9}s ease-in-out ${i * 0.7}s infinite`,
+          }} />
+        ))}
+      </div>
       {/* readability gradients top + bottom */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: 'linear-gradient(180deg, rgba(5,8,18,0.55) 0%, transparent 16%, transparent 72%, rgba(5,8,18,0.6) 100%)',
@@ -1156,6 +1212,17 @@ function SiegePage() {
 
       {/* ── impact kit: flash + spark burst for every damage moment ──────── */}
       {impacts.map(im => <ImpactFxItem key={im.id} im={im} />)}
+
+      {/* ── wall smoke: rises off real hall hits (checklist #7) ──────────── */}
+      {smokes.map(s => (
+        <span key={s.id} className="absolute pointer-events-none" style={{
+          left: `${s.x}%`, top: `${s.y}%`,
+          width: s.size, height: s.size, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(58,58,66,0.65) 0%, rgba(58,58,66,0.3) 45%, transparent 72%)',
+          filter: 'blur(3px)', zIndex: 25,
+          animation: 'sgSmoke 0.95s ease-out forwards',
+        }} />
+      ))}
 
       {/* ── shockwaves ───────────────────────────────────────────────────── */}
       {shockwaves.map(w => (
@@ -1355,6 +1422,8 @@ function SiegePage() {
         @keyframes sgBoom { 0%{transform:scale(0.2);opacity:0} 20%{transform:scale(1.25);opacity:1} 100%{transform:scale(1.6);opacity:0} }
         @keyframes sgFlash { 0%{opacity:0.95} 100%{opacity:0} }
         @keyframes sgBurst { 0%{transform:translate(-50%,-50%) scale(0.25);opacity:1} 55%{opacity:1} 100%{transform:translate(-50%,-50%) scale(1.18);opacity:0} }
+        @keyframes sgSmoke { 0%{transform:translate(-50%,-30%) scale(0.5);opacity:0.6} 100%{transform:translate(-50%,-150%) scale(1.7);opacity:0} }
+        @keyframes sgWisp { 0%,100%{opacity:0.10;transform:translateY(0)} 50%{opacity:0.3;transform:translateY(-9px)} }
         @keyframes sgShockwave { 0%{width:30px;height:30px;opacity:0.9} 100%{width:70vw;height:70vw;opacity:0} }
         @keyframes sgF2_0 { 0%,49%{opacity:1} 50%,100%{opacity:0} }
         @keyframes sgF2_1 { 0%,49%{opacity:0} 50%,100%{opacity:1} }

@@ -4422,3 +4422,31 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed. #1/#3/#4/#5/#6 all stack awaiting one push. Stopping per brief.
 
 **For Michael:** Dem test = Tired volley (varied forks); Rep test = Peace (eagles actually flap now) + Strength (one weighty boom, trail on the way up). Everything else should feel identical.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael forwarded Claude #6 summary; review + next if good.
+
+**To the channel:**
+- **Checklist #6 PASS** (`0e124a2`). Pitchfork WebP + volley variance; eagles coherent 4-beat photoreal flap (old cartoon eagle2 fixed — real bug); missile trail + single kit-heavy boom (emoji double-blast removed); party preload; old projectile PNGs gone. Stack local: #1+#3+#4+#5+#6 (ahead 5).
+- Next = **#7 hall under fire** — `public/halls/hall_intact|damaged|wrecked.webp` already exist; wire DEF% crossfade + smoke on big hits. Prompt in chat.
+
+**For Michael:** #6 green; #7 prompt in chat. Full polish stack (except #7) ready to push.
+
+### 2026-08-15 — Claude (checklist #7 done — SIEGE FEEL PASS COMPLETE)
+
+**Context:** Grok's siege checklist #7 — hall damage skins + smoke. This closes the checklist (#2 was accepted as covered by #1).
+
+**To the channel:**
+- **P0 — approach 1 (overlay):** hall_battle2 stays the battlefield plate; the three existing facade WebPs (intact/damaged/wrecked, 63–74KB, no new art) render INSIDE the shaking backdrop div, bottom-anchored at (HALL_X, HALL_Y+9) at 30% stage height, so the base sits right where troops strike and everything shakes together. All three stay mounted; 320ms opacity crossfade. Thresholds: intact >66% DEF, damaged 33–66%, wrecked ≤33% — derived live from defense/maxDefense; capture forces wrecked (finishAssault zeroes the bar + result.captured guard). HALL_X/HALL_Y aim points untouched — targeting identical.
+- **P1 — smoke:** impactAt now spawns rising CSS smoke (blurred radial-gradient, sgSmoke 950ms) on medium+ hits of kind hit/gear — 1 puff medium, 2 heavy, hard-capped at 8 concurrent. Plus two faint looping wisps (sgWisp) pinned above the hall whenever the state is damaged/wrecked — 2 DOM nodes, pure CSS.
+- **P2 — capture beat:** wrecked skin guaranteed under the CAPTURED! banner (banner z-40, skins in the backdrop layer).
+- **P3 — flak readability:** cheap ✨ muzzle-flash pop at the firing DEFENSE_GUN position on both flak shoot-downs and turret troop-kills, alongside the existing tracers.
+- **Preload:** all three skins warm for BOTH parties at siege open (210KB total — the crossfade must never pop a cold image).
+- **Correctness:** no economy/flak/strike changes; troop targeting unchanged; tsc + 107 tests + build green.
+- **Residuals (post-checklist):** dust/dog-bite/gear-boom emojis are deliberate flavor; the plate's baked-in keep still peeks behind the facade edges (reads as fortress walls — flag if Michael dislikes it).
+- Committed locally, NOT pushed. **Full stack awaiting Michael's playtest + one push: b3a51ea → e094efc → 6ac1b50 → ba38905 → 0e124a2 → this.** Not starting HQ raid polish per brief.
+
+**For Michael:** the checklist is done. Playtest a full siege: the hall starts pristine, cracks at two-thirds down, and is burning rubble by capture — with smoke rolling off every real hit. Say push to ship the whole feel pass.
