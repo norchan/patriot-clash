@@ -1,11 +1,8 @@
-// Raid troop FLIPBOOKS (Michael 2026-08-09: "I want troops to be animated...
-// just like the clash of clans soldiers"). For each of the 10 troop types:
-// 3 run frames + 2 attack frames, edit-chained from the troop's existing art
-// so the character stays identical. Same chain recipe that held for the siege
-// antifa/marshal flipbooks.
-//
-//   node scripts/gen_troop_frames.mjs             (all)
-//   node scripts/gen_troop_frames.mjs rep_minuteman dem_street_medic
+// Siege checklist #3 (Grok 2026-08-14): densify free-troop animation.
+// Antifa Kids + Marshals: run 3→6 frames, attack 2→4 frames. Edit-chained
+// from the CACHED originals in .legaudit/gen so the character stays the
+// same person across every new frame.
+//   node scripts/gen_troop_frames.mjs
 import fs from 'fs'
 
 const env = Object.fromEntries(
@@ -13,61 +10,47 @@ const env = Object.fromEntries(
     .split('\n').filter(l => l.includes('=') && !l.trim().startsWith('#'))
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }))
 
-const STYLE = `Painterly mobile-game character sprite, hand-painted texture with clean dark outlines, `
-  + `slightly toy-like proportions, warm light from the upper left. FULL BODY in SIDE PROFILE facing RIGHT, `
-  + `whole body including feet inside the frame, plain flat light gray background (#cfcfcf), no text, no watermark.`
-
-const TROOPS = [
-  'rep_minuteman', 'rep_buck_hunter', 'rep_big_rig', 'rep_pyro_patriot', 'rep_revival_preacher',
-  'dem_picket_captain', 'dem_latte_slinger', 'dem_longshoreman', 'dem_drum_circle', 'dem_street_medic',
-]
-
-// step 1 converts the 3/4 standing pose to a side-profile sprint; the rest
-// chain off that so the character can't drift
-const CHAIN = [
-  ['run1', `Redraw this EXACT character as a ${'' /* keep prompt one piece */}full-body SIDE PROFILE facing RIGHT, `
-    + `sprinting at full speed mid-stride — right leg forward, arms pumping, gear and weapon kept. `
-    + `Same face, same outfit, same colors, same painterly style.`, null],
-  ['run2', `Same EXACT character, same style and size, still sprinting to the right but on the OPPOSITE stride: `
-    + `left leg forward, right leg trailing, arms swapped. Change nothing else.`, 'run1'],
-  ['run3', `Same EXACT character, same style and size, sprinting to the right in a passing stance: both legs `
-    + `close under the body mid-stride, one heel lifting. Change nothing else.`, 'run1'],
-  ['atk1', `Same EXACT character, same style and size, now PLANTED facing right winding up a big attack with `
-    + `their signature weapon or gear — arms drawn back, knees bent, ready to strike. Change nothing else.`, 'run1'],
-  ['atk2', `Same EXACT character, same style and size, mid-STRIKE — the attack whipping forward toward the right `
-    + `with motion streaks, weight on the front foot. Change nothing else.`, 'atk1'],
-]
-
-fs.mkdirSync('.legaudit/gen', { recursive: true })
-
-async function edit(outName, prompt, inputPath) {
+async function edit(name, prompt, from) {
   const form = new FormData()
   form.append('model', 'gpt-image-1')
-  form.append('prompt', `${prompt} ${STYLE}`)
+  form.append('prompt', prompt)
   form.append('size', '1024x1024')
   form.append('quality', 'high')
-  form.append('image', new Blob([fs.readFileSync(inputPath)], { type: 'image/png' }), 'in.png')
+  form.append('image', new Blob([fs.readFileSync(`.legaudit/gen/${from}.png`)], { type: 'image/png' }), 'in.png')
   const res = await fetch('https://api.openai.com/v1/images/edits', {
     method: 'POST', headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` }, body: form,
   })
   const j = await res.json()
-  if (!res.ok) { console.error(`  FAILED ${outName}:`, JSON.stringify(j).slice(0, 200)); return false }
-  fs.writeFileSync(`.legaudit/gen/${outName}.png`, Buffer.from(j.data[0].b64_json, 'base64'))
-  console.log(`  ✔ ${outName}`)
-  return true
+  if (!res.ok) { console.error(`  FAILED ${name}:`, JSON.stringify(j).slice(0, 200)); return false }
+  fs.writeFileSync(`.legaudit/gen/${name}.png`, Buffer.from(j.data[0].b64_json, 'base64'))
+  console.log(`  ✔ ${name}`); return true
 }
 
-const only = process.argv.slice(2)
-for (const id of TROOPS) {
-  if (only.length && !only.includes(id)) continue
-  console.log(`▶ ${id}`)
-  for (const [suffix, prompt, from] of CHAIN) {
-    const out = `${id}_${suffix}`
-    if (fs.existsSync(`.legaudit/gen/${out}.png`)) { console.log(`  skip ${out} (exists)`); continue }
-    const input = from ? `.legaudit/gen/${id}_${from}.png` : `public/troops/${id}.png`
-    if (!fs.existsSync(input)) { console.error(`  missing input ${input}`); break }
-    const ok = await edit(out, prompt, input)
-    if (!ok && !from) break // base failed — no point chaining
-  }
-}
+const KEEP = `Keep the EXACT same character, art style, proportions and size, full side profile facing right, ` +
+  `plain flat light gray background (#cfcfcf), no text, no ground shadow.`
+
+// Three run in-betweens per unit — the classic cycle beats the 3-frame set skips
+const RUN_POSES = [
+  ['run4', `PASSING position mid-stride: torso upright over the hips, both knees bent crossing under the body, ` +
+    `one foot planted flat directly below the hips bearing weight, the other heel lifting up behind. Arms half-pumped.`],
+  ['run5', `AIRBORNE full flight: leaning forward, BOTH feet clearly off the ground, front leg reaching far forward, ` +
+    `back leg trailing bent behind, arms pumping hard.`],
+  ['run6', `PUSH-OFF drive: back leg fully extended pushing off the toes behind, front knee driving up high in front, ` +
+    `torso leaning into the sprint.`],
+]
+
+console.log('▶ antifa kid — 3 run in-betweens + 2 attack frames')
+for (const [f, pose] of RUN_POSES) await edit(`antifa_${f}`, `${KEEP} Same sprint, new frame: ${pose}`, 'antifa_run1')
+await edit('antifa_atk3', `${KEEP} Attack frame: the wooden stick swung fully THROUGH the strike — arms extended forward ` +
+  `and low, stick pointing forward-down having just connected, torso twisted into the follow-through, front knee deep.`, 'antifa_atk2')
+await edit('antifa_atk4', `${KEEP} Attack frame: RECOVERING after a swing — pulling the wooden stick back up toward the ` +
+  `shoulder into a ready guard, weight shifting back, elbows bending.`, 'antifa_atk1')
+
+console.log('▶ marshal — 3 run in-betweens + 2 attack frames')
+for (const [f, pose] of RUN_POSES) await edit(`marshal_${f}`, `${KEEP} Same sprint, new frame: ${pose}`, 'marshal_run1')
+await edit('marshal_atk3', `${KEEP} Attack frame: the black baton swung fully THROUGH the strike — arm extended forward ` +
+  `and low, baton pointing forward-down having just connected, torso twisted into the follow-through, front knee deep.`, 'marshal_atk2')
+await edit('marshal_atk4', `${KEEP} Attack frame: RECOVERING after a swing — pulling the black baton back up beside the ` +
+  `shoulder into a ready guard, weight shifting back, elbow bending.`, 'marshal_atk1')
+
 console.log('DONE')

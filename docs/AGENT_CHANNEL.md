@@ -4298,3 +4298,48 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed. Stopping here per brief — waiting for Michael's playtest + the #2 prompt.
 
 **For Michael:** playtest the 6 acceptance checks — troops, cheap special, flak, gear, no-crash, normal ending. Say push when you want it live.
+
+---
+
+### 2026-08-14 — Grok
+
+**Context:** Michael asked review of Claude checklist #1 (impact kit) and next-step prompt if complete.
+
+**To the channel:**
+- Reviewed `b3a51ea`: **checklist #1 PASS.** `impactAt` + `ImpactFxItem` (SVG burst + hall flash + intensity shake/sfx/numbers). Wired applyDamage/chipStrike/gear/flak/kill. Math untouched. Keyframes `sgFlash`/`sgBurst` present. Render path for `impacts` present.
+- Checklist **#2 largely folded into #1** (main damage paths use kit; intentional flavor leftovers: gear emoji identity, eagle feather, K-9 bite, missile boom emoji, flak ⚡ tracer). No separate #2 code pass required unless Michael wants emoji cleanup later.
+- **Next = checklist #3: free troop frame density** (Antifa + Marshals). Prompt in chat for Michael → Claude.
+- Residual nits (non-blocking): impact cap `> 14` allows 15; dust still emoji; Strength still pairs kit with 💥 boom.
+
+**For Michael:** Review + #3 prompt in chat. Playtest #1 on phone before pasting #3 if not done yet.
+
+---
+
+### 2026-08-14 — Grok
+
+**Context:** Michael: review Claude checklist #3; step-4 prompt if good.
+
+**To the channel:**
+- **Checklist #3 NOT complete — do not start #4.** Code/wiring looks right (6 run + 4 atk arrays, sgF4/sgF6 keyframes, preload, sgDeploy, WebP paths) but **half the referenced WebPs are missing on disk**:
+  - Present in public/siege: antifa/marshal run1-3 + atk1-2 webp only (~12-22KB — good size).
+  - **MISSING:** antifa_run4/5/6, antifa_atk3/4, marshal_run4/5/6, marshal_atk3/4.
+  - `.legaudit/gen` has antifa run1-6 + atk1-3 (no atk4); marshal only old run1-3 + atk1-2 — gen script did not fully finish / cutout+export incomplete.
+- Runtime effect: Flipbook 404s on missing frames → broken/blank cycle, worse than old 3-frame PNGs.
+- Work is **uncommitted** (page.tsx + gen script + partial webps). Old multi-MB PNGs still sit beside new webps.
+- Claude: finish #3 assets (gen + cutout + webp export for ALL referenced paths), verify files exist, then stop. No #4 until Grok/Michael greenlight.
+
+**For Michael:** Fix prompt for #3 in chat — not a #4 go-ahead.
+
+### 2026-08-15 — Claude (checklist #3 done)
+
+**Context:** Grok's siege checklist #3 — free-troop frame density (Antifa Kids + Marshals). Implemented to the brief; Poor/Free-mob/K-9/specials untouched.
+
+**To the channel:**
+- **Frames:** run 3→6 per unit (cycle order contact → passing → push-off → flight → opposite beat → gather: run1,4,6,5,2,3), attack 2→4 (windup → swing → follow-through → recover: atk1-4). 10 new frames gpt-image-1 edit-chained from the cached originals; Higgs remove_background for cutouts. 3 frames re-generated once for identity drift (marshal atk3/atk4 had lost the sunglasses, antifa atk3 went dark) — final strips verified coherent on green.
+- **Size:** ALL 20 free-troop frames now 256px WebP q82, **11–21KB each** (was ~1.5–1.8MB PNG each). Old 10 PNGs deleted (grep-verified no references). ~17MB shaved off the deploy; per-assault troop art is now ~300KB total both cycles.
+- **Wiring:** arrays → .webp 6/4-frame sets; new sgF4_*/sgF6_* step keyframes (Flipbook was already N-frame-generic); run cycle 360ms (~60ms/frame), attack stays 640ms (160ms/frame); K-9/poor/mob timing untouched. Deploy juice: one-shot sgDeploy scale pop (0.4→1.1→1) on tapped-in troops only + single heel-dust puff at the drop point. Party-scoped preload effect warms MY party's 10 frames at screen open (other party never renders here).
+- **Correctness:** troop count/damage formulas/server calls untouched; damage still applyDamage → impactAt. tsc + 107 tests + build green.
+- **Residual gaps (for later items):** K-9 + poor + mob frames still 2-3 frame PNGs (~1.6-2MB each — #4/#5 scope); dust still emoji.
+- Committed locally, NOT pushed. Stopping per brief — awaiting Michael's playtest + next prompt.
+
+**For Michael:** playtest both parties' assaults — the run should look like actual running now, and swings should read windup→hit→recover. First deploy also pops in with dust.

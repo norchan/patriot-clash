@@ -94,10 +94,13 @@ const KILL_BASE = { march: 0.022, fight: 0.028 } // per 200ms tick
 
 // Party-true ground troops (Grok's siege brief 2026-08-06 — no more
 // ninja/soldier fantasy): Democrats field Antifa Kids, Republicans Marshals.
-const ANTIFA_RUN = ['/siege/antifa_run1.png', '/siege/antifa_run3.png', '/siege/antifa_run2.png']
-const ANTIFA_ATK = ['/siege/antifa_atk1.png', '/siege/antifa_atk2.png']
-const MARSHAL_RUN = ['/siege/marshal_run1.png', '/siege/marshal_run3.png', '/siege/marshal_run2.png']
-const MARSHAL_ATK = ['/siege/marshal_atk1.png', '/siege/marshal_atk2.png']
+// Checklist #3 (2026-08-14): 6-frame run cycle + 4-frame swing, 256px WebP
+// (~15-25KB/frame vs the old ~1.7MB PNGs). Cycle order: contact → passing →
+// push-off → flight → opposite beat → gather.
+const ANTIFA_RUN = ['/siege/antifa_run1.webp', '/siege/antifa_run4.webp', '/siege/antifa_run6.webp', '/siege/antifa_run5.webp', '/siege/antifa_run2.webp', '/siege/antifa_run3.webp']
+const ANTIFA_ATK = ['/siege/antifa_atk1.webp', '/siege/antifa_atk2.webp', '/siege/antifa_atk3.webp', '/siege/antifa_atk4.webp']
+const MARSHAL_RUN = ['/siege/marshal_run1.webp', '/siege/marshal_run4.webp', '/siege/marshal_run6.webp', '/siege/marshal_run5.webp', '/siege/marshal_run2.webp', '/siege/marshal_run3.webp']
+const MARSHAL_ATK = ['/siege/marshal_atk1.webp', '/siege/marshal_atk2.webp', '/siege/marshal_atk3.webp', '/siege/marshal_atk4.webp']
 // Free ground game per 100 FP assault (siege rework A2) — no unlimited spam;
 // pressure beyond this comes from owned gear and party specials
 const FREE_TROOPS = 5
@@ -545,6 +548,18 @@ function SiegePage() {
       .catch(() => {})
   }, [])
 
+  // Preload MY party's troop frames while the ready screen shows, so the
+  // first tap-deploy doesn't flicker through 10 cold loads (checklist #3).
+  // Only the player's own party — the other side's set never renders here.
+  useEffect(() => {
+    if (!profile?.party) return
+    for (const src of [...runFrames, ...atkFrames]) {
+      const im = new Image()
+      im.src = src
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.party])
+
   async function useGear(item: 'firecracker' | 'dynamite' | 'rocket') {
     const st = S.current
     if (!gym || boostBusy || st.ended || st.captured) return
@@ -884,6 +899,8 @@ function SiegePage() {
     }
     soldiersRef.current = [...soldiersRef.current, soldier]
     setSoldiers(soldiersRef.current)
+    // heel dust once at the drop point — pairs with the sgDeploy scale pop
+    addFx({ emoji: '💨', x0: sx, y0: (y / rect.height) * 100 + 1, x1: sx - 3, y1: (y / rect.height) * 100 + 3, size: 22, dur: 450 }, 500)
     sfx.whoosh?.()
     buzz(15)
   }
@@ -1063,6 +1080,9 @@ function SiegePage() {
           {s.state === 'poof' ? (
             <span style={{ fontSize: 26, animation: 'sgPoof 0.7s ease-out forwards' }}>💨</span>
           ) : (
+            // outer span: one-shot deploy pop for tapped-in troops (runs once
+            // on mount; specials spawn offscreen so they skip it)
+            <span className="block" style={{ animation: s.kind === 'troop' ? 'sgDeploy 0.22s ease-out' : undefined }}>
             <span className="block relative" style={{
               // dogs are long and low — wider box, shorter stance
               width: s.kind === 'k9' ? 76 : 56,
@@ -1078,8 +1098,12 @@ function SiegePage() {
                     : s.kind === 'k9'
                       ? (s.state === 'fight' ? K9_ATK : K9_RUN)
                       : (s.state === 'fight' ? atkFrames : runFrames)}
-                cycleMs={s.state === 'fight' ? 640 : s.kind === 'k9' ? 240 : 330}
+                // free troops: 6-frame sprint (~60ms/frame) + 4-frame swing
+                cycleMs={s.kind === 'troop'
+                  ? (s.state === 'fight' ? 640 : 360)
+                  : s.state === 'fight' ? 640 : s.kind === 'k9' ? 240 : 330}
               />
+            </span>
             </span>
           )}
         </div>
@@ -1295,6 +1319,17 @@ function SiegePage() {
         @keyframes sgF3_0 { 0%,32%{opacity:1} 33%,100%{opacity:0} }
         @keyframes sgF3_1 { 0%,32%{opacity:0} 33%,65%{opacity:1} 66%,100%{opacity:0} }
         @keyframes sgF3_2 { 0%,65%{opacity:0} 66%,100%{opacity:1} }
+        @keyframes sgF4_0 { 0%,24%{opacity:1} 25%,100%{opacity:0} }
+        @keyframes sgF4_1 { 0%,24%{opacity:0} 25%,49%{opacity:1} 50%,100%{opacity:0} }
+        @keyframes sgF4_2 { 0%,49%{opacity:0} 50%,74%{opacity:1} 75%,100%{opacity:0} }
+        @keyframes sgF4_3 { 0%,74%{opacity:0} 75%,100%{opacity:1} }
+        @keyframes sgF6_0 { 0%,16%{opacity:1} 17%,100%{opacity:0} }
+        @keyframes sgF6_1 { 0%,16%{opacity:0} 17%,33%{opacity:1} 34%,100%{opacity:0} }
+        @keyframes sgF6_2 { 0%,33%{opacity:0} 34%,49%{opacity:1} 50%,100%{opacity:0} }
+        @keyframes sgF6_3 { 0%,49%{opacity:0} 50%,66%{opacity:1} 67%,100%{opacity:0} }
+        @keyframes sgF6_4 { 0%,66%{opacity:0} 67%,83%{opacity:1} 84%,100%{opacity:0} }
+        @keyframes sgF6_5 { 0%,83%{opacity:0} 84%,100%{opacity:1} }
+        @keyframes sgDeploy { 0%{transform:scale(0.4)} 55%{transform:scale(1.1)} 100%{transform:scale(1)} }
       `}</style>
     </div>
   )
