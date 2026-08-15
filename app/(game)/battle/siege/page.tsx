@@ -113,8 +113,11 @@ const POOR_ATK = ['/siege/poor_atk1.webp', '/siege/poor_atk2.webp', '/siege/poor
 // K-9 Unit (Michael 2026-08-13, replaced the Statue of Liberty drop): a squad
 // of German Shepherds released at the hall. Dogs sprint faster than any
 // two-legged soldier — they get their own march time.
-const K9_RUN = ['/siege/k9_run1.png', '/siege/k9_run3.png', '/siege/k9_run2.png']
-const K9_ATK = ['/siege/k9_atk1.png', '/siege/k9_atk2.png']
+// Checklist #5 (2026-08-15): gallop 3→6 / bite 2→4, 256px WebP (~18-25KB vs
+// the old ~2MB PNGs). Gallop order: reach → contact → gather → push-off →
+// flight → opposite beat.
+const K9_RUN = ['/siege/k9_run1.webp', '/siege/k9_run4.webp', '/siege/k9_run3.webp', '/siege/k9_run6.webp', '/siege/k9_run5.webp', '/siege/k9_run2.webp']
+const K9_ATK = ['/siege/k9_atk1.webp', '/siege/k9_atk2.webp', '/siege/k9_atk3.webp', '/siege/k9_atk4.webp']
 const K9_MARCH_MS = 750
 
 // N-frame flipbook: stacked images alternating opacity via keyframes
@@ -555,12 +558,13 @@ function SiegePage() {
   // Preload MY party's troop frames while the ready screen shows, so the
   // first tap-deploy doesn't flicker through 10 cold loads (checklist #3).
   // Only the player's own party — the other side's set never renders here.
-  // Democrats also warm the Poor mob (their special); Republicans never
-  // load it (checklist #4).
+  // Each party also warms its own special's mob: Democrats the Poor (#4),
+  // Republicans the K-9 squad (#5). Neither downloads the other's.
   useEffect(() => {
     if (!profile?.party) return
     const warm = [...runFrames, ...atkFrames]
     if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK)
+    else warm.push(...K9_RUN, ...K9_ATK)
     for (const src of warm) {
       const im = new Image()
       im.src = src
@@ -1109,9 +1113,9 @@ function SiegePage() {
                     : s.kind === 'k9'
                       ? (s.state === 'fight' ? K9_ATK : K9_RUN)
                       : (s.state === 'fight' ? atkFrames : runFrames)}
-                // dense human cycles: 6-frame sprint (~60ms/frame) + 4-frame
-                // swing for troop/free/poor alike; only the dog runs faster
-                cycleMs={s.state === 'fight' ? 640 : s.kind === 'k9' ? 240 : 360}
+                // dense cycles: 6-frame sprint + 4-frame swing everywhere;
+                // the dog's 6-beat gallop stays snappier than the humans
+                cycleMs={s.state === 'fight' ? 640 : s.kind === 'k9' ? 280 : 360}
               />
             </span>
             </span>

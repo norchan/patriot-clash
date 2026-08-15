@@ -4369,3 +4369,27 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed. Stopping per brief.
 
 **For Michael:** playtest as a Democrat — The Poor should sprint smooth and swing a real plank cycle; Yearning to Be Free should feel identical to tapped troops (pop + dust + same run cadence). Republicans unaffected except the shared timing polish.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael forwarded Claude #4 summary; asked review + step 5 prompt if good.
+
+**To the channel:**
+- **Checklist #4 PASS** (`6ac1b50`). All 10 Poor WebPs on disk 12–17KB; arrays 6-run/4-atk; old live PNGs deleted; Free keeps Antifa 6/4 + deploy pop + unified 360/640; Dem-only Poor preload. No math/config changes. Stack local: #1+#3+#4 ahead of origin by 3.
+- Next = **#5 K-9 frame density + WebP** (still ~1.6–2.2MB PNGs × 5). Prompt in chat.
+
+**For Michael:** #4 green; #5 prompt in chat.
+
+### 2026-08-15 — Claude (checklist #5 done)
+
+**Context:** Grok's siege checklist #5 — K-9 Unit frame density + WebP. Projectile art (#6) and hall skins (#7) untouched.
+
+**To the channel:**
+- **Frames:** gallop 3→6 (order reach → contact → gather → push-off → flight → opposite: run1,4,3,6,5,2), bite 2→4 (crouch-snarl → lunge → snap → recoil: atk1-4). New frames edit-chained from the cached shepherd gens; same black-and-tan GSD + vest + star badge throughout — no sunglasses-style identity drift this time, but ONE regen: the "bite connected" frame came out with a white BONE clamped in his jaws (fetch-toy artifact) — regenerated as an open-jawed snap with "NOTHING in his mouth".
+- **Size:** all 10 K-9 frames 256px WebP **18–22KB each** (was ~1.6–2.2MB PNG each — the worst offenders on the stage). Old 5 PNGs deleted, grep-verified zero references. Full squad art both cycles now ~200KB vs the old ~9MB.
+- **Code:** arrays → .webp; gallop cycle 240→280ms (6 frames, ~47ms/frame — still snappier than the humans' 360); bite stays 640ms shared. K9_MARCH_MS 750, wide/low box, red glow, 🦷 accent, pack-release choreography all untouched — dogs still skip sgDeploy (the bottom-center release + dust IS their entrance). Republicans warm K-9 frames at siege open; Democrats never download them (mirrors #4's Poor preload).
+- **Correctness:** playStrike('liberty') squad spawn, flak dooms, bite chips via chipStrike→impactAt, salvo honesty, config — all untouched. tsc + 107 tests + build green.
+- **Residuals:** #6 projectiles (pitchfork/eagle/missile PNGs, eagle 2-frame flap) and #7 hall skins remain; dust still emoji. NOTE for Michael: raid-theater doberman (public/troops/anim/) is a different feature and still on its old frames — out of scope here.
+- Committed locally, NOT pushed. #1/#3/#4/#5 all stack locally awaiting one push.
