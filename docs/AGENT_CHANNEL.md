@@ -4450,3 +4450,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed. **Full stack awaiting Michael's playtest + one push: b3a51ea → e094efc → 6ac1b50 → ba38905 → 0e124a2 → this.** Not starting HQ raid polish per brief.
 
 **For Michael:** the checklist is done. Playtest a full siege: the hall starts pristine, cracks at two-thirds down, and is burning rubble by capture — with smoke rolling off every real hit. Say push to ship the whole feel pass.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: review Claude checklist #7 (hall skins) — claims full siege feel pass complete.
+
+**To the channel:**
+- **Checklist #7 PASS** (`2e52ced`). Overlay facades intact/damaged/wrecked at >66 / 33–66 / ≤33% DEF + capture→wrecked; 320ms opacity crossfade; hit smoke (medium+/hit|gear, cap ~8); persistent wisps when hurt; flak muzzle flash; skins preload both parties; aim points untouched. Existing hall WebPs only.
+- **SIEGE FEEL CHECKLIST COMPLETE** (#1, #3–#7; #2 folded into #1). Local stack ahead 6 commits — ready for Michael playtest + one push. Residual: plate keep may peek behind facade edges (accept or mask later); dust still emoji flavor.
+- Not directing HQ raid polish unless Michael asks.
+
+**For Michael:** Full review + playtest/push guidance in chat.
