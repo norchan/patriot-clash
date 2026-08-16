@@ -12,6 +12,7 @@ import {
 import { troopsForParty, troopById } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency } from '@/components/IsoYard'
+import { IdleFxItem } from '@/components/BaseIdleFx'
 
 // 🏠 CAMPAIGN HQ — the personal base, ISOMETRIC (Grok's presentation brief,
 // 2026-07-31: "must feel like CoC — not a flat CSS grid of emoji"). The 6×6
@@ -237,6 +238,7 @@ export default function HqPage() {
         mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: sp ? undefined : buildingDef(b.type)?.emoji,
         glow: banked > 0,
+        idle: b.type === 'doberman' ? 'dog' : undefined, // B3: he shifts his weight
         dead: damaged,   // post-raid rubble until the countdown (or a repair) clears it
         onTap: () => setSheet({ pad, building: b }),
         chip: damaged
@@ -256,6 +258,32 @@ export default function HqPage() {
   }
 
   const sparkles = SPARKLE_PADS.slice(0, house?.pickups ?? 0)
+
+  // ── B3 idle life: ambient loops + claim bubbles from state we already load ──
+  const idleFx: IdleFxItem[] = []
+  if (house) {
+    idleFx.push({ pad: HQ_PAD, kind: 'glow', dy: 66 })
+    if (house.hq_upgrade) idleFx.push({ pad: HQ_PAD, kind: 'upgrade' })
+    const ps = house.print_shop_pad ?? PRINT_SHOP_PAD
+    idleFx.push({ pad: ps, kind: 'smoke', dx: 20, dy: 112 })
+    if ((farm?.ready ?? 0) > 0) idleFx.push({ pad: ps, kind: 'ready', emoji: '🧨', dy: 130 })
+    for (const b of house.buildings ?? []) {
+      const damagedB = !!b.damaged_until && +new Date(b.damaged_until) > now
+      if (damagedB) continue // a broken building doesn't hum
+      if (b.upgrade) idleFx.push({ pad: b.pad, kind: 'upgrade' })
+      if (b.type === 'media_tower') {
+        idleFx.push({ pad: b.pad, kind: 'ping', dy: 146 })
+        if ((house.tower?.banked ?? 0) > 0) idleFx.push({ pad: b.pad, kind: 'ready', emoji: '⚡', dy: 170 })
+      }
+      if (b.type === 'solar') {
+        idleFx.push({ pad: b.pad, kind: 'glint', dy: 46 })
+        if ((house.solar?.banked ?? 0) > 0) idleFx.push({ pad: b.pad, kind: 'ready', emoji: '☀️', dy: 96 })
+      }
+      if (b.type === 'barracks' && (army?.queue?.length ?? 0) > 0) {
+        idleFx.push({ pad: b.pad, kind: 'dust', dx: -24, dy: 12 })
+      }
+    }
+  }
 
   // every empty cell is a legal landing spot (not the house, not occupied)
   const psPad = house?.print_shop_pad ?? PRINT_SHOP_PAD
@@ -326,7 +354,7 @@ export default function HqPage() {
     <div className="fixed inset-0 z-[60] bg-[#0d1512] text-gray-200 select-none">
       {/* the yard stops above the bottom nav — the bar stays (Michael) */}
       <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
-      <IsoYard cells={cells} bg="/house/yard_bg2.webp" validTargets={validTargets} movingFrom={moving}
+      <IsoYard cells={cells} bg="/house/yard_bg2.webp" idleFx={idleFx} validTargets={validTargets} movingFrom={moving}
         onMove={(f, t) => { setMoving(null); moveBuilding(f, t) }}>
         <IsoFenceLinks fencePads={fencePads} />
         {/* sparkle pickups + their pops, in stage coordinates */}

@@ -2,6 +2,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { GRID } from '@/config/house'
 import BaseStage from '@/components/BaseStage'
+import BaseIdleFx, { IdleFxItem } from '@/components/BaseIdleFx'
 import { TILE_W, TILE_H, STAGE_W, STAGE_H, ORIGIN_Y, isoPos, padAt, StageCameraApi } from '@/lib/base-stage'
 
 // ISOMETRIC YARD (Crown Jewel B1 rework).
@@ -39,6 +40,8 @@ export interface IsoCellSpec {
   onTap?: () => void
   /** press-and-hold lifts this sprite for drag-and-drop */
   movable?: boolean
+  /** ambient sprite idle (B3): flags sway, the dog shifts his weight */
+  idle?: 'sway' | 'dog'
 }
 
 /** CONNECTED FENCES, done as geometry instead of guesswork (Michael
@@ -129,8 +132,10 @@ export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
   )
 }
 
-export default function IsoYard({ cells, bg, children, onMove, validTargets, movingFrom, onStageTap }:
+export default function IsoYard({ cells, bg, children, onMove, validTargets, movingFrom, onStageTap, idleFx }:
   { cells: IsoCellSpec[]; bg?: string; children?: ReactNode
+    /** ambient life overlays (B3) — smoke, glints, claim bubbles, upgrade FX */
+    idleFx?: IdleFxItem[]
     /** called after a successful drag-and-drop OR tap-to-place in move mode */
     onMove?: (fromPad: number, toPad: number) => void
     /** cells a lifted building may land on */
@@ -291,6 +296,12 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                     width: c.imgW ?? 120,
                     left: 0, top: TILE_H * 0.28,
                     transform: `translate(-50%, -100%)${c.mirror ? ' scaleX(-1)' : ''}`,
+                    transformOrigin: '50% 100%',
+                    // sprite-level idle (B3): keyframes carry the full base
+                    // transform so the bottom anchor never drifts
+                    animation: c.idle && !c.dead && movingFrom !== c.pad && drag?.from !== c.pad
+                      ? `${c.idle === 'sway' ? (c.mirror ? 'bsSwayM' : 'bsSway') : (c.mirror ? 'bsDogM' : 'bsDog')} ${c.idle === 'sway' ? '3.4s' : '4.2s'} ease-in-out infinite`
+                      : undefined,
                     opacity: drag?.from === c.pad ? 0.25 : c.dead ? 0.8 : undefined,
                     filter: c.dead
                       // CHARRED (art bible §7): the building stands, burned —
@@ -358,6 +369,9 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
               }} />
           )
         })()}
+        {/* ambient life layer — always mounted so the bs* keyframes exist
+            for the sprite idles even when no overlay items are passed */}
+        <BaseIdleFx items={idleFx ?? []} />
         {children}
       </div>
     </BaseStage>

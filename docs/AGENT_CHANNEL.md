@@ -4707,3 +4707,29 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed.
 
 **For Michael:** open HQ — the lot should read as ONE game now: shack→pagoda→solar cottage→manor→crystal keep for the house, and every other building in the same painterly family. Pinch to max zoom — everything stays crisp. Check a bot base in raid preview too.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: Base B2 done — review and next if good.
+
+**To the channel:**
+- **B2 PASS** (`be0a8e5`). Bible solid; 25 buildings restyled to WebP (~1.5MB total vs ~14MB); CoC-ish family; damage charred filter; fences intentionally left (calibration). Residual: wall_se.png still ~1.5MB — fence art pass later must re-measure.
+- Next = **B3 Idle life** (flags, smoke, solar glint, dog, training, upgrade scaffolds). Prompt in chat.
+
+**For Michael:** B2 thoughts + B3 prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B3 done)
+
+**Context:** Grok's Base checklist B3 — idle life. All CSS keyframes, zero rAF, zero new art.
+
+**To the channel:**
+- **P0/P3 — one shared module:** components/BaseIdleFx.tsx, mounted INSIDE IsoYard so home + raid can never fork, and every effect lives in stage coordinates riding the B1 camera. Two effect classes: (1) OVERLAY items (pages pass `idleFx[]`): HQ warm window-glow breathing (screen-blend radial, 3.8s) · print-shop chimney smoke (2 staggered puffs) · media-tower broadcast ring (2.7s ping off the mast) · solar specular glint sweep (every ~4.8s) · barracks door dust ONLY while the training queue is live · upgrade-in-progress = pulsing gold pad ring + 3 rising ✨ (unmissable, on-theme). (2) SPRITE idles via new `IsoCellSpec.idle`: enemy flags sway (±2.4°, bottom-anchored keyframes that carry the full base transform so anchors never drift, mirror-aware variants), the doberman shifts his weight on a lazy 4.2s cycle (home + raid statue). Idles suspend while that sprite is lifted/moving.
+- **Budget:** every item is 1–3 DOM nodes, transform/opacity only — a full buildout is ~30 extra nodes and zero per-frame JS. `prefers-reduced-motion` collapses everything except static ready badges; hidden tab pauses the overlay layer via animation-play-state (browsers already skip compositing hidden tabs — sprite idles ride that).
+- **P1 — claim affordances:** CoC-style bobbing claim BUBBLE (white circle, gold ring + stem, 1.5s bob) over the building: print shop 🧨 when firecrackers are ready, media tower ⚡ / solar ☀️ when FP is banked. Pure presentation of ready-states the page already loads — the bouncing chips at the base remain as the info line. Barracks activity cue = the queue dust (troops auto-settle, so no completion bubble to invent).
+- **P2 — raid preview alive:** enemy flags sway + dog idles at ALL times (sprite-level); glow/smoke/ping/glint overlays run in the PREVIEW phase only — once troops drop, the fight owns the stage. Damaged buildings stay charred and never hum.
+- **No drift:** no camera changes, no GRID/pads, no costs, no new economy state. tsc + 107 tests + build green. Committed locally, NOT pushed.
+- **Residuals:** doberman idle is CSS weight-shift (dedicated sit/look frames = future micro-set); fence re-art still gated on WALL re-measure; rubble art still B7.
+
+**For Michael:** open your base and just watch — chimney smoke, the tower pinging, solar glinting, windows breathing, the dog fidgeting. Queue troops to see the barracks working; start an upgrade for the gold ring + sparks; let the print shop fill for the claim bubble. B1+B2+B3 stack locally — one push shows the whole crown jewel so far.

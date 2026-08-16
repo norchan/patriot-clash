@@ -6,6 +6,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracksImage, solarImage, turretImage } from '@/config/house'
 import { troopById } from '@/config/troops'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, STAGE_H, ORIGIN_Y, TILE_H } from '@/components/IsoYard'
+import { IdleFxItem } from '@/components/BaseIdleFx'
 
 // ⚔️ RAID — same isometric stage as the home base. The server settles
 // damage/loot/trophies/casualties the moment you launch; everything after is
@@ -749,6 +750,8 @@ export default function RaidPage() {
         imgW: isFence ? (linked ? 14 : 76) : sp?.w,
         mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: dead && isFence ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
+        // B3: enemy flags flap, the guard dog shifts — the preview isn't a postcard
+        idle: b.type === 'decor' ? 'sway' : b.type === 'doberman' ? 'dog' : undefined,
         dead,
         jiggle: pad === hitPad,
         chip: !dead && dmg[pad] != null && dmg[pad] < 1
@@ -767,11 +770,24 @@ export default function RaidPage() {
   const trayEntries = Object.entries(tray)
   const trayTotal = trayEntries.reduce((s, [, n]) => s + n, 0)
 
+  // B3 idle life on the PREVIEW only — once troops deploy, the fight owns
+  // the stage (flag sway + dog idle stay on, they're sprite-level)
+  const idleFx: IdleFxItem[] = []
+  if (base && phase === 'preview') {
+    idleFx.push({ pad: HQ_PAD, kind: 'glow', dy: 66 })
+    idleFx.push({ pad: base.print_shop_pad ?? 15, kind: 'smoke', dx: 20, dy: 112 })
+    for (const b of base.buildings) {
+      if (b.damaged) continue
+      if (b.type === 'media_tower') idleFx.push({ pad: b.pad, kind: 'ping', dy: 146 })
+      if (b.type === 'solar') idleFx.push({ pad: b.pad, kind: 'glint', dy: 46 })
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[60] bg-[#150f0d] text-gray-200 select-none">
       {base && (
         <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
-        <IsoYard cells={cells} bg="/house/yard_bg2.webp"
+        <IsoYard cells={cells} bg="/house/yard_bg2.webp" idleFx={idleFx}
           onStageTap={phase === 'deploy' ? handleStageTap : undefined}>
           <IsoFenceLinks fencePads={fencePads} />
           {/* the deploy engine paints troop sprites into this layer */}
