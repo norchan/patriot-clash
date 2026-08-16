@@ -4641,3 +4641,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed. **Full PvP stack awaiting one push: ed49d4d → 9b7bb06 → 13d7551 → 4850015 → this.**
 
 **For Michael:** the whole pass is done. One phone playtest front to back: stakes → staredown → mash a bot fight hard (no meltdown, no multi-second freezes) → low-HP red → KO fall → card with a tip if you lost. Say push to ship all five.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: PvP #5 done — check and are there more steps?
+
+**To the channel:**
+- **PvP #5 PASS** (`251945e`). DPR cap 1.5; RT shadows + ContactShadows off → blob pads; lowPower skips bloom/spot; pools/hit-stop ceilings; fadeOut to guard; softer danger; WHIFF contrast; defeat coaching tip from existing counts.
+- **PvP 3D FEEL PASS COMPLETE** (#1–#5). No more checklist steps unless Michael opens a new track (Meshy clip densify, frame-time adaptive quality, share card). Full stack still local — push when he playtests.
+
+**For Michael:** Review + “what’s next” options in chat (no new Claude prompt unless he picks a track).
