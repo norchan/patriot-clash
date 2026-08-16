@@ -77,9 +77,15 @@ const TURRET_SHOT_SECS = [1.8, 1.5, 1.2]   // per level, faster guns up top
 const TURRET_DMG = [7, 10, 13]             // troop hp per hit, per level
 const frameSrc = (id: string, f: string) => `/troops/anim/${id}_${f}.png`
 
+// ONE shared AudioContext (B4 perf fix): the old version constructed a brand
+// new AudioContext for EVERY blip — dozens per raid, each one leaking a
+// audio graph until GC. Lazy singleton, resumed on demand.
+let popCtx: AudioContext | null = null
 function pop(freq = 220) {
   try {
-    const ac = new (window.AudioContext || (window as any).webkitAudioContext)()
+    if (!popCtx) popCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    if (popCtx.state === 'suspended') popCtx.resume().catch(() => {})
+    const ac = popCtx
     const o = ac.createOscillator(); const g = ac.createGain()
     o.type = 'square'; o.frequency.value = freq
     g.gain.setValueAtTime(0.08, ac.currentTime)
@@ -134,6 +140,7 @@ export default function RaidPage() {
   const hitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoRef = useRef(false)
   const deployRef = useRef<((type: string, x: number, y: number) => void) | null>(null)
+  const stageWrapRef = useRef<HTMLDivElement>(null) // B4: transform-only stage shake target
 
   const isRep = (p?: string) => p === 'republican'
 
@@ -185,7 +192,8 @@ export default function RaidPage() {
 
   function addFloat(f: { pad?: number; sx?: number; sy?: number; text: string; spark?: boolean }, life = 900) {
     const id = ++floatId.current
-    setFloats(fl => [...fl, { id, jx: f.spark ? Math.random() * 30 - 15 : 0, ...f }])
+    // hard cap (B4): a full army + turrets + dog can't flood the DOM
+    setFloats(fl => fl.length > 16 ? fl : [...fl, { id, jx: f.spark ? Math.random() * 30 - 15 : 0, ...f }])
     setTimeout(() => setFloats(fl => fl.filter(x => x.id !== id)), life)
   }
 
@@ -285,6 +293,90 @@ export default function RaidPage() {
       hitTimer.current = setTimeout(() => setHitPad(null), 260)
     }
 
+    // ═══ RAID IMPACT KIT (B4) — one hit language for the whole theater ══════
+    // Presents outcomes the engine/server already decided. Imperative DOM
+    // into the troop layer (same pattern as the sprites — no React churn),
+    // hard-capped bursts, 70ms sound throttles, transform-only stage shake.
+    const fxLive = { bursts: 0 }
+    const sndAt = { thud: 0, tick: 0 }
+    const kitSnd = (ch: 'thud' | 'tick', freq: number) => {
+      const now = performance.now()
+      if (now - sndAt[ch] < 70) return
+      sndAt[ch] = now
+      pop(freq)
+    }
+    const kitShake = (big = false) => {
+      const el = stageWrapRef.current
+      if (!el) return
+      el.style.animation = 'none'
+      void el.offsetWidth // restart the keyframe (rare events only — breaches)
+      el.style.animation = `${big ? 'rdShakeBig' : 'rdShake'} ${big ? 0.38 : 0.2}s ease-in-out`
+    }
+    const kitBurst = (x: number, y: number, color: string, size: number, ring = false) => {
+      if (fxLive.bursts >= 12) return // hard cap — combo spam can't flood the DOM
+      fxLive.bursts++
+      const rot = Math.random() * 0.8
+      let lines = ''
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + rot
+        const r1 = i % 2 === 0 ? 44 : 31
+        lines += `<line x1="${(Math.cos(a) * 12).toFixed(1)}" y1="${(Math.sin(a) * 12).toFixed(1)}" x2="${(Math.cos(a) * r1).toFixed(1)}" y2="${(Math.sin(a) * r1).toFixed(1)}" stroke="${color}" stroke-width="${i % 2 === 0 ? 7 : 5}" stroke-linecap="round"/>`
+      }
+      const el = document.createElement('div')
+      el.style.cssText = `position:absolute;left:${x}px;top:${y}px;z-index:1520;pointer-events:none;animation:rdBurst .38s ease-out forwards`
+      el.innerHTML = `<svg width="${size}" height="${size}" viewBox="-50 -50 100 100" style="display:block;filter:drop-shadow(0 0 6px ${color})">` +
+        (ring ? `<circle r="46" fill="none" stroke="rgba(255,250,220,0.85)" stroke-width="5"/>` : '') +
+        lines + `<circle r="14" fill="${color}" opacity="0.45"/><circle r="8" fill="#fff" opacity="0.9"/></svg>`
+      layer.appendChild(el)
+      setTimeout(() => { el.remove(); fxLive.bursts-- }, 400)
+    }
+    const kitFlash = (x: number, y: number, w: number) => {
+      const el = document.createElement('div')
+      el.style.cssText = `position:absolute;left:${x - w / 2}px;top:${y - w / 2}px;width:${w}px;height:${w}px;` +
+        `z-index:1510;pointer-events:none;border-radius:50%;mix-blend-mode:screen;` +
+        `background:radial-gradient(circle, rgba(255,252,235,0.85) 0%, rgba(255,244,200,0.3) 45%, transparent 72%);` +
+        `animation:rdFlashFade .2s ease-out forwards`
+      layer.appendChild(el)
+      setTimeout(() => el.remove(), 220)
+    }
+    type RaidFxKind = 'chip' | 'breach' | 'muzzle' | 'troopHit' | 'troopDeath' | 'deploy'
+    const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean }) => {
+      switch (o.kind) {
+        case 'chip': // troop swing lands on a building/fence
+          kitBurst(o.x, o.y - 42, '#fbbf24', 46)
+          if (o.pad != null) hitFlash(o.pad)
+          kitSnd('tick', 320 + Math.random() * 160); buzz(12)
+          break
+        case 'breach': // building/fence goes DOWN — the big beat
+          kitBurst(o.x, o.y - 30, '#fde047', o.heavy ? 104 : 78, true)
+          kitFlash(o.x, o.y - 30, o.heavy ? 150 : 110)
+          kitShake(!!o.heavy)
+          if (o.text) addFloat({ pad: o.pad, text: o.text }) // loot popcorn rides the kit
+          addFloat({ sx: o.x, sy: o.y - 6, text: '💨', spark: true }, 500) // rubble dust (kit-swappable)
+          kitSnd('thud', 150 + Math.random() * 100); buzz(o.heavy ? 40 : 30)
+          break
+        case 'muzzle': // turret fires
+          kitFlash(o.x, o.y, 34)
+          kitSnd('tick', 700 + Math.random() * 200); buzz(8)
+          break
+        case 'troopHit': // turret round / dog teeth land on a troop
+          kitBurst(o.x, o.y - 46, '#f87171', 36)
+          if (o.text) addFloat({ sx: o.x, sy: o.y - 52, text: o.text, spark: true }, 380)
+          kitSnd('tick', 600); buzz(12)
+          break
+        case 'troopDeath':
+          kitBurst(o.x, o.y - 40, '#cbd5e1', 52)
+          addFloat({ sx: o.x, sy: o.y - 44, text: '💀', spark: true }, 700)
+          kitSnd('thud', 120); buzz(25)
+          break
+        case 'deploy': // boots hit the grass
+          addFloat({ sx: o.x, sy: o.y - 20, text: '⬇️', spark: true }, 500)
+          addFloat({ sx: o.x - 8, sy: o.y - 2, text: '💨', spark: true }, 400)
+          kitSnd('tick', 500); buzz(15)
+          break
+      }
+    }
+
     const killTarget = (ti: number) => {
       const tg = targets[ti]
       tg.dead = true
@@ -300,8 +392,7 @@ export default function RaidPage() {
       else statsRef.current.buildings++
       setSmashed(prev => { const n = new Set(prev); n.add(tg.pad); return n })
       if (chunk > 0) setLootShown(v => v + chunk)
-      addFloat({ pad: tg.pad, text: chunk > 0 ? `+${chunk} FP` : '💥' })
-      pop(150 + Math.random() * 100); buzz(30)
+      raidFx({ kind: 'breach', x: tg.x, y: tg.y, pad: tg.pad, text: chunk > 0 ? `+${chunk} FP` : undefined, heavy: !tg.isFence })
     }
 
     const paint = (tr: Trooper, lungeX = 0, lungeY = 0) => {
@@ -427,8 +518,7 @@ export default function RaidPage() {
     const dieTroop = (tr: Trooper) => {
       tr.state = 'dead'
       tr.root.style.opacity = '0'
-      addFloat({ sx: tr.x, sy: tr.y - 44, text: '💀', spark: true }, 700)
-      pop(120); buzz(25)
+      raidFx({ kind: 'troopDeath', x: tr.x, y: tr.y })
       setTimeout(() => tr.root.remove(), 400)
     }
 
@@ -475,8 +565,7 @@ export default function RaidPage() {
       pickTarget(tr)
       paint(tr)
       troops.push(tr)
-      addFloat({ sx: x, sy: y - 20, text: '⬇️', spark: true }, 500)
-      pop(500); buzz(15)
+      raidFx({ kind: 'deploy', x, y })
     }
 
     const engine = { raf: 0, alive: true }
@@ -549,9 +638,7 @@ export default function RaidPage() {
             if (!tg.dead) {
               tg.hp -= 1
               setDmg(prev => ({ ...prev, [tg.pad]: Math.max(0, tg.hp) / tg.maxHp }))
-              addFloat({ pad: tg.pad, text: '💥', spark: true }, 420)
-              hitFlash(tg.pad)
-              pop(320 + Math.random() * 160); buzz(12)
+              raidFx({ kind: 'chip', x: tg.x, y: tg.y, pad: tg.pad })
               if (tg.hp <= 0) killTarget(tr.target)
             }
           }
@@ -588,11 +675,11 @@ export default function RaidPage() {
         tu.cd = TURRET_SHOT_SECS[tu.level - 1]
         const v = living[Math.floor(Math.random() * living.length)]
         fireTracer(tu.x, tu.y, v.x, v.y - 40)
-        pop(700 + Math.random() * 200); buzz(8)
+        raidFx({ kind: 'muzzle', x: tu.x, y: tu.y })
         const victim = v
         setTimeout(() => {
           if (victim.state === 'walk' || victim.state === 'attack') {
-            addFloat({ sx: victim.x, sy: victim.y - 52, text: '💥', spark: true }, 380)
+            raidFx({ kind: 'troopHit', x: victim.x, y: victim.y, text: '💥' })
             hurtTroop(victim, TURRET_DMG[tu.level - 1])
           }
         }, 140)
@@ -666,8 +753,7 @@ export default function RaidPage() {
               paintDog(((v.x - dog.x) / Math.max(1, d)) * lunge * 10, ((v.y - dog.y) / Math.max(1, d)) * lunge * 10)
               if (dog.biteT >= DOG_BITE_SECS) {
                 dog.biteT = 0
-                addFloat({ sx: v.x, sy: v.y - 50, text: '🦷', spark: true }, 420)
-                pop(600); buzz(14)
+                raidFx({ kind: 'troopHit', x: v.x, y: v.y, text: '🦷' })
                 hurtTroop(v, DOG_BITE_DMG)
                 // they fight back — the dog wears down, then RUNS (never dies)
                 dog.hp -= DOG_WEAR
@@ -786,7 +872,7 @@ export default function RaidPage() {
   return (
     <div className="fixed inset-0 z-[60] bg-[#150f0d] text-gray-200 select-none">
       {base && (
-        <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
+        <div ref={stageWrapRef} className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
         <IsoYard cells={cells} bg="/house/yard_bg2.webp" idleFx={idleFx}
           onStageTap={phase === 'deploy' ? handleStageTap : undefined}>
           <IsoFenceLinks fencePads={fencePads} />

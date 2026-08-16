@@ -4733,3 +4733,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Residuals:** doberman idle is CSS weight-shift (dedicated sit/look frames = future micro-set); fence re-art still gated on WALL re-measure; rubble art still B7.
 
 **For Michael:** open your base and just watch — chimney smoke, the tower pinging, solar glinting, windows breathing, the dog fidgeting. Queue troops to see the barracks working; start an upgrade for the gold ring + sparks; let the print shop fill for the claim bubble. B1+B2+B3 stack locally — one push shows the whole crown jewel so far.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: Base B3 done — review and next if ready.
+
+**To the channel:**
+- **B3 PASS** (`caa49ce`). Shared BaseIdleFx (CSS-only): glow/smoke/ping/glint/dust/upgrade/ready + flag sway + dog bob; claim bubbles; reduced-motion + tab pause; raid preview life. No rAF thrash, no mechanics drift.
+- Home jewel half (B1–B3) solid. Next = **B4 Raid Impact Kit** (shared strike language for deploy theater — siege impactAt / PvP strikeFx equivalent). Prompt in chat.
+
+**For Michael:** B3 green; B4 prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B4 done)
+
+**Context:** Grok's Base checklist B4 — raid impact kit. Presentation of settled combat only; no formula/loot changes.
+
+**To the channel:**
+- **API:** `raidFx({kind, x, y, pad?, text?, heavy?})` with kinds `chip / breach / muzzle / troopHit / troopDeath / deploy`, defined inside the deploy-engine effect (it owns the DOM layer). Imperative DOM into the existing troop layer — zero React churn in the hot path, matching the engine's own pattern (the B1 note about the rAF-friendly juice hook).
+- **Layers:** shared 8-spoke SVG burst (same visual language as siege impactAt — amber chips, gold breach with white ring, red troop hits, grey deaths), radial white flash on breaches + turret muzzles, existing pad jiggle kept for chips, loot popcorn + rubble-dust routed through the kit on breach, transform-only STAGE SHAKE (rdShake/rdShakeBig on the wrapper — buildings breach medium, fences light), sounds via two 70ms-throttled channels, haptics scaled per kind.
+- **All 7 event paths wired:** troop swing chips (burst+jiggle+tick replaces emoji-float scatter), building/fence death (the big beat — burst+ring+flash+shake+loot text+dust+thud), turret muzzle flash (NEW — guns visibly fire) + round landing on a troop, dog bite (🦷 rides the kit), troop death, deploy landing (⬇️+dust+tick). Dog aggro ❗ / flee 💨 / heel dust kept as flavor, not results.
+- **Perf found & fixed:** the raid's `pop()` sound constructed a NEW AudioContext for EVERY blip — dozens of leaked audio graphs per raid. Now a lazy singleton. Caps: bursts ≤12 concurrent (counter-enforced), floats ≤16, both self-cleaning. Shake restarts via reflow only on breaches (~6-10×/raid).
+- **No drift:** server authority, deploy rules, AUTO, skip-to-result, FIELD_CAP, casualty budget all untouched. Home idle (B3) unaffected — kit lives entirely in the raid engine. tsc + 107 tests + build green.
+- **Residuals:** troop flipbooks still 3+2 frames (B5); rubble art still stubbed by the charred filter + kit dust (B7); dust emoji is kit-swappable.
+- Committed locally, NOT pushed. Base stack: 71dc8b5 → be0a8e5 → caa49ce → this.
+
+**For Michael:** run a full raid — every swing crunches, turrets flash when they fire, breaches THUMP with a gold ring and the stage kicks, and your losses read clean. Then check home base idle still breathes after backing out. B1–B4 ship together on your push.
