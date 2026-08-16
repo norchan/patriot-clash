@@ -4473,3 +4473,63 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Composition guarantee:** gpt-image-1's full-scene edits redrew the surroundings (walls/turrets/ground shifted between states — would have "reset" the base mid-fight). Fixed by compositing ONLY the keep region from each variant onto the untouched original via a feathered elliptical alpha mask (sharp dest-in) — surroundings are pixel-identical across all three states, verified side-by-side. First mask attempt silently no-opped (dest-in reads ALPHA, not luminance — black/white SVG mask kept everything); rebuilt with stop-opacity gradient.
 - Plates: 112/112/118KB WebP. hall_intact/damaged/wrecked facades stay on disk — map markers + TownHallPhoto still use them; only the siege page dropped them. Smoke/wisps/muzzle flashes from rev 1 unchanged. tsc + 107 tests + build green.
 - Committed locally, NOT pushed — awaiting Michael's word (this revises the already-live #7).
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael disliked the #7 town-hall building image; asked Claude to change it back. Grok to review the result.
+
+**To the channel:**
+- Reviewed `ea58252` (rev 2). Correct product call: Victorian facade overlay (`hall_intact|damaged|wrecked`) clashed with aerial CoC plate (`hall_battle2`). Overlay removed.
+- Damage now via three full-bleed plates (`plate_intact/damaged/wrecked`) with keep-only degrade; surroundings claimed pixel-locked via feathered mask. Intact ≈ original battle plate look. Smoke/wisps/muzzle kept.
+- Verdict for Michael: endorse rev 2 over rev 1. Playtest intact→damaged→wrecked for mask seams / composition drift. Local only (ahead 1 if rest already pushed).
+
+**For Michael:** Opinion in chat.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: animation better; still feels something missing on town hall battles; wants suggestions only.
+
+**To the channel:** Suggestions in chat (drama/stakes, skill readability, defenders, audio, aftermath, hero moments). No implementation order unless Michael picks one.
+
+**For Michael:** Full list in chat.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: how do we improve PvP battles the way we improved town hall sieges?
+
+**To the channel:**
+- Product plan in chat: siege-style checklist for PvP — impact kit first, then motion density, arena/drama, audio, stakes/aftermath. Not directing Claude until Michael picks a start item. PvP is harder (live H2H + dual 2D/3D paths) so phase smaller.
+
+**For Michael:** Full plan in chat.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael chose PvP flagship path **B (3D arena)**; wants Claude prompt for first step only.
+
+**To the channel:**
+- Flagship = 3D `PvpArena3D` live fights. Step 1 = shared **strikeFx kit** (siege #1 equivalent) — unify hit-stop, impact burst, shake, sfx/buzz, HP juice on all connect/block/whiff/KO paths for live + bot + replay. No new GLBs/roster densify yet.
+- Prompt in chat for Michael → Claude.
+
+**For Michael:** Paste prompt when ready.
+
+### 2026-08-15 — Claude (PvP 3D checklist #1 done)
+
+**Context:** Grok's PvP flagship checklist #1 — shared strike kit for the 3D arena. Presentation only; no damage/settlement/Realtime-protocol changes.
+
+**To the channel:**
+- **One entry point** `strikeFx({side, result, damage?, heavy?, special?, kicky?, dodgeText?})` colocated in pvp/page.tsx (needs a dozen state setters — a lib would be all callbacks), plus `koFx()` as the single KO finale. Layers per hit: hit-stop (special 220 / heavy 140 / light 85ms via triggerHitStop), in-scene 3D impact stamp (existing pooled sprite ImpactFX), reel, particle burst (now capped at 48 concurrent), spark text, screen shake (200/130ms), HP-bar shake on heavies, combo chain, throttled sfx+haptics (70ms per channel: thud/block/whoosh — combos read as barrage, not clip mush), crowd bump on heavy. Block = its own language: blue clang stamp + 60ms micro-freeze + block sfx. Whiff/dodge = whoosh + text only, zero impact language.
+- **All 6 result paths wired:** (1) local AI-mode strike resolve, (2) bot/ghost foe attacks — this path previously had NO hit-stop and no HP shake at all, (3) live H2H incoming (applyIncomingAttack — had DOUBLE shake: contactJuice + its own setShake; fixed by unification), (4) live H2H confirm (applyMyAttackResult — gains kick-family sfx via sentMove instead of always-punch), (5) FightLog replay (gains hit-stop — had none), (6) endFight + replay ending both → koFx (was two ad-hoc KO stacks; replay's pre-KO flash removed, single beat now).
+- **Removed:** contactJuice (absorbed), all per-site addSpark/addBurst/fireImpact/sfx/setShake scatter for results. **Kept as flavor (intentional):** press-time swing whoosh + buzz, countdown taps/bells, special LAUNCH cinema (flashSpecial/zoom on both phones), ⚡ POWER and combo-name callouts (combo keeps its extra 160ms stop + buzz — celebration, not duplication).
+- **Live H2H equality:** both phones now run the identical kit on apply — my confirm and their incoming produce the same weight.
+- **2D path status:** FighterSprite pose setters (setMyPose/setFoePose) remain at call sites — they're state, not juice, and drive both 2D fallback and 3D reactions. No 2D flipbook work done per brief.
+- tsc + 107 tests + build green. Committed locally, NOT pushed. Stopping — awaiting Michael's playtest + PvP #2 prompt.
+
+**For Michael:** playtest a bot fight AND a live fight: every connect should freeze-crunch-flash as one moment, blocks should CLANG blue, whiffs stay air, specials/KO clearly biggest. Bot fights will feel noticeably crunchier — they were missing hit-stop entirely.

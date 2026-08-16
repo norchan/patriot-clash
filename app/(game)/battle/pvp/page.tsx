@@ -415,7 +415,8 @@ function StreetFightPage() {
         size: heavy ? 6 + Math.random() * 5 : 3.5 + Math.random() * 3.5,
       })
     }
-    setParticles(p => [...p, ...burst])
+    // cap concurrent particles — spammed combos must not flood the DOM
+    setParticles(p => p.length > 48 ? p : [...p, ...burst])
     const ids = new Set(burst.map(b => b.id))
     setTimeout(() => setParticles(p => p.filter(x => !ids.has(x.id))), 700)
   }
@@ -489,17 +490,10 @@ function StreetFightPage() {
           setTimeout(() => setKoFlash(false), 300)
           setTimeout(() => setZoom(false), 900)
         }
+        const side = iAttack ? 'opp' as const : 'player' as const
         if (ev.result === 'hit') {
           setDefPose('hit')
-          reel(iAttack)
-          addBurst(iAttack, heavy)
-          fireImpact(iAttack ? 'opp' : 'player', ev.move === 'special' ? 'special' : heavy ? 'heavy' : 'light')
-          addSpark(iAttack, `-${ev.dmg}`, iAttack ? '#facc15' : '#f87171')
-          if (ev.move === 'kick') sfx.kick()
-          else sfx.punch(heavy)
-          if (ev.dmg >= 14 || heavy) { bumpCrowd(); sfx.crowd(0.4) }
-          setShake(true)
-          setTimeout(() => setShake(false), heavy ? 220 : 150)
+          strikeFx({ side, result: 'hit', damage: ev.dmg, heavy, special: ev.move === 'special', kicky: ev.move === 'kick' || ev.move === 'jumpkick' })
           if (ev.comboLen > 1) {
             comboHits = ev.comboIndex + 1
             if (comboHits > 1) {
@@ -509,13 +503,10 @@ function StreetFightPage() {
           }
         } else if (ev.result === 'blocked') {
           setDefPose('block')
-          fireImpact(iAttack ? 'opp' : 'player', 'block')
-          addSpark(iAttack, 'BLOCK', '#93c5fd')
-          sfx.block()
+          strikeFx({ side, result: 'blocked' })
         } else {
           setDefPose('dodge')
-          addSpark(iAttack, 'MISS', '#9ca3af')
-          sfx.whoosh()
+          strikeFx({ side, result: 'dodged', dodgeText: 'MISS' })
         }
         // HP from my perspective
         setMyHp(me === 'c' ? ev.chp : ev.dhp)
@@ -539,23 +530,15 @@ function StreetFightPage() {
     }, 200)
     timers.push(clockIv as unknown as ReturnType<typeof setTimeout>)
 
-    // Ending — KO gets flash-frame + camera punch-in before the fall
+    // Ending — the KIT's single KO path (hit-stop + flash + zoom + roar)
     const endAt = t0 + fight.endT * 1000
-    if (fight.endedBy === 'ko') {
-      schedule(endAt - 150, () => {
-        setKoFlash(true)
-        setZoom(true)
-        setTimeout(() => setKoFlash(false), 320)
-      })
-    }
     schedule(endAt, () => {
       const iWonFight = fight.winner === me
       setBanner(fight.endedBy === 'ko' ? 'K.O.!' : 'TIME!')
       if (iWonFight) { setMyPose('victory'); setFoePose('ko') }
       else { setMyPose('ko'); setFoePose('victory') }
-      if (fight.endedBy === 'ko') sfx.ko()
-      else sfx.bell(false)
-      bumpCrowd()
+      if (fight.endedBy === 'ko') koFx()
+      else { sfx.bell(false); bumpCrowd() }
       clearInterval(clockIv)
       setClock(fight.endedBy === 'ko' ? Math.max(0, 30 - Math.floor(fight.endT)) : 0)
     })
@@ -737,28 +720,19 @@ function StreetFightPage() {
       const guarding = S.blockHeld || S.blocking
       if (outOfRange || now < S.dodgeUntil || S.ducking || S.airborne) {
         result = 'dodged'
-        addSpark(false, outOfRange ? 'WHIFF' : 'DODGED!', outOfRange ? '#9ca3af' : '#4ade80')
-        sfx.whoosh()
+        strikeFx({ side: 'player', result: 'dodged', dodgeText: outOfRange ? 'WHIFF' : 'DODGED!' })
       } else if (guarding) {
         result = 'blocked'
         dmg = Math.max(0, Math.floor(strikeDamage(foeLevel, def.mult) * 0.15))
         S.counts.blocks++
-        addSpark(false, 'BLOCKED!', '#93c5fd')
-        fireImpact('player', 'block')
-        sfx.block(); buzz(15)
+        strikeFx({ side: 'player', result: 'blocked' })
       } else {
         dmg = strikeDamage(foeLevel, def.mult)
         if (p.boost) { dmg = Math.floor(dmg * p.boost); addSpark(false, '⚡ POWER!', '#fde047') } // their armed power buff
-        setMyPose('hit'); reel(false); addBurst(false, heavy)
-        addSpark(false, `-${dmg}`, '#f87171')
-        fireImpact('player', p.move === 'special' ? 'special' : heavy ? 'heavy' : 'light')
+        setMyPose('hit')
+        strikeFx({ side: 'player', result: 'hit', damage: dmg, heavy: heavy || dmg >= 10, special: p.move === 'special', kicky: p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook' })
         // heavies knock the body back farther — the number pops AND the fighter moves
         setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // 3D flinch + knockback
-        contactJuice(heavy || dmg >= 10)
-        if (p.move === 'special') triggerHitStop(220) // specials freeze the frame longest
-        if (p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook') sfx.kick()
-        else sfx.punch(heavy)
-        setShake(true); setTimeout(() => setShake(false), 170)
         setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
       }
       const t = S.startAt ? (now - S.startAt) / 1000 : 0
@@ -783,25 +757,21 @@ function StreetFightPage() {
       // ⚡ POWER is consumed by the first successful contact
       if (p.result === 'hit' && S.powerArmed) { S.powerArmed = false; setPowerArmed(false) }
       if (p.result === 'hit') {
-        setFoePose('hit'); reel(true); addBurst(true, p.dmg >= 10)
-        sfx.punch(p.dmg >= 10) // confirm SFX the moment the H2H result lands
-        contactJuice(p.dmg >= 10)
-        if (sentMove === 'special') triggerHitStop(220) // my special connected — longest stop
-        addSpark(true, `-${p.dmg}`, '#facc15')
-        fireImpact('opp', sentMove === 'special' ? 'special' : p.dmg >= 10 ? 'heavy' : 'light')
+        setFoePose('hit')
+        // confirm juice the moment the H2H result lands — same kit as the
+        // opponent's phone, so both sides feel the identical connect
+        strikeFx({ side: 'opp', result: 'hit', damage: p.dmg, heavy: p.dmg >= 10, special: sentMove === 'special', kicky: sentMove === 'kick' || sentMove === 'hook' || sentMove === 'jumpkick' })
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (p.dmg >= 10 ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
         S.meter = Math.min(100, S.meter + p.dmg * 1.7)
         setMeter(S.meter)
-        if (p.dmg >= 10) { bumpCrowd(); sfx.crowd(0.3) }
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
       } else if (p.result === 'blocked') {
         setFoePose('block')
-        addSpark(true, 'BLOCK', '#93c5fd'); sfx.block()
-        fireImpact('opp', 'block')
+        strikeFx({ side: 'opp', result: 'blocked' })
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
       } else {
         setFoePose('dodge')
-        addSpark(true, 'MISS', '#9ca3af'); sfx.whoosh()
+        strikeFx({ side: 'opp', result: 'dodged', dodgeText: 'MISS' })
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
       }
       if (S.foeHp === 0) endFight(true, true)
@@ -966,10 +936,9 @@ function StreetFightPage() {
     setTelegraph(false)
     if (won) { setMyPose('victory'); setFoePose('ko') }
     else { setMyPose('ko'); setFoePose('victory') }
-    if (ko) { setKoFlash(true); setZoom(true); sfx.ko(); setTimeout(() => { setKoFlash(false); setZoom(false) }, 900) }
-    else sfx.bell(false)
+    if (ko) koFx()
+    else { sfx.bell(false); bumpCrowd() }
     setBanner(ko ? 'K.O.!' : 'TIME!')
-    bumpCrowd()
     setTimeout(() => { setBanner(''); submitFight(won) }, 1500)
   }
 
@@ -1126,7 +1095,7 @@ function StreetFightPage() {
       // Contact-based: the strike only lands if the fist/foot can VISUALLY
       // reach the opponent (kicks reach farther than punches)
       if (dist(S.playerX ?? -1, S.oppX ?? 1) > (kicky ? KICK_RANGE : PUNCH_RANGE)) {
-        addSpark(true, 'WHIFF', '#9ca3af'); sfx.whoosh()
+        strikeFx({ side: 'opp', result: 'whiff' })
         return
       }
       const mult = MOVES.find(m => m.move === move)!.mult
@@ -1162,23 +1131,17 @@ function StreetFightPage() {
       S.foeHp = Math.max(0, S.foeHp - dmg)
       setFoeHp(S.foeHp)
       if (result === 'hit') {
-        setFoePose('hit'); reel(true); addBurst(true, heavy)
-        contactJuice(heavy || dmg >= 10)
-        if (move === 'special') triggerHitStop(220) // special connected — longest stop
-        addSpark(true, `-${dmg}`, '#facc15')
-        fireImpact('opp', move === 'special' ? 'special' : heavy ? 'heavy' : 'light')
+        setFoePose('hit')
+        strikeFx({ side: 'opp', result: 'hit', damage: dmg, heavy: heavy || dmg >= 10, special: move === 'special', kicky })
         setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (heavy ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
-        if (kicky) sfx.kick(); else sfx.punch(heavy)
         S.meter = Math.min(100, S.meter + dmg * 1.7)
         setMeter(S.meter)
-        if (heavy) { bumpCrowd(); sfx.crowd(0.3) }
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
       } else if (result === 'blocked') {
-        addSpark(true, 'BLOCK', '#93c5fd'); sfx.block()
-        fireImpact('opp', 'block')
+        strikeFx({ side: 'opp', result: 'blocked' })
         setOppBlocking(true); setTimeout(() => { if (!L.current.over) setOppBlocking(false) }, 450)
       } else {
-        addSpark(true, 'MISS', '#9ca3af'); sfx.whoosh()
+        strikeFx({ side: 'opp', result: 'dodged', dodgeText: 'MISS' })
       }
       if (S.foeHp === 0) endFight(true, true)
     }, impactMs)
@@ -1271,14 +1234,66 @@ function StreetFightPage() {
   // keyboard fallback (desktop): space/enter = punch
   function playerStrike() { playerPunch() }
 
-  // heavy-contact juice: hit-stop + HP shake + screen punch + combo
-  function contactJuice(heavy: boolean) {
-    triggerHitStop(heavy ? 140 : 85)
-    setShake(true)
-    setTimeout(() => setShake(false), heavy ? 200 : 130)
-    if (heavy) setHpShake(k => k + 1)
-    noteComboHit()
-    buzz(heavy ? [28, 20, 40] : 18)
+  // ═══ STRIKE KIT (PvP 3D checklist #1, Grok's brief 2026-08-15) ═══════════
+  // One presentation language for every RESOLVED strike — the PvP mirror of
+  // the siege stage's impactAt. Layers per call: hit-stop (scaled), in-scene
+  // 3D impact stamp, reel, particle burst, spark text, screen shake, HP-bar
+  // shake on heavies, combo chain, throttled sfx + haptics. It PRESENTS
+  // outcomes combat logic already decided — never computes damage. Every
+  // path (local AI resolve, bot foe, live H2H both directions, replay)
+  // calls this, so both phones in a live fight feel identical.
+  const sndRef = useRef({ thud: 0, block: 0, whoosh: 0 })
+  function strikeFx(o: {
+    side: 'player' | 'opp'        // who the strike resolved AGAINST
+    result: 'hit' | 'blocked' | 'dodged' | 'whiff'
+    damage?: number
+    heavy?: boolean
+    special?: boolean
+    kicky?: boolean               // kick-family connect sound
+    dodgeText?: string            // WHIFF / MISS / DODGED! per path
+  }) {
+    const onFoe = o.side === 'opp'
+    const now = Date.now()
+    const snd = sndRef.current
+    if (o.result === 'hit') {
+      const heavy = !!o.heavy || !!o.special
+      reel(onFoe)
+      addBurst(onFoe, heavy)
+      fireImpact(o.side, o.special ? 'special' : heavy ? 'heavy' : 'light')
+      if (o.damage != null) addSpark(onFoe, `-${o.damage}`, onFoe ? '#facc15' : '#f87171')
+      triggerHitStop(o.special ? 220 : heavy ? 140 : 85)
+      setShake(true)
+      setTimeout(() => setShake(false), heavy ? 200 : 130)
+      if (heavy) setHpShake(k => k + 1)
+      noteComboHit()
+      // 70ms sound throttle: a combo reads as a barrage, not clipped mush
+      if (now - snd.thud > 70) {
+        snd.thud = now
+        if (o.kicky) sfx.kick(); else sfx.punch(heavy) // both carry their own buzz
+      }
+      if (heavy) { bumpCrowd(); sfx.crowd(o.special ? 0.5 : 0.35) }
+    } else if (o.result === 'blocked') {
+      fireImpact(o.side, 'block')
+      addSpark(onFoe, onFoe ? 'BLOCK' : 'BLOCKED!', '#93c5fd')
+      triggerHitStop(60) // the guard catches it — a short crunch, not a full freeze
+      if (now - snd.block > 70) { snd.block = now; sfx.block() }
+      buzz(15)
+    } else {
+      // whiff/dodge: air. Whoosh only — no impact language at all.
+      const text = o.dodgeText ?? (o.result === 'whiff' ? 'WHIFF' : 'MISS')
+      addSpark(onFoe, text, text === 'DODGED!' ? '#4ade80' : '#9ca3af')
+      if (now - snd.whoosh > 70) { snd.whoosh = now; sfx.whoosh() }
+    }
+  }
+
+  // KO finale — ONE coherent path for live fights and replays alike
+  function koFx() {
+    triggerHitStop(260)
+    setKoFlash(true)
+    setZoom(true)
+    sfx.ko() // carries its own crowd roar + haptic pattern
+    bumpCrowd()
+    setTimeout(() => { setKoFlash(false); setZoom(false) }, 900)
   }
 
   // Game tick: clock, bell, ghost fallback, and the AI foe (bots + no-shows)
@@ -1344,26 +1359,18 @@ function StreetFightPage() {
         const guarding = S.blockHeld || S.blocking
         if (dist(S.oppX ?? 1, S.playerX ?? -1) > PUNCH_RANGE) {
           dmg = 0
-          addSpark(false, 'WHIFF', '#9ca3af')   // player backed out of range
-          sfx.whoosh()
+          strikeFx({ side: 'player', result: 'dodged', dodgeText: 'WHIFF' })   // player backed out of range
         } else if (now < S.dodgeUntil || S.ducking || S.airborne) {
           dmg = 0
-          addSpark(false, 'DODGED!', '#4ade80') // ducked / jumped / dodged
-          sfx.whoosh()
+          strikeFx({ side: 'player', result: 'dodged', dodgeText: 'DODGED!' }) // ducked / jumped / dodged
         } else if (guarding) {
           dmg = Math.max(0, Math.floor(dmg * 0.15))
           S.counts.blocks++
-          addSpark(false, 'BLOCKED!', '#93c5fd')
-          fireImpact('player', 'block')
-          sfx.block(); buzz(15)
+          strikeFx({ side: 'player', result: 'blocked' })
         } else {
-          setMyPose('hit'); reel(false); addBurst(false, heavy)
-          addSpark(false, `-${dmg}`, '#f87171')
-          fireImpact('player', heavy ? 'heavy' : 'light')
+          setMyPose('hit')
+          strikeFx({ side: 'player', result: 'hit', damage: dmg, heavy, kicky: S.foeMove === 'kick' || S.foeMove === 'jumpkick' })
           setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // 3D flinch + knockback
-          if (S.foeMove === 'kick' || S.foeMove === 'jumpkick') sfx.kick()
-          else sfx.punch(heavy)
-          setShake(true); setTimeout(() => setShake(false), 170)
           setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
         }
         if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1)
