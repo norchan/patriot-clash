@@ -1,7 +1,8 @@
 'use client'
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Trophy, Music, VolumeX, Leaf } from 'lucide-react'
+import { ArrowLeft, Trophy, Music, VolumeX, Leaf, Share2 } from 'lucide-react'
+import { snapshotBase } from '@/lib/base-snapshot'
 import { useProfile } from '@/hooks/useProfile'
 import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
@@ -496,6 +497,45 @@ export default function HqPage() {
     } catch { say('❌ Could not rush') } finally { setBusy(false) }
   }
 
+  // ── B10: share the base — canvas poster → native share, blob-download
+  // fallback. Same-origin art only, so the canvas never taints. ──
+  const [snapping, setSnapping] = useState(false)
+  async function shareBase() {
+    if (!house || snapping) return
+    setSnapping(true)
+    try {
+      const blob = await snapshotBase({
+        buildings: house.buildings.map(b => ({
+          pad: b.pad, type: b.type, level: b.level, facing: b.facing,
+          damaged: !!b.damaged_until && +new Date(b.damaged_until) > now,
+        })),
+        hqLevel: house.hq_level ?? 1,
+        printShopPad: house.print_shop_pad ?? PRINT_SHOP_PAD,
+        name: profile?.username ?? 'My',
+        tint, defScore, trophies: house.trophies ?? 0,
+      })
+      const caption = `My base on PoliticsGo — come build yours and try to raid me! ${window.location.origin}`
+      const file = new File([blob], 'politicsgo-base.png', { type: 'image/png' })
+      const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean }
+      if (nav.canShare?.({ files: [file] }) && nav.share) {
+        await nav.share({ files: [file], text: caption, title: 'PoliticsGo' })
+        playBase('done')
+      } else {
+        // TWA/desktop fallback: save the PNG, park the caption on the clipboard
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = 'politicsgo-base.png'; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 4000)
+        try { await navigator.clipboard.writeText(caption) } catch {}
+        playBase('done')
+        say('📸 Snapshot saved! Caption copied — paste it anywhere.')
+      }
+    } catch (e) {
+      // user closing the share sheet is not an error
+      if ((e as { name?: string })?.name !== 'AbortError') say('❌ Could not build the snapshot')
+    } finally { setSnapping(false) }
+  }
+
   // optimistic quarter-turn; the server owns the persisted value
   async function rotateBuilding(pad: number) {
     setHouse(h => h ? { ...h, buildings: h.buildings.map(b => b.pad === pad ? { ...b, facing: ((b.facing ?? 0) + 1) % 4 } : b) } : h)
@@ -562,6 +602,11 @@ export default function HqPage() {
         {/* B9: the B8 nature bed gets its own remembered mute */}
         <button onClick={toggleAmb} aria-label="ambience" className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center">
           <Leaf size={15} className={amb ? 'text-emerald-400' : 'text-gray-600'} />
+        </button>
+        {/* B10: one tap → a poster of your base in the share sheet */}
+        <button onClick={shareBase} disabled={snapping || !house} aria-label="share base"
+          className={`w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200 disabled:opacity-40 ${snapping ? 'animate-pulse' : ''}`}>
+          <Share2 size={15} />
         </button>
       </div>
       <div className="absolute top-3 right-3 z-[70] flex items-center gap-1.5">

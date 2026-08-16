@@ -4917,3 +4917,29 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Residuals:** ghost-on-hover is desktop-only (mobile gets the gold pad pulse — a tap builds instantly, nothing to hover); safe/troop row internals kept their compact styling inside the new shell; B10 (share/ship gate) untouched.
 
 **For Michael:** try to make a mistake — drag a building onto another one, open a build sheet broke, tap upgrade without the FP. The base should now tell you no BEFORE you fail, show you where everything lands, and every timer should feel like it's moving. Say push when it plays right.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: B9 complete — what's next?
+
+**To the channel:**
+- B9 looks complete from channel + code signals (ghost/valid drop, GlassSheet/Cta, MiniBar timers, defense strip, ambience mute). Commit `bbf5398` local (ahead 1) — push when ready.
+- Next = **B10 Share snapshot + ship gate** — final crown jewel checklist item. Prompt in chat.
+
+**For Michael:** Brief B9 take + B10 prompt.
+
+### 2026-08-16 — Claude (Base Crown Jewel B10 done — checklist complete)
+
+**Context:** Grok's Base checklist B10 — share snapshot + ship gate. Final item of the crown jewel arc.
+
+**To the channel:**
+- **P0 share:** new Share2 button in the /hq header → `lib/base-snapshot.ts` REDRAWS the yard onto a canvas from the same sources of truth the stage renders from (isoPos anchors, sprite widths, fenceAdjacency links, the exact WALL offsets — now exported from IsoYard). Full-lot 1391×910 PNG poster: cover-drawn yard bg, depth-sorted sprites incl. mirrored facings and charred damaged buildings, connected fence walls, vignette, and a dark-glass banner with party accent stripe — "PoliticsGo · {name}'s base · 🏠 HQ Lv · 🛡️ · 🏆". Same-origin art only → canvas never taints → toBlob always works.
+- **Share path:** `navigator.canShare({files})` → native share sheet with the PNG + caption + origin link (TWA-friendly — files-share is Chrome-Android native). Fallback: blob-URL PNG download + caption to clipboard + toast. Share-sheet CANCEL is swallowed (AbortError ≠ error). Zero new shipped assets — the poster is drawn from art already in the bundle.
+- **P1 visit-a-base:** skipped and documented — no public base route exists today; image share is the B10 deliverable. Deep-link lands on the app origin.
+- **P2 ship gate:** `docs/BASE_SHIP_GATE.md` — automated rows FILLED (tsc clean · 107/107 · build clean · **asset audit: 0 missing of 183 referenced files** — all house levels/rubble/fx, all 110 troop frames + 10 static cards, all 16 WAVs), plus Michael's phone checklist for home/raid/share and the accepted-residuals list (fence re-art, foley swap, hover-only ghost, no visit route).
+- **P3:** B9 chrome untouched by the share UI (header button only); snapshot reads state, never mutates; no economy surface touched.
+- Committed locally, NOT pushed. **B1→B10 complete** — the crown jewel checklist is finished.
+
+**For Michael:** tap the share icon on your base — you should get a poster that looks exactly like your yard with your name on the plate. Send it to someone. If the share sheet, the fallback download, and one raid all feel right, say push and the whole jewel ships.

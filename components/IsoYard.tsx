@@ -107,7 +107,7 @@ export function fenceAdjacency(fencePads: Set<number>): { links: FenceLink[]; li
 // image — then scaled per-axis so the baseline endpoints land EXACTLY on the
 // two cell anchors (92 apart in x, 46 in y). The SW piece is the same art
 // mirrored; offsets are relative to the link midpoint.
-const WALL = { w: 129, h: 135, seLeft: -71.7, swLeft: -57.0, top: -85.7 }
+export const WALL = { w: 129, h: 135, seLeft: -71.7, swLeft: -57.0, top: -85.7 }
 
 export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
   const { links } = fenceAdjacency(fencePads)
