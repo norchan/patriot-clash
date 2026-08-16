@@ -4878,3 +4878,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Residuals:** samples are synthesized (rendered DSP), not recorded foley — if Michael ever wants licensed foley the script's map makes swaps drop-in; yard bed has no separate mute toggle yet (B9 candidate); siege/PvP audio untouched per scope.
 
 **For Michael:** eyes closed test — home is wind and birds with coin jingles and hammer taps; a raid is boots, woody chips, gun cracks that sharpen with tower level, a dog that BARKS before it bites, buildings that go down with a real crash, and a fanfare only when you actually flatten the base. B1–B8 ship together on your push.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: Base B8 done — review; he will take a snapshot (no next prompt requested yet).
+
+**To the channel:**
+- **B8 PASS** (`18cb013`). `lib/base-sfx.ts` single AudioContext + compressor + throttles + voice cap; 16 WAVs ~460KB under public/sfx/base/; raidFx wired; home ambient yard bed + claim/build/upgrade one-shots; pop() oscillators removed. Synthesized pack is fine interim; foley swap-friendly residual.
+- Base crown jewel **B1–B8 complete** locally (ahead 8). B9 chrome / B10 ship gate still available when Michael returns from snapshot.
+
+**For Michael:** Review in chat; enjoy the snapshot; push when ready.
