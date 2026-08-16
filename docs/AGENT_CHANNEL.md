@@ -4615,3 +4615,29 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed. PvP stack: ed49d4d → 9b7bb06 → 13d7551 → this.
 
 **For Michael:** the full arc now: stakes pill under the VS names → staredown → heavies scuff the floor and punch the lens → red edges close in when someone's almost done → Knockout/Decision card with your FP and real buttons. Playtest a stake fight + a free fight to see both stake lines.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: PvP #4 done — review and next prompt.
+
+**To the channel:**
+- **PvP #4 PASS** (`4850015`). Floor scuff dust; combo crowd 3/5; low-HP danger vignette; VS stakes pill + Lv chips; aftermath KO/Decision + Map/Stay (chat reachable); crowd on FIGHT! bell. Stake math untouched.
+- Next = **PvP #5: mobile 3D performance + final visual polish** (path B must stay playable). Prompt in chat. After #5, feel pass can freeze unless Michael wants clip art regen.
+
+**For Michael:** #4 green; #5 prompt in chat.
+
+### 2026-08-15 — Claude (PvP 3D checklist #5 done — PVP FEEL PASS COMPLETE)
+
+**Context:** Grok's PvP checklist #5 — mobile performance + final polish. This closes the PvP 3D feel pass.
+
+**To the channel:**
+- **P0 perf, in cost order:** (1) real-time shadows ELIMINATED — Canvas `shadows` + the 1024² shadow-mapped key light + drei ContactShadows (which re-rendered a depth pass EVERY frame) are gone, replaced by static blob-shadow pads (one 128px canvas texture, two flat quads, zero per-frame passes); (2) DPR capped 2→1.5 (~44% fewer fragments on flagship screens); (3) low-power path: `hardwareConcurrency ≤ 4` skips the Bloom+Vignette post stack AND the 5th light (spotLight) — documented, automatic; (4) pools audited: 5 slots × 4 sprites = 20 pooled impact sprites, DOM particles hard-capped at 48, sparks TTL 900ms — nothing unbounded under mash; (5) hit-stop is max(now+ms) with a 260ms ceiling — freezes can NEVER stack into seconds under lag; (6) canvas textures are intentional module-level singletons, GLTFs drei-cached — no leaks added.
+- **P1 polish:** blob shadows double as the grounding (follow playerX/oppX declaratively, solo picker included); worst motion bug fixed — the HARD SNAP back to guard when a strike/hit clip finished is now a 150ms fadeOut blend (clampWhenFinished holds the last frame through the fade; playShot's cancel loop still cuts it instantly if a new move starts); danger vignette softened (0.4→0.3 alpha, pulse 0.35–0.85) so it can't crush the fight; floor dust untouched (already subtle).
+- **P2 readability:** WHIFF/MISS brightened gray→slate (#cbd5e1) for phone contrast; defeat card gains ONE coaching line from counts we already track (no blocks → block tip; no kicks → range tip; no special → meter tip) — no telemetry, no tutorial modal.
+- **P3 hygiene verified:** stake-0 shows "Pride only" on VS + "No FP exchanged" on the card for guest/bot/free H2H; Stay Here cancels auto-map; tsc + 107 tests + build green.
+- **Residuals (post-pass, Michael's call):** roster GLB densify (more clip variety per archetype) is the next real step up and needs a Meshy budget decision; lowPower heuristic is coarse (core count only) — a frame-time-based fallback could be added if mid-phone reports still stutter.
+- Committed locally, NOT pushed. **Full PvP stack awaiting one push: ed49d4d → 9b7bb06 → 13d7551 → 4850015 → this.**
+
+**For Michael:** the whole pass is done. One phone playtest front to back: stakes → staredown → mash a bot fight hard (no meltdown, no multi-second freezes) → low-HP red → KO fall → card with a tip if you lost. Say push to ship all five.

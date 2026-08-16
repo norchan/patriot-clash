@@ -1335,8 +1335,9 @@ function StreetFightPage() {
       buzz(15)
     } else {
       // whiff/dodge: air. Whoosh only — no impact language at all.
+      // (brighter slate than the old gray — WHIFF must read on a phone)
       const text = o.dodgeText ?? (o.result === 'whiff' ? 'WHIFF' : 'MISS')
-      addSpark(onFoe, text, text === 'DODGED!' ? '#4ade80' : '#9ca3af')
+      addSpark(onFoe, text, text === 'DODGED!' ? '#4ade80' : '#cbd5e1')
       if (now - snd.whoosh > 70) { snd.whoosh = now; sfx.whoosh() }
     }
   }
@@ -1647,6 +1648,15 @@ function StreetFightPage() {
             style={{ textShadow: '0 4px 18px rgba(0,0,0,0.6)' }}>
             {fpStake > 0 ? `${iWon ? '+' : '−'}${fpStake} FP` : 'No FP exchanged'}
           </p>
+          {/* one honest coaching line on a loss, from counts we already track */}
+          {!iWon && (() => {
+            const c = L.current.counts
+            const tip = c.blocks === 0 ? 'Tip: hold 🛡 BLOCK when your foe winds up — it eats 85% of the hit.'
+              : c.kicks === 0 ? 'Tip: kicks reach farther than punches — mix in 🦵 from range.'
+              : c.specials === 0 ? 'Tip: land hits to fill the yellow bar, then unleash your ★ SPECIAL.'
+              : null
+            return tip ? <p className="text-amber-300/90 text-xs mb-4 max-w-xs">{tip}</p> : null
+          })()}
           <div className="flex gap-3 w-full max-w-xs">
             <button onClick={leaveToMap}
               className="flex-1 py-3 bg-purple-700 hover:bg-purple-600 text-white rounded-xl font-bold transition">
@@ -1808,7 +1818,8 @@ function StreetFightPage() {
                pulsing red edge — the round FEELS like it could end ── */}
         {(phase === 'live' || phase === 'fighting') && !endCard && (myHp <= 30 || foeHp <= 30) && (
           <div className="absolute inset-0 z-[6] pointer-events-none" style={{
-            boxShadow: 'inset 0 0 90px 24px rgba(220,38,38,0.4)',
+            // soft enough to read the fight through (checklist #5 tuning)
+            boxShadow: 'inset 0 0 80px 18px rgba(220,38,38,0.3)',
             animation: 'pvpDanger 1.1s ease-in-out infinite',
           }} />
         )}
@@ -2181,7 +2192,7 @@ function StreetFightPage() {
         @keyframes sfBanner { 0%{transform:scale(2.4);opacity:0} 100%{transform:scale(1);opacity:1} }
         @keyframes sfParticle { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0.3);opacity:0} }
         @keyframes sfKoFlash { 0%{opacity:0.9} 100%{opacity:0} }
-        @keyframes pvpDanger { 0%,100%{opacity:0.45} 50%{opacity:1} }
+        @keyframes pvpDanger { 0%,100%{opacity:0.35} 50%{opacity:0.85} }
         @keyframes sfNeon { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.4} 94%{opacity:1} 96%{opacity:0.6} 97%{opacity:1} }
       `}</style>
     </div>

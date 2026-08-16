@@ -1,7 +1,7 @@
 'use client'
 import { Fragment, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useGLTF, ContactShadows, useTexture } from '@react-three/drei'
+import { useGLTF, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { headSideImage, headMeta } from '@/config/heads'
@@ -354,9 +354,14 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   useEffect(() => {
     const onFin = (e: any) => {
       if (e.action === shots.jabR?.a || e.action === shots.jabL?.a || e.action === shots.kickHi?.a || e.action === shots.kickLo?.a || e.action === shots.hit?.a) {
-        e.action.setEffectiveWeight(0); e.action.stop()
-        // only fall back to guard if this was the most recent move
+        // FADE back to guard instead of the old hard snap (checklist #5's
+        // worst-motion-bug fix): the finished pose blends over the held guard
+        // for ~150ms, then the action is silenced. clampWhenFinished keeps
+        // the last frame alive through the fade; a newer move stops it early
+        // via playShot's cancel loop as before.
         if (active.current === e.action) { active.current = null; restoreGuard() }
+        e.action.fadeOut(0.15)
+        setTimeout(() => { e.action.stop(); e.action.setEffectiveWeight(0) }, 170)
       }
     }
     mixer.addEventListener('finished', onFin)
@@ -656,11 +661,40 @@ function getAsphaltTexture(): THREE.CanvasTexture {
   return asphaltTex
 }
 
+// ── Blob ground shadows (checklist #5): soft dark pads under each fighter.
+// Replaces drei ContactShadows, which re-rendered a depth pass EVERY FRAME —
+// the single biggest per-frame cost on a mid phone. Texture drawn once.
+let blobTex: THREE.CanvasTexture | null = null
+function getBlobTexture(): THREE.CanvasTexture {
+  if (blobTex) return blobTex
+  const cv = document.createElement('canvas')
+  cv.width = 128; cv.height = 128
+  const ctx = cv.getContext('2d')!
+  const g = ctx.createRadialGradient(64, 64, 6, 64, 64, 62)
+  g.addColorStop(0, 'rgba(0,0,0,0.55)')
+  g.addColorStop(0.65, 'rgba(0,0,0,0.28)')
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 128, 128)
+  blobTex = new THREE.CanvasTexture(cv)
+  blobTex.needsUpdate = true
+  return blobTex
+}
+function BlobShadow({ x, z = 0.6, s = 1.5 }: { x: number; z?: number; s?: number }) {
+  const tex = useMemo(() => getBlobTexture(), [])
+  return (
+    <mesh rotation-x={-Math.PI / 2} position={[x, 0.015, z]} renderOrder={2}>
+      <planeGeometry args={[s, s * 0.5]} />
+      <meshBasicMaterial map={tex} transparent depthWrite={false} />
+    </mesh>
+  )
+}
+
 function Ground() {
   const tex = useMemo(() => getAsphaltTexture(), [])
   return (
     <group>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0.6]} receiveShadow>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0.6]}>
         <planeGeometry args={[34, 18]} />
         <meshStandardMaterial map={tex} color="#8a8a92" roughness={0.96} metalness={0} />
       </mesh>
@@ -769,10 +803,15 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
 
 export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, playerSpinKey = 0, oppSpinKey = 0, playerSweepKey = 0, oppSweepKey = 0, playerDown = false, oppDown = false, playerWin = false, oppWin = false, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
   { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; playerSpinKey?: number; oppSpinKey?: number; playerSweepKey?: number; oppSweepKey?: number; playerDown?: boolean; oppDown?: boolean; playerWin?: boolean; oppWin?: boolean; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
+  // PERF (checklist #5): DPR capped at 1.5 (2.0 quadrupled fragment work on
+  // flagship phones for detail nobody sees mid-fight); real-time shadow maps
+  // OFF (blob shadows below carry the grounding); Bloom/Vignette post stack
+  // skipped on weak hardware.
+  const lowPower = typeof navigator !== 'undefined' && (navigator.hardwareConcurrency ?? 8) <= 4
   return (
-    <Canvas shadows style={{ width: '100%', height: '100%' }}
+    <Canvas style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6 * soloZoom] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
-      dpr={[1, 2]}
+      dpr={[1, 1.5]}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
       onCreated={({ camera }) => camera.lookAt(0, solo ? 1.0 : 1.35, 0)}>
       {/* fight mode: fog fades the asphalt's far edge into the backdrop JPG so
@@ -780,9 +819,9 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
       {!solo && <fog attach="fog" args={['#111116', 9, 22]} />}
       {/* dramatic stage lighting to match the gritty arena */}
       <ambientLight intensity={0.5} />
-      <directionalLight position={[5, 8, 4]} intensity={2.4} color="#ffd6a0" castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
+      <directionalLight position={[5, 8, 4]} intensity={2.4} color="#ffd6a0" />
       <directionalLight position={[-6, 3, -3]} intensity={1.1} color="#6a8bff" />
-      <spotLight position={[0, 7, 6]} angle={0.7} penumbra={0.6} intensity={1.4} color="#ffb877" />
+      {!lowPower && <spotLight position={[0, 7, 6]} angle={0.7} penumbra={0.6} intensity={1.4} color="#ffb877" />}
       {/* party corner rim lights (brief Phase C1): each fighter's back edge
           catches their party color — cheap directionals, no extra post stack */}
       {!solo && playerTint && <directionalLight position={[-7, 3, -2]} intensity={1.0} color={playerTint} />}
@@ -807,13 +846,21 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
         )}
         {!solo && <Ground />}
         {!solo && <ImpactFX impact={impact} playerX={playerX} oppX={oppX} />}
-        <ContactShadows position={[0, 0.01, 0.6]} opacity={0.65} scale={12} blur={2.6} far={5} color="#000000" />
+        {/* soft grounding pads — static texture, zero per-frame passes */}
+        {solo ? <BlobShadow x={0} z={0} /> : (
+          <>
+            <BlobShadow x={playerX} />
+            {oppPrefix && <BlobShadow x={oppX} />}
+          </>
+        )}
         <ReadySignal onReady={onReady} />
       </Suspense>
-      <EffectComposer>
-        <Bloom intensity={0.6} luminanceThreshold={0.7} luminanceSmoothing={0.25} mipmapBlur />
-        <Vignette eskil={false} offset={0.28} darkness={0.8} />
-      </EffectComposer>
+      {!lowPower && (
+        <EffectComposer>
+          <Bloom intensity={0.6} luminanceThreshold={0.7} luminanceSmoothing={0.25} mipmapBlur />
+          <Vignette eskil={false} offset={0.28} darkness={0.8} />
+        </EffectComposer>
+      )}
     </Canvas>
   )
 }
