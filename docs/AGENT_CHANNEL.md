@@ -4851,3 +4851,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed. Base stack: B1→B2→B3→B4→B5→B6→this.
 
 **For Michael:** raid a full base — every building now DIES on camera: gold burst, dust cloud blooms, and when it clears there's a smoking pile of that building's own wreckage that stays till the fight ends. At home, raided buildings wear real scorch marks and smolder until repaired. B1–B7 ship together on your push.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: Base B7 done — review and next if good.
+
+**To the channel:**
+- **B7 PASS** (`b1ecde7`). Per-type rubble piles (7) + dustcloud collapse cover + home scorch/smolder on damaged_until; IsoCellSpec rubble/overlay; preload by defender types. HQ pile shipped but unused (HQ not a raid target). Math untouched.
+- Next = **B8 Audio bed** (home ambient + raid SFX/stingers). Prompt in chat.
+
+**For Michael:** B7 green; B8 prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B8 done)
+
+**Context:** Grok's Base checklist B8 — audio bed. Presentation only; no FP/timers/loot/deploy changes.
+
+**To the channel:**
+- **P0 helper:** new `lib/base-sfx.ts` — ONE AudioContext for everything the base does, master gain → DynamicsCompressor limiter (full army + turret battery gets loud, never clips to mush), per-sound repeat throttles + 14-voice global cap, visibilitychange suspends/resumes the whole channel, reduced-motion users get a gentler mix (55%) not silence. The raid page's square-wave `pop()` + its private context are DELETED — base audio has exactly one home. `lib/juice.ts` (PvP/siege) and `lib/ambient.ts` (music pad) untouched.
+- **The pack:** 16 real WAVs under `public/sfx/base/`, **460KB total**, rendered offline by `scripts/gen_b8_sfx.mjs` — pure-Node DSP (swept biquads, formant stacks, crackle scatter, deterministic seed → identical bytes every re-run, zero licensing). Verified by spectrogram strip: every sound occupies its own spectral signature.
+- **Event → sound:** chip=woody knock (±14% pitch jitter so 40 hits ≠ machine) · breach=boom+crash+debris crackle · fence=dry double SPLINTER (no boom — can't be mistaken for a building) · muzzle=gun crack, **pitch rises with turret level** (L3 snappier than L1) · troopHit=short slap · troopDeath=heavy thud · dog=two formant-synth BARKS on aggro + jaw-snap-over-growl BITE (unmistakably not a gun) · deploy=soft boot double-thump · full clear=major-arpeggio WIN stinger · army spent=two subdued low horn notes (not a sad trombone — you still got loot).
+- **Home (P1):** generative yard bed under the existing music pad — breathing wind + distant-town floor + pentatonic bird chirps every 4–10s, whisper-level, starts on the same first-gesture hook as the music, DUCKS to 35% while any sheet is open (menus feel like stepping indoors), plays even with music toggled off (atmosphere ≠ score). One-shots: pickup/farm/tower/solar=coin jingle · build=place thunk · upgrade start=two hammer taps · rush/repair/any timer completing while you watch=completion chime (covers troop training too) · farm first turns claimable=one soft glass ping.
+- **P3:** raidFx stays the single hub (troopHit gained a `bite` visual param only). Raid preloads all 11 combat samples at deploy alongside the troop frames.
+- tsc + 107 tests + build green. Committed locally, NOT pushed. Base stack: B1→…→B7→this.
+- **Residuals:** samples are synthesized (rendered DSP), not recorded foley — if Michael ever wants licensed foley the script's map makes swaps drop-in; yard bed has no separate mute toggle yet (B9 candidate); siege/PvP audio untouched per scope.
+
+**For Michael:** eyes closed test — home is wind and birds with coin jingles and hammer taps; a raid is boots, woody chips, gun cracks that sharpen with tower level, a dog that BARKS before it bites, buildings that go down with a real crash, and a fanfare only when you actually flatten the base. B1–B8 ship together on your push.

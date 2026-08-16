@@ -11,6 +11,7 @@ import {
 } from '@/config/house'
 import { troopsForParty, troopById } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
+import { playBase, preloadBaseSfx, yardAmbience, BaseSfxName } from '@/lib/base-sfx'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency } from '@/components/IsoYard'
 import { IdleFxItem } from '@/components/BaseIdleFx'
 
@@ -24,6 +25,12 @@ import { IdleFxItem } from '@/components/BaseIdleFx'
 interface Farm { ready: number; next_in_secs: number | null; rate_hours: number; cap: number }
 interface Upgrade { to: number; done_at: string; rush_cost: number }
 interface Building { pad: number; type: string; level: number; facing?: number; upgrade?: Upgrade | null; damaged_until?: string | null; repair_cost?: number | null }
+
+// B8: which one-shot each /api/house action earns on success
+const ACT_SOUND: Record<string, BaseSfxName> = {
+  build: 'place', upgrade: 'hammer', upgrade_hq: 'hammer',
+  rush: 'done', repair: 'done', claim_tower: 'claim', claim_solar: 'claim',
+}
 interface Tower { level: number; banked: number; next_in_secs: number; rate: number; interval_hours: number }
 interface House {
   print_shop_pad?: number
@@ -109,11 +116,25 @@ export default function HqPage() {
     try { musicPref.current = localStorage.getItem('hq_music') !== 'off' } catch {}
     const first = () => {
       if (musicPref.current && !ambientRunning()) { startAmbient(); setMusic(true) }
+      // B8: the yard's own quiet bed (wind/birds/town) rides under the music
+      // pad and plays even with music off — it's atmosphere, not score
+      yardAmbience.start()
+      preloadBaseSfx(['claim', 'place', 'hammer', 'done', 'ready'])
       window.removeEventListener('pointerdown', first)
     }
     window.addEventListener('pointerdown', first)
-    return () => { window.removeEventListener('pointerdown', first); stopAmbient() }
+    return () => { window.removeEventListener('pointerdown', first); stopAmbient(); yardAmbience.stop() }
   }, [])
+  // B8: menus duck the yard bed (stepping indoors), and the moment something
+  // first becomes claimable the yard pings — once, softly
+  useEffect(() => { yardAmbience.duck(!!sheet) }, [sheet])
+  const farmReady = (farm?.ready ?? 0) > 0
+  const prevReady = useRef(false)
+  useEffect(() => {
+    if (farmReady && !prevReady.current) playBase('ready')
+    prevReady.current = farmReady
+  }, [farmReady])
+
   function toggleMusic() {
     if (ambientRunning()) { stopAmbient(); setMusic(false); musicPref.current = false; try { localStorage.setItem('hq_music', 'off') } catch {} }
     else { startAmbient(); setMusic(true); musicPref.current = true; try { localStorage.setItem('hq_music', 'on') } catch {} }
@@ -134,7 +155,7 @@ export default function HqPage() {
         ...(house?.buildings ?? []).map(b => b.damaged_until ?? undefined),
         ...(army?.queue ?? []).map(q => q.next_unit_at)]
         .some(d => d && +new Date(d) <= Date.now())
-      if (due) load() // the server settles it and finished work lands
+      if (due) { playBase('done'); load() } // the server settles it and finished work lands — chime it in
     }, 1000)
     return () => clearInterval(iv)
   }, [anyUpgrading, house, army])
@@ -155,6 +176,7 @@ export default function HqPage() {
         const id = ++popId.current
         setPopped(p => [...p, { id, pad, text: `+${d.claimed} FP` }])
         setTimeout(() => setPopped(p => p.filter(x => x.id !== id)), 900)
+        playBase('claim')
         try { navigator.vibrate?.(20) } catch {}
         load(); refetch()
       } else { load() }
@@ -169,7 +191,11 @@ export default function HqPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       })
       const d = await res.json()
-      if (res.ok) { say(okMsg(d)); setSheet(null); load(); refetch() }
+      if (res.ok) {
+        const snd = ACT_SOUND[String(payload.action)]
+        if (snd) playBase(snd)
+        say(okMsg(d)); setSheet(null); load(); refetch()
+      }
       else say(`❌ ${d.message ?? d.error ?? 'Something went wrong'}`)
     } catch { say('❌ Something went wrong') } finally { setBusy(false) }
   }
@@ -180,7 +206,7 @@ export default function HqPage() {
     try {
       const res = await fetch('/api/farm', { method: 'POST' })
       const d = await res.json()
-      if (res.ok && d.claimed > 0) say(`🧨 +${d.claimed} firecracker${d.claimed === 1 ? '' : 's'} to your bag!`)
+      if (res.ok && d.claimed > 0) { playBase('claim'); say(`🧨 +${d.claimed} firecracker${d.claimed === 1 ? '' : 's'} to your bag!`) }
       load()
     } finally { setBusy(false) }
   }
@@ -310,6 +336,7 @@ export default function HqPage() {
       const d = await res.json()
       if (!res.ok) say(`❌ ${d.message ?? d.error ?? 'Could not train'}`)
       else {
+        playBase('place')
         try { navigator.vibrate?.(12) } catch {}
         say(`🎖️ Queued ${d.queued}! (-${d.spent} FP)`)
         load(); refetch()

@@ -7,6 +7,7 @@ import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracks
 import { troopById } from '@/config/troops'
 import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, STAGE_H, ORIGIN_Y, TILE_H } from '@/components/IsoYard'
 import { IdleFxItem } from '@/components/BaseIdleFx'
+import { playBase, preloadBaseSfx } from '@/lib/base-sfx'
 
 // ⚔️ RAID — same isometric stage as the home base. The server settles
 // damage/loot/trophies/casualties the moment you launch; everything after is
@@ -87,23 +88,9 @@ const TURRET_SHOT_SECS = [1.8, 1.5, 1.2]   // per level, faster guns up top
 const TURRET_DMG = [7, 10, 13]             // troop hp per hit, per level
 const frameSrc = (id: string, f: string) => `/troops/anim/${id}_${f}.webp`
 
-// ONE shared AudioContext (B4 perf fix): the old version constructed a brand
-// new AudioContext for EVERY blip — dozens per raid, each one leaking a
-// audio graph until GC. Lazy singleton, resumed on demand.
-let popCtx: AudioContext | null = null
-function pop(freq = 220) {
-  try {
-    if (!popCtx) popCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    if (popCtx.state === 'suspended') popCtx.resume().catch(() => {})
-    const ac = popCtx
-    const o = ac.createOscillator(); const g = ac.createGain()
-    o.type = 'square'; o.frequency.value = freq
-    g.gain.setValueAtTime(0.08, ac.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.18)
-    o.connect(g); g.connect(ac.destination)
-    o.start(); o.stop(ac.currentTime + 0.2)
-  } catch {}
-}
+// Audio lives in lib/base-sfx.ts (B8): real rendered samples through one
+// shared, limiter-protected AudioContext — the old square-wave pop() and its
+// per-page singleton are gone.
 const buzz = (ms: number) => { try { navigator.vibrate?.(ms) } catch {} }
 
 interface AssaultTarget { pad: number; x: number; y: number; hp: number; maxHp: number; dead: boolean; isFence: boolean }
@@ -306,15 +293,10 @@ export default function RaidPage() {
     // ═══ RAID IMPACT KIT (B4) — one hit language for the whole theater ══════
     // Presents outcomes the engine/server already decided. Imperative DOM
     // into the troop layer (same pattern as the sprites — no React churn),
-    // hard-capped bursts, 70ms sound throttles, transform-only stage shake.
+    // hard-capped bursts, transform-only stage shake. Sound rides base-sfx
+    // (B8): per-sample throttles + voice cap live in the module, so the kit
+    // just names the moment.
     const fxLive = { bursts: 0 }
-    const sndAt = { thud: 0, tick: 0 }
-    const kitSnd = (ch: 'thud' | 'tick', freq: number) => {
-      const now = performance.now()
-      if (now - sndAt[ch] < 70) return
-      sndAt[ch] = now
-      pop(freq)
-    }
     const kitShake = (big = false) => {
       const el = stageWrapRef.current
       if (!el) return
@@ -363,12 +345,12 @@ export default function RaidPage() {
       setTimeout(() => el.remove(), 220)
     }
     type RaidFxKind = 'chip' | 'breach' | 'muzzle' | 'troopHit' | 'troopDeath' | 'deploy'
-    const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean; fence?: boolean; level?: number }) => {
+    const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean; fence?: boolean; level?: number; bite?: boolean }) => {
       switch (o.kind) {
         case 'chip': // troop swing lands on a building/fence
           kitBurst(o.x, o.y - 42, '#fbbf24', 46)
           if (o.pad != null) hitFlash(o.pad)
-          kitSnd('tick', 320 + Math.random() * 160); buzz(12)
+          playBase('chip', { jitter: 0.14 }); buzz(12)
           break
         case 'breach': // building/fence goes DOWN — the big beat.
           // Fences SPLINTER (wood-toned burst, twin dust, no shock ring);
@@ -385,28 +367,30 @@ export default function RaidPage() {
           kitFlash(o.x, o.y - 30, o.fence ? 90 : o.heavy ? 150 : 110)
           kitShake(!!o.heavy)
           if (o.text) addFloat({ pad: o.pad, text: o.text }) // loot popcorn rides the kit
-          kitSnd('thud', 150 + Math.random() * 100); buzz(o.heavy ? 40 : 30)
+          if (o.fence) playBase('splinter', { jitter: 0.08 })
+          else playBase('breach', { gain: o.heavy ? 1 : 0.85, jitter: 0.06 })
+          buzz(o.heavy ? 40 : 30)
           break
         case 'muzzle': { // turret fires — flash + recoil shudder, scaled by level
           kitFlash(o.x, o.y, 24 + (o.level ?? 1) * 9)
           if (o.pad != null) hitFlash(o.pad) // barrel recoil rides the cell jiggle
-          kitSnd('tick', 700 + Math.random() * 200); buzz(8)
+          playBase('gun', { rate: 0.94 + 0.07 * ((o.level ?? 1) - 1), jitter: 0.04 }); buzz(8)
           break
         }
         case 'troopHit': // turret round / dog teeth land on a troop
           kitBurst(o.x, o.y - 46, '#f87171', 36)
           if (o.text) addFloat({ sx: o.x, sy: o.y - 52, text: o.text, spark: true }, 380)
-          kitSnd('tick', 600); buzz(12)
+          playBase(o.bite ? 'bite' : 'hit', { jitter: 0.1 }); buzz(12)
           break
         case 'troopDeath':
           kitBurst(o.x, o.y - 40, '#cbd5e1', 52)
           addFloat({ sx: o.x, sy: o.y - 44, text: '💀', spark: true }, 700)
-          kitSnd('thud', 120); buzz(25)
+          playBase('death', { jitter: 0.08 }); buzz(25)
           break
         case 'deploy': // boots hit the grass
           addFloat({ sx: o.x, sy: o.y - 20, text: '⬇️', spark: true }, 500)
           addFloat({ sx: o.x - 8, sy: o.y - 2, text: '💨', spark: true }, 400)
-          kitSnd('tick', 500); buzz(15)
+          playBase('deploy', { jitter: 0.1 }); buzz(15)
           break
       }
     }
@@ -455,6 +439,7 @@ export default function RaidPage() {
     // rubble swap under the dust cloud must never pop a cold image
     {
       const im = new Image(); im.src = '/house/fx/dustcloud.webp'
+      preloadBaseSfx(['chip', 'breach', 'splinter', 'gun', 'hit', 'death', 'bark', 'bite', 'deploy', 'win', 'lose'])
       for (const t of new Set(result.base.buildings.map(b => b.type))) {
         if (RUBBLE_TYPES.has(t)) { const r = new Image(); r.src = rubbleSrc(t) }
       }
@@ -726,6 +711,7 @@ export default function RaidPage() {
       if (!fieldAlive && troops.length > 0 && trayLeft === 0 && goalsLeft > 0) {
         engine.alive = false
         setLootShown(result.loot)
+        playBase('lose') // army spent, base still standing — subdued horn out
         setTimeout(() => { stopEngine(); setPhase('done') }, 900)
         return
       }
@@ -800,7 +786,7 @@ export default function RaidPage() {
             // statue visibly BECOMES the attacker (Michael 2026-08-13)
             if (dog.state === 'idle') {
               addFloat({ sx: dog.x, sy: dog.y - 60, text: '❗', spark: true }, 500)
-              pop(880); buzz(20)
+              playBase('bark'); buzz(20)
             }
             dog.victim = best
             dog.state = 'chase'
@@ -828,7 +814,7 @@ export default function RaidPage() {
               paintDog(((v.x - dog.x) / Math.max(1, d)) * lunge * 10, ((v.y - dog.y) / Math.max(1, d)) * lunge * 10)
               if (dog.biteT >= DOG_BITE_SECS) {
                 dog.biteT = 0
-                raidFx({ kind: 'troopHit', x: v.x, y: v.y, text: '🦷' })
+                raidFx({ kind: 'troopHit', x: v.x, y: v.y, text: '🦷', bite: true })
                 hurtTroop(v, DOG_BITE_DMG)
                 // they fight back — the dog wears down, then RUNS (never dies)
                 dog.hp -= DOG_WEAR
@@ -853,6 +839,7 @@ export default function RaidPage() {
         engine.alive = false
         for (const tr of troops) tr.root.style.opacity = '0'
         setLootShown(result.loot) // snap over rounding dust
+        playBase('win') // full clear — the stinger the raid earns
         setTimeout(() => { stopEngine(); setPhase('done') }, 750)
         return
       }
