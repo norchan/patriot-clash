@@ -59,8 +59,12 @@ const TROOP_W = 84
 const BLOCK_PERP = 46
 // ── CoC-style animation (Michael 2026-08-09: "it should appear that they are
 // running... animations for when they are attacking... health bars") ──
-const RUN_ORDER = ['run1', 'run3', 'run2'] as const   // 3-beat stride cycle
-const RUN_FRAME_SECS = 0.12
+// B5: densified to a 6-beat stride (contact → passing → push-off → flight →
+// opposite → gather, ~60ms/frame = 360ms cycle) + 4-frame swings
+// (windup → swing → contact → recover). All frames are ~15-40KB WebPs.
+const RUN_ORDER = ['run1', 'run4', 'run6', 'run5', 'run2', 'run3'] as const
+const ATK_ORDER = ['atk1', 'atk2', 'atk3', 'atk4'] as const
+const RUN_FRAME_SECS = 0.06
 const TROOP_H = 92            // flipbook frames render by height (side profile)
 const RETURN_HIT_SECS = 0.85  // defenders punch back while a troop fights
 // THE DOBERMAN (Michael 2026-08-09): the defender's guard dog. Never dies —
@@ -75,7 +79,7 @@ const DOG_H = 74
 const TURRET_RANGE = 330
 const TURRET_SHOT_SECS = [1.8, 1.5, 1.2]   // per level, faster guns up top
 const TURRET_DMG = [7, 10, 13]             // troop hp per hit, per level
-const frameSrc = (id: string, f: string) => `/troops/anim/${id}_${f}.png`
+const frameSrc = (id: string, f: string) => `/troops/anim/${id}_${f}.webp`
 
 // ONE shared AudioContext (B4 perf fix): the old version constructed a brand
 // new AudioContext for EVERY blip — dozens per raid, each one leaking a
@@ -403,13 +407,17 @@ export default function RaidPage() {
       tr.img.style.transform = `translate(-50%, -100%)${flip ? ' scaleX(-1)' : ''}`
     }
 
-    // ── flipbooks: preload every marched type's frames once; a type whose
-    // frames are missing falls back to its static portrait (no cycling) ──
+    // ── flipbooks: preload every marched type's full 6+4 set once (plus the
+    // defender's dog); a type whose frames are missing falls back to its
+    // static portrait (no cycling) ──
     const staticIds = new Set<string>()
-    for (const id of Object.keys(trayRef.current)) {
-      for (const f of ['run1', 'run2', 'run3', 'atk1', 'atk2']) {
+    const ALL_FRAMES = ['run1', 'run2', 'run3', 'run4', 'run5', 'run6', 'atk1', 'atk2', 'atk3', 'atk4']
+    const preloadIds = [...Object.keys(trayRef.current)]
+    if (result.base.buildings.some(b => b.type === 'doberman' && !b.damaged)) preloadIds.push('doberman')
+    for (const id of preloadIds) {
+      for (const f of ALL_FRAMES) {
         const im = new Image()
-        im.onerror = () => staticIds.add(id)
+        im.onerror = () => { if (id !== 'doberman') staticIds.add(id) }
         im.src = frameSrc(id, f)
       }
     }
@@ -611,9 +619,11 @@ export default function RaidPage() {
         // ── flipbook: stride cycle while running, windup→strike while fighting ──
         tr.animT += dt
         if (!staticIds.has(tr.type)) {
+          // B5: 6-beat stride; 4-beat swing mapped across the HIT_SECS cycle
+          // (windup 0-25% → swing → CONTACT 50-75% → recover)
           const f = tr.state === 'walk'
             ? RUN_ORDER[Math.floor(tr.animT / RUN_FRAME_SECS) % RUN_ORDER.length]
-            : ((tr.t % HIT_SECS) / HIT_SECS < 0.55 ? 'atk1' : 'atk2')
+            : ATK_ORDER[Math.min(3, Math.floor(((tr.t % HIT_SECS) / HIT_SECS) * 4))]
           if (f !== tr.curFrame) { tr.curFrame = f; tr.img.src = frameSrc(tr.type, f) }
         }
         if (tr.state === 'walk') {
@@ -632,7 +642,10 @@ export default function RaidPage() {
           const d = Math.max(1, Math.hypot(dx, dy))
           const sw = Math.max(0, Math.sin((tr.t % HIT_SECS) / HIT_SECS * Math.PI))
           paint(tr, (dx / d) * sw * 13, (dy / d) * sw * 13)
-          const hitsDue = Math.floor(tr.t / HIT_SECS)
+          // chip lands at ~55% of the swing cycle — ON the contact frame
+          // (atk3) and the lunge peak, not at the cycle boundary (B5 P1,
+          // same idea as PvP's clipContactMs)
+          const hitsDue = Math.floor(tr.t / HIT_SECS + 0.45)
           if (hitsDue > tr.lastHitAt) {
             tr.lastHitAt = hitsDue
             if (!tg.dead) {
@@ -689,10 +702,11 @@ export default function RaidPage() {
       if (dog && dog.state !== 'gone') {
         dog.animT += dt
         if (dogFrames.available) {
+          // B5: 6-beat gallop (snappier than the humans) + 4-beat bite
           const f = dog.state === 'bite'
-            ? (dog.biteT % DOG_BITE_SECS < DOG_BITE_SECS / 2 ? 'atk1' : 'atk2')
+            ? ATK_ORDER[Math.min(3, Math.floor((dog.biteT % DOG_BITE_SECS) / DOG_BITE_SECS * 4))]
             : dog.state === 'idle' ? 'sit'
-            : RUN_ORDER[Math.floor(dog.animT / 0.1) % RUN_ORDER.length]
+            : RUN_ORDER[Math.floor(dog.animT / 0.05) % RUN_ORDER.length]
           if (f !== dog.curFrame) {
             dog.curFrame = f
             if (f === 'sit') { // at his post he IS the yard statue, same art + size
