@@ -45,6 +45,12 @@ const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   print_shop: { img: () => '/house/print_shop.webp', w: 128 },
 }
 
+// B7: dedicated per-type RUBBLE piles (level-agnostic — a pile is a pile of
+// that building's materials). Types without a pile (decor) keep the old
+// charred/💥 treatment.
+const RUBBLE_TYPES = new Set(['barracks', 'safe', 'solar', 'media_tower', 'print_shop', 'turret'])
+const rubbleSrc = (type: string) => `/house/rubble_${type}.webp`
+
 // ── assault tuning (rationale in the channel entry) ──
 const WALK_SPEED = 200        // logical px/s
 const HIT_SECS = 0.4          // one swing every 0.4s
@@ -334,6 +340,19 @@ export default function RaidPage() {
       layer.appendChild(el)
       setTimeout(() => { el.remove(); fxLive.bursts-- }, 400)
     }
+    // B7 collapse cover: a real dust-cloud sprite blooms over the pad while
+    // the building swaps to rubble underneath — the classic CoC beat. Shares
+    // the burst cap so collapse spam can't flood the DOM.
+    const kitDustCloud = (x: number, y: number, w: number) => {
+      if (fxLive.bursts >= 12) return
+      fxLive.bursts++
+      const el = document.createElement('img')
+      ;(el as HTMLImageElement).src = '/house/fx/dustcloud.webp'
+      el.style.cssText = `position:absolute;left:${x - w / 2}px;top:${y - w * 0.72}px;width:${w}px;` +
+        `z-index:1530;pointer-events:none;animation:rdDustCloud .68s ease-out forwards`
+      layer.appendChild(el)
+      setTimeout(() => { el.remove(); fxLive.bursts-- }, 700)
+    }
     const kitFlash = (x: number, y: number, w: number) => {
       const el = document.createElement('div')
       el.style.cssText = `position:absolute;left:${x - w / 2}px;top:${y - w / 2}px;width:${w}px;height:${w}px;` +
@@ -361,7 +380,7 @@ export default function RaidPage() {
             addFloat({ sx: o.x + 14, sy: o.y - 4, text: '💨', spark: true }, 500)
           } else {
             kitBurst(o.x, o.y - 30, '#fde047', o.heavy ? 104 : 78, true)
-            addFloat({ sx: o.x, sy: o.y - 6, text: '💨', spark: true }, 500) // rubble dust (kit-swappable)
+            kitDustCloud(o.x, o.y, o.heavy ? 170 : 130) // covers the rubble swap (B7)
           }
           kitFlash(o.x, o.y - 30, o.fence ? 90 : o.heavy ? 150 : 110)
           kitShake(!!o.heavy)
@@ -430,6 +449,14 @@ export default function RaidPage() {
         const im = new Image()
         im.onerror = () => { if (id !== 'doberman') staticIds.add(id) }
         im.src = frameSrc(id, f)
+      }
+    }
+    // B7: warm the destruction states for whatever this base can lose — the
+    // rubble swap under the dust cloud must never pop a cold image
+    {
+      const im = new Image(); im.src = '/house/fx/dustcloud.webp'
+      for (const t of new Set(result.base.buildings.map(b => b.type))) {
+        if (RUBBLE_TYPES.has(t)) { const r = new Image(); r.src = rubbleSrc(t) }
       }
     }
     // deaths in the theater are CAPPED at the server's settled casualties —
@@ -875,13 +902,18 @@ export default function RaidPage() {
       const dead = smashed.has(pad) || (!!b.damaged && b.type !== 'doberman')
       const isFence = b.type === 'fence'
       const linked = isFence && fenceLinkedSet.has(pad)
+      const hasRubble = dead && !isFence && RUBBLE_TYPES.has(b.type)
       cells.push({
         pad,
-        // BUILDINGS keep their sprite when smashed — the stage chars them
-        // (art bible §7); a downed FENCE vanishes to a 💥 (it's breached,
-        // a standing burned panel would read as still blocking)
-        img: dead && isFence ? undefined : (isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level)),
-        imgW: isFence ? (linked ? 14 : 76) : sp?.w,
+        // B7: smashed BUILDINGS become their dedicated rubble pile (same
+        // footprint — pathing still reads right); types without a pile stay
+        // charred; a downed FENCE vanishes to a 💥 (it's breached — a
+        // standing panel would read as still blocking)
+        img: dead && isFence ? undefined
+          : hasRubble ? rubbleSrc(b.type)
+          : (isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level)),
+        rubble: hasRubble,
+        imgW: isFence ? (linked ? 14 : 76) : hasRubble ? Math.round((sp?.w ?? 120) * 0.95) : sp?.w,
         mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: dead && isFence ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
         // B3: enemy flags flap, the guard dog shifts — the preview isn't a postcard

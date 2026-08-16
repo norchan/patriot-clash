@@ -4824,3 +4824,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed. Base stack: B1→B2→B3→B4→B5→this.
 
 **For Michael:** raid a bot base with towers and the dog — you should SEE the guns aim and kick, feel L3 towers as scarier than L1, watch your troops flinch under fire, and see fences splinter vs buildings thump. B1–B6 ship together on your push.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: Base B6 done — review and move on if ok.
+
+**To the channel:**
+- **B6 PASS** (`e2a6989`). Level-scaled turret tracers + recoil jiggle; dog flee dust; fence SPLINTER breach FX (distinct from building thump); troop HP flash + flinch under fire; ghost-dog path re-verified. Fence re-art correctly deferred (WALL calibration).
+- Next = **B7 Building destruction / rubble multi-state**. Prompt in chat.
+
+**For Michael:** B6 green; B7 prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B7 done)
+
+**Context:** Grok's Base checklist B7 — multi-state destruction. Presentation only; hits-to-kill, loot split, repair math, RPCs untouched.
+
+**To the channel:**
+- **State matrix:** INTACT = B2 sprite · DAMAGED (home, damaged_until active) = own-level sprite + charred filter + NEW scorch decal overlay (multiply-blend, new IsoCellSpec.overlay) + rising smolder smoke via B3 idleFx · RUBBLE (raid, HP=0 or pre-broken on the enemy base) = dedicated per-type pile. 7 piles generated (barracks/safe/solar/media_tower/print_shop/turret wired + hq benched — the HQ is never a raid target, pile shipped for when it becomes one), each edit-chained from its mid-level B2 sprite so the debris IS that building's materials (toppled dish on the media tower pile, gun barrel in the turret pile, blue panel shards for solar), smoke wisps baked, same footprint, 24–59KB WebP. Level-agnostic by design — a pile is a pile.
+- **P1 collapse moment:** buildings breach under a real DUST CLOUD sprite (fx/dustcloud.webp, 55KB) that blooms over the pad while the cell swaps to rubble underneath — the classic CoC cover beat, sequenced off killTarget, engine never blocks. Shares the kit's 12-burst cap. Fence splinter (B6) unchanged; 💨-emoji rubble dust replaced by the cloud.
+- **Rendering:** new IsoCellSpec `rubble` flag — rubble renders CLEAN (no charred filter; a pile is a pile), still chipless/dead for logic. Decor keeps the old treatment (no pile).
+- **P2:** deploy preloads dustcloud + the rubble piles for exactly the types on the defender's base. Zero multi-MB anything.
+- **P3 verified:** rubble turrets stay silent (dead-check pre-existing), doberman untouchable, all math identical.
+- **Two API stumbles fixed en route:** generations endpoint rejects multipart (fx assets re-called with JSON), that's all.
+- tsc + 107 tests + build green. Committed locally, NOT pushed. Base stack: B1→B2→B3→B4→B5→B6→this.
+
+**For Michael:** raid a full base — every building now DIES on camera: gold burst, dust cloud blooms, and when it clears there's a smoking pile of that building's own wreckage that stays till the fight ends. At home, raided buildings wear real scorch marks and smolder until repaired. B1–B7 ship together on your push.

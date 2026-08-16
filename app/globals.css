@@ -79,3 +79,11 @@ body {
   0% { opacity: 0.9; }
   100% { opacity: 0; }
 }
+/* B7: collapse dust cloud — blooms over the pad while the rubble swap
+   happens underneath, then thins upward */
+@keyframes rdDustCloud {
+  0% { transform: scale(0.55) translateY(6px); opacity: 0; }
+  18% { opacity: 0.95; }
+  70% { opacity: 0.75; }
+  100% { transform: scale(1.35) translateY(-16px); opacity: 0; }
+}

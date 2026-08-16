@@ -42,6 +42,10 @@ export interface IsoCellSpec {
   movable?: boolean
   /** ambient sprite idle (B3): flags sway, the dog shifts his weight */
   idle?: 'sway' | 'dog'
+  /** B7: dead cell showing dedicated RUBBLE art — skip the charred filter */
+  rubble?: boolean
+  /** B7: decal painted over the sprite (scorch marks on damaged buildings) */
+  overlay?: string
 }
 
 /** CONNECTED FENCES, done as geometry instead of guesswork (Michael
@@ -302,10 +306,11 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                     animation: c.idle && !c.dead && movingFrom !== c.pad && drag?.from !== c.pad
                       ? `${c.idle === 'sway' ? (c.mirror ? 'bsSwayM' : 'bsSway') : (c.mirror ? 'bsDogM' : 'bsDog')} ${c.idle === 'sway' ? '3.4s' : '4.2s'} ease-in-out infinite`
                       : undefined,
-                    opacity: drag?.from === c.pad ? 0.25 : c.dead ? 0.8 : undefined,
-                    filter: c.dead
+                    opacity: drag?.from === c.pad ? 0.25 : c.dead && !c.rubble ? 0.8 : undefined,
+                    filter: c.dead && !c.rubble
                       // CHARRED (art bible §7): the building stands, burned —
-                      // reads as damage, not as a missing sprite
+                      // reads as damage, not as a missing sprite. Dedicated
+                      // RUBBLE art (B7) renders clean — a pile is a pile.
                       ? 'grayscale(0.85) brightness(0.5) sepia(0.4) drop-shadow(0 6px 8px rgba(0,0,0,0.35))'
                       : movingFrom === c.pad
                         ? 'drop-shadow(0 0 16px rgba(251,191,36,0.95)) brightness(1.1)'
@@ -319,6 +324,18 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                   {c.emoji}
                 </span>
               ) : null}
+              {/* B7: scorch decal over a damaged-but-standing building */}
+              {c.overlay && c.img && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.overlay} alt="" className="absolute max-w-none pointer-events-none"
+                  style={{
+                    width: (c.imgW ?? 120) * 0.92,
+                    left: 0, top: TILE_H * 0.26,
+                    transform: 'translate(-50%, -72%)',
+                    opacity: 0.85,
+                    mixBlendMode: 'multiply',
+                  }} />
+              )}
             </div>
           )
         })}

@@ -239,7 +239,9 @@ export default function HqPage() {
         emoji: sp ? undefined : buildingDef(b.type)?.emoji,
         glow: banked > 0,
         idle: b.type === 'doberman' ? 'dog' : undefined, // B3: he shifts his weight
-        dead: damaged,   // post-raid rubble until the countdown (or a repair) clears it
+        dead: damaged,   // charred until the countdown (or a repair) clears it
+        // B7: damaged buildings wear real scorch marks over the char filter
+        overlay: damaged && !isFence ? '/house/fx/scorch.webp' : undefined,
         onTap: () => setSheet({ pad, building: b }),
         chip: damaged
           ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-orange-600 text-white shadow-lg">🔧 {fmtLeft(b.damaged_until!, now)}</span>
@@ -269,7 +271,11 @@ export default function HqPage() {
     if ((farm?.ready ?? 0) > 0) idleFx.push({ pad: ps, kind: 'ready', emoji: '🧨', dy: 130 })
     for (const b of house.buildings ?? []) {
       const damagedB = !!b.damaged_until && +new Date(b.damaged_until) > now
-      if (damagedB) continue // a broken building doesn't hum
+      if (damagedB) {
+        // B7: hurt buildings SMOLDER — rising smoke sells the damage state
+        if (b.type !== 'fence') idleFx.push({ pad: b.pad, kind: 'smoke', dx: 8, dy: 60 })
+        continue // ...but a broken building doesn't hum its normal loops
+      }
       if (b.upgrade) idleFx.push({ pad: b.pad, kind: 'upgrade' })
       if (b.type === 'media_tower') {
         idleFx.push({ pad: b.pad, kind: 'ping', dy: 146 })
