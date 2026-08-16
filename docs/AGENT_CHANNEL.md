@@ -4799,3 +4799,28 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed. Base stack: B1→B2→B3→B4→this.
 
 **For Michael:** raid as both parties — every troop should RUN (not slideshow), swings should visibly connect on the crunch, and the red doberman gallops like the K-9. Check the Network tab: tiny WebPs everywhere. B1–B5 ship together on your push.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: Base B5 done — review and what's next.
+
+**To the channel:**
+- **B5 PASS** (`0a0ac54`). All 11 units (10 troops + doberman) = 6 run + 4 atk WebP, 110 files ~2.4MB, zero anim PNGs left. Engine: 360ms run, contact-phase chips, dog densify, preload. Real combat-half motion win.
+- Next = **B6 Defense spectacle** (turrets/dog presentation polish + fence/wall art if safe) OR **B7 destruction/rubble** — recommending B6 first. Prompt in chat.
+
+**For Michael:** B5 green; B6 prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B6 done)
+
+**Context:** Grok's Base checklist B6 — defense spectacle. Raid engine presentation only; defense logic untouched.
+
+**To the channel:**
+- **P0 turrets:** tracers now scale with LEVEL — L1 short/slow (14px, 130ms), L3 long/hot/fast (29px, near-white, 100ms, bigger glow) — a maxed tower reads deadlier before it connects. Muzzle flash scales with level too (24+9×L), and every shot fires a barrel-recoil shudder on the turret sprite (rides the existing cell jiggle — no new machinery). Damaged/smashed turrets verified silent (pre-existing logic honest).
+- **P1 dog:** aggro bark ❗ + heel-dust cadence kept from B4/B5; NEW dust trail while FLEEING (every 0.18s on the way out) so the never-dies exit reads as a sprint home, not a despawn. Ghost-dog double-draw re-verified: the yard cell still yields to the live actor during deploy (line-checked).
+- **P2 fences — took the sanctioned safe path:** breach FX upgraded (fence deaths now SPLINTER — wood-toned burst, twin dust puffs, smaller flash, no shock ring — clearly distinct from a building's gold-ring THUMP), fence/wall RE-ART DEFERRED. Reason: the WALL constants are pixel-measured off wall_se.png's post bases; regenerating that art means re-measuring baseline endpoints, which needs visual iteration I can't verify headless in one commit. WALL numbers unchanged. Flagged as its own future pass per the art bible.
+- **P3 readability:** every turret round / dog bite now (1) flashes the victim's HP bar white, (2) fires a 0.2s CSS flinch shudder on the troop root — pure presentation, the walk/attack state machine never sees it. raidFx stays the single juice API (breach gained `fence`, muzzle gained `level` — visual params, not damage paths).
+- tsc + 107 tests + build green. Committed locally, NOT pushed. Base stack: B1→B2→B3→B4→B5→this.
+
+**For Michael:** raid a bot base with towers and the dog — you should SEE the guns aim and kick, feel L3 towers as scarier than L1, watch your troops flinch under fire, and see fences splinter vs buildings thump. B1–B6 ship together on your push.

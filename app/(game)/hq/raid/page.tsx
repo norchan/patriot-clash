@@ -344,25 +344,36 @@ export default function RaidPage() {
       setTimeout(() => el.remove(), 220)
     }
     type RaidFxKind = 'chip' | 'breach' | 'muzzle' | 'troopHit' | 'troopDeath' | 'deploy'
-    const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean }) => {
+    const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean; fence?: boolean; level?: number }) => {
       switch (o.kind) {
         case 'chip': // troop swing lands on a building/fence
           kitBurst(o.x, o.y - 42, '#fbbf24', 46)
           if (o.pad != null) hitFlash(o.pad)
           kitSnd('tick', 320 + Math.random() * 160); buzz(12)
           break
-        case 'breach': // building/fence goes DOWN — the big beat
-          kitBurst(o.x, o.y - 30, '#fde047', o.heavy ? 104 : 78, true)
-          kitFlash(o.x, o.y - 30, o.heavy ? 150 : 110)
+        case 'breach': // building/fence goes DOWN — the big beat.
+          // Fences SPLINTER (wood-toned burst, twin dust, no shock ring);
+          // buildings get the gold ring + heavier stage kick (B6 P2 interim
+          // until dedicated rubble art in B7)
+          if (o.fence) {
+            kitBurst(o.x, o.y - 26, '#d97706', 70)
+            addFloat({ sx: o.x - 14, sy: o.y - 10, text: '💨', spark: true }, 450)
+            addFloat({ sx: o.x + 14, sy: o.y - 4, text: '💨', spark: true }, 500)
+          } else {
+            kitBurst(o.x, o.y - 30, '#fde047', o.heavy ? 104 : 78, true)
+            addFloat({ sx: o.x, sy: o.y - 6, text: '💨', spark: true }, 500) // rubble dust (kit-swappable)
+          }
+          kitFlash(o.x, o.y - 30, o.fence ? 90 : o.heavy ? 150 : 110)
           kitShake(!!o.heavy)
           if (o.text) addFloat({ pad: o.pad, text: o.text }) // loot popcorn rides the kit
-          addFloat({ sx: o.x, sy: o.y - 6, text: '💨', spark: true }, 500) // rubble dust (kit-swappable)
           kitSnd('thud', 150 + Math.random() * 100); buzz(o.heavy ? 40 : 30)
           break
-        case 'muzzle': // turret fires
-          kitFlash(o.x, o.y, 34)
+        case 'muzzle': { // turret fires — flash + recoil shudder, scaled by level
+          kitFlash(o.x, o.y, 24 + (o.level ?? 1) * 9)
+          if (o.pad != null) hitFlash(o.pad) // barrel recoil rides the cell jiggle
           kitSnd('tick', 700 + Math.random() * 200); buzz(8)
           break
+        }
         case 'troopHit': // turret round / dog teeth land on a troop
           kitBurst(o.x, o.y - 46, '#f87171', 36)
           if (o.text) addFloat({ sx: o.x, sy: o.y - 52, text: o.text, spark: true }, 380)
@@ -396,7 +407,7 @@ export default function RaidPage() {
       else statsRef.current.buildings++
       setSmashed(prev => { const n = new Set(prev); n.add(tg.pad); return n })
       if (chunk > 0) setLootShown(v => v + chunk)
-      raidFx({ kind: 'breach', x: tg.x, y: tg.y, pad: tg.pad, text: chunk > 0 ? `+${chunk} FP` : undefined, heavy: !tg.isFence })
+      raidFx({ kind: 'breach', x: tg.x, y: tg.y, pad: tg.pad, text: chunk > 0 ? `+${chunk} FP` : undefined, heavy: !tg.isFence, fence: tg.isFence })
     }
 
     const paint = (tr: Trooper, lungeX = 0, lungeY = 0) => {
@@ -431,6 +442,17 @@ export default function RaidPage() {
       updateBar(tr)
       tr.img.style.filter = 'drop-shadow(0 8px 10px rgba(0,0,0,0.45)) brightness(1.5) saturate(2)'
       setTimeout(() => { tr.img.style.filter = 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))' }, 110)
+      // B6 P3: under-fire flinch (pure CSS shudder — the walk/attack state
+      // machine never sees it) + the HP bar itself flashes white
+      tr.root.style.animation = 'none'
+      void tr.root.offsetWidth
+      tr.root.style.animation = 'rdJiggle 0.2s ease-in-out'
+      const barBox = tr.barFill.parentElement as HTMLDivElement | null
+      if (barBox) {
+        barBox.style.borderColor = 'rgba(255,255,255,0.95)'
+        barBox.style.boxShadow = '0 0 6px rgba(255,255,255,0.7)'
+        setTimeout(() => { barBox.style.borderColor = 'rgba(0,0,0,0.45)'; barBox.style.boxShadow = 'none' }, 160)
+      }
       if (tr.hp <= 0) {
         if (deathsUsed < deathBudget) { deathsUsed++; dieTroop(tr); return true }
         tr.hp = 8 // out of scripted casualties — this one grits its teeth
@@ -495,19 +517,24 @@ export default function RaidPage() {
         return { pad: b.pad, x: at.x, y: at.y - 46, level: Math.max(1, Math.min(3, b.level)), cd: 0.6 + Math.random() * 1.2 }
       })
     const targetByPad = new Map(targets.map((t, i) => [t.pad, i]))
-    const fireTracer = (fx: number, fy: number, tx: number, ty: number) => {
+    // B6: tracers scale with turret LEVEL — higher guns throw longer, hotter,
+    // faster rounds, so a maxed tower READS deadlier before it even connects
+    const fireTracer = (fx: number, fy: number, tx: number, ty: number, level = 1) => {
       const tr = document.createElement('div')
       const ang = Math.atan2(ty - fy, tx - fx) * 180 / Math.PI
+      const len = 14 + level * 5
+      const ms = level >= 3 ? 100 : level === 2 ? 115 : 130
       Object.assign(tr.style, {
         position: 'absolute', left: String(fx) + 'px', top: String(fy) + 'px',
-        width: '16px', height: '3px', background: '#fde047', borderRadius: '2px',
-        boxShadow: '0 0 6px #fde047', zIndex: '1440', pointerEvents: 'none',
+        width: String(len) + 'px', height: String(2 + level) + 'px',
+        background: level >= 3 ? '#fff7c0' : '#fde047', borderRadius: '2px',
+        boxShadow: `0 0 ${4 + level * 3}px #fde047`, zIndex: '1440', pointerEvents: 'none',
         transform: 'rotate(' + ang + 'deg)',
-        transition: 'left 0.13s linear, top 0.13s linear',
+        transition: `left ${ms / 1000}s linear, top ${ms / 1000}s linear`,
       })
       layer.appendChild(tr)
       requestAnimationFrame(() => { tr.style.left = String(tx) + 'px'; tr.style.top = String(ty) + 'px' })
-      setTimeout(() => tr.remove(), 200)
+      setTimeout(() => tr.remove(), ms + 70)
     }
 
     const paintDog = (lx = 0, ly = 0) => {
@@ -687,8 +714,8 @@ export default function RaidPage() {
         if (!living.length) { tu.cd = 0.25; continue }
         tu.cd = TURRET_SHOT_SECS[tu.level - 1]
         const v = living[Math.floor(Math.random() * living.length)]
-        fireTracer(tu.x, tu.y, v.x, v.y - 40)
-        raidFx({ kind: 'muzzle', x: tu.x, y: tu.y })
+        fireTracer(tu.x, tu.y, v.x, v.y - 40, tu.level)
+        raidFx({ kind: 'muzzle', x: tu.x, y: tu.y, pad: tu.pad, level: tu.level })
         const victim = v
         setTimeout(() => {
           if (victim.state === 'walk' || victim.state === 'attack') {
@@ -723,6 +750,13 @@ export default function RaidPage() {
           const edgeX = dog.x < STAGE_W / 2 ? -90 : STAGE_W + 90
           dog.x += (edgeX < dog.x ? -1 : 1) * DOG_SPEED * 1.2 * dt
           paintDog(0, Math.sin(clock * 16) * 3)
+          // dust trail on the way OUT — he's running home, not dying (B6):
+          // the exit reads as a sprint off-stage, never a despawn
+          dog.dustT += dt
+          if (dog.dustT >= 0.18) {
+            dog.dustT = 0
+            addFloat({ sx: dog.x + (edgeX < dog.x ? 26 : -26), sy: dog.y - 8, text: '💨', spark: true }, 350)
+          }
           if (dog.x < -80 || dog.x > STAGE_W + 80) { dog.state = 'gone'; dog.root.style.opacity = '0' }
         } else if (!living.length) {
           dog.state = 'idle'
