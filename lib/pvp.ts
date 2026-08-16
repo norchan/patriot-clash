@@ -53,6 +53,33 @@ export function movesForLevel(level: number) {
   return MOVES.filter(m => m.minLevel <= level)
 }
 
+// ── CLIP CONTACT TIMING (PvP 3D checklist #2) ───────────────────────────────
+// Milliseconds from clip start to the VISUAL strike peak of the GLB one-shots
+// in PvpArena3D, measured per family (skipIn/speed already tuned there):
+//   left jab ('jabL' clip)     — snaps early, fist extended ~150ms
+//   right straight ('punch')   — long wind-up, lands ~270ms
+//   head kick ('kickhi')       — extension at ~260ms
+//   knee ('kicklo')            — knee peak at ~155ms
+//   jump/spin/sweep variants   — jump arc adds hang-time
+// EVERY resolve path (local strike, bot foe, H2H both directions, replay)
+// schedules its damage/juice off this table, so the strikeFx crunch lands
+// within a frame or two of the fist/foot connecting. Presentation timing
+// only — damage math never lives here.
+export function clipContactMs(move: Move, o?: { right?: boolean; spin?: boolean; sweep?: boolean }): number {
+  if (o?.spin) return 320   // 360° spin kick — turn + jump before the foot lands
+  if (o?.sweep) return 200  // crouch sweep — a snap, faster than the spin
+  switch (move) {
+    case 'jab': return o?.right ? 270 : 150            // defaults to the fast left
+    case 'cross':
+    case 'special':                                    // rides the right-straight clip
+      return o?.right === false ? 150 : 270
+    case 'hook': return 155  // knee lift peak
+    case 'uppercut': return 240
+    case 'kick': return 260  // head-kick extension
+    case 'jumpkick': return 300
+  }
+}
+
 // Damage is a pure function of the attacker's LEVEL and the move: level 1
 // jabs sting, level 30 jabs hurt. Shared by both live-fight modes so
 // human-vs-human and human-vs-bot hit identically.

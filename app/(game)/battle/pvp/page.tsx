@@ -6,7 +6,7 @@ import { type FighterPose } from '@/components/FighterRig'
 import FighterSprite from '@/components/FighterSprite'
 import { defaultFighter, sanitizeFighter, fighterStats } from '@/lib/fighter'
 import type { FighterDesign } from '@/lib/fighter'
-import { MOVES, movesForLevel, strikeDamage, type Move } from '@/lib/pvp'
+import { MOVES, movesForLevel, strikeDamage, clipContactMs, type Move } from '@/lib/pvp'
 import { sfx, buzz } from '@/lib/juice'
 import { headSideImage } from '@/config/heads'
 import { createSupabaseBrowserClient } from '@/lib/supabase-client'
@@ -470,6 +470,8 @@ function StreetFightPage() {
     for (const ev of fight.events) {
       const at = t0 + ev.t * 1000
       const iAttack = ev.attacker === me
+      // defender reaction lands on the CLIP's visual peak, not a flat 110ms
+      const contact = clipContactMs(ev.move)
 
       schedule(at, () => {
         // attacker pose
@@ -478,7 +480,7 @@ function StreetFightPage() {
         setMoveText(`${iAttack ? 'YOU' : theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[ev.move]}`)
       })
 
-      schedule(at + 110, () => {
+      schedule(at + contact, () => {
         // defender reaction + damage
         const setDefPose = iAttack ? setFoePose : setMyPose
         const heavy = ev.move === 'hook' || ev.move === 'uppercut' || ev.move === 'kick'
@@ -513,7 +515,7 @@ function StreetFightPage() {
         setFoeHp(me === 'c' ? ev.dhp : ev.chp)
       })
 
-      schedule(at + 330, () => {
+      schedule(at + contact + 240, () => {
         if (iAttack) { setMyPose('idle'); setMyAttacking(false) }
         else { setFoePose('idle'); setFoeAttacking(false) }
         const setDefPose = iAttack ? setFoePose : setMyPose
@@ -694,55 +696,67 @@ function StreetFightPage() {
     const applyIncomingAttack = (p: { seq: number; move: Move; right?: boolean; boost?: number; spin?: boolean; sweep?: boolean }) => {
       if (S.over) return
       S.dbg.recv++; S.dbg.lastRecvAt = Date.now()
-      // duplicate (their retry): our result broadcast was lost — resend it
+      // duplicate (their retry): our result broadcast was lost — resend it.
+      // A null entry means the strike is mid-flight to its contact frame:
+      // ignore the retry, their next one will find the stored result.
       if (S.seenMoves.has(p.seq)) {
-        chRef.ch?.send({ type: 'broadcast', event: 'result', payload: S.seenMoves.get(p.seq) })
+        const stored = S.seenMoves.get(p.seq)
+        if (stored) chRef.ch?.send({ type: 'broadcast', event: 'result', payload: stored })
         return
       }
+      S.seenMoves.set(p.seq, null) // claim the seq before the contact delay
       const def = MOVES.find(m => m.move === p.move)!
       const heavy = def.mult > 1
-      const now = Date.now()
       setFoePose(MOVE_POSE[p.move]); setFoeAttacking(true)
       if (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') foeKick(p.move !== 'hook')
       else foeJab(!!p.right) // 3D: right or left jab
       // mirror the 🌀 spin so the opponent's spin kick reads on our screen too
       if (p.move === 'jumpkick' && p.spin) setOppSpinKey(k => k + 1)
       if (p.move === 'hook' && p.sweep) setOppSweepKey(k => k + 1)
-      setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
       setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[p.move]}`)
       // their SPECIAL is an event on OUR screen too: party flash + punch-in
       if (p.move === 'special') { flashSpecial(theirColor); setZoom(true); setTimeout(() => setZoom(false), 700) }
 
-      let result: 'hit' | 'blocked' | 'dodged' = 'hit'
-      let dmg = 0
-      const reach = (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') ? KICK_RANGE : PUNCH_RANGE
-      const outOfRange = dist(S.oppX, S.playerX) > reach
-      const guarding = S.blockHeld || S.blocking
-      if (outOfRange || now < S.dodgeUntil || S.ducking || S.airborne) {
-        result = 'dodged'
-        strikeFx({ side: 'player', result: 'dodged', dodgeText: outOfRange ? 'WHIFF' : 'DODGED!' })
-      } else if (guarding) {
-        result = 'blocked'
-        dmg = Math.max(0, Math.floor(strikeDamage(foeLevel, def.mult) * 0.15))
-        S.counts.blocks++
-        strikeFx({ side: 'player', result: 'blocked' })
-      } else {
-        dmg = strikeDamage(foeLevel, def.mult)
-        if (p.boost) { dmg = Math.floor(dmg * p.boost); addSpark(false, '⚡ POWER!', '#fde047') } // their armed power buff
-        setMyPose('hit')
-        strikeFx({ side: 'player', result: 'hit', damage: dmg, heavy: heavy || dmg >= 10, special: p.move === 'special', kicky: p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook' })
-        // heavies knock the body back farther — the number pops AND the fighter moves
-        setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // 3D flinch + knockback
-        setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
-      }
-      const t = S.startAt ? (now - S.startAt) / 1000 : 0
-      if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1) // no KO before 14s
-      S.myHp = Math.max(0, S.myHp - dmg)
-      setMyHp(S.myHp)
-      const resultPayload = { seq: p.seq, result, dmg, hp: S.myHp }
-      S.seenMoves.set(p.seq, resultPayload)
-      chRef.ch?.send({ type: 'broadcast', event: 'result', payload: resultPayload })
-      if (S.myHp === 0) endFight(false, true)
+      // RESOLVE AT THE VISUAL CONTACT FRAME (checklist #2): their clip just
+      // started on our screen — the fist peaks contactMs later, so the
+      // dodge/block sample, damage, and kit all land ON the peak instead of
+      // the juice firing while the arm is still winding up.
+      const contact = clipContactMs(p.move, { right: p.right, spin: p.spin, sweep: p.sweep })
+      setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, contact + 130)
+      setTimeout(() => {
+        if (S.over) return
+        const now = Date.now()
+        let result: 'hit' | 'blocked' | 'dodged' = 'hit'
+        let dmg = 0
+        const reach = (p.move === 'kick' || p.move === 'hook' || p.move === 'jumpkick') ? KICK_RANGE : PUNCH_RANGE
+        const outOfRange = dist(S.oppX, S.playerX) > reach
+        const guarding = S.blockHeld || S.blocking
+        if (outOfRange || now < S.dodgeUntil || S.ducking || S.airborne) {
+          result = 'dodged'
+          strikeFx({ side: 'player', result: 'dodged', dodgeText: outOfRange ? 'WHIFF' : 'DODGED!' })
+        } else if (guarding) {
+          result = 'blocked'
+          dmg = Math.max(0, Math.floor(strikeDamage(foeLevel, def.mult) * 0.15))
+          S.counts.blocks++
+          strikeFx({ side: 'player', result: 'blocked' })
+        } else {
+          dmg = strikeDamage(foeLevel, def.mult)
+          if (p.boost) { dmg = Math.floor(dmg * p.boost); addSpark(false, '⚡ POWER!', '#fde047') } // their armed power buff
+          setMyPose('hit')
+          strikeFx({ side: 'player', result: 'hit', damage: dmg, heavy: heavy || dmg >= 10, special: p.move === 'special', kicky: p.move === 'kick' || p.move === 'jumpkick' || p.move === 'hook' })
+          // heavies knock the body back farther — the number pops AND the fighter moves
+          S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // knockback (flinch clip rides the kit)
+          setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
+        }
+        const t = S.startAt ? (now - S.startAt) / 1000 : 0
+        if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1) // no KO before 14s
+        S.myHp = Math.max(0, S.myHp - dmg)
+        setMyHp(S.myHp)
+        const resultPayload = { seq: p.seq, result, dmg, hp: S.myHp }
+        S.seenMoves.set(p.seq, resultPayload)
+        chRef.ch?.send({ type: 'broadcast', event: 'result', payload: resultPayload })
+        if (S.myHp === 0) endFight(false, true)
+      }, contact)
     }
 
     const applyMyAttackResult = (p: { seq: number; result: 'hit' | 'blocked' | 'dodged'; dmg: number; hp: number }) => {
@@ -750,31 +764,40 @@ function StreetFightPage() {
       S.dbg.recv++; S.dbg.lastRecvAt = Date.now()
       // which move this result confirms (for special-sized impact FX) — must be
       // read BEFORE the pending slot is cleared
-      const sentMove = S.pendingMove?.seq === p.seq ? S.pendingMove.payload.move : undefined
-      if (S.pendingMove && S.pendingMove.seq === p.seq) S.pendingMove = null
-      S.foeHp = Math.max(0, Math.min(100, p.hp))
-      setFoeHp(S.foeHp)
+      const pending = S.pendingMove?.seq === p.seq ? S.pendingMove : null
+      const sentMove: Move | undefined = pending?.payload.move
+      if (pending) S.pendingMove = null
+      S.foeHp = Math.max(0, Math.min(100, p.hp)) // authoritative ref updates NOW
       // ⚡ POWER is consumed by the first successful contact
       if (p.result === 'hit' && S.powerArmed) { S.powerArmed = false; setPowerArmed(false) }
-      if (p.result === 'hit') {
-        setFoePose('hit')
-        // confirm juice the moment the H2H result lands — same kit as the
-        // opponent's phone, so both sides feel the identical connect
-        strikeFx({ side: 'opp', result: 'hit', damage: p.dmg, heavy: p.dmg >= 10, special: sentMove === 'special', kicky: sentMove === 'kick' || sentMove === 'hook' || sentMove === 'jumpkick' })
-        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (p.dmg >= 10 ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
-        S.meter = Math.min(100, S.meter + p.dmg * 1.7)
-        setMeter(S.meter)
-        setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
-      } else if (p.result === 'blocked') {
-        setFoePose('block')
-        strikeFx({ side: 'opp', result: 'blocked' })
-        setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
-      } else {
-        setFoePose('dodge')
-        strikeFx({ side: 'opp', result: 'dodged', dodgeText: 'MISS' })
-        setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
-      }
-      if (S.foeHp === 0) endFight(true, true)
+      // The confirm may arrive BEFORE my own clip's fist reaches its peak
+      // (fast LAN / same router). Gate the presentation to my contact frame
+      // so the crunch never fires while my arm is still winding up —
+      // presentation timing only, the resolved result is already final.
+      const contact = sentMove ? clipContactMs(sentMove, { right: pending?.payload.right, spin: pending?.payload.spin, sweep: pending?.payload.sweep }) : 0
+      const wait = pending ? Math.max(0, pending.at + contact - Date.now()) : 0
+      setTimeout(() => {
+        if (L.current.over) return
+        setFoeHp(S.foeHp)
+        if (p.result === 'hit') {
+          setFoePose('hit')
+          // same kit as the opponent's phone — both sides feel the identical connect
+          strikeFx({ side: 'opp', result: 'hit', damage: p.dmg, heavy: p.dmg >= 10, special: sentMove === 'special', kicky: sentMove === 'kick' || sentMove === 'hook' || sentMove === 'jumpkick' })
+          S.oppX = Math.min(1.8, S.oppX + (p.dmg >= 10 ? 0.18 : 0.1)); setOppX(S.oppX) // knockback (flinch clip rides the kit)
+          S.meter = Math.min(100, S.meter + p.dmg * 1.7)
+          setMeter(S.meter)
+          setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
+        } else if (p.result === 'blocked') {
+          setFoePose('block')
+          strikeFx({ side: 'opp', result: 'blocked' })
+          setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
+        } else {
+          setFoePose('dodge')
+          strikeFx({ side: 'opp', result: 'dodged', dodgeText: 'MISS' })
+          setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 300)
+        }
+        if (S.foeHp === 0) endFight(true, true)
+      }, wait)
     }
 
     const wire = (c: typeof ch) => c
@@ -1133,13 +1156,12 @@ function StreetFightPage() {
       if (result === 'hit') {
         setFoePose('hit')
         strikeFx({ side: 'opp', result: 'hit', damage: dmg, heavy: heavy || dmg >= 10, special: move === 'special', kicky })
-        setOppHitKey(k => k + 1); S.oppX = Math.min(1.8, S.oppX + (heavy ? 0.18 : 0.1)); setOppX(S.oppX) // 3D flinch + knockback
+        S.oppX = Math.min(1.8, S.oppX + (heavy ? 0.18 : 0.1)); setOppX(S.oppX) // knockback (flinch clip rides the kit)
         S.meter = Math.min(100, S.meter + dmg * 1.7)
         setMeter(S.meter)
         setTimeout(() => { if (!L.current.over) setFoePose('idle') }, 240)
       } else if (result === 'blocked') {
-        strikeFx({ side: 'opp', result: 'blocked' })
-        setOppBlocking(true); setTimeout(() => { if (!L.current.over) setOppBlocking(false) }, 450)
+        strikeFx({ side: 'opp', result: 'blocked' }) // kit pulses the foe's 3D cover pose
       } else {
         strikeFx({ side: 'opp', result: 'dodged', dodgeText: 'MISS' })
       }
@@ -1154,11 +1176,11 @@ function StreetFightPage() {
   // Explicit arms (Michael): pad W = left-hand punch, pad E = right-hand punch
   function playerPunchL() {
     if (!canStrike(PUNCH_CD)) return
-    strikeCore('cross', false, 'LEFT PUNCH', 150)
+    strikeCore('cross', false, 'LEFT PUNCH', clipContactMs('cross', { right: false }))
   }
   function playerPunchR() {
     if (!canStrike(PUNCH_CD)) return
-    strikeCore('cross', true, 'RIGHT PUNCH', 270)
+    strikeCore('cross', true, 'RIGHT PUNCH', clipContactMs('cross', { right: true }))
   }
   // keyboard/legacy entry: alternate arms
   function playerPunch() {
@@ -1177,17 +1199,17 @@ function StreetFightPage() {
       L.current.counts.jumpkicks++
       setPlayerSpinKey(k => k + 1)          // 360° turn in the arena
       L.current.backHeldUntil = 0            // consume the wind-up
-      strikeCore('jumpkick', false, '🌀 SPIN KICK', 320, { jump: true, spin: true })
+      strikeCore('jumpkick', false, '🌀 SPIN KICK', clipContactMs('jumpkick', { spin: true }), { jump: true, spin: true })
       return
     }
     // Jump window (▲ then 🦵) or already airborne → JUMP KICK
     const airborne = jumpingRef.current || playerY > 0.15 || performance.now() < jumpArmedUntil.current
     if (airborne) {
       L.current.counts.jumpkicks++
-      strikeCore('jumpkick', false, 'JUMP KICK', 300, { jump: !jumpingRef.current })
+      strikeCore('jumpkick', false, 'JUMP KICK', clipContactMs('jumpkick'), { jump: !jumpingRef.current })
       return
     }
-    strikeCore('kick', false, 'HEAD KICK', 260)
+    strikeCore('kick', false, 'HEAD KICK', clipContactMs('kick'))
   }
   function playerLowKick() {
     if (!canStrike(KICK_CD)) return
@@ -1201,12 +1223,12 @@ function StreetFightPage() {
     if (downHeld) {
       setPlayerSweepKey(k => k + 1)          // crouch + 360° at shin height
       L.current.downHeldUntil = 0            // consume the crouch
-      strikeCore('hook', false, '🌀 LEG SWEEP', 200, { sweep: true })
+      strikeCore('hook', false, '🌀 LEG SWEEP', clipContactMs('hook', { sweep: true }), { sweep: true })
       return
     }
     // KNEE, not a leg kick — the clip is a knee lift (see kickLo in
-    // PvpArena3D). 155ms puts the impact on the knee's peak.
-    strikeCore('hook', false, 'KNEE', 155)
+    // PvpArena3D); the table puts the impact on the knee's peak.
+    strikeCore('hook', false, 'KNEE', clipContactMs('hook'))
   }
   // ⚡ POWER: spends meter to amplify the next successful contact
   function playerPower() {
@@ -1229,7 +1251,7 @@ function StreetFightPage() {
     S.counts.specials++
     setZoom(true); setTimeout(() => setZoom(false), 700)
     flashSpecial(myColor) // full-frame party flash — the special is an EVENT (brief C2)
-    strikeCore('special', true, '★ SPECIAL ★', 270)
+    strikeCore('special', true, '★ SPECIAL ★', clipContactMs('special'))
   }
   // keyboard fallback (desktop): space/enter = punch
   function playerStrike() { playerPunch() }
@@ -1261,6 +1283,9 @@ function StreetFightPage() {
       addBurst(onFoe, heavy)
       fireImpact(o.side, o.special ? 'special' : heavy ? 'heavy' : 'light')
       if (o.damage != null) addSpark(onFoe, `-${o.damage}`, onFoe ? '#facc15' : '#f87171')
+      // 3D flinch clip + head wince ride the kit (checklist #2) — every path
+      // gets the same react, and the hit one-shot can't be idled over early
+      if (onFoe) setOppHitKey(k => k + 1); else setPlayerHitKey(k => k + 1)
       triggerHitStop(o.special ? 220 : heavy ? 140 : 85)
       setShake(true)
       setTimeout(() => setShake(false), heavy ? 200 : 130)
@@ -1275,6 +1300,9 @@ function StreetFightPage() {
     } else if (o.result === 'blocked') {
       fireImpact(o.side, 'block')
       addSpark(onFoe, onFoe ? 'BLOCK' : 'BLOCKED!', '#93c5fd')
+      // the foe visibly HOLDS the forearms-up cover a beat (the player's own
+      // block pose is already live input state — never fight it)
+      if (onFoe) { setOppBlocking(true); setTimeout(() => { if (!L.current.over) setOppBlocking(false) }, 450) }
       triggerHitStop(60) // the guard catches it — a short crunch, not a full freeze
       if (now - snd.block > 70) { snd.block = now; sfx.block() }
       buzz(15)
@@ -1352,31 +1380,39 @@ function StreetFightPage() {
         const def = MOVES.find(m => m.move === S.foeMove)!
         const heavy = def.mult > 1
         setFoePose(MOVE_POSE[S.foeMove]); setFoeAttacking(true)
-        foeJab(Math.random() < 0.5) // 3D: right or left jab
-        setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, 280)
+        const rightArm = Math.random() < 0.5
+        foeJab(rightArm) // 3D: right or left jab
         setMoveText(`${theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[S.foeMove]}`)
-        let dmg = strikeDamage(foeLevel, def.mult)
-        const guarding = S.blockHeld || S.blocking
-        if (dist(S.oppX ?? 1, S.playerX ?? -1) > PUNCH_RANGE) {
-          dmg = 0
-          strikeFx({ side: 'player', result: 'dodged', dodgeText: 'WHIFF' })   // player backed out of range
-        } else if (now < S.dodgeUntil || S.ducking || S.airborne) {
-          dmg = 0
-          strikeFx({ side: 'player', result: 'dodged', dodgeText: 'DODGED!' }) // ducked / jumped / dodged
-        } else if (guarding) {
-          dmg = Math.max(0, Math.floor(dmg * 0.15))
-          S.counts.blocks++
-          strikeFx({ side: 'player', result: 'blocked' })
-        } else {
-          setMyPose('hit')
-          strikeFx({ side: 'player', result: 'hit', damage: dmg, heavy, kicky: S.foeMove === 'kick' || S.foeMove === 'jumpkick' })
-          setPlayerHitKey(k => k + 1); S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // 3D flinch + knockback
-          setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
-        }
-        if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1)
-        S.myHp = Math.max(0, S.myHp - dmg)
-        setMyHp(S.myHp)
-        if (S.myHp === 0) { endFight(false, true); return }
+        // resolve ON the clip's visual peak (checklist #2) — the bot's fist
+        // connecting and the kit crunch are one moment, and the player's
+        // block/dodge is sampled when the strike actually arrives
+        const contact = clipContactMs(S.foeMove, { right: rightArm })
+        setTimeout(() => { if (!L.current.over) { setFoePose('idle'); setFoeAttacking(false) } }, contact + 130)
+        setTimeout(() => {
+          if (S.over) return
+          let dmg = strikeDamage(foeLevel, def.mult)
+          const guarding = S.blockHeld || S.blocking
+          if (dist(S.oppX ?? 1, S.playerX ?? -1) > PUNCH_RANGE) {
+            dmg = 0
+            strikeFx({ side: 'player', result: 'dodged', dodgeText: 'WHIFF' })   // player backed out of range
+          } else if (Date.now() < S.dodgeUntil || S.ducking || S.airborne) {
+            dmg = 0
+            strikeFx({ side: 'player', result: 'dodged', dodgeText: 'DODGED!' }) // ducked / jumped / dodged
+          } else if (guarding) {
+            dmg = Math.max(0, Math.floor(dmg * 0.15))
+            S.counts.blocks++
+            strikeFx({ side: 'player', result: 'blocked' })
+          } else {
+            setMyPose('hit')
+            strikeFx({ side: 'player', result: 'hit', damage: dmg, heavy, kicky: S.foeMove === 'kick' || S.foeMove === 'jumpkick' })
+            S.playerX = Math.max(-2.6, S.playerX - (heavy ? 0.18 : 0.1)); setPlayerX(S.playerX) // knockback (flinch clip rides the kit)
+            setTimeout(() => { if (!L.current.over && !L.current.blockHeld) setMyPose('idle') }, 240)
+          }
+          if (dmg >= S.myHp && t < 14) dmg = Math.max(0, S.myHp - 1)
+          S.myHp = Math.max(0, S.myHp - dmg)
+          setMyHp(S.myHp)
+          if (S.myHp === 0) endFight(false, true)
+        }, contact)
         S.foeNextAt = now + foeInterval()
         S.foeSpaceUntil = now + 650 // step back after attacking (spacing)
       } else if (!S.foeWindupAt && now >= S.foeNextAt && dist(S.oppX ?? 1, S.playerX ?? -1) <= PUNCH_RANGE) {

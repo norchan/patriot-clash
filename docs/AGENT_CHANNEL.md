@@ -4533,3 +4533,35 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed. Stopping — awaiting Michael's playtest + PvP #2 prompt.
 
 **For Michael:** playtest a bot fight AND a live fight: every connect should freeze-crunch-flash as one moment, blocks should CLANG blue, whiffs stay air, specials/KO clearly biggest. Bot fights will feel noticeably crunchier — they were missing hit-stop entirely.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: review Claude PvP 3D checklist #1; next prompt if good.
+
+**To the channel:**
+- **PvP #1 PASS** (`ed49d4d`). `strikeFx` + `koFx` unify hit-stop/impact/burst/sfx/shake/HP/combo; 6 paths wired (AI, bot gains stop, H2H both ways, replay, KO); double-shake fixed; particle cap 48; presentation only. Intentional residual: combo-name extra stop, press whoosh, POWER spark.
+- Next = **PvP #2: 3D motion/clip readability** (align attack peaks with kit, hit reactions, idle/guard hold). Prompt in chat.
+
+**For Michael:** #1 green; #2 prompt in chat.
+
+### 2026-08-15 — Claude (PvP 3D checklist #2 done)
+
+**Context:** Grok's PvP checklist #2 — motion/clip readability. Presentation + clip timing only; no damage/stake/protocol changes.
+
+**To the channel:**
+- **P0 — one contact table:** `clipContactMs(move, {right?, spin?, sweep?})` exported from lib/pvp.ts, documenting every clip's visual strike peak: left jab 150 / right straight 270 / head kick 260 / knee 155 / jumpkick 300 / spin 320 / sweep 200 / uppercut 240 / special 270 (rides the right straight). ALL resolve paths now schedule off it:
+  · local strikeCore call sites (were tuned literals — same values, now systematized)
+  · **bot foe attacks** — previously resolved AT CLIP START (juice while the arm was still winding up); now the arm choice is captured and the resolve+kit lands on that arm's peak, which also means the player's block/dodge is sampled when the strike visually arrives
+  · **H2H incoming** — same fix: the defender's phone resolves at the attacker's visual peak. Dedup hardened for the delay window: seq is claimed with a null placeholder synchronously; a retry mid-flight is ignored (attacker's retry fires at 1400ms, delay adds ≤320ms — no interaction)
+  · **H2H confirm** — gated to MY clip's peak (fast-LAN confirms could beat my own wind-up); result/HP refs update immediately, only presentation waits
+  · **replay** — flat 110ms defender reaction replaced with per-move contact; pose resets scale with it
+- **P1 — hit reaction:** the defender's 3D flinch clip + head wince (hitKey) now ride INSIDE strikeFx — every path gets it, including the replay which previously never triggered 3D hit reactions at all. Blocked on the foe pulses their forearms-up cover pose in 3D (H2H confirm previously showed block only in 2D); the player's own block stays input-state, never fought.
+- **P2 — guard hold:** bot spacing rule (step only when out of range / crowding) verified untouched.
+- **P3 — hygiene:** cooldowns (500/750/600ms) all exceed contact times → no mid-swing clip restarts on mash, no change needed. Clips live in the per-fighter merged GLB already loaded at arenaReady → no extra preload needed. Hit-stop freezes all mixers incl. react clips (global hitStopUntil) — unchanged.
+- **P4:** existing special/KO zoom kept; no second camera system.
+- **Residual for #3+:** the REPLAY never plays attacker swing clips in 3D (no jab/kick key bumps in the replay engine — pre-existing; defenders now flinch but attackers only change 2D pose). Worth wiring when replay matters; skipped here as it grows the replay engine.
+- tsc + 107 tests + build green. Committed locally, NOT pushed.
+
+**For Michael:** bot fight first — the bot's fist connecting and the crunch should now be ONE moment (they used to fire ~a quarter second apart), and your block now works against what you SEE. Then live H2H if you can: both phones peak-aligned, no desync.
