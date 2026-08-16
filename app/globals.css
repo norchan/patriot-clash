@@ -87,3 +87,22 @@ body {
   70% { opacity: 0.75; }
   100% { transform: scale(1.35) translateY(-16px); opacity: 0; }
 }
+
+/* B9: a freshly placed/moved building POPS onto its pad. Keyframes carry the
+   sprite's full anchor transform (same rule as bsSway) so the base never
+   drifts; the M variant preserves a mirrored facing. */
+@keyframes bsPlacePop {
+  0% { transform: translate(-50%, -100%) scale(0.55); }
+  60% { transform: translate(-50%, -100%) scale(1.09); }
+  100% { transform: translate(-50%, -100%) scale(1); }
+}
+@keyframes bsPlacePopM {
+  0% { transform: translate(-50%, -100%) scale(0.55) scaleX(-1); }
+  60% { transform: translate(-50%, -100%) scale(1.09) scaleX(-1); }
+  100% { transform: translate(-50%, -100%) scale(1) scaleX(-1); }
+}
+/* B9: red flash on an illegal drop — never a silent fail */
+@keyframes bsBadDrop {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}

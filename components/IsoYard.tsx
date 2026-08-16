@@ -46,6 +46,10 @@ export interface IsoCellSpec {
   rubble?: boolean
   /** B7: decal painted over the sprite (scorch marks on damaged buildings) */
   overlay?: string
+  /** B9: one-shot pop-in — fire briefly after a successful place/move */
+  bounce?: boolean
+  /** B9: faint "+" in the plot diamond — early-game build affordance */
+  plotPlus?: boolean
 }
 
 /** CONNECTED FENCES, done as geometry instead of guesswork (Michael
@@ -136,10 +140,14 @@ export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
   )
 }
 
-export default function IsoYard({ cells, bg, children, onMove, validTargets, movingFrom, onStageTap, idleFx }:
+export default function IsoYard({ cells, bg, children, onMove, validTargets, movingFrom, onStageTap, idleFx, highlightPad, ghost }:
   { cells: IsoCellSpec[]; bg?: string; children?: ReactNode
     /** ambient life overlays (B3) — smoke, glints, claim bubbles, upgrade FX */
     idleFx?: IdleFxItem[]
+    /** B9: gold-pulsed pad — marks WHERE a build sheet will land its building */
+    highlightPad?: number | null
+    /** B9: semi-transparent preview sprite on a pad (build-sheet hover) */
+    ghost?: { pad: number; img: string; imgW?: number } | null
     /** called after a successful drag-and-drop OR tap-to-place in move mode */
     onMove?: (fromPad: number, toPad: number) => void
     /** cells a lifted building may land on */
@@ -161,6 +169,8 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
   // lock (not native-scroll suppression — that era is gone) keeps the world
   // still while a building is in the air. ──
   const [drag, setDrag] = useState<{ from: number; x: number; y: number; hover: number | null } | null>(null)
+  // B9: pad that just refused a drop — flashes red so a bad drop is never silent
+  const [badDrop, setBadDrop] = useState<number | null>(null)
   const dragRef = useRef<typeof drag>(null)
   dragRef.current = drag
   camLockRef.current = drag != null
@@ -202,6 +212,11 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       if (d.hover != null && d.hover !== d.from && (validTargets?.has(d.hover) ?? false)) {
         justDroppedAt.current = Date.now()
         onMove?.(d.from, d.hover)
+      } else if (d.hover != null && d.hover !== d.from) {
+        // illegal landing — flash the pad red and buzz; the building snaps home
+        setBadDrop(d.hover)
+        setTimeout(() => setBadDrop(null), 560)
+        try { navigator.vibrate?.([18, 40, 18]) } catch {}
       }
       setDrag(null)
     }
@@ -267,6 +282,11 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                         borderColor: lifted ? 'rgba(52,211,153,0.7)' : 'rgba(255,255,255,0.14)',
                       }} />
                   )}
+                  {/* B9: early-game "you can build here" whisper — hq page only
+                      sets it while the base is still nearly empty */}
+                  {c.plot && c.plotPlus && !lifted && (
+                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/25 font-black text-xl pointer-events-none">+</span>
+                  )}
                 </button>
               )}
               {/* grounded shadow under sprites */}
@@ -301,11 +321,14 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                     left: 0, top: TILE_H * 0.28,
                     transform: `translate(-50%, -100%)${c.mirror ? ' scaleX(-1)' : ''}`,
                     transformOrigin: '50% 100%',
-                    // sprite-level idle (B3): keyframes carry the full base
-                    // transform so the bottom anchor never drifts
-                    animation: c.idle && !c.dead && movingFrom !== c.pad && drag?.from !== c.pad
-                      ? `${c.idle === 'sway' ? (c.mirror ? 'bsSwayM' : 'bsSway') : (c.mirror ? 'bsDogM' : 'bsDog')} ${c.idle === 'sway' ? '3.4s' : '4.2s'} ease-in-out infinite`
-                      : undefined,
+                    // B9 place-pop wins over the B3 idles for its half second;
+                    // keyframes carry the full base transform so the bottom
+                    // anchor never drifts
+                    animation: c.bounce
+                      ? `${c.mirror ? 'bsPlacePopM' : 'bsPlacePop'} 0.5s cubic-bezier(.34,1.56,.64,1)`
+                      : c.idle && !c.dead && movingFrom !== c.pad && drag?.from !== c.pad
+                        ? `${c.idle === 'sway' ? (c.mirror ? 'bsSwayM' : 'bsSway') : (c.mirror ? 'bsDogM' : 'bsDog')} ${c.idle === 'sway' ? '3.4s' : '4.2s'} ease-in-out infinite`
+                        : undefined,
                     opacity: drag?.from === c.pad ? 0.25 : c.dead && !c.rubble ? 0.8 : undefined,
                     filter: c.dead && !c.rubble
                       // CHARRED (art bible §7): the building stands, burned —
@@ -370,20 +393,88 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
             </span>
           )
         })}
-        {/* the airborne building follows the finger — above chips, above all */}
+        {/* B9: gold pulse marks the pad an open build sheet will land on */}
+        {highlightPad != null && (() => {
+          const { x, y, depth } = isoPos(highlightPad)
+          return (
+            <span className="absolute pointer-events-none animate-pulse" style={{
+              left: x - TILE_W / 2, top: y - TILE_H / 2, width: TILE_W, height: TILE_H,
+              clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+              background: 'rgba(251,191,36,0.3)',
+              boxShadow: 'inset 0 0 0 2px rgba(251,191,36,0.8)',
+              zIndex: depth * 10 + 1,
+            }} />
+          )
+        })()}
+        {/* B9: ghost preview — the building you're eyeing, half-there on its pad */}
+        {ghost && (() => {
+          const { x, y, depth } = isoPos(ghost.pad)
+          return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={ghost.img} alt="" className="absolute max-w-none pointer-events-none"
+              style={{
+                width: ghost.imgW ?? 120,
+                left: x, top: y + TILE_H * 0.28,
+                transform: 'translate(-50%, -100%)',
+                opacity: 0.55, filter: 'saturate(0.75)',
+                zIndex: depth * 10 + 4,
+              }} />
+          )
+        })()}
+        {/* B9: red flash where a drop was refused — never a silent fail */}
+        {badDrop != null && (() => {
+          const { x, y, depth } = isoPos(badDrop)
+          return (
+            <span className="absolute pointer-events-none" style={{
+              left: x - TILE_W / 2, top: y - TILE_H / 2, width: TILE_W, height: TILE_H,
+              clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+              background: 'rgba(239,68,68,0.5)',
+              boxShadow: 'inset 0 0 0 2px rgba(239,68,68,0.9)',
+              animation: 'bsBadDrop 0.56s ease-out forwards',
+              zIndex: 2900,
+            }} />
+          )
+        })()}
+        {/* the airborne building follows the finger — above chips, above all.
+            B9: while it hovers a pad, the pad answers — a snapped ghost on a
+            legal target, a red diamond on an illegal one. */}
         {drag && (() => {
           const src = cells.find(c => c.pad === drag.from)
           if (!src?.img) return null
+          const overValid = drag.hover != null && drag.hover !== drag.from && (validTargets?.has(drag.hover) ?? false)
+          const overBad = drag.hover != null && drag.hover !== drag.from && !overValid
+          const hp = drag.hover != null ? isoPos(drag.hover) : null
           return (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={src.img} alt="" className="absolute max-w-none pointer-events-none"
-              style={{
-                width: (src.imgW ?? 120) * 1.08,
-                left: drag.x, top: drag.y,
-                transform: 'translate(-50%, -85%)',
-                zIndex: 3000,
-                filter: 'drop-shadow(0 14px 16px rgba(0,0,0,0.5)) brightness(1.08)',
-              }} />
+            <>
+              {overValid && hp && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={src.img} alt="" className="absolute max-w-none pointer-events-none"
+                  style={{
+                    width: src.imgW ?? 120,
+                    left: hp.x, top: hp.y + TILE_H * 0.28,
+                    transform: 'translate(-50%, -100%)',
+                    opacity: 0.5, zIndex: hp.depth * 10 + 4,
+                  }} />
+              )}
+              {overBad && hp && (
+                <span className="absolute pointer-events-none" style={{
+                  left: hp.x - TILE_W / 2, top: hp.y - TILE_H / 2, width: TILE_W, height: TILE_H,
+                  clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                  background: 'rgba(239,68,68,0.4)',
+                  boxShadow: 'inset 0 0 0 2px rgba(239,68,68,0.85)',
+                  zIndex: 2900,
+                }} />
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src.img} alt="" className="absolute max-w-none pointer-events-none"
+                style={{
+                  width: (src.imgW ?? 120) * 1.08,
+                  left: drag.x, top: drag.y,
+                  transform: 'translate(-50%, -85%)',
+                  zIndex: 3000,
+                  filter: 'drop-shadow(0 14px 16px rgba(0,0,0,0.5)) brightness(1.08)',
+                }} />
+            </>
           )
         })()}
         {/* ambient life layer — always mounted so the bs* keyframes exist

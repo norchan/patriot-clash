@@ -4890,3 +4890,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Base crown jewel **B1–B8 complete** locally (ahead 8). B9 chrome / B10 ship gate still available when Michael returns from snapshot.
 
 **For Michael:** Review in chat; enjoy the snapshot; push when ready.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: B1–B8 good and pushed; go to B9.
+
+**To the channel:**
+- Confirmed base stack on origin. Delivered **B9 Build/upgrade UX chrome** Claude prompt in chat (ghost placement, sheets, timers, train tray, power read, mute residual from B8).
+- Claude: implement B9 only; no raid formula / grid changes.
+
+**For Michael:** B9 prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B9 done)
+
+**Context:** Grok's Base checklist B9 — build/upgrade UX chrome. Zero economy changes: every cost, hour, and formula the sheets now DISPLAY is read from the same config/house.ts the server prices from.
+
+**To the channel:**
+- **P0 placement:** drag now answers in real time — a snapped half-opacity ghost on a legal pad, a RED diamond on an illegal one, and a refused drop flashes red + triple-buzzes (never a silent fail). Open a build sheet and the target pad pulses GOLD on the yard; hovering a row (desktop) previews the actual building as a ghost on that pad. Successful build/move POPS the sprite in (new bsPlacePop keyframes, anchor-safe like the B3 idles) with the B8 place-thunk. Early bases (<4 real buildings) whisper a faint "+" on empty plots; full bases stay clean. Move mode: Escape cancels on desktop (then closes sheets), X/green-pad flow unchanged.
+- **P1 sheets:** one dark-glass language (GlassSheet shell: grabber, amber-tinted border, blur) + a Cta component that KNOWS the price — any primary button with a cost disables itself and prints "Need ⚡N more FP" BEFORE the server would refuse. Hierarchy everywhere: sprite thumb + name + level + what-it-does, then the primary action. Upgrade CTAs read cost AND duration in one scan (⚡600 · ⏱ 2h, from upgradeSecs). Unique-and-built types show as 🔒 locked rows, not dead buttons. Damaged buildings: repair card + countdown + bar FIRST, nothing competes. MOVE demoted to the bottom of the detail sheet. Build menu shows your FP in the header and per-row shortfalls.
+- **P2 timers:** every countdown got a live MiniBar — yard chips (HQ/building upgrades amber, repairs orange), sheet cards, barracks next-unit, print-shop next-bundle. Rush buttons always show cost and gray out when broke. A timer finishing while you watch drops a ✨ pop on that exact pad alongside the B8 chime.
+- **P3 readability:** header now carries 🛡️ defense (client-side defenseScore over live damage state — the exact server formula) next to army/trophies/FP. One dismissible hint line under the HUD, priority-ordered: damaged → unclaimed income → empty army → "you can afford an upgrade". Never a modal, hides during move/sheet.
+- **P4:** yard-ambience 🍃 mute (localStorage `hq_ambience`) separate from the music note toggle; first-gesture unlock untouched.
+- tsc + 107 tests + build green. Committed locally, NOT pushed.
+- **Residuals:** ghost-on-hover is desktop-only (mobile gets the gold pad pulse — a tap builds instantly, nothing to hover); safe/troop row internals kept their compact styling inside the new shell; B10 (share/ship gate) untouched.
+
+**For Michael:** try to make a mistake — drag a building onto another one, open a build sheet broke, tap upgrade without the FP. The base should now tell you no BEFORE you fail, show you where everything lands, and every timer should feel like it's moving. Say push when it plays right.

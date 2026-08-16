@@ -1,13 +1,14 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Trophy, Music, VolumeX } from 'lucide-react'
+import { ArrowLeft, Trophy, Music, VolumeX, Leaf } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import {
   GRID, HQ_PAD, PRINT_SHOP_PAD, BUILDINGS,
   buildingDef, buildingCost, TOWER_MAX_LEVEL,
   hqImage, hqUpgradeCost, HQ_MAX_LEVEL,
   safeImage, barracksImage, armyCap, solarImage, turretImage, ART_GATE_SOLAR_DOG,
+  upgradeSecs, repairSecsFor, defenseScore,
 } from '@/config/house'
 import { troopsForParty, troopById } from '@/config/troops'
 import { startAmbient, stopAmbient, ambientRunning } from '@/lib/ambient'
@@ -50,6 +51,59 @@ function fmtLeft(doneAt: string, now: number): string {
   return `${s}s`
 }
 
+// compact duration for "how long will this take": 2h, 30m, 45s
+function fmtDur(secs: number): string {
+  const h = Math.floor(secs / 3600), m = Math.round((secs % 3600) / 60)
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
+  if (m > 0) return `${m}m`
+  return `${secs}s`
+}
+
+// ── B9 chrome: tiny shared pieces so every sheet speaks one language ─────────
+
+/** slim progress bar — timers get a FEEL, not just a countdown string */
+function MiniBar({ pct, color = 'linear-gradient(90deg,#fbbf24,#f59e0b)', w }: { pct: number; color?: string; w?: number | string }) {
+  return (
+    <span className="block h-1.5 bg-black/45 rounded-full overflow-hidden mt-1" style={{ width: w ?? '100%' }}>
+      <span className="block h-full rounded-full transition-[width] duration-1000 ease-linear"
+        style={{ width: `${Math.max(3, Math.min(100, pct))}%`, background: color }} />
+    </span>
+  )
+}
+
+/** dark-glass bottom sheet shell — grabber, glow border, safe-area padding */
+function GlassSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-[75] bg-black/60 flex items-end" onClick={onClose}>
+      <div className="w-full max-w-md mx-auto bg-[#0d1411]/95 backdrop-blur-xl rounded-t-3xl border-t border-x border-amber-400/15 p-5 max-h-[85vh] overflow-y-auto shadow-[0_-16px_48px_rgba(0,0,0,0.65)]"
+        style={{ paddingBottom: 'calc(2rem + 4.5rem + env(safe-area-inset-bottom))' }}
+        onClick={e => e.stopPropagation()}>
+        <span className="block w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** primary CTA that KNOWS the price — disables itself and says why when the
+ *  player can't afford it, instead of toasting after a failed server call */
+function Cta({ cost, fp, busy, onClick, children, variant = 'gold' }:
+  { cost?: number; fp: number; busy: boolean; onClick: () => void; children: ReactNode; variant?: 'gold' | 'green' | 'ghost' }) {
+  const broke = cost != null && fp < cost
+  const bg = variant === 'gold' ? 'linear-gradient(135deg,#fbbf24,#d97706)'
+    : variant === 'green' ? 'linear-gradient(135deg,#34d399,#059669)' : undefined
+  return (
+    <>
+      <button disabled={busy || broke} onClick={onClick}
+        className={`mt-3 w-full py-3 rounded-xl font-black disabled:opacity-35 active:scale-[0.98] transition-transform ${variant === 'ghost' ? 'text-white bg-gray-800 border border-gray-700 hover:border-gray-500' : 'text-black'}`}
+        style={bg ? { background: bg } : undefined}>
+        {children}
+      </button>
+      {broke && <p className="text-red-400/90 text-[11px] font-bold text-center mt-1.5">Need ⚡{(cost! - fp).toLocaleString()} more FP</p>}
+    </>
+  )
+}
+
 // sprite art per building type (same painterly iso language as the house)
 const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   fence: { img: () => '/house/fence.png', w: 118 },
@@ -76,6 +130,8 @@ export default function HqPage() {
     queued_total: number; queue_done_at: string | null; rush_cost: number
   } | null>(null)
   const [sheet, setSheet] = useState<{ pad: number; building?: Building; hq?: boolean; ps?: boolean } | null>(null)
+  // B9: building type the build sheet is previewing as a ghost on the pad
+  const [ghostType, setGhostType] = useState<string | null>(null)
   // menu-driven MOVE MODE (long-press drag fought Chrome's context menu):
   // the pad currently being moved, or null
   const [moving, setMoving] = useState<number | null>(null)
@@ -109,25 +165,34 @@ export default function HqPage() {
   }, [house])
 
   // ambient music: starts on the FIRST tap (browser autoplay rules),
-  // remembered across visits, stops when leaving the page
+  // remembered across visits, stops when leaving the page.
+  // B9: the B8 yard bed (wind/birds/town) gets its OWN remembered toggle —
+  // it's atmosphere, not score, so the two mute independently.
   const [music, setMusic] = useState(false)
+  const [amb, setAmb] = useState(false)
   const musicPref = useRef(true)
+  const ambPref = useRef(true)
   useEffect(() => {
     try { musicPref.current = localStorage.getItem('hq_music') !== 'off' } catch {}
+    try { ambPref.current = localStorage.getItem('hq_ambience') !== 'off' } catch {}
     const first = () => {
       if (musicPref.current && !ambientRunning()) { startAmbient(); setMusic(true) }
-      // B8: the yard's own quiet bed (wind/birds/town) rides under the music
-      // pad and plays even with music off — it's atmosphere, not score
-      yardAmbience.start()
+      if (ambPref.current && !yardAmbience.running()) { yardAmbience.start(); setAmb(true) }
       preloadBaseSfx(['claim', 'place', 'hammer', 'done', 'ready'])
       window.removeEventListener('pointerdown', first)
     }
     window.addEventListener('pointerdown', first)
     return () => { window.removeEventListener('pointerdown', first); stopAmbient(); yardAmbience.stop() }
   }, [])
+  function toggleAmb() {
+    if (yardAmbience.running()) { yardAmbience.stop(); setAmb(false); ambPref.current = false; try { localStorage.setItem('hq_ambience', 'off') } catch {} }
+    else { yardAmbience.start(); setAmb(true); ambPref.current = true; try { localStorage.setItem('hq_ambience', 'on') } catch {} }
+  }
   // B8: menus duck the yard bed (stepping indoors), and the moment something
   // first becomes claimable the yard pings — once, softly
   useEffect(() => { yardAmbience.duck(!!sheet) }, [sheet])
+  // B9: no sheet, no ghost
+  useEffect(() => { if (!sheet) setGhostType(null) }, [sheet])
   const farmReady = (farm?.ready ?? 0) > 0
   const prevReady = useRef(false)
   useEffect(() => {
@@ -142,6 +207,24 @@ export default function HqPage() {
 
   function say(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
+  // floating pad texts: sparkle pickups AND finished-timer celebrations
+  const [popped, setPopped] = useState<Array<{ id: number; pad: number; text: string }>>([])
+  const popId = useRef(0)
+  const popAt = (pad: number, text: string, ms = 900) => {
+    const id = ++popId.current
+    setPopped(p => [...p, { id, pad, text }])
+    setTimeout(() => setPopped(p => p.filter(x => x.id !== id)), ms)
+  }
+
+  // B9: freshly placed/moved building pops onto its pad
+  const [placedPad, setPlacedPad] = useState<number | null>(null)
+  const bumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bump = (pad: number) => {
+    setPlacedPad(pad)
+    if (bumpTimer.current) clearTimeout(bumpTimer.current)
+    bumpTimer.current = setTimeout(() => setPlacedPad(null), 650)
+  }
+
   // one ticking clock drives every countdown; only runs while something is
   // actually upgrading, and reloads state when a timer crosses zero
   const [now, setNow] = useState(Date.now())
@@ -151,18 +234,34 @@ export default function HqPage() {
     if (!anyUpgrading) return
     const iv = setInterval(() => {
       setNow(Date.now())
-      const due = [house?.hq_upgrade?.done_at, ...(house?.buildings ?? []).map(b => b.upgrade?.done_at),
-        ...(house?.buildings ?? []).map(b => b.damaged_until ?? undefined),
-        ...(army?.queue ?? []).map(q => q.next_unit_at)]
-        .some(d => d && +new Date(d) <= Date.now())
-      if (due) { playBase('done'); load() } // the server settles it and finished work lands — chime it in
+      // B9: celebrate ON the pad that finished, not just in the ear
+      const donePads: number[] = []
+      if (house?.hq_upgrade && +new Date(house.hq_upgrade.done_at) <= Date.now()) donePads.push(HQ_PAD)
+      for (const b of house?.buildings ?? []) {
+        if (b.upgrade && +new Date(b.upgrade.done_at) <= Date.now()) donePads.push(b.pad)
+        if (b.damaged_until && +new Date(b.damaged_until) <= Date.now()) donePads.push(b.pad)
+      }
+      const due = donePads.length > 0
+        || (army?.queue ?? []).some(q => +new Date(q.next_unit_at) <= Date.now())
+      if (due) {
+        playBase('done') // the server settles it; finished work lands with a chime
+        for (const p of donePads) popAt(p, '✨', 1200)
+        load()
+      }
     }, 1000)
     return () => clearInterval(iv)
   }, [anyUpgrading, house, army])
 
-  // sparkle pickups — each tap is a real server grant, popped at its pad
-  const [popped, setPopped] = useState<Array<{ id: number; pad: number; text: string }>>([])
-  const popId = useRef(0)
+  // B9 desktop nicety: Escape backs out of move mode, then out of the sheet
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (moving != null) setMoving(null)
+      else if (sheet) setSheet(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [moving, sheet])
   async function pickUp(pad: number) {
     if (busy) return
     setBusy(true)
@@ -173,9 +272,7 @@ export default function HqPage() {
       })
       const d = await res.json()
       if (res.ok && d.claimed > 0) {
-        const id = ++popId.current
-        setPopped(p => [...p, { id, pad, text: `+${d.claimed} FP` }])
-        setTimeout(() => setPopped(p => p.filter(x => x.id !== id)), 900)
+        popAt(pad, `+${d.claimed} FP`)
         playBase('claim')
         try { navigator.vibrate?.(20) } catch {}
         load(); refetch()
@@ -183,7 +280,7 @@ export default function HqPage() {
     } finally { setBusy(false) }
   }
 
-  async function act(payload: Record<string, unknown>, okMsg: (d: any) => string) {
+  async function act(payload: Record<string, unknown>, okMsg: (d: any) => string, onOk?: (d: any) => void) {
     if (busy) return
     setBusy(true)
     try {
@@ -194,6 +291,7 @@ export default function HqPage() {
       if (res.ok) {
         const snd = ACT_SOUND[String(payload.action)]
         if (snd) playBase(snd)
+        onOk?.(d)
         say(okMsg(d)); setSheet(null); load(); refetch()
       }
       else say(`❌ ${d.message ?? d.error ?? 'Something went wrong'}`)
@@ -222,6 +320,12 @@ export default function HqPage() {
   const fenceLinkedSet = fenceAdjacency(fencePads).linked
 
   // ── map game state onto the iso stage ──────────────────────────────────────
+  // B9: timers get progress FEEL — the chip carries a live bar, total durations
+  // recomputed client-side from the same config the server prices from
+  const pctDone = (doneAt: string, totalSecs: number) =>
+    100 - Math.max(0, Math.min(100, ((+new Date(doneAt) - now) / 1000 / Math.max(1, totalSecs)) * 100))
+  // early yard: whisper "+" on the plots until the base has a few buildings
+  const plotPlus = (house?.buildings ?? []).filter(b => b.type !== 'fence').length < 4
   const cells: IsoCellSpec[] = []
   for (let pad = 0; pad < GRID * GRID; pad++) {
     if (pad === HQ_PAD) {
@@ -229,7 +333,10 @@ export default function HqPage() {
         pad, img: hqImage(house?.hq_level ?? 1), imgW: 198,
         onTap: () => setSheet({ pad, hq: true }),
         chip: house?.hq_upgrade
-          ? <span className="text-[13px] font-black px-2 py-0.5 rounded-md bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(house.hq_upgrade.done_at, now)}</span>
+          ? <span className="flex flex-col items-center">
+              <span className="text-[13px] font-black px-2 py-0.5 rounded-md bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(house.hq_upgrade.done_at, now)}</span>
+              <MiniBar pct={pctDone(house.hq_upgrade.done_at, upgradeSecs(house.hq_upgrade.to, true))} w={64} />
+            </span>
           : <span className="text-[13px] font-black px-2 py-0.5 rounded-md shadow-lg" style={{ background: `${tint}cc`, color: '#fff' }}>Lv {house?.hq_level ?? 1}</span>,
       })
       continue
@@ -237,7 +344,7 @@ export default function HqPage() {
     if (pad === (house?.print_shop_pad ?? PRINT_SHOP_PAD)) {
       const ready = (farm?.ready ?? 0) > 0
       cells.push({
-        pad, img: '/house/print_shop.webp', imgW: 128, movable: true,
+        pad, img: '/house/print_shop.webp', imgW: 128, movable: true, bounce: placedPad === pad,
         glow: ready, onTap: ready ? claimFarm : () => setSheet({ pad, ps: true }),
         chip: ready
           ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-amber-400 text-black animate-bounce shadow-lg">🧨 CLAIM {farm!.ready}</span>
@@ -256,7 +363,7 @@ export default function HqPage() {
       const isFence = b.type === 'fence'
       const linked = isFence && fenceLinkedSet.has(pad)
       cells.push({
-        pad, movable: true,
+        pad, movable: true, bounce: placedPad === pad,
         // linked fences show only the joint post (IsoFenceLinks draws the
         // panels); a lone fence keeps a small panel so it reads as a fence
         img: isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level),
@@ -270,9 +377,15 @@ export default function HqPage() {
         overlay: damaged && !isFence ? '/house/fx/scorch.webp' : undefined,
         onTap: () => setSheet({ pad, building: b }),
         chip: damaged
-          ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-orange-600 text-white shadow-lg">🔧 {fmtLeft(b.damaged_until!, now)}</span>
+          ? <span className="flex flex-col items-center">
+              <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-orange-600 text-white shadow-lg">🔧 {fmtLeft(b.damaged_until!, now)}</span>
+              <MiniBar pct={pctDone(b.damaged_until!, repairSecsFor(b.type, b.level))} w={56} color="linear-gradient(90deg,#fb923c,#ea580c)" />
+            </span>
           : b.upgrade
-            ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(b.upgrade.done_at, now)}</span>
+            ? <span className="flex flex-col items-center">
+                <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-black shadow-lg">🔨 {fmtLeft(b.upgrade.done_at, now)}</span>
+                <MiniBar pct={pctDone(b.upgrade.done_at, upgradeSecs(b.upgrade.to))} w={56} />
+              </span>
             : banked > 0
               ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-emerald-400 text-black animate-bounce shadow-lg">+{banked} FP</span>
               : stored > 0
@@ -282,7 +395,7 @@ export default function HqPage() {
       continue
     }
     // empty plot — subtle diamond, tap to build
-    cells.push({ pad, plot: true, onTap: () => setSheet({ pad }) })
+    cells.push({ pad, plot: true, plotPlus, onTap: () => setSheet({ pad }) })
   }
 
   const sparkles = SPARKLE_PADS.slice(0, house?.pickups ?? 0)
@@ -324,6 +437,31 @@ export default function HqPage() {
     if (pad === HQ_PAD || pad === psPad || builtOn.has(pad)) continue
     validTargets.add(pad)
   }
+
+  // ── B9 P3: "what should I do?" — one glance, one line ──────────────────────
+  const fp = profile?.fp_balance ?? 0
+  const defScore = house ? defenseScore(
+    house.buildings.map(b => ({ type: b.type, level: b.level, damaged: !!b.damaged_until && +new Date(b.damaged_until) > now })),
+    house.hq_level ?? 1,
+  ) : 0
+  const damagedCount = (house?.buildings ?? []).filter(b => b.damaged_until && +new Date(b.damaged_until) > now).length
+  const incomeReady = (farm?.ready ?? 0) > 0 || (house?.tower?.banked ?? 0) > 0
+    || (house?.solar?.banked ?? 0) > 0 || (house?.pickups ?? 0) > 0
+  const canUpgradeSomething = !anyUpgrading && house != null && (
+    (hqUpgradeCost(house.hq_level ?? 1) ?? Infinity) <= fp
+    || house.buildings.some(b => {
+      if (b.type === 'fence' || b.upgrade) return false
+      const c = buildingCost(b.type, b.level + 1)
+      return c != null && c <= fp
+    })
+  )
+  const hint = !house ? null
+    : damagedCount > 0 ? `🔧 ${damagedCount} building${damagedCount === 1 ? '' : 's'} repairing — tap one to fix it now`
+    : incomeReady ? '⚡ Income is waiting — tap the glowing buildings'
+    : hasOf('barracks') && army != null && army.total + (army.queued_total ?? 0) === 0 ? '🎖️ Your army is empty — train troops before you raid'
+    : canUpgradeSomething ? '🔨 You can afford an upgrade right now'
+    : null
+  const [hintDismissed, setHintDismissed] = useState<string | null>(null)
   // training keeps the sheet OPEN — it's a multi-tap flow
   async function train(type: string, count: number) {
     if (busy) return
@@ -378,7 +516,10 @@ export default function HqPage() {
       })
       const d = await res.json()
       if (!res.ok) say(`❌ ${d.error ?? 'Could not move'}`)
-      else { try { navigator.vibrate?.(15) } catch {} }
+      else {
+        playBase('place'); bump(to) // B9: landing pops + thunks
+        try { navigator.vibrate?.(15) } catch {}
+      }
     } catch { say('❌ Could not move') }
     load()
   }
@@ -388,6 +529,9 @@ export default function HqPage() {
       {/* the yard stops above the bottom nav — the bar stays (Michael) */}
       <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
       <IsoYard cells={cells} bg="/house/yard_bg2.webp" idleFx={idleFx} validTargets={validTargets} movingFrom={moving}
+        highlightPad={sheet && !sheet.hq && !sheet.ps && !sheet.building ? sheet.pad : null}
+        ghost={sheet && !sheet.hq && !sheet.ps && !sheet.building && ghostType && SPRITES[ghostType]
+          ? { pad: sheet.pad, img: SPRITES[ghostType].img(1), imgW: SPRITES[ghostType].w } : null}
         onMove={(f, t) => { setMoving(null); moveBuilding(f, t) }}>
         <IsoFenceLinks fencePads={fencePads} />
         {/* sparkle pickups + their pops, in stage coordinates */}
@@ -412,17 +556,31 @@ export default function HqPage() {
       {/* ── HUD: chrome at the edges, buttons clear of the bottom bar ── */}
       <div className="absolute top-3 left-3 z-[70] flex items-center gap-2">
         <button onClick={() => router.back()} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200"><ArrowLeft size={17} /></button>
-        <button onClick={toggleMusic} className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200">
+        <button onClick={toggleMusic} aria-label="music" className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200">
           {music ? <Music size={15} /> : <VolumeX size={15} />}
         </button>
+        {/* B9: the B8 nature bed gets its own remembered mute */}
+        <button onClick={toggleAmb} aria-label="ambience" className="w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center">
+          <Leaf size={15} className={amb ? 'text-emerald-400' : 'text-gray-600'} />
+        </button>
       </div>
-      <div className="absolute top-3 right-3 z-[70] flex items-center gap-2">
+      <div className="absolute top-3 right-3 z-[70] flex items-center gap-1.5">
         {(army?.capacity ?? 0) > 0 && (
-          <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-emerald-300 font-black text-sm">🎖️ {army!.total}/{army!.capacity}{(army!.queued_total ?? 0) > 0 ? <span className="text-amber-300"> +{army!.queued_total}⏳</span> : null}</span>
+          <span className="px-2.5 py-1.5 rounded-xl bg-black/50 backdrop-blur text-emerald-300 font-black text-[13px]">🎖️ {army!.total}/{army!.capacity}{(army!.queued_total ?? 0) > 0 ? <span className="text-amber-300"> +{army!.queued_total}⏳</span> : null}</span>
         )}
-        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-amber-400 font-black text-sm">🏆 {house?.trophies ?? 0}</span>
-        <span className="px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur text-yellow-400 font-black text-sm">⚡ {profile?.fp_balance?.toLocaleString() ?? 0}</span>
+        {defScore > 0 && (
+          <span className="px-2.5 py-1.5 rounded-xl bg-black/50 backdrop-blur text-sky-300 font-black text-[13px]">🛡️ {defScore}</span>
+        )}
+        <span className="px-2.5 py-1.5 rounded-xl bg-black/50 backdrop-blur text-amber-400 font-black text-[13px]">🏆 {house?.trophies ?? 0}</span>
+        <span className="px-2.5 py-1.5 rounded-xl bg-black/50 backdrop-blur text-yellow-400 font-black text-[13px]">⚡ {fp.toLocaleString()}</span>
       </div>
+      {/* B9 P3: one-line "next thing" hint — dismissible, never a tutorial */}
+      {hint && hint !== hintDismissed && moving == null && !sheet && (
+        <button onClick={() => setHintDismissed(hint)}
+          className="absolute top-14 left-1/2 -translate-x-1/2 z-[65] max-w-[92%] px-3 py-1.5 rounded-full bg-black/55 backdrop-blur border border-white/10 text-gray-200 text-xs font-bold whitespace-nowrap overflow-hidden text-ellipsis active:scale-95">
+          {hint} <span className="text-gray-500 ml-1">✕</span>
+        </button>
+      )}
       {house?.shield_until && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[65] px-3 py-1.5 rounded-xl bg-sky-950/80 backdrop-blur border border-sky-700 text-sky-300 text-xs font-bold">
           🛡️ Shielded until {new Date(house.shield_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
@@ -459,11 +617,10 @@ export default function HqPage() {
         </button>
       </div>}
 
-      {/* build / manage sheet */}
+      {/* build / manage sheet — B9: dark glass, one hierarchy, prices that
+          answer "can I?" BEFORE the server does */}
       {sheet && (
-        <div className="fixed inset-0 z-[75] bg-black/60 flex items-end" onClick={() => setSheet(null)}>
-          <div className="w-full max-w-md mx-auto bg-gray-900 rounded-t-3xl border-t border-gray-700 p-5 max-h-[85vh] overflow-y-auto" style={{ paddingBottom: 'calc(2rem + 4.5rem + env(safe-area-inset-bottom))' }}
-            onClick={e => e.stopPropagation()}>
+        <GlassSheet onClose={() => setSheet(null)}>
             {sheet.hq ? (() => {
               const lvl = house?.hq_level ?? 1
               const cost = hqUpgradeCost(lvl)
@@ -473,36 +630,36 @@ export default function HqPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={hqImage(lvl)} alt="" className="w-24 h-24 object-contain" />
                     <div>
-                      <p className="text-white font-black text-lg">Your House <span className="text-gray-500 text-sm">Lv {lvl}</span></p>
-                      <p className="text-gray-500 text-xs mt-1">{lvl >= HQ_MAX_LEVEL ? 'The crystal manor — as good as it gets.' : 'A better house defends your whole base.'}</p>
+                      <p className="text-white font-black text-lg">Your House <span className="text-amber-400/90 text-sm font-black ml-1">Lv {lvl}</span></p>
+                      <p className="text-gray-400 text-xs mt-1">{lvl >= HQ_MAX_LEVEL ? 'The crystal manor — as good as it gets.' : 'A better house defends your whole base.'}</p>
                     </div>
                   </div>
                   {house?.hq_upgrade ? (
                     <div className="mt-4">
-                      <div className="flex items-center justify-between bg-gray-800/60 rounded-xl p-3 border border-amber-700/50">
-                        <span className="text-amber-300 font-black text-sm">🔨 Upgrading to Lv {house.hq_upgrade.to}</span>
-                        <span className="text-white font-black text-sm">{fmtLeft(house.hq_upgrade.done_at, now)}</span>
+                      <div className="bg-black/30 rounded-xl p-3 border border-amber-500/25">
+                        <div className="flex items-center justify-between">
+                          <span className="text-amber-300 font-black text-sm">🔨 Upgrading to Lv {house.hq_upgrade.to}</span>
+                          <span className="text-white font-black text-sm">{fmtLeft(house.hq_upgrade.done_at, now)}</span>
+                        </div>
+                        <MiniBar pct={pctDone(house.hq_upgrade.done_at, upgradeSecs(house.hq_upgrade.to, true))} />
                       </div>
-                      <button disabled={busy}
-                        onClick={() => act({ action: 'rush', hq: true }, d => `⚡ Finished instantly! (-${d.spent} FP)`)}
-                        className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
-                        style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                      <Cta cost={house.hq_upgrade.rush_cost} fp={fp} busy={busy}
+                        onClick={() => act({ action: 'rush', hq: true }, d => `⚡ Finished instantly! (-${d.spent} FP)`)}>
                         ⚡ FINISH NOW — {house.hq_upgrade.rush_cost.toLocaleString()} FP
-                      </button>
+                      </Cta>
                     </div>
                   ) : cost != null && (
                     <>
-                      <div className="mt-4 flex items-center gap-3 bg-gray-800/60 rounded-xl p-3 border border-gray-700">
+                      <div className="mt-4 flex items-center gap-3 bg-black/30 rounded-xl p-3 border border-white/10">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={hqImage(lvl + 1)} alt="" className="w-16 h-16 object-contain" />
-                        <p className="text-gray-400 text-xs">Next: <span className="text-white font-bold">Level {lvl + 1}</span> — stronger defense, better looks</p>
+                        <p className="text-gray-400 text-xs">Next: <span className="text-white font-bold">Level {lvl + 1}</span> — stronger defense, better looks
+                          <span className="block mt-0.5 text-gray-500">⚡{cost.toLocaleString()} · ⏱ {fmtDur(upgradeSecs(lvl + 1, true))}</span></p>
                       </div>
-                      <button disabled={busy}
-                        onClick={() => act({ action: 'upgrade_hq' }, d => `🔨 Upgrade started! Done in ${Math.round(d.secs / 3600 * 10) / 10}h (-${d.spent} FP)`)}
-                        className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
-                        style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
-                        Upgrade to Lv {lvl + 1} — ⚡{cost.toLocaleString()}
-                      </button>
+                      <Cta cost={cost} fp={fp} busy={busy}
+                        onClick={() => act({ action: 'upgrade_hq' }, d => `🔨 Upgrade started! Done in ${Math.round(d.secs / 3600 * 10) / 10}h (-${d.spent} FP)`)}>
+                        Upgrade to Lv {lvl + 1} — ⚡{cost.toLocaleString()} · ⏱ {fmtDur(upgradeSecs(lvl + 1, true))}
+                      </Cta>
                     </>
                   )}
                 </>
@@ -510,11 +667,21 @@ export default function HqPage() {
             })() : sheet.ps ? (
               <>
                 <p className="text-white font-black text-lg">🧨 Print Shop</p>
-                <p className="text-gray-500 text-xs mt-1">Cranks out pamphlet bundles on its own — come back and claim them.</p>
-                <button onClick={() => { setMoving(sheet.pad); setSheet(null) }}
-                  className="mt-3 w-full py-2.5 rounded-xl font-black text-white bg-gray-800 border border-gray-700 hover:border-gray-500">
+                <p className="text-gray-400 text-xs mt-1">Cranks out pamphlet bundles on its own — come back and claim them.</p>
+                {farm && (
+                  <div className="mt-3 bg-black/30 rounded-xl p-3 border border-white/10">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-amber-300">🧨 {farm.ready}/{farm.cap} bundles ready</span>
+                      <span className="text-gray-500">{farm.ready >= farm.cap ? 'full — claim to restart' : farm.next_in_secs != null ? `next in ${fmtDur(Math.max(1, farm.next_in_secs))}` : ''}</span>
+                    </div>
+                    {farm.ready < farm.cap && farm.next_in_secs != null && (
+                      <MiniBar pct={100 - (farm.next_in_secs / Math.max(1, farm.rate_hours * 3600)) * 100} />
+                    )}
+                  </div>
+                )}
+                <Cta fp={fp} busy={busy} variant="ghost" onClick={() => { setMoving(sheet.pad); setSheet(null) }}>
                   📦 MOVE — pick a new spot
-                </button>
+                </Cta>
               </>
             ) : sheet.building ? (() => {
               const def = buildingDef(sheet.building!.type)!
@@ -524,30 +691,45 @@ export default function HqPage() {
               const nextCost = buildingCost(def.type, sheet.building!.level + 1)
               const dmgB = (house?.buildings ?? []).find(x => x.pad === sheet.pad)
               const isDamaged = !!dmgB?.damaged_until && +new Date(dmgB.damaged_until) > now
+              const thumb = SPRITES[def.type]?.img(sheet.building!.level)
+              // damaged: the repair path IS the sheet — nothing else competes
               if (isDamaged) return (
                 <>
-                  <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-orange-400 text-sm">damaged</span></p>
-                  <p className="text-gray-500 text-xs mt-1">Raiders wrecked it. It repairs itself on the countdown — or pay the crew to fix it now.</p>
-                  <div className="mt-4 flex items-center justify-between bg-gray-800/60 rounded-xl p-3 border border-orange-700/50">
-                    <span className="text-orange-300 font-black text-sm">🔧 Repairing</span>
-                    <span className="text-white font-black text-sm">{fmtLeft(dmgB!.damaged_until!, now)}</span>
+                  <div className="flex items-center gap-4">
+                    {thumb
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={thumb} alt="" className="w-20 h-20 object-contain" style={{ filter: 'grayscale(0.8) brightness(0.55) sepia(0.3)' }} />
+                      : <span className="text-4xl">{def.emoji}</span>}
+                    <div>
+                      <p className="text-white font-black text-lg">{def.name} <span className="text-orange-400 text-sm">damaged</span></p>
+                      <p className="text-gray-400 text-xs mt-1">Raiders wrecked it. It repairs itself on the countdown — or pay the crew to fix it now.</p>
+                    </div>
                   </div>
-                  <button disabled={busy}
-                    onClick={() => act({ action: 'repair', pad: sheet.pad }, d => d.spent > 0 ? `🔧 Fixed! (-${d.spent} FP)` : '🔧 Fixed!')}
-                    className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
-                    style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                  <div className="mt-4 bg-black/30 rounded-xl p-3 border border-orange-500/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-orange-300 font-black text-sm">🔧 Repairing</span>
+                      <span className="text-white font-black text-sm">{fmtLeft(dmgB!.damaged_until!, now)}</span>
+                    </div>
+                    <MiniBar pct={pctDone(dmgB!.damaged_until!, repairSecsFor(def.type, sheet.building!.level))} color="linear-gradient(90deg,#fb923c,#ea580c)" />
+                  </div>
+                  <Cta cost={dmgB?.repair_cost ?? 0} fp={fp} busy={busy}
+                    onClick={() => act({ action: 'repair', pad: sheet.pad }, d => d.spent > 0 ? `🔧 Fixed! (-${d.spent} FP)` : '🔧 Fixed!')}>
                     🔧 REPAIR NOW — {(dmgB?.repair_cost ?? 0).toLocaleString()} FP
-                  </button>
+                  </Cta>
                 </>
               )
               return (
                 <>
-                  <p className="text-white font-black text-lg">{def.emoji} {def.name} <span className="text-gray-500 text-sm">Lv {sheet.building!.level}</span></p>
-                  <p className="text-gray-500 text-xs mt-1">{def.desc}</p>
-                  <button onClick={() => { setMoving(sheet.pad); setSheet(null) }}
-                    className="mt-3 w-full py-2.5 rounded-xl font-black text-white bg-gray-800 border border-gray-700 hover:border-gray-500">
-                    📦 MOVE — pick a new spot, rotate while you're at it
-                  </button>
+                  <div className="flex items-center gap-4">
+                    {thumb
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={thumb} alt="" className="w-20 h-20 object-contain" />
+                      : <span className="text-4xl">{def.emoji}</span>}
+                    <div className="min-w-0">
+                      <p className="text-white font-black text-lg">{def.name} <span className="text-amber-400/90 text-sm font-black ml-1">Lv {sheet.building!.level}{sheet.building!.level >= maxLv ? ' · MAX' : ''}</span></p>
+                      <p className="text-gray-400 text-xs mt-1">{def.desc}</p>
+                    </div>
+                  </div>
                   {isSafe && house?.safe && (() => {
                     const st = house.safe!
                     const pct = Math.min(100, Math.round((st.stored / Math.max(1, st.capacity)) * 100))
@@ -611,11 +793,12 @@ export default function HqPage() {
                           <div className="h-full" style={{ width: `${Math.min(100, Math.round((queued / Math.max(1, armyCap(lvl))) * 100))}%`, background: 'repeating-linear-gradient(45deg,#f59e0b,#f59e0b 4px,#b45309 4px,#b45309 8px)' }} />
                         </div>
                         {(army?.queue?.length ?? 0) > 0 && (
-                          <div className="mt-3 bg-gray-800/60 rounded-xl border border-amber-700/50 p-3">
+                          <div className="mt-3 bg-black/30 rounded-xl border border-amber-500/25 p-3">
                             <div className="flex items-center justify-between">
                               <span className="text-amber-300 font-black text-sm">🔨 Training</span>
                               <span className="text-white font-black text-sm">next in {fmtLeft(army!.queue[0].next_unit_at, now)}</span>
                             </div>
+                            <MiniBar pct={pctDone(army!.queue[0].next_unit_at, Math.max(1, army!.queue[0].secs_each))} />
                             <div className="mt-2 flex items-center gap-2 overflow-x-auto">
                               {army!.queue.map((q, i) => {
                                 const qd = troopById(q.type)
@@ -629,12 +812,13 @@ export default function HqPage() {
                               })}
                               <span className="text-gray-500 text-[11px] font-bold whitespace-nowrap ml-1">all done in {fmtLeft(army!.queue_done_at!, now)}</span>
                             </div>
-                            <button disabled={busy || (army?.rush_cost ?? 0) <= 0} onClick={rushTroops}
-                              className="mt-2.5 w-full py-2.5 rounded-xl font-black text-black disabled:opacity-35"
-                              style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                            <Cta cost={Math.max(1, army?.rush_cost ?? 0)} fp={fp} busy={busy || (army?.rush_cost ?? 0) <= 0} onClick={rushTroops}>
                               ⚡ FINISH NOW — {(army?.rush_cost ?? 0).toLocaleString()} FP
-                            </button>
+                            </Cta>
                           </div>
+                        )}
+                        {room < 1 && (
+                          <p className="mt-3 text-center text-[11px] font-bold text-amber-400/80">Army full — raid with them, or upgrade the Barracks for room</p>
                         )}
                         <div className="mt-3 space-y-2">
                           {roster.map(tr => {
@@ -653,10 +837,10 @@ export default function HqPage() {
                                   <span className="text-[11px] font-black text-gray-500 whitespace-nowrap shrink-0">🔒 Barracks Lv {tr.unlockLevel}</span>
                                 ) : (
                                   <span className="flex flex-col items-end gap-1 shrink-0">
-                                    <button disabled={busy || room < 1} onClick={() => train(tr.id, 1)}
+                                    <button disabled={busy || room < 1 || fp < tr.cost} onClick={() => train(tr.id, 1)}
                                       className="px-2.5 py-1.5 rounded-lg font-black text-black text-xs disabled:opacity-35"
                                       style={{ background: 'linear-gradient(135deg,#34d399,#059669)' }}>+1 ⚡{tr.cost}</button>
-                                    <button disabled={busy || room < 5} onClick={() => train(tr.id, 5)}
+                                    <button disabled={busy || room < 5 || fp < tr.cost * 5} onClick={() => train(tr.id, 5)}
                                       className="px-2.5 py-1 rounded-lg font-black text-white text-[10px] bg-gray-700 disabled:opacity-35">+5 ⚡{tr.cost * 5}</button>
                                     <span className="text-[9px] text-gray-500 font-bold">{tr.trainSecs >= 60 ? `${Math.round(tr.trainSecs / 60)}m` : `${tr.trainSecs}s`} each</span>
                                   </span>
@@ -673,59 +857,85 @@ export default function HqPage() {
                     const up = (house?.buildings ?? []).find(x => x.pad === sheet.pad)?.upgrade
                     if (up) return (
                       <div className="mt-3">
-                        <div className="flex items-center justify-between bg-gray-800/60 rounded-xl p-3 border border-amber-700/50">
-                          <span className="text-amber-300 font-black text-sm">🔨 Upgrading to Lv {up.to}</span>
-                          <span className="text-white font-black text-sm">{fmtLeft(up.done_at, now)}</span>
+                        <div className="bg-black/30 rounded-xl p-3 border border-amber-500/25">
+                          <div className="flex items-center justify-between">
+                            <span className="text-amber-300 font-black text-sm">🔨 Upgrading to Lv {up.to}</span>
+                            <span className="text-white font-black text-sm">{fmtLeft(up.done_at, now)}</span>
+                          </div>
+                          <MiniBar pct={pctDone(up.done_at, upgradeSecs(up.to))} />
                         </div>
-                        <button disabled={busy}
-                          onClick={() => act({ action: 'rush', pad: sheet.pad }, d => `⚡ Finished instantly! (-${d.spent} FP)`)}
-                          className="mt-3 w-full py-3 rounded-xl font-black text-black disabled:opacity-35"
-                          style={{ background: 'linear-gradient(135deg,#fbbf24,#d97706)' }}>
+                        <Cta cost={up.rush_cost} fp={fp} busy={busy}
+                          onClick={() => act({ action: 'rush', pad: sheet.pad }, d => `⚡ Finished instantly! (-${d.spent} FP)`)}>
                           ⚡ FINISH NOW — {up.rush_cost.toLocaleString()} FP
-                        </button>
+                        </Cta>
                       </div>
                     )
                     if (sheet.building!.level < maxLv && nextCost != null) return (
-                      <button disabled={busy}
-                        onClick={() => act({ action: 'upgrade', pad: sheet.pad }, d => `🔨 Upgrade started! Done in ${d.secs >= 3600 ? Math.round(d.secs / 360) / 10 + 'h' : Math.round(d.secs / 60) + 'm'} (-${d.spent} FP)`)}
-                        className="mt-3 w-full py-3 rounded-xl font-black text-white bg-gray-800 border border-gray-700 hover:border-gray-500">
-                        Upgrade to Lv {sheet.building!.level + 1} — ⚡{nextCost}
-                      </button>
+                      <Cta cost={nextCost} fp={fp} busy={busy}
+                        onClick={() => act({ action: 'upgrade', pad: sheet.pad }, d => `🔨 Upgrade started! Done in ${d.secs >= 3600 ? Math.round(d.secs / 360) / 10 + 'h' : Math.round(d.secs / 60) + 'm'} (-${d.spent} FP)`)}>
+                        Upgrade to Lv {sheet.building!.level + 1} — ⚡{nextCost.toLocaleString()} · ⏱ {fmtDur(upgradeSecs(sheet.building!.level + 1))}
+                      </Cta>
                     )
-                    return null
+                    return <p className="mt-3 text-center text-[11px] font-bold text-amber-400/70">★ Max level</p>
                   })()}
+                  <Cta fp={fp} busy={busy} variant="ghost" onClick={() => { setMoving(sheet.pad); setSheet(null) }}>
+                    📦 MOVE — pick a new spot, rotate while you&apos;re at it
+                  </Cta>
                 </>
               )
             })() : (
               <>
-                <p className="text-white font-black text-lg">Build here</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-white font-black text-lg">Build here</p>
+                  <span className="text-yellow-400 font-black text-sm">⚡ {fp.toLocaleString()}</span>
+                </div>
+                <p className="text-gray-500 text-[11px] mt-0.5">New buildings finish instantly.</p>
                 <div className="mt-3 space-y-2">
                   {Object.values(BUILDINGS)
                     .filter(def => !(ART_GATE_SOLAR_DOG && (def.type === 'solar' || def.type === 'doberman')))
                     .map(def => {
-                    const blocked = def.unique && hasOf(def.type)
+                    const owned = def.unique && hasOf(def.type)
+                    const cost = def.costs[0]
+                    const broke = fp < cost
                     const thumb = SPRITES[def.type]?.img(1)
-                    return (
-                      <button key={def.type} disabled={busy || !!blocked}
-                        onClick={() => act({ action: 'build', pad: sheet.pad, type: def.type }, d => `${def.emoji} ${def.name} built! (-${d.spent} FP)`)}
-                        className="w-full bg-gray-800 rounded-xl border border-gray-700 p-3 flex items-center gap-3 hover:border-gray-500 disabled:opacity-40 text-left">
+                    // unique + already standing → a locked row, not a dead button
+                    if (owned) return (
+                      <div key={def.type} className="w-full bg-black/25 rounded-xl border border-white/5 p-3 flex items-center gap-3 opacity-50">
                         {thumb
                           // eslint-disable-next-line @next/next/no-img-element
                           ? <img src={thumb} alt="" className="w-12 h-12 object-contain" />
                           : <span className="text-2xl">{def.emoji}</span>}
-                        <span className="flex-1">
-                          <span className="text-white font-bold text-sm block">{def.name}{blocked ? ' (already built)' : ''}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="text-white font-bold text-sm block">{def.name}</span>
                           <span className="text-gray-500 text-[11px]">{def.desc}</span>
                         </span>
-                        <span className="text-yellow-400 font-black text-sm">⚡{def.costs[0]}</span>
+                        <span className="text-[11px] font-black text-gray-400 whitespace-nowrap shrink-0">🔒 Already built</span>
+                      </div>
+                    )
+                    return (
+                      <button key={def.type} disabled={busy || broke}
+                        onMouseEnter={() => setGhostType(def.type)}
+                        onMouseLeave={() => setGhostType(g => (g === def.type ? null : g))}
+                        onClick={() => act({ action: 'build', pad: sheet.pad, type: def.type },
+                          d => `${def.emoji} ${def.name} built! (-${d.spent} FP)`, () => bump(sheet.pad))}
+                        className="w-full bg-black/30 rounded-xl border border-white/10 p-3 flex items-center gap-3 hover:border-amber-400/40 disabled:opacity-45 text-left active:scale-[0.99] transition-transform">
+                        {thumb
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={thumb} alt="" className="w-12 h-12 object-contain" />
+                          : <span className="text-2xl">{def.emoji}</span>}
+                        <span className="flex-1 min-w-0">
+                          <span className="text-white font-bold text-sm block">{def.name}</span>
+                          <span className="text-gray-500 text-[11px]">{def.desc}</span>
+                          {broke && <span className="block text-red-400/90 text-[10px] font-bold mt-0.5">Need ⚡{(cost - fp).toLocaleString()} more</span>}
+                        </span>
+                        <span className={`font-black text-sm shrink-0 ${broke ? 'text-red-400/80' : 'text-yellow-400'}`}>⚡{cost.toLocaleString()}</span>
                       </button>
                     )
                   })}
                 </div>
               </>
             )}
-          </div>
-        </div>
+        </GlassSheet>
       )}
 
       {toast && (
