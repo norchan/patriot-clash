@@ -108,7 +108,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
 // in the raid theater every living tower tracks troops in range and fires
 // visible shots that drain their hp — until raiders smash it.
 export const turretImage = (level: number) =>
-  `/house/turret${Math.max(1, Math.min(3, level))}.png`
+  `/house/turret${Math.max(1, Math.min(3, level))}.webp`
 
 // ── SOLAR ARRAY (Michael 2026-08-09) — second income building ──────────────
 // Same claim pattern as the tower (lazy, banked intervals) but tuned as the
@@ -117,7 +117,7 @@ export const SOLAR_RATE_BY_LEVEL = [15, 30, 50] as const   // FP per payout, L1.
 export const SOLAR_BANK_INTERVALS = 4
 export const SOLAR_MAX_LEVEL = SOLAR_RATE_BY_LEVEL.length
 export const solarImage = (level: number) =>
-  `/house/solar${Math.max(1, Math.min(3, level))}.png`
+  `/house/solar${Math.max(1, Math.min(3, level))}.webp`
 export function solarBanked(elapsedSecs: number, level: number): number {
   const intervals = Math.min(SOLAR_BANK_INTERVALS, Math.floor(elapsedSecs / TOWER_INTERVAL_SECS))
   return intervals * (SOLAR_RATE_BY_LEVEL[level - 1] ?? 0)
@@ -144,7 +144,7 @@ export function repairCost(type: string, level: number, remainingSecs: number): 
 // troop TYPES per party — see config/troops.ts for the roster. Barracks level
 // N unlocks troop type N and grows the army cap.
 export const barracksImage = (level: number) =>
-  `/house/barracks${Math.max(1, Math.min(5, level))}.png`
+  `/house/barracks${Math.max(1, Math.min(5, level))}.webp`
 export const armyCap = (barracksLevel: number) => 6 + 4 * Math.max(1, Math.min(5, barracksLevel))
 
 // ── The SAFE — raid-proof FP storage (Michael 2026-07-31) ───────────────────
@@ -162,7 +162,7 @@ export const SAFE_MAX_LEVEL = SAFE_CAPACITY.length
 export const safeCapacity = (level: number) =>
   SAFE_CAPACITY[Math.max(0, Math.min(SAFE_MAX_LEVEL, level) - 1)] ?? 0
 export const safeImage = (level: number) =>
-  `/house/safe${Math.max(1, Math.min(SAFE_MAX_LEVEL, level))}.png`
+  `/house/safe${Math.max(1, Math.min(SAFE_MAX_LEVEL, level))}.webp`
 
 // ── The HOUSE itself — 5 upgrade levels (Michael's art, 2026-07-31) ─────────
 // The centerpiece: a shack at L1, solar panels by L3, a crystal-crowned manor
@@ -174,7 +174,7 @@ export const HQ_MAX_LEVEL = 5
 /** cost to reach level 2, 3, 4, 5 — index = (targetLevel - 2) */
 export const HQ_UPGRADE_COSTS = [500, 1500, 4000, 10000] as const
 export const hqImage = (level: number) =>
-  `/house/hq${Math.max(1, Math.min(HQ_MAX_LEVEL, level))}.png`
+  `/house/hq${Math.max(1, Math.min(HQ_MAX_LEVEL, level))}.webp`
 export function hqUpgradeCost(currentLevel: number): number | null {
   if (currentLevel < 1 || currentLevel >= HQ_MAX_LEVEL) return null
   return HQ_UPGRADE_COSTS[currentLevel - 1] ?? null

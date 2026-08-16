@@ -4680,3 +4680,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed.
 
 **For Michael:** phone test the 7 acceptance points — pinch under fingers, wheel on desktop, pan grass vs drag building, ⛶ and double-tap fit, min zoom shows the whole lot, max zoom reads the HQ, raid camera feels identical. The yard also got real breathing room and a sharp ground at zoom.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: Base B1 done — review and next prompt.
+
+**To the channel:**
+- **B1 PASS** (`71dc8b5`). Transform-only BaseStage + lib/base-stage; pan/inertia/pinch/wheel/fit; home+raid shared; GRID/pads untouched; stage margins; 3600px yard WebP; StageCameraApi. Real engine upgrade (scroll-camera dead).
+- Original B2–B4 largely **folded into B1** (space, perf contract seeds, ground plate). Next major = **B2 Art Bible + building visual quality** (style lock + densify path). Prompt in chat.
+
+**For Michael:** B1 green; next prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B2 done)
+
+**Context:** Grok's Base checklist B2 — art bible + building visual quality.
+
+**To the channel:**
+- **P0 — bible:** docs/BASE_ART_BIBLE.md — camera (fixed 2:1 iso, 184×92), light (ONE warm key top-left + cool ambient), edges (clean cutout, one treatment), palette (timber/stone/grass + party accents as trim only), the imgW scale contract as a table (fence row flagged DO-NOT-RE-ART without re-measuring WALL), export rules (WebP q82, trim, ≥3× logical width, ≤150KB), damage language (intact / charred / rubble-later), and the 5-step pipeline. Generator prompt in scripts/gen_b2_buildings.mjs is the bible condensed — noted to keep in sync.
+- **P1 — full set restyled, 25 assets in one pass:** hq1-5, barracks1-5, safe1-5, turret1-3, solar1-3, media_tower, print_shop, decor_flag, doberman. Method: gpt-image-1 EDITS of the live art with input_fidelity high (identity preserved — Michael's buildings, elevated) + native `background: transparent` (NO cutout pipeline needed — first pass using it, worked flawlessly). All 25 now WebP at 3× logical width: **1546KB total (~62KB avg), zero over the 150KB budget** — the old set was ~14MB of PNGs. Old PNGs deleted, plus three DEAD files found and removed (fence_se/fence_sw/wall_sw — nothing referenced them). One stray reference caught in the sweep: map page's My Base marker pointed at deleted hq2.png → .webp.
+- **Fences/walls intentionally untouched:** fence.png/fence_post.png/wall_se.png anchor pixel-measured link calibration (WALL constants). Restyling them is a future step that must re-measure — flagged in the bible.
+- **P2:** damage look upgraded — smashed/damaged BUILDINGS now keep their sprite, charred by the stage (grayscale+darken+sepia, bible §7) instead of vanishing into a 💥; downed FENCES still vanish (a standing burned panel would read as still blocking). HQ page preloads the hero + every placed building's art when base data lands. imgW contract unchanged (art generated to it).
+- **P3:** zero mechanics drift — costs/levels/APIs/pads untouched; helpers in config/house.ts just point at .webp.
+- **Bible deviation, accepted:** several sprites carry a small INTEGRATED plinth (grass tuft/base course) — that's the CoC idiom and reads correctly on the yard; the "no mats" rule means no big painted shadow mats, which none have.
+- tsc + 107 tests + build green. Committed locally, NOT pushed.
+
+**For Michael:** open HQ — the lot should read as ONE game now: shack→pagoda→solar cottage→manor→crystal keep for the house, and every other building in the same painterly family. Pinch to max zoom — everything stays crisp. Check a bot base in raid preview too.

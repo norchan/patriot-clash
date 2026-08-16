@@ -286,15 +286,19 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                 <img src={c.img} alt="" draggable={false}
                   onClick={() => { if (!inMove && Date.now() - justDroppedAt.current > 350) c.onTap?.() }}
                   onPointerDown={c.movable && onMove && !inMove ? (e => beginHold(c.pad, e)) : undefined}
-                  className={`absolute max-w-none ${c.onTap ? 'cursor-pointer' : ''} ${c.dead ? 'grayscale opacity-40' : ''} ${c.glow ? 'iso-glow' : ''} ${movingFrom === c.pad ? 'animate-pulse' : ''}`}
+                  className={`absolute max-w-none ${c.onTap ? 'cursor-pointer' : ''} ${c.glow ? 'iso-glow' : ''} ${movingFrom === c.pad ? 'animate-pulse' : ''}`}
                   style={{
                     width: c.imgW ?? 120,
                     left: 0, top: TILE_H * 0.28,
                     transform: `translate(-50%, -100%)${c.mirror ? ' scaleX(-1)' : ''}`,
-                    opacity: drag?.from === c.pad ? 0.25 : undefined,
-                    filter: movingFrom === c.pad
-                      ? 'drop-shadow(0 0 16px rgba(251,191,36,0.95)) brightness(1.1)'
-                      : c.glow ? 'drop-shadow(0 0 14px rgba(52,211,153,0.9))' : 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
+                    opacity: drag?.from === c.pad ? 0.25 : c.dead ? 0.8 : undefined,
+                    filter: c.dead
+                      // CHARRED (art bible §7): the building stands, burned —
+                      // reads as damage, not as a missing sprite
+                      ? 'grayscale(0.85) brightness(0.5) sepia(0.4) drop-shadow(0 6px 8px rgba(0,0,0,0.35))'
+                      : movingFrom === c.pad
+                        ? 'drop-shadow(0 0 16px rgba(251,191,36,0.95)) brightness(1.1)'
+                        : c.glow ? 'drop-shadow(0 0 14px rgba(52,211,153,0.9))' : 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
                     WebkitTouchCallout: 'none' as any,
                   }} />
               ) : c.emoji ? (

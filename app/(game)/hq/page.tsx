@@ -45,11 +45,11 @@ function fmtLeft(doneAt: string, now: number): string {
 // sprite art per building type (same painterly iso language as the house)
 const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   fence: { img: () => '/house/fence.png', w: 118 },
-  media_tower: { img: () => '/house/media_tower.png', w: 126 },
+  media_tower: { img: () => '/house/media_tower.webp', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
   barracks: { img: l => barracksImage(l), w: 150 },
   solar: { img: l => solarImage(l), w: 134 },
-  doberman: { img: () => '/house/doberman.png', w: 104 },
+  doberman: { img: () => '/house/doberman.webp', w: 104 },
   turret: { img: l => turretImage(l), w: 118 },
 }
 
@@ -87,6 +87,18 @@ export default function HqPage() {
     const iv = setInterval(load, 30_000)
     return () => clearInterval(iv)
   }, [])
+
+  // Preload the hero + every PLACED building's art the moment the base data
+  // lands (B2 P2.4) — the yard must never pop images in as you pan/zoom
+  useEffect(() => {
+    if (!house) return
+    const warm = new Set<string>([hqImage(house.hq_level ?? 1), '/house/print_shop.webp'])
+    for (const b of house.buildings ?? []) {
+      const src = SPRITES[b.type]?.img(b.level)
+      if (src) warm.add(src)
+    }
+    for (const src of warm) { const im = new Image(); im.src = src }
+  }, [house])
 
   // ambient music: starts on the FIRST tap (browser autoplay rules),
   // remembered across visits, stops when leaving the page
@@ -198,7 +210,7 @@ export default function HqPage() {
     if (pad === (house?.print_shop_pad ?? PRINT_SHOP_PAD)) {
       const ready = (farm?.ready ?? 0) > 0
       cells.push({
-        pad, img: '/house/print_shop.png', imgW: 128, movable: true,
+        pad, img: '/house/print_shop.webp', imgW: 128, movable: true,
         glow: ready, onTap: ready ? claimFarm : () => setSheet({ pad, ps: true }),
         chip: ready
           ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-amber-400 text-black animate-bounce shadow-lg">🧨 CLAIM {farm!.ready}</span>

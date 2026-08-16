@@ -994,7 +994,7 @@ export default function MapPage() {
         const el = document.createElement('div')
         el.innerHTML = `
           <div class="arc-scale" style="transform-origin:bottom center;transition:transform 150ms ease-out;">
-            <img src="/house/hq2.png" alt="My Base" draggable="false" style="
+            <img src="/house/hq2.webp" alt="My Base" draggable="false" style="
               width:58px;height:auto;pointer-events:none;
               filter:drop-shadow(0 0 6px #fbbf24) drop-shadow(0 3px 5px rgba(0,0,0,0.6));" />
           </div>`

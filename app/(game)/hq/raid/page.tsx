@@ -34,14 +34,14 @@ type PhaseT = 'finding' | 'preview' | 'deploy' | 'done'
 
 const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
   fence: { img: () => '/house/fence.png', w: 118 },
-  media_tower: { img: () => '/house/media_tower.png', w: 126 },
+  media_tower: { img: () => '/house/media_tower.webp', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
   barracks: { img: l => barracksImage(l), w: 150 },
   solar: { img: l => solarImage(l), w: 134 },
-  doberman: { img: () => '/house/doberman.png', w: 104 },
+  doberman: { img: () => '/house/doberman.webp', w: 104 },
   turret: { img: l => turretImage(l), w: 118 },
-  decor: { img: () => '/house/decor_flag.png', w: 84 },
-  print_shop: { img: () => '/house/print_shop.png', w: 128 },
+  decor: { img: () => '/house/decor_flag.webp', w: 84 },
+  print_shop: { img: () => '/house/print_shop.webp', w: 128 },
 }
 
 // ── assault tuning (rationale in the channel entry) ──
@@ -358,7 +358,7 @@ export default function RaidPage() {
       // he STARTS as the exact building-sprite art at the exact pad spot, so
       // the yard-cell → live-actor handoff is invisible; switching to run
       // frames then reads as the dog GETTING UP (Michael 2026-08-13)
-      img.src = '/house/doberman.png'
+      img.src = '/house/doberman.webp'
       const probe = new Image()
       probe.onerror = () => { dogFrames.available = false }
       probe.src = frameSrc('doberman', 'run1')
@@ -608,7 +608,7 @@ export default function RaidPage() {
           if (f !== dog.curFrame) {
             dog.curFrame = f
             if (f === 'sit') { // at his post he IS the yard statue, same art + size
-              dog.img.src = '/house/doberman.png'
+              dog.img.src = '/house/doberman.webp'
               dog.img.style.width = '104px'; dog.img.style.height = 'auto'
             } else {
               dog.img.src = frameSrc('doberman', f)
@@ -727,7 +727,7 @@ export default function RaidPage() {
     const onPad = new Map(base.buildings.map(b => [b.pad, b]))
     for (let pad = 0; pad < GRID * GRID; pad++) {
       if (pad === HQ_PAD) { cells.push({ pad, img: hqImage(base.baseLevel), imgW: 198 }); continue }
-      if (pad === PRINT_SHOP_PAD) { cells.push({ pad, img: '/house/print_shop.png', imgW: 128 }); continue }
+      if (pad === PRINT_SHOP_PAD) { cells.push({ pad, img: '/house/print_shop.webp', imgW: 128 }); continue }
       const b = onPad.get(pad)
       if (!b) { cells.push({ pad, plot: true }); continue }
       // during the assault the dog is a LIVE ACTOR in the troop layer — the
@@ -742,10 +742,13 @@ export default function RaidPage() {
       const linked = isFence && fenceLinkedSet.has(pad)
       cells.push({
         pad,
-        img: dead ? undefined : (isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level)),
+        // BUILDINGS keep their sprite when smashed — the stage chars them
+        // (art bible §7); a downed FENCE vanishes to a 💥 (it's breached,
+        // a standing burned panel would read as still blocking)
+        img: dead && isFence ? undefined : (isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level)),
         imgW: isFence ? (linked ? 14 : 76) : sp?.w,
         mirror: ((b.facing ?? 0) % 2) === 1,
-        emoji: dead ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
+        emoji: dead && isFence ? '💥' : (sp ? undefined : buildingDef(b.type)?.emoji ?? '🏗️'),
         dead,
         jiggle: pad === hitPad,
         chip: !dead && dmg[pad] != null && dmg[pad] < 1
