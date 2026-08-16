@@ -1,41 +1,23 @@
 'use client'
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { GRID } from '@/config/house'
+import BaseStage from '@/components/BaseStage'
+import { TILE_W, TILE_H, STAGE_W, STAGE_H, ORIGIN_Y, isoPos, padAt, StageCameraApi } from '@/lib/base-stage'
 
-// ISOMETRIC YARD STAGE (Grok's presentation brief, 2026-07-31).
+// ISOMETRIC YARD (Crown Jewel B1 rework).
 //
-// The 6×6 logical grid (pads 0..35) is unchanged — same data model, same API
-// indices — but cells project to screen with the standard 2:1 isometric
-// transform instead of a flat CSS grid:
-//     x = (col - row) · TILE_W/2        y = (col + row) · TILE_H/2
-// Buildings are sprites anchored to the BOTTOM of their diamond and painted
-// back-to-front by (row + col), so a tall house correctly overlaps the plot
-// behind it. The whole stage lives in a fixed logical coordinate space and is
-// scaled to the viewport, which keeps every sprite crisp at any screen size
-// and makes tap targets identical across devices.
+// IsoYard renders the CONTENT of the base — plots, buildings, fences, chips,
+// drag-and-drop, deploy taps — in the logical stage space. The CAMERA
+// (zoom/pan/inertia/fit) lives in components/BaseStage.tsx, and the geometry
+// (tile metrics, stage size, isoPos/padAt, framing rules) in
+// lib/base-stage.ts. Home and raid share all three, so the attack view and
+// the home view are one engine.
 //
-// BOTH orientations are supported (Michael 2026-07-31: the rotate gate also
-// caught tall DESKTOP windows — "can we do vertical and rotated?"). Landscape
-// gives the biggest yard; portrait scales the same stage to fit the width.
+// Public surface is unchanged from v1 — cells / bg / onMove / validTargets /
+// movingFrom / onStageTap — and the old geometry exports are re-exported
+// below for the existing import sites.
 
-export const TILE_W = 184
-export const TILE_H = 92
-// logical stage: wide enough for the 6×6 diamond + headroom for tall sprites
-export const STAGE_W = (GRID + GRID) * (TILE_W / 2) + 100   // 988
-export const STAGE_H = (GRID + GRID) * (TILE_H / 2) + 300   // 744
-const ORIGIN_X = STAGE_W / 2
-const ORIGIN_Y = 210
-
-/** Logical stage position of a pad's diamond CENTER. */
-export function isoPos(pad: number): { x: number; y: number; depth: number } {
-  const col = pad % GRID
-  const row = Math.floor(pad / GRID)
-  return {
-    x: ORIGIN_X + (col - row) * (TILE_W / 2),
-    y: ORIGIN_Y + (col + row) * (TILE_H / 2),
-    depth: row + col,
-  }
-}
+export { TILE_W, TILE_H, STAGE_W, STAGE_H, ORIGIN_Y, isoPos, padAt } from '@/lib/base-stage'
 
 export interface IsoCellSpec {
   pad: number
@@ -57,16 +39,6 @@ export interface IsoCellSpec {
   onTap?: () => void
   /** press-and-hold lifts this sprite for drag-and-drop */
   movable?: boolean
-}
-
-/** stage coords → pad index, or null when off the diamond */
-export function padAt(x: number, y: number): number | null {
-  const u = (x - ORIGIN_X) / (TILE_W / 2)
-  const v = (y - ORIGIN_Y) / (TILE_H / 2)
-  const col = Math.round((u + v) / 2 - 0.5)
-  const row = Math.round((v - u) / 2 - 0.5)
-  if (col < 0 || col >= GRID || row < 0 || row >= GRID) return null
-  return row * GRID + col
 }
 
 /** CONNECTED FENCES, done as geometry instead of guesswork (Michael
@@ -171,138 +143,24 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
      *  LOGICAL stage coordinates. Pans don't fire (movement > 12px cancels);
      *  plot buttons go tap-transparent so grass taps reach the stage. */
     onStageTap?: (x: number, y: number) => void }) {
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const spacerRef = useRef<HTMLDivElement>(null)  // the pannable ground
-  const stageRef = useRef<HTMLDivElement>(null)   // the scaled stage
-  const [auto, setAuto] = useState(1)       // fit-derived base scale
-  const [zoom, setZoom] = useState(1)       // player zoom on top of it
-  const zoomRef = useRef(1)
-  const autoRef = useRef(1)
-  const pinchRef = useRef(false)  // two fingers down — native pan must not fight the pinch
-  const scale = auto * zoom
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const fit = () => {
-      const r = el.getBoundingClientRect()
-      // Landscape: the whole yard fits. Portrait / tall windows: fitting by
-      // WIDTH shrinks the yard to a postage stamp, so zoom toward height-fit
-      // (capped at 2.2× the width-fit) and let the player PAN — the CoC feel.
-      const fitW = r.width / STAGE_W
-      const fitH = r.height / STAGE_H
-      const a = Math.max(fitW, Math.min(fitH, fitW * 2.2))
-      autoRef.current = a
-      setAuto(a)
-    }
-    fit()
-    const ro = new ResizeObserver(fit)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  // ── zoom in/out (Michael 2026-07-31; reworked 2026-08-04 "needs to be more
-  // fluent"; buttons + tighter clamp per Grok's P0 brief): anchored under the
-  // CURSOR / between the FINGERS, and applied by writing scale + scroll
-  // straight to the DOM in the same event — the old React-state +
-  // next-frame-scroll version corrected a frame late, which read as a lurch.
-  // setZoom() afterwards just keeps React in sync. FROZEN while a building is
-  // held or in the air — zoom must never fight a drag. ──
-  const applyZoom = (factor: number, anchorX?: number, anchorY?: number) => {
-    const el = wrapRef.current, spacer = spacerRef.current, stage = stageRef.current
-    if (!el || !spacer || !stage) return
-    if (dragRef.current || holdRef.current) return
-    const next = Math.max(0.7, Math.min(1.8, zoomRef.current * factor))
-    if (next === zoomRef.current) return
-    const ratio = next / zoomRef.current
-    zoomRef.current = next
-    const r = el.getBoundingClientRect()
-    const ax = anchorX != null ? anchorX - r.left : el.clientWidth / 2
-    const ay = anchorY != null ? anchorY - r.top : el.clientHeight / 2
-    const s = autoRef.current * next
-    spacer.style.width = `${Math.max(STAGE_W * s, el.clientWidth)}px`
-    spacer.style.height = `${Math.max(STAGE_H * s, el.clientHeight)}px`
-    stage.style.transform = `translate(-50%, -50%) scale(${s})`
-    el.scrollLeft = (el.scrollLeft + ax) * ratio - ax
-    el.scrollTop = (el.scrollTop + ay) * ratio - ay
-    setZoom(next)
-  }
-  // "Fit base": back to auto-fit scale, yard centered
-  const resetView = () => {
-    const el = wrapRef.current, spacer = spacerRef.current, stage = stageRef.current
-    if (!el || !spacer || !stage) return
-    zoomRef.current = 1
-    const s = autoRef.current
-    spacer.style.width = `${Math.max(STAGE_W * s, el.clientWidth)}px`
-    spacer.style.height = `${Math.max(STAGE_H * s, el.clientHeight)}px`
-    stage.style.transform = `translate(-50%, -50%) scale(${s})`
-    el.scrollLeft = Math.max(0, (STAGE_W * s - el.clientWidth) / 2)
-    el.scrollTop = Math.max(0, (STAGE_H * s - el.clientHeight) / 2)
-    setZoom(1)
-  }
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      // exponential in deltaY: notchy mice get solid steps, trackpads with
-      // fine-grained deltas get a perfectly smooth glide
-      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
-      applyZoom(Math.exp(-dy * 0.0016), e.clientX, e.clientY)
-    }
-    // pinch: track two pointers by hand — browser pinch is page zoom, not ours
-    const pts = new Map<number, { x: number; y: number }>()
-    let lastDist = 0
-    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); lastDist = 0; pinchRef.current = pts.size === 2 } }
-    const move = (e: PointerEvent) => {
-      if (e.pointerType !== 'touch' || !pts.has(e.pointerId)) return
-      pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()]
-        const d = Math.hypot(a.x - b.x, a.y - b.y)
-        if (lastDist > 0) applyZoom(d / lastDist, (a.x + b.x) / 2, (a.y + b.y) / 2)
-        lastDist = d
-      }
-    }
-    const up = (e: PointerEvent) => { pts.delete(e.pointerId); lastDist = 0; pinchRef.current = pts.size === 2 }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    el.addEventListener('pointerdown', down)
-    el.addEventListener('pointermove', move)
-    el.addEventListener('pointerup', up)
-    el.addEventListener('pointercancel', up)
-    return () => {
-      el.removeEventListener('wheel', onWheel)
-      el.removeEventListener('pointerdown', down)
-      el.removeEventListener('pointermove', move)
-      el.removeEventListener('pointerup', up)
-      el.removeEventListener('pointercancel', up)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const camRef = useRef<StageCameraApi | null>(null)
+  // BaseStage freezes the camera while this is true (a building is lifted)
+  const camLockRef = useRef(false)
 
   // ── DRAG-AND-DROP (Michael 2026-07-31): press-and-hold lifts a movable
-  // sprite, drag follows the finger, drop on a highlighted cell. Native
-  // scrolling is suppressed for the duration via a flag-guarded touchmove
-  // preventDefault — CSS touch-action can't change mid-gesture. ──
+  // sprite, drag follows the finger, drop on a highlighted cell. The camera
+  // lock (not native-scroll suppression — that era is gone) keeps the world
+  // still while a building is in the air. ──
   const [drag, setDrag] = useState<{ from: number; x: number; y: number; hover: number | null } | null>(null)
   const dragRef = useRef<typeof drag>(null)
   dragRef.current = drag
+  camLockRef.current = drag != null
   const holdRef = useRef<{ pad: number; x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null)
   const justDroppedAt = useRef(0)
   const tapStart = useRef<{ x: number; y: number } | null>(null)
 
-  const toStage = (clientX: number, clientY: number) => {
-    const el = wrapRef.current!
-    const r = el.getBoundingClientRect()
-    const s = auto * zoomRef.current
-    const spacerW = Math.max(STAGE_W * s, el.clientWidth)
-    const spacerH = Math.max(STAGE_H * s, el.clientHeight)
-    const offX = spacerW / 2 - (STAGE_W * s) / 2
-    const offY = spacerH / 2 - (STAGE_H * s) / 2
-    return {
-      x: (clientX - r.left + el.scrollLeft - offX) / s,
-      y: (clientY - r.top + el.scrollTop - offY) / s,
-    }
-  }
+  const toStage = (clientX: number, clientY: number) =>
+    camRef.current?.clientToStage(clientX, clientY) ?? { x: 0, y: 0 }
 
   const beginHold = (pad: number, e: React.PointerEvent) => {
     const { clientX, clientY } = e
@@ -320,8 +178,6 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
   }
 
   useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
     const onMoveEv = (e: PointerEvent) => {
       // a real finger slide before the hold fires = the user is panning
       if (holdRef.current && Math.hypot(e.clientX - holdRef.current.x, e.clientY - holdRef.current.y) > 12) cancelHold()
@@ -340,65 +196,32 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
       }
       setDrag(null)
     }
-    // suppress native pan while a building is in the air OR a pinch is live —
-    // otherwise the scroll container pans underneath and the zoom stutters
-    const onTouchMove = (e: TouchEvent) => { if (dragRef.current || pinchRef.current) e.preventDefault() }
     window.addEventListener('pointermove', onMoveEv)
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
-    el.addEventListener('touchmove', onTouchMove, { passive: false })
     return () => {
       window.removeEventListener('pointermove', onMoveEv)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
-      el.removeEventListener('touchmove', onTouchMove)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auto, onMove, validTargets])
-
-  // center the pan when the FIT changes (first layout, rotation) — NOT on
-  // player zoom, which anchors itself and must not be snapped back to center
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const s = auto * zoomRef.current
-    el.scrollLeft = Math.max(0, (STAGE_W * s - el.clientWidth) / 2)
-    el.scrollTop = Math.max(0, (STAGE_H * s - el.clientHeight) / 2)
-  }, [auto])
+  }, [onMove, validTargets])
 
   const sorted = [...cells].sort((a, b) => isoPos(a.pad).depth - isoPos(b.pad).depth)
   const debug = typeof window !== 'undefined' && window.location.search.includes('debug=1')
 
   return (
-    <div className="absolute inset-0">
-    <div ref={wrapRef} className="absolute inset-0 overflow-auto overscroll-contain"
-      // long-press on a sprite must never summon the browser's image menu —
-      // that's what broke drag-and-drop on Chrome/Android
-      onContextMenu={e => e.preventDefault()}
-      style={{ WebkitOverflowScrolling: 'touch' as any, scrollbarWidth: 'none', WebkitTouchCallout: 'none' as any }}>
-      {/* the pannable ground — bg lives HERE so grass moves with the buildings */}
-      <div ref={spacerRef} className="relative" style={{
-        width: Math.max(STAGE_W * scale, wrapRef.current?.clientWidth ?? 0),
-        height: Math.max(STAGE_H * scale, wrapRef.current?.clientHeight ?? 0),
-        ...(bg ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
-      }}>
-      {/* soft vignette so HUD chips read against bright grass */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%)' }} />
-      <div ref={stageRef} className="absolute left-1/2 top-1/2"
+    <BaseStage ground={bg} lockRef={camLockRef} apiRef={camRef} allowDoubleTapFit={!onStageTap}>
+      {/* the tap surface for deploy mode covers the whole world */}
+      <div className="absolute inset-0"
         onPointerDown={onStageTap ? (e => { tapStart.current = { x: e.clientX, y: e.clientY } }) : undefined}
         onClick={onStageTap ? (e => {
           const st = tapStart.current
           if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) > 12) return // that was a pan
-          const stage = stageRef.current
-          if (!stage) return
-          const r = stage.getBoundingClientRect()
-          onStageTap((e.clientX - r.left) / (r.width / STAGE_W), (e.clientY - r.top) / (r.height / STAGE_H))
-        }) : undefined}
-        style={{
-          width: STAGE_W, height: STAGE_H,
-          transform: `translate(-50%, -50%) scale(${scale})`,
-        }}>
+          const p = toStage(e.clientX, e.clientY)
+          if (p.x < -60 || p.x > STAGE_W + 60 || p.y < -60 || p.y > STAGE_H + 60) return
+          onStageTap(p.x, p.y)
+        }) : undefined}>
         {sorted.map(c => {
           const { x, y, depth } = isoPos(c.pad)
           const inMove = movingFrom != null
@@ -421,7 +244,7 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                   // the build sheet on the plot it landed on.
                   onPointerDown={c.movable && onMove && !inMove ? (e => beginHold(c.pad, e)) : undefined}
                   className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ width: TILE_W, height: TILE_H, touchAction: c.movable && onMove ? 'none' : undefined,
+                  style={{ width: TILE_W, height: TILE_H,
                     // in deploy mode, inert plots must not eat yard taps
                     pointerEvents: onStageTap && !tap ? 'none' : undefined }}>
                   {c.plot && (
@@ -472,7 +295,6 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
                     filter: movingFrom === c.pad
                       ? 'drop-shadow(0 0 16px rgba(251,191,36,0.95)) brightness(1.1)'
                       : c.glow ? 'drop-shadow(0 0 14px rgba(52,211,153,0.9))' : 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
-                    touchAction: c.movable && onMove ? 'none' : undefined,
                     WebkitTouchCallout: 'none' as any,
                   }} />
               ) : c.emoji ? (
@@ -534,18 +356,6 @@ export default function IsoYard({ cells, bg, children, onMove, validTargets, mov
         })()}
         {children}
       </div>
-      </div>
-    </div>
-    {/* ── zoom controls, OUTSIDE the scroll container so they never scroll
-        away (Grok P0: don't rely on pinch alone) ── */}
-    <div className="absolute right-2 top-16 z-[60] flex flex-col gap-1.5">
-      <button onClick={() => applyZoom(1.25)} aria-label="Zoom in"
-        className="w-9 h-9 rounded-lg bg-black/55 backdrop-blur text-white font-black text-lg border border-white/10 active:scale-90">＋</button>
-      <button onClick={() => applyZoom(1 / 1.25)} aria-label="Zoom out"
-        className="w-9 h-9 rounded-lg bg-black/55 backdrop-blur text-white font-black text-lg border border-white/10 active:scale-90">－</button>
-      <button onClick={resetView} aria-label="Fit base"
-        className="w-9 h-9 rounded-lg bg-black/55 backdrop-blur text-white text-sm border border-white/10 active:scale-90">⛶</button>
-    </div>
-    </div>
+    </BaseStage>
   )
 }

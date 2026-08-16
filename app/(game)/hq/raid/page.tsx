@@ -5,7 +5,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { GRID, HQ_PAD, PRINT_SHOP_PAD, buildingDef, hqImage, safeImage, barracksImage, solarImage, turretImage } from '@/config/house'
 import { troopById } from '@/config/troops'
-import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, STAGE_H } from '@/components/IsoYard'
+import IsoYard, { IsoCellSpec, isoPos, IsoFenceLinks, fenceAdjacency, STAGE_W, STAGE_H, ORIGIN_Y, TILE_H } from '@/components/IsoYard'
 
 // ⚔️ RAID — same isometric stage as the home base. The server settles
 // damage/loot/trophies/casualties the moment you launch; everything after is
@@ -498,7 +498,7 @@ export default function RaidPage() {
           if (living.length) {
             lastAuto = clock
             const tg = living[Math.floor(Math.random() * living.length)]
-            const cx0 = STAGE_W / 2, cy0 = 210 + (GRID - 1) * 46
+            const cx0 = STAGE_W / 2, cy0 = ORIGIN_Y + (GRID - 1) * (TILE_H / 2)
             const dx = tg.x - cx0, dy = tg.y - cy0
             const len = Math.max(1, Math.hypot(dx, dy))
             deployRef.current?.(type,
@@ -768,7 +768,7 @@ export default function RaidPage() {
     <div className="fixed inset-0 z-[60] bg-[#150f0d] text-gray-200 select-none">
       {base && (
         <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
-        <IsoYard cells={cells} bg="/house/yard_bg.png"
+        <IsoYard cells={cells} bg="/house/yard_bg2.webp"
           onStageTap={phase === 'deploy' ? handleStageTap : undefined}>
           <IsoFenceLinks fencePads={fencePads} />
           {/* the deploy engine paints troop sprites into this layer */}

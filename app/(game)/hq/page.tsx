@@ -314,7 +314,7 @@ export default function HqPage() {
     <div className="fixed inset-0 z-[60] bg-[#0d1512] text-gray-200 select-none">
       {/* the yard stops above the bottom nav — the bar stays (Michael) */}
       <div className="absolute inset-x-0 top-0" style={{ bottom: '4.5rem' }}>
-      <IsoYard cells={cells} bg="/house/yard_bg.png" validTargets={validTargets} movingFrom={moving}
+      <IsoYard cells={cells} bg="/house/yard_bg2.webp" validTargets={validTargets} movingFrom={moving}
         onMove={(f, t) => { setMoving(null); moveBuilding(f, t) }}>
         <IsoFenceLinks fencePads={fencePads} />
         {/* sparkle pickups + their pops, in stage coordinates */}

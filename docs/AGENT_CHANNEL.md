@@ -4653,3 +4653,30 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **PvP 3D FEEL PASS COMPLETE** (#1–#5). No more checklist steps unless Michael opens a new track (Meshy clip densify, frame-time adaptive quality, share card). Full stack still local — push when he playtests.
 
 **For Michael:** Review + “what’s next” options in chat (no new Claude prompt unless he picks a track).
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: base + base battles are the crown jewel — best graphics/mechanics in industry; wants full checklist + Claude step-1 prompt. No skipping hard parts.
+
+**To the channel:**
+- Delivered Base Crown Jewel checklist (engine → home art → idle life → raid kit → troops → defenses → destruction → audio → chrome → economy UX → perf → ship). Step 1 = **Base Stage Engine** (camera zoom/pan, 60fps pipeline decision, stage space, ground plate, crisp scaling) — foundation before art densify.
+- Flagship stays **isometric 2D** (not 3D yard) — CoC/Boom Beach bar on web. Claude: wait for Michael paste.
+
+**For Michael:** Full checklist + step-1 prompt in chat.
+
+### 2026-08-16 — Claude (Base Crown Jewel B1 done)
+
+**Context:** Grok's Base checklist B1 — Base Stage Engine v2. Foundation before art.
+
+**To the channel:**
+- **P0 camera — full rewrite, one implementation:** new `components/BaseStage.tsx` + `lib/base-stage.ts` (geometry + framing rules + camera API contract). The old camera piggybacked on NATIVE BROWSER SCROLL — every zoom frame resized a spacer div (full layout pass) and re-derived scrollLeft/Top. v2 is TRANSFORM-ONLY: fixed viewport (overflow hidden, touch-action none) + one world layer moved exclusively via translate3d+scale, will-change pinned, all gesture math in refs — zero React state and zero layout work in the hot path. Gestures: 1-finger/mouse pan with LIGHT INERTIA on release (exp decay, killed by any grab), pinch anchored between fingers, wheel anchored under cursor (exp in deltaY), +/− about center, ⛶ fit as a 260ms eased tween, double-tap fit (auto-disabled in raid deploy where taps drop troops). Building drag sets a lockRef that freezes pan/zoom/inertia until drop. Raid uses the SAME path — IsoYard now wraps BaseStage, so the attack camera IS the home camera.
+- **P1 space:** GRID/pads untouched (no migration needed) — purely optical: the lot grew real margins (SIDE 150 / TOP 270 for hq5 headroom / BOTTOM 210 apron) → stage 2140×1400 logical. Zoom clamps: sMin = whole lot + margin (letterbox-centered), sMax = 1.9× logical. Default framing: landscape = hero full-lot; portrait = height-lean chunk capped at 2.2× width fit. Rules documented in lib/base-stage.ts. Raid's one hardcoded ORIGIN (210) found and replaced with the exported constant.
+- **P2 perf contract:** compositor-only motion (no spacer resize, no scroll bookkeeping), listeners all cleaned on unmount, inertia/tween share one rAF slot. Raid's troop layer already runs one rAF engine over an imperative DOM layer inside the world — that IS the thin interface B9 will hang juice on; no second loop added. FPS on Michael's phone is the acceptance test — the engine no longer does anything per-frame that CAN thrash layout.
+- **P3 ground plate:** structured layers inside the world (base plate img → edge fade → vignette, future detail/parallax slots documented). Plate itself was the sharpness problem: 1536px PNG stretched over a 2140-logical world = mush at zoom. AI-upscaled to 4K → 3600px WebP at **180KB** (old PNG was 763KB at less than half the resolution). Old PNG deleted.
+- **P4 API:** `StageCameraApi` (zoomBy/fit/clientToStage/getScale) via apiRef; geometry exports re-exported from IsoYard so hq + raid import sites are unchanged; onViewChange hook available for HUD.
+- **Deferred (later B-steps):** parallax skirt + detail ground layers (slots exist), moving raid floats/chips onto the rAF loop (B9), any pad-grid change (explicitly avoided).
+- tsc + 107 tests + build green. Committed locally, NOT pushed.
+
+**For Michael:** phone test the 7 acceptance points — pinch under fingers, wheel on desktop, pan grass vs drag building, ⛶ and double-tap fit, min zoom shows the whole lot, max zoom reads the HQ, raid camera feels identical. The yard also got real breathing room and a sharp ground at zoom.
