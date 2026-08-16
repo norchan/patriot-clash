@@ -74,6 +74,17 @@ const ATK_ORDER = ['atk1', 'atk2', 'atk3', 'atk4'] as const
 const RUN_FRAME_SECS = 0.06
 const TROOP_H = 92            // flipbook frames render by height (side profile)
 const RETURN_HIT_SECS = 0.85  // defenders punch back while a troop fights
+// ── COMBAT ROLES in the theater (Michael 2026-08-16: "archers should shoot") ──
+//   melee   walk to the building, swing              (Minuteman / Picket Captain)
+//   ranged  STANDOFF + visible projectile, and they  (Buck Hunter / Latte Slinger)
+//           shoot OVER walls — no breaching detours
+//   tank    melee (their tanking is server-side casualty math)
+//   splash  wall-breaker preference kept — they hunt fences at melee range,
+//           a ranged standoff would un-break the walls they exist to break
+//   support melee for now — no heal system in the theater
+const RANGED_STANDOFF = 170   // px short of the target — archers, not brawlers
+const DOG_ENGAGE_PX = 120     // dog this close to his victim = that troop turns and fights HIM
+const TROOP_DOG_HIT = 5       // dog wear per troop swing while engaged (dog flees sooner, never dies)
 // THE DOBERMAN (Michael 2026-08-09): the defender's guard dog. Never dies —
 // his health wears down and he RUNS OFF SCREEN, back at full strength next
 // raid. Faster than any troop; his bite is the visible face of return damage.
@@ -109,6 +120,8 @@ interface Trooper {
   retT: number              // time since last return hit
   animT: number             // run-cycle clock
   curFrame: string
+  ranged: boolean           // role === 'ranged' — standoff + projectiles
+  dogFight: boolean         // the dog is ON this troop — it fights him, not buildings
 }
 
 export default function RaidPage() {
@@ -275,11 +288,13 @@ export default function RaidPage() {
       return best
     }
 
-    // goal first, then: breach whatever blocks the path, else hit the goal
+    // goal first, then: breach whatever blocks the path, else hit the goal.
+    // RANGED troops never take the fence detour — they stand off and shoot
+    // OVER the wall, which is the whole point of being an archer.
     const pickTarget = (tr: Trooper) => {
       if (tr.goal < 0 || targets[tr.goal].dead) tr.goal = chooseGoal(tr)
       if (tr.goal < 0) { tr.target = -1; return }
-      const blk = targets[tr.goal].isFence ? -1 : blockerOn(tr.x, tr.y, tr.goal)
+      const blk = (tr.ranged || targets[tr.goal].isFence) ? -1 : blockerOn(tr.x, tr.y, tr.goal)
       tr.target = blk >= 0 ? blk : tr.goal
       tr.state = 'walk'
     }
@@ -344,9 +359,38 @@ export default function RaidPage() {
       layer.appendChild(el)
       setTimeout(() => el.remove(), 220)
     }
-    type RaidFxKind = 'chip' | 'breach' | 'muzzle' | 'troopHit' | 'troopDeath' | 'deploy'
-    const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean; fence?: boolean; level?: number; bite?: boolean }) => {
+    type RaidFxKind = 'chip' | 'breach' | 'muzzle' | 'troopHit' | 'troopDeath' | 'deploy' | 'shot'
+    const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean; fence?: boolean; level?: number; bite?: boolean; tx?: number; ty?: number; ms?: number; style?: 'arrow' | 'latte' }) => {
       switch (o.kind) {
+        case 'shot': { // ranged troop lets one fly — arrow (Buck Hunter) or
+          // latte bolt (Latte Slinger). Same DOM-transition trick as the
+          // turret tracers; flight time comes from the caller so the visual
+          // and the damage arrival agree to the millisecond.
+          const ms = o.ms ?? 160
+          const el = document.createElement('div')
+          if (o.style === 'latte') {
+            Object.assign(el.style, {
+              position: 'absolute', left: `${o.x}px`, top: `${o.y}px`, width: '11px', height: '11px',
+              borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #e7c9a1, #8b4513 72%)',
+              boxShadow: '0 0 6px rgba(139,69,19,0.85)', zIndex: '1440', pointerEvents: 'none',
+              transition: `left ${ms}ms linear, top ${ms}ms linear`,
+            })
+          } else {
+            const ang = Math.atan2((o.ty ?? o.y) - o.y, (o.tx ?? o.x) - o.x) * 180 / Math.PI
+            Object.assign(el.style, {
+              position: 'absolute', left: `${o.x}px`, top: `${o.y}px`, width: '24px', height: '3px',
+              borderRadius: '2px', background: 'linear-gradient(90deg, #92400e 58%, #e5e7eb 78%, #9ca3af)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.45)', zIndex: '1440', pointerEvents: 'none',
+              transform: `rotate(${ang}deg)`,
+              transition: `left ${ms}ms linear, top ${ms}ms linear`,
+            })
+          }
+          layer.appendChild(el)
+          requestAnimationFrame(() => { el.style.left = `${o.tx ?? o.x}px`; el.style.top = `${o.ty ?? o.y}px` })
+          setTimeout(() => el.remove(), ms + 70)
+          playBase('chip', { rate: 1.75, gain: 0.5, jitter: 0.1 }) // pitched-up knock = the thwip
+          break
+        }
         case 'chip': // troop swing lands on a building/fence
           kitBurst(o.x, o.y - 42, '#fbbf24', 46)
           if (o.pad != null) hitFlash(o.pad)
@@ -414,8 +458,10 @@ export default function RaidPage() {
     }
 
     const paint = (tr: Trooper, lungeX = 0, lungeY = 0) => {
-      const tg = tr.target >= 0 ? targets[tr.target] : null
-      const flip = tg ? tg.x < tr.x : false
+      // face what you're FIGHTING: the dog when he's on you, else your target.
+      // Human art natively faces RIGHT → mirror when the foe is to the left.
+      const faceX = tr.dogFight && dog ? dog.x : tr.target >= 0 ? targets[tr.target].x : null
+      const flip = faceX != null ? faceX < tr.x : false
       tr.root.style.left = `${tr.x + lungeX}px`
       tr.root.style.top = `${tr.y + lungeY}px`
       tr.img.style.transform = `translate(-50%, -100%)${flip ? ' scaleX(-1)' : ''}`
@@ -549,12 +595,32 @@ export default function RaidPage() {
       setTimeout(() => tr.remove(), ms + 70)
     }
 
+    // FACING FIX (Michael 2026-08-16: "attacking with its butt"): the dog
+    // flipbooks natively face LEFT (verified against the frames) while the
+    // human troops face RIGHT — the old shared flip condition pointed his
+    // rear at the victim. Mirror when the victim is to the RIGHT, and when
+    // fleeing, when the exit edge is to the right.
     const paintDog = (lx = 0, ly = 0) => {
       if (!dog) return
-      const flip = dog.victim ? dog.victim.x < dog.x : (dog.state === 'flee' && dog.x < STAGE_W / 2)
+      const flip = dog.victim ? dog.victim.x > dog.x : (dog.state === 'flee' && dog.x >= STAGE_W / 2)
       dog.root.style.left = String(dog.x + lx) + 'px'
       dog.root.style.top = String(dog.y + ly) + 'px'
       dog.img.style.transform = 'translate(-50%, -100%)' + (flip ? ' scaleX(-1)' : '')
+    }
+    // dog wear from ANY source (his own bite exchanges + engaged troop swings):
+    // he never dies — worn out means he RUNS, back at full strength next raid
+    const wearDog = (amount: number) => {
+      if (!dog || dog.state === 'flee' || dog.state === 'gone') return
+      dog.hp -= amount
+      const pct = Math.max(0, dog.hp)
+      ;(dog.barFill.parentElement as HTMLDivElement).style.opacity = '1'
+      dog.barFill.style.width = String(pct) + '%'
+      dog.barFill.style.background = pct > 50 ? '#4ade80' : pct > 25 ? '#fbbf24' : '#ef4444'
+      if (dog.hp <= 0) {
+        dog.state = 'flee'
+        dog.victim = null
+        addFloat({ sx: dog.x, sy: dog.y - 44, text: '💨', spark: true }, 600)
+      }
     }
 
     const updateBar = (tr: Trooper) => {
@@ -608,6 +674,7 @@ export default function RaidPage() {
       const tr: Trooper = {
         root, img, barFill, x, y, type, state: 'walk', t: 0, goal: -1, target: -1,
         lastHitAt: 0, hp: 100, retT: 0, animT: Math.random(), curFrame: 'run1',
+        ranged: troopById(type)?.role === 'ranged', dogFight: false,
       }
       pickTarget(tr)
       paint(tr)
@@ -650,7 +717,9 @@ export default function RaidPage() {
         // target dead (a squadmate finished it) or goal gone → re-path.
         // The goal is KEPT while alive: after a breach the troop resumes
         // toward the same building, never "next fence anywhere".
-        if (tr.target < 0 || targets[tr.target].dead || tr.goal < 0 || targets[tr.goal].dead) {
+        // (A troop locked with the dog keeps whatever target it had — it
+        // re-paths when the dog lets go, via the engagement sync.)
+        if (!tr.dogFight && (tr.target < 0 || targets[tr.target].dead || tr.goal < 0 || targets[tr.goal].dead)) {
           pickTarget(tr)
           if (tr.target < 0) { tr.state = 'gone'; tr.root.style.opacity = '0'; continue }
         }
@@ -665,10 +734,29 @@ export default function RaidPage() {
             : ATK_ORDER[Math.min(3, Math.floor(((tr.t % HIT_SECS) / HIT_SECS) * 4))]
           if (f !== tr.curFrame) { tr.curFrame = f; tr.img.src = frameSrc(tr.type, f) }
         }
+        // ── P2: the dog is ON this troop — it turns and fights HIM. Swings
+        // wear the dog down (he flees sooner — never dies); the dog's bites
+        // are the return damage, so the normal defender punch-back pauses. ──
+        if (tr.dogFight && dog && dog.state !== 'gone' && dog.state !== 'flee') {
+          tr.t += dt
+          const ddx = dog.x - tr.x, ddy = dog.y - tr.y
+          const dd = Math.max(1, Math.hypot(ddx, ddy))
+          const sw = Math.max(0, Math.sin((tr.t % HIT_SECS) / HIT_SECS * Math.PI))
+          paint(tr, (ddx / dd) * sw * 10, (ddy / dd) * sw * 10)
+          const hitsDue = Math.floor(tr.t / HIT_SECS + 0.45)
+          if (hitsDue > tr.lastHitAt) {
+            tr.lastHitAt = hitsDue
+            raidFx({ kind: 'troopHit', x: dog.x, y: dog.y - 4 }) // the swing lands on the dog
+            wearDog(TROOP_DOG_HIT)
+          }
+          continue
+        }
         if (tr.state === 'walk') {
           const dx = tg.x - tr.x, dy = (tg.y + 6) - tr.y
           const d = Math.hypot(dx, dy)
-          if (d <= 30) { tr.state = 'attack'; tr.t = 0; tr.lastHitAt = 0; tr.retT = 0 }
+          // ranged troops halt at standoff and shoot; everyone else closes in
+          const stopAt = tr.ranged ? RANGED_STANDOFF : 30
+          if (d <= stopAt) { tr.state = 'attack'; tr.t = 0; tr.lastHitAt = 0; tr.retT = 0; paint(tr) }
           else {
             const step = Math.min(d, WALK_SPEED * dt)
             tr.x += (dx / d) * step
@@ -680,7 +768,9 @@ export default function RaidPage() {
           const dx = tg.x - tr.x, dy = tg.y - tr.y
           const d = Math.max(1, Math.hypot(dx, dy))
           const sw = Math.max(0, Math.sin((tr.t % HIT_SECS) / HIT_SECS * Math.PI))
-          paint(tr, (dx / d) * sw * 13, (dy / d) * sw * 13)
+          // melee lunges INTO the building; ranged kicks back off the release
+          if (tr.ranged) paint(tr, -(dx / d) * sw * 4, -(dy / d) * sw * 4)
+          else paint(tr, (dx / d) * sw * 13, (dy / d) * sw * 13)
           // chip lands at ~55% of the swing cycle — ON the contact frame
           // (atk3) and the lunge peak, not at the cycle boundary (B5 P1,
           // same idea as PvP's clipContactMs)
@@ -688,10 +778,30 @@ export default function RaidPage() {
           if (hitsDue > tr.lastHitAt) {
             tr.lastHitAt = hitsDue
             if (!tg.dead) {
-              tg.hp -= 1
-              setDmg(prev => ({ ...prev, [tg.pad]: Math.max(0, tg.hp) / tg.maxHp }))
-              raidFx({ kind: 'chip', x: tg.x, y: tg.y, pad: tg.pad })
-              if (tg.hp <= 0) killTarget(tr.target)
+              if (tr.ranged) {
+                // P0: the release — a visible projectile; the chip lands on
+                // ARRIVAL, so the building shudders when the arrow does
+                const ti = tr.target
+                const ms = Math.max(110, Math.min(260, d * 0.75))
+                raidFx({
+                  kind: 'shot', x: tr.x, y: tr.y - 44, tx: tg.x, ty: tg.y - 26, ms,
+                  style: tr.type === 'dem_latte_slinger' ? 'latte' : 'arrow',
+                })
+                setTimeout(() => {
+                  if (!engine.alive) return
+                  const t2 = targets[ti]
+                  if (!t2 || t2.dead) return
+                  t2.hp -= 1
+                  setDmg(prev => ({ ...prev, [t2.pad]: Math.max(0, t2.hp) / t2.maxHp }))
+                  raidFx({ kind: 'chip', x: t2.x, y: t2.y, pad: t2.pad })
+                  if (t2.hp <= 0) killTarget(ti)
+                }, ms)
+              } else {
+                tg.hp -= 1
+                setDmg(prev => ({ ...prev, [tg.pad]: Math.max(0, tg.hp) / tg.maxHp }))
+                raidFx({ kind: 'chip', x: tg.x, y: tg.y, pad: tg.pad })
+                if (tg.hp <= 0) killTarget(tr.target)
+              }
             }
           }
           // ── defenders punch back: hp drains while fighting; when it empties
@@ -809,6 +919,8 @@ export default function RaidPage() {
           } else if (dog.state === 'bite') {
             if (d > 60) { dog.state = 'chase' }  // victim moved on
             else {
+              // P1: bite reads mouth-first — the lunge drives him INTO the
+              // victim's front while paintDog keeps the snout on them
               dog.biteT += dt
               const lunge = Math.max(0, Math.sin((dog.biteT % DOG_BITE_SECS) / DOG_BITE_SECS * Math.PI))
               paintDog(((v.x - dog.x) / Math.max(1, d)) * lunge * 10, ((v.y - dog.y) / Math.max(1, d)) * lunge * 10)
@@ -816,19 +928,33 @@ export default function RaidPage() {
                 dog.biteT = 0
                 raidFx({ kind: 'troopHit', x: v.x, y: v.y, text: '🦷', bite: true })
                 hurtTroop(v, DOG_BITE_DMG)
-                // they fight back — the dog wears down, then RUNS (never dies)
-                dog.hp -= DOG_WEAR
-                const pct = Math.max(0, dog.hp)
-                ;(dog.barFill.parentElement as HTMLDivElement).style.opacity = '1'
-                dog.barFill.style.width = String(pct) + '%'
-                dog.barFill.style.background = pct > 50 ? '#4ade80' : pct > 25 ? '#fbbf24' : '#ef4444'
-                if (dog.hp <= 0) {
-                  dog.state = 'flee'
-                  dog.victim = null
-                  addFloat({ sx: dog.x, sy: dog.y - 44, text: '💨', spark: true }, 600)
-                }
+                // the scuffle itself wears him — plus the victim's own swings
+                // land through the engagement branch (wearDog there too)
+                wearDog(DOG_WEAR)
               }
             }
+          }
+        }
+      }
+
+      // ── P2 engagement sync: exactly ONE troop fights the dog — the one
+      // he's on. Locked = dog actively hunting THIS troop within engage
+      // range. On lock: square up (attack state, face the dog, ❗). On
+      // release (dog switched / fled / victim died): back to the raid via
+      // pickTarget. Everyone else never stops smashing buildings. ──
+      if (dog) {
+        for (const t of troops) {
+          if (t.state === 'dead' || t.state === 'gone') continue
+          const engaged = dog.victim === t
+            && (dog.state === 'chase' || dog.state === 'bite')
+            && Math.hypot(t.x - dog.x, t.y - dog.y) <= DOG_ENGAGE_PX
+          if (engaged && !t.dogFight) {
+            t.dogFight = true
+            t.state = 'attack'; t.t = 0; t.lastHitAt = 0; t.retT = 0
+            addFloat({ sx: t.x, sy: t.y - 64, text: '❗', spark: true }, 450)
+          } else if (!engaged && t.dogFight) {
+            t.dogFight = false
+            pickTarget(t) // freed — resume the raid where the goal left off
           }
         }
       }

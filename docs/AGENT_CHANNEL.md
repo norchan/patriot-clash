@@ -4943,3 +4943,40 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed. **B1→B10 complete** — the crown jewel checklist is finished.
 
 **For Michael:** tap the share icon on your base — you should get a poster that looks exactly like your yard with your name on the plate. Send it to someone. If the share sheet, the fallback download, and one raid all feel right, say push and the whole jewel ships.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: B9 and B10 are pushed.
+
+**To the channel:**
+- Confirmed on origin: `bbf5398` (B9 chrome) + `2f2ce09` (B10 share snapshot + ship gate). Working tree clean, not ahead of origin.
+- **Base Crown Jewel checklist B1–B10 COMPLETE** and shipped. Optional residuals (fence re-art, foley, public visit route) are post-checklist only — not open tasks unless Michael opens them.
+- No new Claude order unless Michael asks.
+
+**For Michael:** Crown jewel closed. Phone ship-gate boxes in docs/BASE_SHIP_GATE.md when he wants a formal pass.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: raid troops all melee buildings; dog looks butt-first when biting; dog engage rules — first contact troop fights dog, others only when dog engages them.
+
+**To the channel:**
+- Delivered Claude prompt for raid theater combat roles: ranged projectiles (Buck Hunter / Latte Slinger + role table), fix dog facing/bite, troop↔dog engagement (focus one victim at a time; others stay on buildings until bitten). Theater only — no loot/casualty formula rewrite unless needed for dog-as-target presentation.
+
+**For Michael:** Prompt in chat.
+
+### 2026-08-16 — Claude (Raid theater combat roles done)
+
+**Context:** Grok's brief — ranged fire, dog facing fix, CoC dog engagement. Theater + local targeting only; server settlement (loot/damage%/casualties) untouched.
+
+**To the channel:**
+- **P0 ranged:** Buck Hunter / Latte Slinger (role === 'ranged') now STOP at a 170px standoff and shoot: 4-beat attack cycle, projectile released on the same ~55% contact beat as melee chips, chip damage lands ON PROJECTILE ARRIVAL (flight ms = clamp(110..260, dist×0.75) shared between the visual and the damage timeout, so the building shudders when the arrow hits). Projectiles are DOM-transition sprites like the turret tracers — Buck Hunter gets a rotated arrow (brown shaft, steel head), Latte Slinger a glossy latte bolt — ZERO new image assets, nothing to preload. Bonus that falls out of the role: ranged troops shoot OVER walls (pickTarget skips the fence-blocker detour for them) — archers don't queue up to punch fences. Launch sound = the chip sample pitched to 1.75× (a thwip, no new WAV). Ranged recoil back on release instead of lunging forward. Melee/tank/support unchanged; SPLASH kept as wall-breaker melee by design (a standoff would un-break the walls they exist for) — role table documented in the constants block.
+- **P1 dog facing (the butt bug):** root cause found by LOOKING at the frames — the dog flipbooks natively face LEFT while every human troop faces RIGHT, and the shared flip condition (`victim.x < dog.x`) was therefore exactly inverted for him. paintDog now mirrors when the victim is to the RIGHT (and when fleeing toward the right edge). Chase, bite, and flee all read snout-first; bite lunge still drives him into the victim's front; statue-at-post handoff and no-double-draw untouched.
+- **P2 engagement (Michael's design, CoC rules):** the dog locks ONE victim; when he's actively on that troop (his victim + chase/bite + within 120px) the troop SQUARES UP — drops building work, faces the dog, ❗ float, and swings back on the normal contact beat. Each swing wears the dog 5hp through a new wearDog() (his own bite exchanges still cost him DOG_WEAR 9) — so a fighting victim sends him fleeing in roughly 4s instead of 10+, never-dies fantasy intact. Every OTHER troop keeps smashing buildings the whole time. Release (dog switches / flees / victim dies) → freed troop pickTarget()s back to its goal. One victim at a time is the feature — the army can't soft-lock on one animal, and the dog's return-damage bite replaces the generic defender punch-back while engaged (no double-dipping).
+- tsc + 107 tests + build green. Committed locally, NOT pushed.
+- **Residuals:** engaged ranged troops fight the dog with melee swings (he's in their face by then — a standoff shot at a sprinting dog would look wrong); projectile arc is linear like tracers (no ballistic curve); support has no heal system per scope.
+
+**For Michael:** deploy a Buck Hunter or Latte Slinger — they should plant at range and arc shots into buildings, arrows visible, even over walls. Then hit a dog base: he should sprint MOUTH-first, the bitten troop turns and brawls him while everyone else keeps wrecking the base, and when he switches targets the freed troop walks back to work.
