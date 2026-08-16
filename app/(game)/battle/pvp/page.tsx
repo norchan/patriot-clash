@@ -244,6 +244,8 @@ function StreetFightPage() {
   // end bookend (checklist #3): loser tips over and STAYS down, winner hops —
   // held in 3D under the K.O./TIME banner until the result UI takes over
   const [endPose, setEndPose] = useState<null | { down: 'player' | 'opp'; win: 'player' | 'opp' }>(null)
+  const [endKo, setEndKo] = useState<boolean | null>(null) // KO vs decision, for the aftermath card
+  const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [shake, setShake] = useState(false)
   const [banner, setBanner] = useState('')     // 3/2/1/FIGHT! / K.O. / TIME!
   // both fighters' models loaded — the live intro is HELD until this is true
@@ -436,6 +438,8 @@ function StreetFightPage() {
       setComboText(c.n >= 5 ? `${c.n} HIT!!!` : c.n >= 3 ? `${c.n} HIT COMBO!` : `${c.n} HIT!`)
       setTimeout(() => setComboText(t => (t.includes(String(c.n)) ? '' : t)), 700)
     }
+    // the crowd notices a real string (checklist #4) — visible flash + swell
+    if (c.n === 3 || c.n === 5) { bumpCrowd(); sfx.crowd(0.2 + c.n * 0.06) }
   }
 
   function reel(onFoe: boolean) {
@@ -465,7 +469,7 @@ function StreetFightPage() {
     setBanner('3'); sfx.tap()
     schedule(800, () => { setBanner('2'); sfx.tap() })
     schedule(1600, () => { setBanner('1'); sfx.tap() })
-    schedule(2400, () => { setBanner('FIGHT!'); sfx.bell(true) })
+    schedule(2400, () => { setBanner('FIGHT!'); sfx.bell(true); sfx.crowd(0.5) })
     schedule(3000, () => { setBanner(''); setPhase('fighting') })
 
     const t0 = 3000 // fight starts after the countdown
@@ -548,6 +552,7 @@ function StreetFightPage() {
       if (iWonFight) { setMyPose('victory'); setFoePose('ko') }
       else { setMyPose('ko'); setFoePose('victory') }
       setEndPose(iWonFight ? { down: 'opp', win: 'player' } : { down: 'player', win: 'opp' }) // 3D hold
+      setEndKo(fight.endedBy === 'ko')
       if (fight.endedBy === 'ko') koFx()
       else { sfx.bell(false); bumpCrowd() }
       clearInterval(clockIv)
@@ -653,7 +658,7 @@ function StreetFightPage() {
       [lead, () => { setBanner('3'); sfx.tap() }],
       [lead + 800, () => { setBanner('2'); sfx.tap() }],
       [lead + 1600, () => { setBanner('1'); sfx.tap() }],
-      [lead + 2400, () => { setBanner('FIGHT!'); sfx.bell(true) }],
+      [lead + 2400, () => { setBanner('FIGHT!'); sfx.bell(true); sfx.crowd(0.5) }],
       [lead + 3200, () => setBanner('')],
     ]
     for (const [ms, fn] of seq) timersRef.current.push(setTimeout(fn, ms))
@@ -676,7 +681,7 @@ function StreetFightPage() {
     setBanner('3'); sfx.tap()
     const t1 = setTimeout(() => { setBanner('2'); sfx.tap() }, 800)
     const t2 = setTimeout(() => { setBanner('1'); sfx.tap() }, 1600)
-    const t3 = setTimeout(() => { setBanner('FIGHT!'); sfx.bell(true) }, 2400)
+    const t3 = setTimeout(() => { setBanner('FIGHT!'); sfx.bell(true); sfx.crowd(0.5) }, 2400)
     const t4 = setTimeout(() => {
       setBanner('')
       L.current.liveAt = Date.now()
@@ -922,14 +927,24 @@ function StreetFightPage() {
     return base * skillMult * (0.75 + Math.random() * 0.5)
   }
 
-  // After a live fight settles: show the ±FP card for ~3s, then unlock the
+  // After a live fight settles: show the result card, then unlock the
   // orientation and REPLACE to the map (back must not reopen the fight).
+  // "Stay" cancels the auto-leave so post-fight chat stays reachable.
   function beginEndCard() {
     setEndCard(true)
-    setTimeout(() => {
+    endTimerRef.current = setTimeout(() => {
       try { (screen.orientation as any)?.unlock?.() } catch {}
       router.replace('/map')
-    }, 3000)
+    }, 5000)
+  }
+  function stayAfterFight() {
+    if (endTimerRef.current) { clearTimeout(endTimerRef.current); endTimerRef.current = null }
+    setEndCard(false) // drops to the done view (chat / rematch UI)
+  }
+  function leaveToMap() {
+    if (endTimerRef.current) { clearTimeout(endTimerRef.current); endTimerRef.current = null }
+    try { (screen.orientation as any)?.unlock?.() } catch {}
+    router.replace('/map')
   }
 
   // Leaving mid-fight always asks first (Confirm = leave, existing
@@ -969,6 +984,7 @@ function StreetFightPage() {
     if (won) { setMyPose('victory'); setFoePose('ko') }
     else { setMyPose('ko'); setFoePose('victory') }
     setEndPose(won ? { down: 'opp', win: 'player' } : { down: 'player', win: 'opp' }) // 3D hold
+    setEndKo(ko)
     if (ko) koFx()
     else { sfx.bell(false); bumpCrowd() }
     setBanner(ko ? 'K.O.!' : 'TIME!')
@@ -1356,7 +1372,7 @@ function StreetFightPage() {
           setAwaitingOpp(false)
           flashHint(`${theirUsername ?? 'Opponent'} didn't show — fighting their fighter`)
           setBanner('FIGHT!')
-          sfx.bell(true)
+          sfx.bell(true); sfx.crowd(0.5)
           setTimeout(() => setBanner(''), 800)
         }
         return
@@ -1622,12 +1638,26 @@ function StreetFightPage() {
       {endCard && (
         <div className="fixed inset-0 z-[110] bg-black/85 flex flex-col items-center justify-center text-center p-6">
           <div className="text-6xl mb-3">{iWon ? '🏆' : '💀'}</div>
-          <p className="text-white font-black text-3xl mb-2">{iWon ? 'VICTORY' : 'DEFEAT'}</p>
-          <p className={`font-black text-5xl mb-3 ${iWon ? 'text-green-400' : 'text-red-400'}`}
+          <p className="text-white font-black text-3xl mb-1">{iWon ? 'VICTORY' : 'DEFEAT'}</p>
+          {/* how it ended + who took it (aftermath card, checklist #4) */}
+          <p className="text-gray-300 text-sm font-bold mb-2">
+            {endKo === null ? '' : endKo ? '💥 Knockout' : '🔔 Decision'} · {iWon ? (profile?.username ?? 'You') : (theirUsername ?? 'Opponent')} wins
+          </p>
+          <p className={`font-black text-5xl mb-4 ${iWon ? 'text-green-400' : 'text-red-400'}`}
             style={{ textShadow: '0 4px 18px rgba(0,0,0,0.6)' }}>
             {fpStake > 0 ? `${iWon ? '+' : '−'}${fpStake} FP` : 'No FP exchanged'}
           </p>
-          <p className="text-gray-400 text-sm">Heading back to the map...</p>
+          <div className="flex gap-3 w-full max-w-xs">
+            <button onClick={leaveToMap}
+              className="flex-1 py-3 bg-purple-700 hover:bg-purple-600 text-white rounded-xl font-bold transition">
+              🗺 Back to Map
+            </button>
+            <button onClick={stayAfterFight}
+              className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl font-bold transition">
+              💬 Stay Here
+            </button>
+          </div>
+          <p className="text-gray-500 text-xs mt-3">Auto-heading to the map in a few seconds…</p>
         </div>
       )}
 
@@ -1774,6 +1804,15 @@ function StreetFightPage() {
           </div>
         )}
 
+        {/* ── DANGER GRADE (checklist #4): either corner under 30% HP paints a
+               pulsing red edge — the round FEELS like it could end ── */}
+        {(phase === 'live' || phase === 'fighting') && !endCard && (myHp <= 30 || foeHp <= 30) && (
+          <div className="absolute inset-0 z-[6] pointer-events-none" style={{
+            boxShadow: 'inset 0 0 90px 24px rgba(220,38,38,0.4)',
+            animation: 'pvpDanger 1.1s ease-in-out infinite',
+          }} />
+        )}
+
         {/* ── 3D STREET ARENA (fighters + cheering crowd) ── */}
         {/* pointer-events-none so taps/swipes still reach the stage controller.
             Portrait: the arena stops above the control deck; the follow-cam
@@ -1824,18 +1863,27 @@ function StreetFightPage() {
           />
         </div>
 
-        {/* ── FACE-OFF card (checklist #3): names + party colors over the
-               staredown while the 3-2-1 counts — clears on FIGHT! ── */}
+        {/* ── FACE-OFF card (checklist #3 + #4): names, party colors, levels
+               and THE STAKES over the staredown while the 3-2-1 counts ── */}
         {['3', '2', '1'].includes(banner) && (
-          <div className="absolute inset-x-0 z-30 flex items-center justify-center gap-3 pointer-events-none" style={{ top: '18%' }}>
-            <span className="max-w-[38%] truncate font-black text-lg text-white px-3 py-1.5 rounded-xl border-2"
-              style={{ background: `${myColor}cc`, borderColor: myColor, textShadow: '0 2px 4px #000' }}>
-              {profile?.username ?? 'YOU'}
-            </span>
-            <span className="font-black text-2xl text-yellow-300" style={{ textShadow: '0 0 14px rgba(250,204,21,0.7), 0 2px 4px #000' }}>VS</span>
-            <span className="max-w-[38%] truncate font-black text-lg text-white px-3 py-1.5 rounded-xl border-2"
-              style={{ background: `${theirColor}cc`, borderColor: theirColor, textShadow: '0 2px 4px #000' }}>
-              {theirUsername ?? 'OPPONENT'}
+          <div className="absolute inset-x-0 z-30 flex flex-col items-center gap-2 pointer-events-none" style={{ top: '16%' }}>
+            <div className="flex items-center justify-center gap-3 w-full px-3">
+              <span className="max-w-[38%] font-black text-lg text-white px-3 py-1.5 rounded-xl border-2"
+                style={{ background: `${myColor}cc`, borderColor: myColor, textShadow: '0 2px 4px #000' }}>
+                <span className="block truncate">{profile?.username ?? 'YOU'}</span>
+                <span className="block text-[10px] font-bold text-white/85 -mt-0.5">Lv.{myLevel}</span>
+              </span>
+              <span className="font-black text-2xl text-yellow-300" style={{ textShadow: '0 0 14px rgba(250,204,21,0.7), 0 2px 4px #000' }}>VS</span>
+              <span className="max-w-[38%] font-black text-lg text-white px-3 py-1.5 rounded-xl border-2"
+                style={{ background: `${theirColor}cc`, borderColor: theirColor, textShadow: '0 2px 4px #000' }}>
+                <span className="block truncate">{theirUsername ?? 'OPPONENT'}</span>
+                <span className="block text-[10px] font-bold text-white/85 -mt-0.5">Lv.{foeLevel}</span>
+              </span>
+            </div>
+            {/* the stakes line — what tonight is worth */}
+            <span className="font-bold text-sm px-3 py-1 rounded-full bg-black/70 border border-yellow-500/50 text-yellow-300"
+              style={{ textShadow: '0 1px 3px #000' }}>
+              {fpStake > 0 ? `💰 ${fpStake} FP on the line` : '🤝 Pride only — no FP staked'}
             </span>
           </div>
         )}
@@ -2133,6 +2181,7 @@ function StreetFightPage() {
         @keyframes sfBanner { 0%{transform:scale(2.4);opacity:0} 100%{transform:scale(1);opacity:1} }
         @keyframes sfParticle { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0.3);opacity:0} }
         @keyframes sfKoFlash { 0%{opacity:0.9} 100%{opacity:0} }
+        @keyframes pvpDanger { 0%,100%{opacity:0.45} 50%{opacity:1} }
         @keyframes sfNeon { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.4} 94%{opacity:1} 96%{opacity:0.6} 97%{opacity:1} }
       `}</style>
     </div>

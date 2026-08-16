@@ -433,7 +433,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
 export type ImpactKind = 'light' | 'heavy' | 'special' | 'block'
 export interface ImpactEvent { key: number; side: 'player' | 'opp'; kind: ImpactKind }
 
-let impactTexes: { star: THREE.CanvasTexture; ring: THREE.CanvasTexture; block: THREE.CanvasTexture; rays: THREE.CanvasTexture } | null = null
+let impactTexes: { star: THREE.CanvasTexture; ring: THREE.CanvasTexture; block: THREE.CanvasTexture; rays: THREE.CanvasTexture; dust: THREE.CanvasTexture } | null = null
 function getImpactTextures() {
   if (impactTexes) return impactTexes
   const make = (draw: (ctx: CanvasRenderingContext2D) => void) => {
@@ -507,16 +507,27 @@ function getImpactTextures() {
       ctx.stroke()
     }
   })
-  impactTexes = { star, ring, block, rays }
+  // ground scuff (checklist #4): a wide soft dust pad kicked up under the
+  // struck fighter on heavy/special — reads as the floor taking the fall
+  const dust = make(ctx => {
+    for (const [ox, oy, r, al] of [[0, 10, 90, 0.5], [-52, 22, 52, 0.4], [56, 20, 48, 0.4], [-20, -8, 40, 0.3], [30, -4, 34, 0.3]] as [number, number, number, number][]) {
+      const g = ctx.createRadialGradient(ox, oy, 4, ox, oy, r)
+      g.addColorStop(0, `rgba(190,185,175,${al})`)
+      g.addColorStop(1, 'rgba(190,185,175,0)')
+      ctx.fillStyle = g
+      ctx.beginPath(); ctx.arc(ox, oy, r, 0, Math.PI * 2); ctx.fill()
+    }
+  })
+  impactTexes = { star, ring, block, rays, dust }
   return impactTexes
 }
 
 const IMPACT_POOL = 5
-const IMPACT_PARAMS: Record<ImpactKind, { dur: number; star: number; ring: number; rays: number }> = {
-  light:   { dur: 260, star: 0.9, ring: 0,   rays: 0 },
-  heavy:   { dur: 380, star: 1.5, ring: 2.1, rays: 2.4 },
-  special: { dur: 520, star: 2.1, ring: 3.0, rays: 3.4 },
-  block:   { dur: 300, star: 1.0, ring: 0,   rays: 0 },
+const IMPACT_PARAMS: Record<ImpactKind, { dur: number; star: number; ring: number; rays: number; dust: number }> = {
+  light:   { dur: 260, star: 0.9, ring: 0,   rays: 0,   dust: 0 },
+  heavy:   { dur: 380, star: 1.5, ring: 2.1, rays: 2.4, dust: 1.7 },
+  special: { dur: 520, star: 2.1, ring: 3.0, rays: 3.4, dust: 2.4 },
+  block:   { dur: 300, star: 1.0, ring: 0,   rays: 0,   dust: 0 },
 }
 
 function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: number; oppX: number }) {
@@ -525,6 +536,7 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
   const starRefs = useRef<(THREE.Sprite | null)[]>([])
   const ringRefs = useRef<(THREE.Sprite | null)[]>([])
   const rayRefs = useRef<(THREE.Sprite | null)[]>([])
+  const dustRefs = useRef<(THREE.Sprite | null)[]>([])
   const lastKey = useRef(0)
   useEffect(() => {
     if (!impact || impact.key === lastKey.current) return
@@ -549,16 +561,19 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
       rays.position.set(x, y, 0.99)
       ;(rays.material as THREE.SpriteMaterial).rotation = Math.random() * Math.PI
     }
+    // floor scuff sits at the struck fighter's FEET, not the impact point
+    const dust = dustRefs.current[i]
+    if (dust) dust.position.set(impact.side === 'player' ? playerX : oppX, 0.16, 1.02)
   }, [impact]) // eslint-disable-line react-hooks/exhaustive-deps
   useFrame((_, dt) => {
     const now = performance.now()
     for (let i = 0; i < IMPACT_POOL; i++) {
       const s = slots.current[i]
-      const star = starRefs.current[i], ring = ringRefs.current[i], rays = rayRefs.current[i]
-      if (!star || !ring || !rays) continue
+      const star = starRefs.current[i], ring = ringRefs.current[i], rays = rayRefs.current[i], dust = dustRefs.current[i]
+      if (!star || !ring || !rays || !dust) continue
       const P = IMPACT_PARAMS[s.kind]
       const t = s.born < 0 ? Infinity : now - s.born
-      if (t > P.dur) { star.visible = false; ring.visible = false; rays.visible = false; continue }
+      if (t > P.dur) { star.visible = false; ring.visible = false; rays.visible = false; dust.visible = false; continue }
       const p = t / P.dur
       const ease = 1 - (1 - p) * (1 - p)
       star.visible = true
@@ -579,6 +594,13 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
         rm.opacity = (1 - p) * 0.85
         rm.rotation += dt * 1.6 // slow twist so the spokes feel alive
       } else rays.visible = false
+      if (P.dust > 0) {
+        dust.visible = true
+        const dv = P.dust * (0.5 + 0.9 * ease)
+        dust.scale.set(dv, dv * 0.5, 1) // wide, low pad hugging the ground
+        dust.position.y = 0.16 + ease * 0.14 // drifts up as it thins
+        ;(dust.material as THREE.SpriteMaterial).opacity = (1 - p) * 0.7
+      } else dust.visible = false
     }
   })
   return (
@@ -594,6 +616,10 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
           </sprite>
           <sprite ref={el => { rayRefs.current[i] = el }} visible={false} renderOrder={997}>
             <spriteMaterial map={texes.rays} transparent depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} />
+          </sprite>
+          {/* floor scuff — normal blending, it's dust not light */}
+          <sprite ref={el => { dustRefs.current[i] = el }} visible={false} renderOrder={996}>
+            <spriteMaterial map={texes.dust} transparent depthWrite={false} depthTest={false} />
           </sprite>
         </Fragment>
       ))}

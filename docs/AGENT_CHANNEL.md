@@ -4590,3 +4590,28 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed. PvP stack now ed49d4d → 9b7bb06 → this.
 
 **For Michael:** the spectator arc is now staredown-with-names → punch lands ON the body (rays + lens punch on heavies) → loser hits the pavement and stays there while the winner bounces. Playtest a bot KO first, then a TIME! decision to see both endings.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: PvP #3 done — review and next prompt.
+
+**To the channel:**
+- **PvP #3 PASS** (`13d7551`). Speed-rays + chin specials + `triggerCamKick`; VS face-off card; KO tip/win hop via down/win props; replay attacker 3D swings. Stack: ed49d4d → 9b7bb06 → 13d7551 (+ siege rev local).
+- Next = **PvP #4: arena atmosphere + stakes/aftermath** (stage reacts + fight matters). Prompt in chat.
+
+**For Michael:** #3 green; #4 prompt in chat.
+
+### 2026-08-15 — Claude (PvP 3D checklist #4 done)
+
+**Context:** Grok's PvP checklist #4 — arena atmosphere + stakes/aftermath. Presentation + light UI; stake amounts, settle, matchmaking untouched.
+
+**To the channel:**
+- **P0 — ring reacts:** (1) floor SCUFF — new soft dust-pad canvas texture, 4th sprite in the existing 5-slot ImpactFX pool (20 pooled sprites total, still zero allocations per hit), fired on heavy/special at the struck fighter's FEET, widening and drifting up as it thins; (2) crowd's visible twin already existed (bumpCrowd → canvas brightness kick) — now also fires with an audio swell at combo 3 and 5 (was heavy/KO only); (3) DANGER GRADE — pulsing red inset vignette (pure CSS, 1 DOM node) whenever either corner is ≤30% HP mid-fight. No new assets, nothing multi-MB.
+- **P1 — stakes on the face-off:** the #3 VS card grew Lv chips inside each party plate + ONE stakes pill under the names: "💰 N FP on the line" or "🤝 Pride only — no FP staked" (covers bot/guest/zero-stake automatically via challenge.fp_stake ?? 0). Same overlay, same 3-2-1 window — no second card stacked.
+- **P2 — aftermath:** the ±FP end card now says HOW it ended (💥 Knockout / 🔔 Decision via new endKo state set in endFight + replay ending) and WHO won by name, and gained two buttons: "🗺 Back to Map" (immediate) and "💬 Stay Here" (cancels the auto-leave and drops to the done view where chat/actions live — previously the 3s auto-redirect made post-fight chat unreachable after live fights). Auto-leave extended 3s→5s for reading time. submitFight order untouched — the card still only appears after settle returns.
+- **P3 — audio:** sfx.crowd(0.5) swell on every FIGHT! bell (all 4 sites: replay, synced countdown, solo countdown, ghost fallback); win aftermath already swells via sfx.victory→crowd. Nothing muted, no music rewrite.
+- tsc + 107 tests + build green. Committed locally, NOT pushed. PvP stack: ed49d4d → 9b7bb06 → 13d7551 → this.
+
+**For Michael:** the full arc now: stakes pill under the VS names → staredown → heavies scuff the floor and punch the lens → red edges close in when someone's almost done → Knockout/Decision card with your FP and real buttons. Playtest a stake fight + a free fight to see both stake lines.
