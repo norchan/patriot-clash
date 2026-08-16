@@ -13,10 +13,11 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-client'
 import dynamic from 'next/dynamic'
 
 const PvpArena3D = dynamic(() => import('@/components/PvpArena3D'), { ssr: false })
-// hit-stop lives in the arena module; loaded lazily (client only)
+// hit-stop + camera punch live in the arena module; loaded lazily (client only)
 let triggerHitStop: (ms: number) => void = () => {}
+let triggerCamKick: (v: number) => void = () => {}
 if (typeof window !== 'undefined') {
-  import('@/components/PvpArena3D').then(m => { triggerHitStop = m.triggerHitStop })
+  import('@/components/PvpArena3D').then(m => { triggerHitStop = m.triggerHitStop; triggerCamKick = m.triggerCamKick })
 }
 
 // Fighters HOLD their guard at boxing mid-range (ANCHOR apart) and trade from
@@ -203,7 +204,7 @@ function StreetFightPage() {
   useEffect(() => { L.current.blocking = blocking }, [blocking])
   useEffect(() => { L.current.ducking = playerDuck }, [playerDuck])
   useEffect(() => { L.current.airborne = playerY > 0.25 }, [playerY])
-  useEffect(() => { if (phase === 'live') { setPlayerX(-START_ANCHOR); setOppX(START_ANCHOR); L.current.playerX = -START_ANCHOR; L.current.oppX = START_ANCHOR } }, [phase])
+  useEffect(() => { if (phase === 'live') { setPlayerX(-START_ANCHOR); setOppX(START_ANCHOR); L.current.playerX = -START_ANCHOR; L.current.oppX = START_ANCHOR; setEndPose(null) } }, [phase])
   // Landscape brawler: nudge the phone sideways (and best-effort lock)
   const [landscape, setLandscape] = useState(true)
   // LAYOUT MODE: 'portrait' = vertical fight with a bottom control deck (new,
@@ -240,6 +241,9 @@ function StreetFightPage() {
   const [crowdBump, setCrowdBump] = useState(false)
   const [koFlash, setKoFlash] = useState(false)
   const [zoom, setZoom] = useState(false)
+  // end bookend (checklist #3): loser tips over and STAYS down, winner hops —
+  // held in 3D under the K.O./TIME banner until the result UI takes over
+  const [endPose, setEndPose] = useState<null | { down: 'player' | 'opp'; win: 'player' | 'opp' }>(null)
   const [shake, setShake] = useState(false)
   const [banner, setBanner] = useState('')     // 3/2/1/FIGHT! / K.O. / TIME!
   // both fighters' models loaded — the live intro is HELD until this is true
@@ -474,9 +478,13 @@ function StreetFightPage() {
       const contact = clipContactMs(ev.move)
 
       schedule(at, () => {
-        // attacker pose
+        // attacker pose — 2D state AND the 3D one-shot clip (checklist #3:
+        // replays previously never swung in the arena, only defenders flinched)
         if (iAttack) { setMyPose(MOVE_POSE[ev.move]); setMyAttacking(true) }
         else { setFoePose(MOVE_POSE[ev.move]); setFoeAttacking(true) }
+        const kickHigh = ev.move === 'kick' || ev.move === 'jumpkick'
+        if (kickHigh || ev.move === 'hook') { if (iAttack) myKick(kickHigh); else foeKick(kickHigh) }
+        else { if (iAttack) myJab(ev.move !== 'jab'); else foeJab(ev.move !== 'jab') } // jab = fast left, rest = right straight
         setMoveText(`${iAttack ? 'YOU' : theirUsername?.toUpperCase() ?? 'FOE'}: ${MOVE_LABELS[ev.move]}`)
       })
 
@@ -539,6 +547,7 @@ function StreetFightPage() {
       setBanner(fight.endedBy === 'ko' ? 'K.O.!' : 'TIME!')
       if (iWonFight) { setMyPose('victory'); setFoePose('ko') }
       else { setMyPose('ko'); setFoePose('victory') }
+      setEndPose(iWonFight ? { down: 'opp', win: 'player' } : { down: 'player', win: 'opp' }) // 3D hold
       if (fight.endedBy === 'ko') koFx()
       else { sfx.bell(false); bumpCrowd() }
       clearInterval(clockIv)
@@ -959,6 +968,7 @@ function StreetFightPage() {
     setTelegraph(false)
     if (won) { setMyPose('victory'); setFoePose('ko') }
     else { setMyPose('ko'); setFoePose('victory') }
+    setEndPose(won ? { down: 'opp', win: 'player' } : { down: 'player', win: 'opp' }) // 3D hold
     if (ko) koFx()
     else { sfx.bell(false); bumpCrowd() }
     setBanner(ko ? 'K.O.!' : 'TIME!')
@@ -1287,6 +1297,7 @@ function StreetFightPage() {
       // gets the same react, and the hit one-shot can't be idled over early
       if (onFoe) setOppHitKey(k => k + 1); else setPlayerHitKey(k => k + 1)
       triggerHitStop(o.special ? 220 : heavy ? 140 : 85)
+      if (heavy) triggerCamKick(o.special ? 0.65 : 0.4) // in-canvas lens punch, heavies only
       setShake(true)
       setTimeout(() => setShake(false), heavy ? 200 : 130)
       if (heavy) setHpShake(k => k + 1)
@@ -1317,6 +1328,7 @@ function StreetFightPage() {
   // KO finale — ONE coherent path for live fights and replays alike
   function koFx() {
     triggerHitStop(260)
+    triggerCamKick(0.85)
     setKoFlash(true)
     setZoom(true)
     sfx.ko() // carries its own crowd roar + haptic pattern
@@ -1805,8 +1817,28 @@ function StreetFightPage() {
             playerY={playerY}
             playerDuck={playerDuck}
             oppX={oppX}
+            playerDown={endPose?.down === 'player'}
+            oppDown={endPose?.down === 'opp'}
+            playerWin={endPose?.win === 'player'}
+            oppWin={endPose?.win === 'opp'}
           />
         </div>
+
+        {/* ── FACE-OFF card (checklist #3): names + party colors over the
+               staredown while the 3-2-1 counts — clears on FIGHT! ── */}
+        {['3', '2', '1'].includes(banner) && (
+          <div className="absolute inset-x-0 z-30 flex items-center justify-center gap-3 pointer-events-none" style={{ top: '18%' }}>
+            <span className="max-w-[38%] truncate font-black text-lg text-white px-3 py-1.5 rounded-xl border-2"
+              style={{ background: `${myColor}cc`, borderColor: myColor, textShadow: '0 2px 4px #000' }}>
+              {profile?.username ?? 'YOU'}
+            </span>
+            <span className="font-black text-2xl text-yellow-300" style={{ textShadow: '0 0 14px rgba(250,204,21,0.7), 0 2px 4px #000' }}>VS</span>
+            <span className="max-w-[38%] truncate font-black text-lg text-white px-3 py-1.5 rounded-xl border-2"
+              style={{ background: `${theirColor}cc`, borderColor: theirColor, textShadow: '0 2px 4px #000' }}>
+              {theirUsername ?? 'OPPONENT'}
+            </span>
+          </div>
+        )}
 
         {/* move ticker */}
         {/* meter + special (live only) */}

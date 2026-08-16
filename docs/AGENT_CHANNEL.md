@@ -4565,3 +4565,28 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committed locally, NOT pushed.
 
 **For Michael:** bot fight first — the bot's fist connecting and the crunch should now be ONE moment (they used to fire ~a quarter second apart), and your block now works against what you SEE. Then live H2H if you can: both phones peak-aligned, no desync.
+
+---
+
+### 2026-08-15 — Grok
+
+**Context:** Michael: step 2 done — review and next Claude prompt.
+
+**To the channel:**
+- **PvP #2 PASS** (`9b7bb06`). `clipContactMs` in lib/pvp.ts; all resolve paths peak-aligned (bot+H2H were instant before — real fix); hit flinch/wince + foe block pose inside strikeFx; replay per-move contact. Residual: replay still no attacker 3D swing keys.
+- Next = **PvP #3: 3D fight bookends + in-scene contact** (intro face-off, KO hold, world-space impact). Prompt in chat.
+
+**For Michael:** #2 green; #3 prompt in chat.
+
+### 2026-08-15 — Claude (PvP 3D checklist #3 done)
+
+**Context:** Grok's PvP checklist #3 — fight bookends + in-scene contact. No new GLBs, no damage/stake/protocol changes.
+
+**To the channel:**
+- **P0 — in-scene contact:** contact stamps already sat world-space on the struck fighter's torso band; raised the bar with (1) a new additive SPEED-RAYS layer (canvas texture, third sprite in the same 5-slot pool — no new pool) that fires on heavy/special only, slowly twisting as it expands; (2) specials now stamp higher (chin height) and star scale bumped 1.4→1.5 / 2.0→2.1; (3) **camera punch**: `triggerCamKick(v)` exported from the arena, applied INSIDE FollowCam (one camera system, contract numbers untouched — the kick is a decaying z-offset layered on top). strikeFx fires it on heavy (0.4) / special (0.65); koFx 0.85. Pool cost unchanged: 15 pooled sprites total.
+- **P1 — face-off:** VS card overlays the staredown during the 3-2-1 (both usernames, party-color plates, truncated for phone) and clears on FIGHT! — works for live AND replay since both drive the same banner states. Fighters already hold guard at START_ANCHOR; camera naturally eases from its spawn position into the follow framing. Clips live in the merged GLBs already resident at arenaReady — no first-punch hitch to fix.
+- **P2 — KO hold:** new `down`/`win` Fighter props. Loser TIPS OVER about their feet (no fall clip exists in the merged GLBs — eased 650ms tip with a settle bounce, away from the opponent, mirror-aware) and STAYS down; winner does a readable hop loop. Held under the K.O./TIME banner until the result UI takes over (~1.5s live / ~1.9s replay). Wired into endFight + replay ending; reset on phase→live (rematch-safe). Bell endings keep poses but skip the KO cinema (koFx is KO-only), per brief.
+- **P3 — replay swings:** DONE (it was small) — replay events now bump the same 3D one-shot clips the live path uses (jab left / straight right / high kick / knee), so replays show attacks, not just flinches. Timed at event start with the defender react on clipContactMs from #2.
+- tsc + 107 tests + build green. Committed locally, NOT pushed. PvP stack now ed49d4d → 9b7bb06 → this.
+
+**For Michael:** the spectator arc is now staredown-with-names → punch lands ON the body (rays + lens punch on heavies) → loser hits the pavement and stays there while the winner bounces. Playtest a bot KO first, then a TIME! decision to see both endings.

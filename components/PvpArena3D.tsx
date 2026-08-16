@@ -22,6 +22,10 @@ const HEAD_SCALE = 1.0 // natural proportions — match the reference guard stil
 // ── fight juice: global hit-stop (freezes all mixers a beat on contact) ──────
 let hitStopUntil = 0
 export function triggerHitStop(ms: number) { hitStopUntil = Math.max(hitStopUntil, performance.now() + ms) }
+// ── camera punch (checklist #3): a decaying push-in on heavy/special/KO.
+// Lives INSIDE the follow-cam so there's exactly one camera system.
+let camKick = 0
+export function triggerCamKick(strength: number) { camKick = Math.min(1.2, Math.max(camKick, strength)) }
 
 // Shared comic WINCE decal — bold enough to read over any bobble head at phone size.
 // Drawn once as a canvas texture (no per-head art required).
@@ -168,8 +172,8 @@ function ProfileHead({ headId, faceY, duck = false, mirror = false, hitKey = 0, 
   )
 }
 
-function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId, blocking = false, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, hitKey = 0, spinKey = 0, sweepKey = 0 }:
-  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; headId?: string | null; blocking?: boolean; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; hitKey?: number; spinKey?: number; sweepKey?: number }) {
+function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId, blocking = false, jabRKey = 0, jabLKey = 0, kickHiKey = 0, kickLoKey = 0, hitKey = 0, spinKey = 0, sweepKey = 0, down = false, win = false }:
+  { prefix: string; x: number; y?: number; duck?: boolean; faceY: number; mirror?: boolean; headId?: string | null; blocking?: boolean; jabRKey?: number; jabLKey?: number; kickHiKey?: number; kickLoKey?: number; hitKey?: number; spinKey?: number; sweepKey?: number; down?: boolean; win?: boolean }) {
   // Real boxing kit. The Left_Jab clip starts AND ends in a proper fists-up
   // boxing guard, so its frame 0 doubles as the held GUARD (fists at the face).
   // One-shots: straight punch (right), the jab (left), a straight KICK
@@ -195,8 +199,13 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
   const spinGroup = useRef<THREE.Group>(null!)
   const spinAt = useRef(0)
   const sweepAt = useRef(0)
+  const downAt = useRef(0)
   useEffect(() => { if (spinKey) spinAt.current = performance.now() }, [spinKey])
   useEffect(() => { if (sweepKey) sweepAt.current = performance.now() }, [sweepKey])
+  // KO FALL (checklist #3): no fall clip exists in the merged GLBs, so the
+  // fighter tips over about its FEET (group origin) like a 2D-fighter KO —
+  // eased, held until `down` clears. Winner celebrates with a hop loop.
+  useEffect(() => { if (down) downAt.current = performance.now() }, [down])
   useFrame(() => {
     if (!spinGroup.current) return
     const now = performance.now()
@@ -215,6 +224,18 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
     // reason rotation.y is set here and not on the element.
     const crouch = sweeping ? Math.sin(Math.PI * (st / SWEEP_MS)) : 0
     spinGroup.current.scale.y = (duck ? 0.82 : 1) * (1 - 0.36 * crouch)
+    // KO fall: tip backward (away from the opponent) over 650ms with a tiny
+    // settle bounce; victory: readable hop loop. Both override cleanly.
+    if (down) {
+      const ft = Math.min(1, (now - downAt.current) / 650)
+      const e = 1 - Math.pow(1 - ft, 3)
+      const settle = ft >= 1 ? 0 : Math.sin(ft * Math.PI * 2) * 0.04 * (1 - ft)
+      spinGroup.current.rotation.z = (mirror ? -1 : 1) * (1.38 * e + settle)
+      spinGroup.current.position.y = y
+    } else {
+      spinGroup.current.rotation.z = 0
+      spinGroup.current.position.y = win ? y + Math.abs(Math.sin(now / 1000 * 5.4)) * 0.16 : y
+    }
   })
   const fit = useRef<THREE.Group>(null!)
   const head = useMemo(() => scene.getObjectByName('Head') ?? null, [scene])
@@ -412,7 +433,7 @@ function Fighter({ prefix, x, y = 0, duck = false, faceY, mirror = false, headId
 export type ImpactKind = 'light' | 'heavy' | 'special' | 'block'
 export interface ImpactEvent { key: number; side: 'player' | 'opp'; kind: ImpactKind }
 
-let impactTexes: { star: THREE.CanvasTexture; ring: THREE.CanvasTexture; block: THREE.CanvasTexture } | null = null
+let impactTexes: { star: THREE.CanvasTexture; ring: THREE.CanvasTexture; block: THREE.CanvasTexture; rays: THREE.CanvasTexture } | null = null
 function getImpactTextures() {
   if (impactTexes) return impactTexes
   const make = (draw: (ctx: CanvasRenderingContext2D) => void) => {
@@ -470,16 +491,32 @@ function getImpactTextures() {
       ctx.stroke()
     }
   })
-  impactTexes = { star, ring, block }
+  // anime speed-rays for HEAVY/SPECIAL only — thin additive spokes that sell
+  // "this one landed harder" without a particle system (checklist #3)
+  const rays = make(ctx => {
+    ctx.strokeStyle = 'rgba(255,235,170,0.9)'
+    ctx.lineCap = 'round'
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2 + (i % 3) * 0.09
+      const r0 = 34 + (i % 4) * 7
+      const r1 = 108 + ((i * 29) % 18)
+      ctx.lineWidth = i % 2 === 0 ? 5 : 3
+      ctx.beginPath()
+      ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0)
+      ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1)
+      ctx.stroke()
+    }
+  })
+  impactTexes = { star, ring, block, rays }
   return impactTexes
 }
 
 const IMPACT_POOL = 5
-const IMPACT_PARAMS: Record<ImpactKind, { dur: number; star: number; ring: number }> = {
-  light:   { dur: 260, star: 0.9, ring: 0 },
-  heavy:   { dur: 380, star: 1.4, ring: 2.1 },
-  special: { dur: 520, star: 2.0, ring: 3.0 },
-  block:   { dur: 300, star: 1.0, ring: 0 },
+const IMPACT_PARAMS: Record<ImpactKind, { dur: number; star: number; ring: number; rays: number }> = {
+  light:   { dur: 260, star: 0.9, ring: 0,   rays: 0 },
+  heavy:   { dur: 380, star: 1.5, ring: 2.1, rays: 2.4 },
+  special: { dur: 520, star: 2.1, ring: 3.0, rays: 3.4 },
+  block:   { dur: 300, star: 1.0, ring: 0,   rays: 0 },
 }
 
 function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: number; oppX: number }) {
@@ -487,6 +524,7 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
   const slots = useRef(Array.from({ length: IMPACT_POOL }, () => ({ born: -1, kind: 'light' as ImpactKind })))
   const starRefs = useRef<(THREE.Sprite | null)[]>([])
   const ringRefs = useRef<(THREE.Sprite | null)[]>([])
+  const rayRefs = useRef<(THREE.Sprite | null)[]>([])
   const lastKey = useRef(0)
   useEffect(() => {
     if (!impact || impact.key === lastKey.current) return
@@ -495,10 +533,11 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
     const s = slots.current[i]
     s.born = performance.now()
     s.kind = impact.kind
-    // strike point: the struck fighter's torso/head band, nudged toward the attacker
+    // strike point: the struck fighter's torso/head band, nudged toward the
+    // attacker — specials land a touch higher (on the chin)
     const x = impact.side === 'player' ? playerX + 0.32 : oppX - 0.32
-    const y = (impact.kind === 'block' ? 1.1 : 1.25) + (Math.random() - 0.5) * 0.24
-    const star = starRefs.current[i], ring = ringRefs.current[i]
+    const y = (impact.kind === 'block' ? 1.1 : impact.kind === 'special' ? 1.38 : 1.25) + (Math.random() - 0.5) * 0.24
+    const star = starRefs.current[i], ring = ringRefs.current[i], rays = rayRefs.current[i]
     if (star) {
       star.position.set(x, y, 1.0)
       const m = star.material as THREE.SpriteMaterial
@@ -506,16 +545,20 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
       m.rotation = impact.kind === 'block' ? 0 : Math.random() * Math.PI * 2
     }
     if (ring) ring.position.set(x, y, 0.98)
+    if (rays) {
+      rays.position.set(x, y, 0.99)
+      ;(rays.material as THREE.SpriteMaterial).rotation = Math.random() * Math.PI
+    }
   }, [impact]) // eslint-disable-line react-hooks/exhaustive-deps
-  useFrame(() => {
+  useFrame((_, dt) => {
     const now = performance.now()
     for (let i = 0; i < IMPACT_POOL; i++) {
       const s = slots.current[i]
-      const star = starRefs.current[i], ring = ringRefs.current[i]
-      if (!star || !ring) continue
+      const star = starRefs.current[i], ring = ringRefs.current[i], rays = rayRefs.current[i]
+      if (!star || !ring || !rays) continue
       const P = IMPACT_PARAMS[s.kind]
       const t = s.born < 0 ? Infinity : now - s.born
-      if (t > P.dur) { star.visible = false; ring.visible = false; continue }
+      if (t > P.dur) { star.visible = false; ring.visible = false; rays.visible = false; continue }
       const p = t / P.dur
       const ease = 1 - (1 - p) * (1 - p)
       star.visible = true
@@ -528,6 +571,14 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
         ring.scale.set(rv, rv, 1)
         ;(ring.material as THREE.SpriteMaterial).opacity = (1 - p) * 0.8
       } else ring.visible = false
+      if (P.rays > 0) {
+        rays.visible = true
+        const rr = P.rays * (0.5 + 1.1 * ease)
+        rays.scale.set(rr, rr, 1)
+        const rm = rays.material as THREE.SpriteMaterial
+        rm.opacity = (1 - p) * 0.85
+        rm.rotation += dt * 1.6 // slow twist so the spokes feel alive
+      } else rays.visible = false
     }
   })
   return (
@@ -540,6 +591,9 @@ function ImpactFX({ impact, playerX, oppX }: { impact?: ImpactEvent; playerX: nu
           </sprite>
           <sprite ref={el => { ringRefs.current[i] = el }} visible={false} renderOrder={998}>
             <spriteMaterial map={texes.ring} transparent depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} />
+          </sprite>
+          <sprite ref={el => { rayRefs.current[i] = el }} visible={false} renderOrder={997}>
+            <spriteMaterial map={texes.rays} transparent depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} />
           </sprite>
         </Fragment>
       ))}
@@ -668,6 +722,13 @@ function FollowCam({ playerX, oppX }: { playerX: number; oppX: number }) {
     // view panned UP ~0.4 world units (pure pan, no tilt) → fighters sit
     // about half an inch LOWER on the phone screen (Michael's framing call)
     camera.position.y += (1.52 - camera.position.y) * k
+    // camera PUNCH: heavy contact shoves the lens in, then it breathes back
+    // out as the kick decays — layered on the contract numbers, never tuned
+    // into them (checklist #3)
+    if (camKick > 0.01) {
+      camera.position.z -= camKick * 0.55
+      camKick *= Math.exp(-dt * 8)
+    } else camKick = 0
     camera.lookAt(camera.position.x, 1.42, 0)
   })
   return null
@@ -680,8 +741,8 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
   return null
 }
 
-export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, playerSpinKey = 0, oppSpinKey = 0, playerSweepKey = 0, oppSweepKey = 0, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
-  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; playerSpinKey?: number; oppSpinKey?: number; playerSweepKey?: number; oppSweepKey?: number; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
+export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppHeadId, playerBlocking = false, oppBlocking = false, playerJabRKey = 0, playerJabLKey = 0, oppJabRKey = 0, oppJabLKey = 0, playerKickHiKey = 0, playerKickLoKey = 0, oppKickHiKey = 0, oppKickLoKey = 0, playerHitKey = 0, oppHitKey = 0, playerSpinKey = 0, oppSpinKey = 0, playerSweepKey = 0, oppSweepKey = 0, playerDown = false, oppDown = false, playerWin = false, oppWin = false, solo = false, soloZoom = 1, playerX = -1, playerY = 0, playerDuck = false, oppX = 1, arena = 'foundry', follow = false, impact, playerTint, oppTint, onReady }:
+  { playerPrefix: string; oppPrefix?: string; playerHeadId?: string | null; oppHeadId?: string | null; playerBlocking?: boolean; oppBlocking?: boolean; playerJabRKey?: number; playerJabLKey?: number; oppJabRKey?: number; oppJabLKey?: number; playerKickHiKey?: number; playerKickLoKey?: number; oppKickHiKey?: number; oppKickLoKey?: number; playerHitKey?: number; oppHitKey?: number; playerSpinKey?: number; oppSpinKey?: number; playerSweepKey?: number; oppSweepKey?: number; playerDown?: boolean; oppDown?: boolean; playerWin?: boolean; oppWin?: boolean; solo?: boolean; soloZoom?: number; playerX?: number; playerY?: number; playerDuck?: boolean; oppX?: number; arena?: string; follow?: boolean; impact?: ImpactEvent; playerTint?: string; oppTint?: string; onReady?: () => void }) {
   return (
     <Canvas shadows style={{ width: '100%', height: '100%' }}
       camera={{ position: solo ? [0, 1.2, 4.6 * soloZoom] : [0, 1.05, 4.9], fov: solo ? 40 : 42 }}
@@ -711,9 +772,11 @@ export default function PvpArena3D({ playerPrefix, oppPrefix, playerHeadId, oppH
           // rotation.y = +PI/2 points the fighter down the +X axis.)
           <>
             <Fighter prefix={playerPrefix} x={playerX} y={playerY} duck={playerDuck} faceY={Math.PI / 2} headId={playerHeadId} blocking={playerBlocking}
-              jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickHiKey={playerKickHiKey} kickLoKey={playerKickLoKey} hitKey={playerHitKey} spinKey={playerSpinKey} sweepKey={playerSweepKey} />
+              jabRKey={playerJabRKey} jabLKey={playerJabLKey} kickHiKey={playerKickHiKey} kickLoKey={playerKickLoKey} hitKey={playerHitKey} spinKey={playerSpinKey} sweepKey={playerSweepKey}
+              down={playerDown} win={playerWin} />
             {oppPrefix && <Fighter prefix={oppPrefix} x={oppX} faceY={-Math.PI / 2} mirror headId={oppHeadId} blocking={oppBlocking}
-              jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} hitKey={oppHitKey} spinKey={oppSpinKey} sweepKey={oppSweepKey} />}
+              jabRKey={oppJabRKey} jabLKey={oppJabLKey} kickHiKey={oppKickHiKey} kickLoKey={oppKickLoKey} hitKey={oppHitKey} spinKey={oppSpinKey} sweepKey={oppSweepKey}
+              down={oppDown} win={oppWin} />}
           </>
         )}
         {!solo && <Ground />}
