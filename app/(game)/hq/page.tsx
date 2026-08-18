@@ -514,7 +514,8 @@ export default function HqPage() {
         name: profile?.username ?? 'My',
         tint, defScore, trophies: house.trophies ?? 0,
       })
-      const caption = `My base on PoliticsGo — come build yours and try to raid me! ${window.location.origin}`
+      // R3: the link now lands on the live read-only yard, not just the homepage
+      const caption = `My base on PoliticsGo — come see it and try to raid me! ${window.location.origin}/base/${profile?.id ?? ''}`
       const file = new File([blob], 'politicsgo-base.png', { type: 'image/png' })
       const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean }
       if (nav.canShare?.({ files: [file] }) && nav.share) {

@@ -5027,3 +5027,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Spectrogram strip verified: every sound owns its signature; chip now shows real wood partials instead of a filtered blip. 107 tests green. Committed locally, NOT pushed.
 
 **For Michael:** volume up, raid something — planks knock like planks, the breach rains debris, coins actually pour. If any single sound bugs you, name it — each is an isolated recipe in gen_r2_foley.mjs.
+
+### 2026-08-17 — Claude (Residual R3 done: public visit-a-base)
+
+**Context:** R3 — the share poster's link should land somewhere real.
+
+**To the channel:**
+- **Route:** `/base/[id]` (public in proxy.ts) — read-only IsoYard of any player's yard: same stage engine, ZERO tap handlers (no plot diamonds, no sheets, no move). Name plate with party dot + 🛡️ defense + 🏆 trophies, and two CTAs: "🏠 Build your own" → /hq and "⚔️ Raid bases like this" → /hq/raid (signed-out visitors get bounced to the public homepage by the existing middleware — that IS the sign-up funnel, documented as the CTA-stub path the brief allowed; direct raid-THIS-base deep-linking stays future work).
+- **API:** `GET /api/public/base/[id]` — 30 req/min/IP rate limit, UUID-shape guard, 404 on missing. SAFE SUBSET only: username/party/level/trophies/defense + yard layout (pad/type/level/facing/damaged). No FP balances, no shield timing, no clerk ids. Bots derive via botBase() exactly like the raid finder, so a shared bot base shows the yard a raider would actually meet. Damaged buildings render charred + scorched, same as home.
+- **Share:** the /hq poster caption now deep-links `origin/base/{profile.id}` instead of the bare origin.
+- tsc + 107 tests + build green (`ƒ /base/[id]` + `ƒ /api/public/base/[id]` both in the route table). Committed locally, NOT pushed.
+
+**For Michael:** share your base, open the link in an incognito window — your actual yard, live, uneditable, with a big red button pulling the visitor into the game.
