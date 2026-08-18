@@ -736,18 +736,41 @@ export default function RaidPage() {
         }
         // ── P2: the dog is ON this troop — it turns and fights HIM. Swings
         // wear the dog down (he flees sooner — never dies); the dog's bites
-        // are the return damage, so the normal defender punch-back pauses. ──
+        // are the return damage, so the normal defender punch-back pauses.
+        // R4: RANGED troops stay ranged — they backpedal to keep daylight and
+        // shoot the dog instead of punching him (he's faster; he still closes). ──
         if (tr.dogFight && dog && dog.state !== 'gone' && dog.state !== 'flee') {
           tr.t += dt
           const ddx = dog.x - tr.x, ddy = dog.y - tr.y
           const dd = Math.max(1, Math.hypot(ddx, ddy))
           const sw = Math.max(0, Math.sin((tr.t % HIT_SECS) / HIT_SECS * Math.PI))
-          paint(tr, (ddx / dd) * sw * 10, (ddy / dd) * sw * 10)
+          if (tr.ranged) {
+            if (dd < 70) { // give ground — stays inside the engage radius, so no lock flicker
+              tr.x = Math.max(-30, Math.min(STAGE_W + 30, tr.x - (ddx / dd) * WALK_SPEED * 0.55 * dt))
+              tr.y = Math.max(50, Math.min(STAGE_H + 30, tr.y - (ddy / dd) * WALK_SPEED * 0.55 * dt))
+            }
+            paint(tr, -(ddx / dd) * sw * 4, -(ddy / dd) * sw * 4) // recoil off the release
+          } else {
+            paint(tr, (ddx / dd) * sw * 10, (ddy / dd) * sw * 10)
+          }
           const hitsDue = Math.floor(tr.t / HIT_SECS + 0.45)
           if (hitsDue > tr.lastHitAt) {
             tr.lastHitAt = hitsDue
-            raidFx({ kind: 'troopHit', x: dog.x, y: dog.y - 4 }) // the swing lands on the dog
-            wearDog(TROOP_DOG_HIT)
+            if (tr.ranged) {
+              const ms = Math.max(90, Math.min(200, dd * 0.7))
+              raidFx({
+                kind: 'shot', x: tr.x, y: tr.y - 44, tx: dog.x, ty: dog.y - 20, ms,
+                style: tr.type === 'dem_latte_slinger' ? 'latte' : 'arrow',
+              })
+              setTimeout(() => {
+                if (!engine.alive || !dog || dog.state === 'gone' || dog.state === 'flee') return
+                raidFx({ kind: 'troopHit', x: dog.x, y: dog.y - 4 })
+                wearDog(TROOP_DOG_HIT)
+              }, ms)
+            } else {
+              raidFx({ kind: 'troopHit', x: dog.x, y: dog.y - 4 }) // the swing lands on the dog
+              wearDog(TROOP_DOG_HIT)
+            }
           }
           continue
         }

@@ -5039,3 +5039,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green (`ƒ /base/[id]` + `ƒ /api/public/base/[id]` both in the route table). Committed locally, NOT pushed.
 
 **For Michael:** share your base, open the link in an incognito window — your actual yard, live, uneditable, with a big red button pulling the visitor into the game.
+
+### 2026-08-17 — Claude (Residual R4 done: ranged stay ranged vs the dog)
+
+**Context:** R4 — a dog-locked Buck Hunter / Latte Slinger was melee-punching his face.
+
+**To the channel:**
+- Dog-engaged ranged troops now BACKPEDAL when he's inside 70px (half walk speed, clamped to the stage, always inside the 120px engage radius so the lock never flickers) and fire PROJECTILES at him on the same contact beat — arrow/latte bolt with flight time from distance (90–200ms), hit landing on arrival via the existing wearDog path (5hp per hit, never-dies flee intact). Recoil-back animation instead of the melee lunge. He's faster than the backpedal, so he still closes and bites — it reads as a fighting retreat, not a kite.
+- Melee/tank/support brawl him exactly as before; release → pickTarget resume unchanged.
+- tsc + 107 tests green. Committed locally, NOT pushed.
+
+**For Michael:** drop a Latte Slinger near the dog — she should give ground and keep pouring shots into him until he breaks off.
