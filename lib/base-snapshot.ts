@@ -15,7 +15,7 @@ const SCALE = 0.65 // 2140×1400 logical → 1391×910 out — crisp but light
 
 // sprite art per type — the same table the hq page renders from
 const ART: Record<string, { img: (level: number) => string; w: number }> = {
-  fence: { img: () => '/house/fence.png', w: 76 },
+  fence: { img: () => '/house/fence2.webp', w: 76 },
   media_tower: { img: () => '/house/media_tower.webp', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
   barracks: { img: l => barracksImage(l), w: 150 },
@@ -47,7 +47,7 @@ function loadImg(src: string): Promise<HTMLImageElement | null> {
 export async function snapshotBase(inp: SnapshotInput): Promise<Blob> {
   // ── collect every src once ──
   const srcs = new Set<string>(['/house/yard_bg2.webp', hqImage(inp.hqLevel), '/house/print_shop.webp',
-    '/house/fence_post.png', '/house/fence.png', '/house/wall_se.png'])
+    '/house/fence_post2.webp', '/house/fence2.webp', '/house/wall_se2.webp'])
   for (const b of inp.buildings) {
     const a = ART[b.type]
     if (a) srcs.add(a.img(b.level))
@@ -96,7 +96,7 @@ export async function snapshotBase(inp: SnapshotInput): Promise<Blob> {
       depth: l.depth * 10 + 2,
       draw: () => {
         if (l.shear !== 0) {
-          const im = loaded.get('/house/wall_se.png')
+          const im = loaded.get('/house/wall_se2.webp')
           if (!im) return
           ctx.save()
           if (l.shear === -1) {
@@ -109,7 +109,7 @@ export async function snapshotBase(inp: SnapshotInput): Promise<Blob> {
           }
           ctx.restore()
         } else {
-          const im = loaded.get('/house/fence.png')
+          const im = loaded.get('/house/fence2.webp')
           if (im) ctx.drawImage(im, l.x - l.w / 2, l.y + TILE_H * 0.28 - LINK_H, l.w, LINK_H)
         }
       },
@@ -128,7 +128,7 @@ export async function snapshotBase(inp: SnapshotInput): Promise<Blob> {
     if (b.type === 'fence') {
       if (b.damaged) continue // a downed fence just isn't in the ring
       const isLinked = linked.has(b.pad)
-      pushSprite(b.pad, isLinked ? '/house/fence_post.png' : '/house/fence.png', isLinked ? 13 : 76)
+      pushSprite(b.pad, isLinked ? '/house/fence_post2.webp' : '/house/fence2.webp', isLinked ? 13 : 76)
       continue
     }
     pushSprite(b.pad, a.img(b.level), a.w, ((b.facing ?? 0) % 2) === 1, b.damaged)

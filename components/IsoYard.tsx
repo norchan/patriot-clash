@@ -101,12 +101,16 @@ export function fenceAdjacency(fencePads: Set<number>): { links: FenceLink[]; li
   return { links, linked }
 }
 
-// wall_se.png calibration (Grok P0, model B: CoC wall pieces on the grid
-// diagonals — CSS-sheared front panels read as tilted planks). Measured from
-// the sprite's own post-base pixels — L(159,606) R(729,921) in a 797×923
-// image — then scaled per-axis so the baseline endpoints land EXACTLY on the
-// two cell anchors (92 apart in x, 46 in y). The SW piece is the same art
-// mirrored; offsets are relative to the link midpoint.
+// wall calibration (Grok P0, model B: CoC wall pieces on the grid diagonals —
+// CSS-sheared front panels read as tilted planks). Originally measured from
+// wall_se.png's post-base pixels — L(159,606) R(729,921) in 797×923 — scaled
+// per-axis so the baseline endpoints land EXACTLY on the two cell anchors
+// (92 apart in x, 46 in y). R1 re-art (2026-08-17): wall_se2.webp was
+// edit-restyled with the silhouette preserved (verified by alpha-overlay,
+// <1px drift), so the carried-through numbers came out IDENTICAL — measured
+// L(79.8,271.0) R(365.9,411.8) in the 400×413 webp reproduces this exact
+// table. The SW piece is the same art mirrored; offsets are relative to the
+// link midpoint.
 export const WALL = { w: 129, h: 135, seLeft: -71.7, swLeft: -57.0, top: -85.7 }
 
 export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
@@ -115,7 +119,7 @@ export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
     <>
       {links.map(l => l.shear !== 0 ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={l.key} src="/house/wall_se.png" alt="" className="absolute max-w-none pointer-events-none"
+        <img key={l.key} src="/house/wall_se2.webp" alt="" className="absolute max-w-none pointer-events-none"
           style={{
             width: WALL.w, height: WALL.h,
             left: l.x + (l.shear === 1 ? WALL.seLeft : WALL.swLeft),
@@ -128,7 +132,7 @@ export function IsoFenceLinks({ fencePads }: { fencePads: Set<number> }) {
         // straight screen-axis bridge between corner-adjacent cells — the
         // front-facing panel IS the correct perspective for those
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={l.key} src="/house/fence.png" alt="" className="absolute max-w-none pointer-events-none"
+        <img key={l.key} src="/house/fence2.webp" alt="" className="absolute max-w-none pointer-events-none"
           style={{
             width: l.w, height: LINK_H,
             left: l.x - l.w / 2, top: l.y + TILE_H * 0.28 - LINK_H,

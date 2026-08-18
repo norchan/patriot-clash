@@ -35,7 +35,7 @@ interface Result {
 type PhaseT = 'finding' | 'preview' | 'deploy' | 'done'
 
 const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
-  fence: { img: () => '/house/fence.png', w: 118 },
+  fence: { img: () => '/house/fence2.webp', w: 118 },
   media_tower: { img: () => '/house/media_tower.webp', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
   barracks: { img: l => barracksImage(l), w: 150 },
@@ -1024,7 +1024,7 @@ export default function RaidPage() {
         // standing panel would read as still blocking)
         img: dead && isFence ? undefined
           : hasRubble ? rubbleSrc(b.type)
-          : (isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level)),
+          : (isFence ? (linked ? '/house/fence_post2.webp' : '/house/fence2.webp') : sp?.img(b.level)),
         rubble: hasRubble,
         imgW: isFence ? (linked ? 14 : 76) : hasRubble ? Math.round((sp?.w ?? 120) * 0.95) : sp?.w,
         mirror: ((b.facing ?? 0) % 2) === 1,

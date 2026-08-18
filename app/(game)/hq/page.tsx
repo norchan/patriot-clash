@@ -107,7 +107,7 @@ function Cta({ cost, fp, busy, onClick, children, variant = 'gold' }:
 
 // sprite art per building type (same painterly iso language as the house)
 const SPRITES: Record<string, { img: (level: number) => string; w: number }> = {
-  fence: { img: () => '/house/fence.png', w: 118 },
+  fence: { img: () => '/house/fence2.webp', w: 118 },
   media_tower: { img: () => '/house/media_tower.webp', w: 126 },
   safe: { img: l => safeImage(l), w: 96 },
   barracks: { img: l => barracksImage(l), w: 150 },
@@ -367,7 +367,7 @@ export default function HqPage() {
         pad, movable: true, bounce: placedPad === pad,
         // linked fences show only the joint post (IsoFenceLinks draws the
         // panels); a lone fence keeps a small panel so it reads as a fence
-        img: isFence ? (linked ? '/house/fence_post.png' : '/house/fence.png') : sp?.img(b.level),
+        img: isFence ? (linked ? '/house/fence_post2.webp' : '/house/fence2.webp') : sp?.img(b.level),
         imgW: isFence ? (linked ? 13 : 76) : sp?.w,
         mirror: ((b.facing ?? 0) % 2) === 1,
         emoji: sp ? undefined : buildingDef(b.type)?.emoji,

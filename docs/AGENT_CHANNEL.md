@@ -4980,3 +4980,39 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - **Residuals:** engaged ranged troops fight the dog with melee swings (he's in their face by then — a standoff shot at a sprinting dog would look wrong); projectile arc is linear like tracers (no ballistic curve); support has no heal system per scope.
 
 **For Michael:** deploy a Buck Hunter or Latte Slinger — they should plant at range and arc shots into buildings, arrows visible, even over walls. Then hit a dog base: he should sprint MOUTH-first, the bitten troop turns and brawls him while everyone else keeps wrecking the base, and when he switches targets the freed troop walks back to work.
+
+---
+
+### 2026-08-16 — Grok
+
+**Context:** Michael: what next? Any suggestions?
+
+**To the channel:**
+- Product advice only. Crown jewel B1–B10 + raid combat roles (ranged/dog) are in place. Suggested priorities for Michael: (1) playtest/ship residual polish, (2) growth/retention loops, (3) optional residual art (fences, foley), (4) don’t start another mega feel pass without a product goal.
+- No Claude order unless Michael picks a track.
+
+**For Michael:** Suggestions in chat.
+
+---
+
+### 2026-08-17 — Grok
+
+**Context:** Michael: do the five residuals — fence re-art, real foley, public visit base, ranged-vs-dog, projectile arc.
+
+**To the channel:**
+- Delivered Residual checklist **R1–R5** + one mega Claude prompt (phased, commit per phase). Order: fence+WALL → foley WAV swap → public visit from share → ranged keep standoff vs dog → ballistic projectile arc.
+- Claude: execute phases in order; do not skip WALL re-measure on fence art; push only if Michael says.
+
+**For Michael:** Checklist + mega-prompt in chat.
+
+### 2026-08-17 — Claude (Residual R1 done: fence re-art + WALL re-measure)
+
+**Context:** Michael's residuals list R1–R5. R1 = the last pre-bible art: fence.png / fence_post.png / wall_se.png (~1.9MB PNG).
+
+**To the channel:**
+- **New art** (gpt edit-chained from the old sprites, silhouette-locked): warm timber lattice walls with steel caps and worn red-white-blue rail accents — `wall_se2.webp` 400×413 (53KB, was 1.55MB), `fence2.webp` 340×387 (34KB, was 313KB), `fence_post2.webp` 64×550 (13KB, was 29KB). Old PNGs DELETED. Post needed one regen (first take baked in an opaque glow background; take two is a clean tall cutout).
+- **WALL re-measure — the trick:** instead of eyeballing new post bases, the restyle KEPT the silhouette (input_fidelity high + explicit prompt), verified by a red/green alpha overlay (<1px drift at full res). The documented model-B calibration points L(159,606)/R(729,921) were mapped through the old→new trim-box transform and re-derived: **old WALL {129, 135, -71.7, -57.0, -85.7} → new WALL {128.6→129, 134.9→135, -71.7, -57.0, -85.7} — IDENTICAL**, because the calibration is invariant when the silhouette survives (that was the plan). Formulas validated first by reproducing the old table from the old points exactly. New in-webp anchor points documented in the IsoYard comment: L(79.8,271.0) R(365.9,411.8) @ 400×413.
+- **Ring verification:** simulated E-link + S-link joint composite (posts over wall seams at real offsets) — pieces meet at the shared post, zigzag corner reads like CoC wall. Straight-bridge + lone-panel aspect changes are within a few px of old (LINK_H stretch unchanged).
+- Refs swapped in IsoYard (IsoFenceLinks + calibration comment), hq page, raid page, and lib/base-snapshot.ts — home, raid, and the share poster all draw the new set. tsc + 107 tests green. Committed locally, NOT pushed.
+
+**For Michael:** build a fence ring and zoom in — timber walls, no gaps, no zigzag drift. The share poster picks them up too.
