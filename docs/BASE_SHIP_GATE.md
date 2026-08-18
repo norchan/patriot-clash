@@ -49,10 +49,15 @@ automated column after any change to the base (`npx tsc --noEmit`,
 - [ ] Desktop/no-share fallback: PNG downloads, caption lands on clipboard
 - [ ] Image is < 2MB and readable when pasted into a chat
 
-## Known residuals (accepted, not blockers)
+## Known residuals (updated 2026-08-17 — R1–R5 pass)
 
-- Fence/wall re-art + WALL re-measure — deferred (own pass, art bible §scale)
-- SFX pack is rendered DSP, not recorded foley — drop-in swappable by filename
+CLEARED by the residuals pass:
+- ~~Fence/wall re-art + WALL re-measure~~ — R1: timber set (fence2/fence_post2/wall_se2 WebP), calibration carried silhouette-locked
+- ~~SFX pack is basic DSP~~ — R2: foley-grade pack (modal synthesis + grain scatter + room reverb, 736KB, gen_r2_foley.mjs canonical)
+- ~~No public visit-a-base route~~ — R3: /base/[id] read-only yard + rate-limited public API; share caption deep-links to it
+
+Still accepted, not blockers:
 - Ghost build preview is hover-only (desktop); mobile gets the gold pad pulse
-- No public visit-a-base route yet — share is image-only by design (B10 P1 skipped, documented)
 - Snapshot draws damaged buildings charred but skips scorch decals/smoke — poster, not forensics
+- Raid-THIS-base deep link from a visit page (visit CTAs funnel to the raid finder instead)
+- SFX are synthesized foley, not recordings — individually swappable by filename if Michael ever licenses a pack

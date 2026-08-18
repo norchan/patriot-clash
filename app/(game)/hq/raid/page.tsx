@@ -363,31 +363,46 @@ export default function RaidPage() {
     const raidFx = (o: { kind: RaidFxKind; x: number; y: number; pad?: number; text?: string; heavy?: boolean; fence?: boolean; level?: number; bite?: boolean; tx?: number; ty?: number; ms?: number; style?: 'arrow' | 'latte' }) => {
       switch (o.kind) {
         case 'shot': { // ranged troop lets one fly — arrow (Buck Hunter) or
-          // latte bolt (Latte Slinger). Same DOM-transition trick as the
-          // turret tracers; flight time comes from the caller so the visual
-          // and the damage arrival agree to the millisecond.
+          // latte bolt (Latte Slinger). R5: BALLISTIC — a quadratic-bezier
+          // lob sampled into WAAPI transform keyframes (the arrow's nose
+          // follows the tangent), not a laser line. Flight time comes from
+          // the caller so the visual and the damage arrival agree to the ms.
+          // Turret tracers deliberately stay linear — those are hitscan guns.
           const ms = o.ms ?? 160
+          const x0 = o.x, y0 = o.y, x1 = o.tx ?? o.x, y1 = o.ty ?? o.y
+          const dist = Math.hypot(x1 - x0, y1 - y0)
+          const arc = Math.max(24, Math.min(88, dist * 0.24)) // peak height over the chord
+          const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2 - arc * 2 // quad ctrl: peak = arc above midpoint
           const el = document.createElement('div')
           if (o.style === 'latte') {
             Object.assign(el.style, {
-              position: 'absolute', left: `${o.x}px`, top: `${o.y}px`, width: '11px', height: '11px',
+              position: 'absolute', left: '0px', top: '0px', width: '11px', height: '11px',
               borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #e7c9a1, #8b4513 72%)',
               boxShadow: '0 0 6px rgba(139,69,19,0.85)', zIndex: '1440', pointerEvents: 'none',
-              transition: `left ${ms}ms linear, top ${ms}ms linear`,
+              willChange: 'transform',
             })
           } else {
-            const ang = Math.atan2((o.ty ?? o.y) - o.y, (o.tx ?? o.x) - o.x) * 180 / Math.PI
             Object.assign(el.style, {
-              position: 'absolute', left: `${o.x}px`, top: `${o.y}px`, width: '24px', height: '3px',
+              position: 'absolute', left: '0px', top: '0px', width: '24px', height: '3px',
               borderRadius: '2px', background: 'linear-gradient(90deg, #92400e 58%, #e5e7eb 78%, #9ca3af)',
               boxShadow: '0 1px 2px rgba(0,0,0,0.45)', zIndex: '1440', pointerEvents: 'none',
-              transform: `rotate(${ang}deg)`,
-              transition: `left ${ms}ms linear, top ${ms}ms linear`,
+              willChange: 'transform',
             })
           }
+          const frames: Keyframe[] = []
+          for (let i = 0; i <= 14; i++) {
+            const t = i / 14
+            const px = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cx + t * t * x1
+            const py = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cy + t * t * y1
+            const tx = 2 * (1 - t) * (cx - x0) + 2 * t * (x1 - cx)
+            const ty = 2 * (1 - t) * (cy - y0) + 2 * t * (y1 - cy)
+            const ang = o.style === 'latte' ? 0 : Math.atan2(ty, tx) * 180 / Math.PI
+            frames.push({ transform: `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px) rotate(${ang.toFixed(1)}deg)`, offset: t })
+          }
           layer.appendChild(el)
-          requestAnimationFrame(() => { el.style.left = `${o.tx ?? o.x}px`; el.style.top = `${o.ty ?? o.y}px` })
-          setTimeout(() => el.remove(), ms + 70)
+          try { el.animate(frames, { duration: ms, easing: 'linear', fill: 'forwards' }) }
+          catch { el.style.transform = frames[frames.length - 1].transform as string }
+          setTimeout(() => el.remove(), ms + 60)
           playBase('chip', { rate: 1.75, gain: 0.5, jitter: 0.1 }) // pitched-up knock = the thwip
           break
         }

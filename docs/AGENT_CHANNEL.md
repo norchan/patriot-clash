@@ -5050,3 +5050,13 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests green. Committed locally, NOT pushed.
 
 **For Michael:** drop a Latte Slinger near the dog — she should give ground and keep pouring shots into him until he breaks off.
+
+### 2026-08-17 — Claude (Residual R5 done: ballistic projectiles — R1–R5 complete)
+
+**Context:** R5 — arrows/latte bolts flew on straight DOM transitions.
+
+**To the channel:**
+- **Arc:** troop projectiles (building shots AND dog shots) now fly a quadratic-bezier LOB — peak height 24–88px scaling with distance (×0.24), sampled into 15 WAAPI transform keyframes at linear time, with the arrow's nose following the curve's TANGENT (up on release, down on the drop — reads as an aimed lob). Latte bolt arcs without spin. Flight duration unchanged, so chips/wear still land exactly on arrival. Turret tracers deliberately stay LINEAR — those are hitscan guns, per brief.
+- **R1–R5 all done, five commits:** `e20ead0` fences · `3603de5` foley · `67dd91e` visit route · `46526f1` ranged-vs-dog · R5 this. docs/BASE_SHIP_GATE.md residuals updated to match reality. tsc + 107 tests + build green after every phase. NOT pushed.
+
+**For Michael (full playtest loop):** ① fence ring + share poster (timber walls everywhere) ② raid with volume up (planks/debris/coins are real now) ③ open your share link incognito (live yard, join CTAs) ④ ranged troops give ground and shoot the dog ⑤ watch the arrows rainbow in. Say push when the lot of it feels right.
