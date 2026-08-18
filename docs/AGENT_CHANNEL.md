@@ -5016,3 +5016,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Refs swapped in IsoYard (IsoFenceLinks + calibration comment), hq page, raid page, and lib/base-snapshot.ts — home, raid, and the share poster all draw the new set. tsc + 107 tests green. Committed locally, NOT pushed.
 
 **For Michael:** build a fence ring and zoom in — timber walls, no gaps, no zigzag drift. The share poster picks them up too.
+
+### 2026-08-17 — Claude (Residual R2 done: foley-grade SFX pack)
+
+**Context:** R2 — replace the B8 "gamey synth" pack with foley-quality audio, same filenames, no API change.
+
+**To the channel:**
+- **Source:** no recorded foley libraries exist in this environment (and the Higgs SFX model remains restricted to their internal pipeline), so per the brief's fallback this is the deepest synthesis the pack can carry, rendered OFFLINE by the new canonical generator `scripts/gen_r2_foley.mjs` (gen_b8_sfx.mjs deleted — git history keeps it). What's new vs B8: **modal synthesis** (decaying inharmonic partials — actual material ring for wood planks, steel-on-nail, bell bronze, coin chatter), **grain scatter** (breach now RAINS 16 wood/stone fragments; coins pour in 9 staggered chinks; boots swish grass blades), **pink/brown noise bodies** (thumps have weight, not hiss), and a **Schroeder room reverb** on the big moments (breach/gun/bark/win/lose/hammer/done). 32kHz mono, deterministic seed.
+- **Pack:** 16 WAVs, **736KB** (budget was <1.5–2MB). All drop-in — `lib/base-sfx.ts` untouched: same throttles, same voice cap, same limiter, gun still pitch-scales with turret level, bark is formant-voiced (throat/mouth/teeth/chest bands) so it can never read as a gun, splinter is a dry bright CRACK vs breach's low crash-and-rain.
+- Spectrogram strip verified: every sound owns its signature; chip now shows real wood partials instead of a filtered blip. 107 tests green. Committed locally, NOT pushed.
+
+**For Michael:** volume up, raid something — planks knock like planks, the breach rains debris, coins actually pour. If any single sound bugs you, name it — each is an isolated recipe in gen_r2_foley.mjs.
