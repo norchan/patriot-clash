@@ -4,31 +4,49 @@
   "name": "PoliticsGo",
   "launcherName": "PoliticsGo",
   "display": "standalone",
-  "themeColor": "#1a1a2e",
-  "themeColorDark": "#050a14",
-  "navigationColor": "#050a14",
-  "navigationColorDark": "#050a14",
+  "themeColor": "#1A1A2E",
+  "themeColorDark": "#050A14",
+  "navigationColor": "#050A14",
+  "navigationColorDark": "#050A14",
   "navigationDividerColor": "#000000",
   "navigationDividerColorDark": "#000000",
-  "backgroundColor": "#050a14",
+  "backgroundColor": "#050A14",
   "enableNotifications": true,
   "startUrl": "/",
   "iconUrl": "https://politicsgo.app/icons/icon-512.png",
   "maskableIconUrl": "https://politicsgo.app/icons/icon-512.png",
   "splashScreenFadeOutDuration": 300,
-  "orientation": "portrait",
-  "fallbackType": "customtabs",
-  "features": {},
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "politicsgo"
+  },
+  "appVersionName": "1.2.0",
+  "appVersionCode": 3,
   "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://politicsgo.app/manifest.json",
-  "fullScopeUrl": "https://politicsgo.app/",
-  "minSdkVersion": 23,
+  "fallbackType": "customtabs",
+  "features": {
+    "playBilling": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": true
+  },
+  "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "additionalTrustedOrigins": ["politicsgo.net"],
+  "fullScopeUrl": "https://politicsgo.app/",
+  "minSdkVersion": 23,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [
+    "politicsgo.net"
+  ],
   "retainedBundles": [],
   "protocolHandlers": [],
-  "fileHandlers": []
+  "fileHandlers": [],
+  "displayOverride": [],
+  "appVersion": "1.2.0"
 }
