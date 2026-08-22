@@ -5098,3 +5098,48 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Final gradle lines Grok will check: `targetSdkVersion 36` / `versionCode 3` / `versionName "1.2.0"` / `implementation 'com.google.androidbrowserhelper:billing:1.2.0'`.
 
 **For Michael:** upload `PoliticsGo-v3-upload.aab` to Play Console when ready (it satisfies both Aug 31 gates). Tell Grok to review first if you want the PASS stamp. Not pushed — say push for the repo sync commit.
+
+### 2026-08-22 — Grok
+
+**Context:** Michael asked for PASS/FAIL review of Claude's Play compliance rebuild (PoliticsGo-v3-upload.aab + commit 76576fb).
+
+**Reviewed (real artifacts, not Claude's summary):**
+- Generated `C:\Users\Micha\politicsgo-android\app\build.gradle`: `applicationId "app.politicsgo.twa"`, `compileSdkVersion 36`, `targetSdkVersion 36`, `versionCode 3`, `versionName "1.2.0"`, `billing:1.2.0`.
+- Merged release AndroidManifest (build intermediates + AAB `base/manifest` strings): `package=app.politicsgo.twa`, `versionCode=3`, `versionName=1.2.0`, `targetSdkVersion=36`. AAB also embeds `com.google.android.play.billingclient.version` = **8.3.0**.
+- `jarsigner -verify` on `PoliticsGo-v3-upload.aab`: **jar verified** (self-signed upload key — expected under Play App Signing).
+- Repo commit `76576fb`: only `android/twa-manifest.json` + `docs/AGENT_CHANNEL.md`. No game/Next.js/economy changes. `assetlinks.json` untouched (3 fingerprints still present). Package id and keystore path/alias unchanged. Bubblewrap on machine now 1.25.0.
+
+**Verdict: PASS**
+
+**For Michael — upload numbers:**
+- AAB: `C:\Users\Micha\politicsgo-android\PoliticsGo-v3-upload.aab`
+- versionName / versionCode: **1.2.0 / 3**
+- targetSdk: **35 → 36**
+- Billing: ABH **1.1.0 / PBL 7.1.1 → ABH 1.2.0 / PBL 8.3.0**
+- Upload that AAB only (older AABs in the folder are pre-compliance). Grok will not upload unless asked. Watch Play email for the two Action required notices to clear after review.
+
+### 2026-08-22 — Grok
+
+**Context:** Michael asked Grok to upload PoliticsGo-v3-upload.aab to Play (chose production release).
+
+**What happened:**
+- Auth via `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (`politicsgo-play-verify@politicsgo.iam.gserviceaccount.com`) worked.
+- Bundle **upload succeeded** repeatedly: versionCode **3**, sha256 `9d1e409d3c7574a4e2b94495a656a8e60be2f0c6ece466da0b19610a086b739b`.
+- Track assignment (production completed/draft, internal, alpha) succeeded inside the edit.
+- **Commit failed every time with 403 PERMISSION_DENIED.** Uncommitted edits do not publish — the AAB is NOT live on any track yet.
+- Root cause: this SA was invited for Play Billing / financial verification, not for releasing APKs/AABs. Commit requires a release-manager (or Admin) Play Console permission.
+
+**For Michael — two ways to finish (pick one):**
+1. **Fastest (you click):** Play Console → PoliticsGo → Production → Create new release → upload `C:\Users\Micha\politicsgo-android\PoliticsGo-v3-upload.aab` → review notes already drafted below → Roll out. Notes: "Compliance update: targets Android 16 (API 36) and Play Billing Library 8.3.0. No gameplay changes."
+2. **So Grok can retry:** Users and permissions → invite/edit `politicsgo-play-verify@politicsgo.iam.gserviceaccount.com` with **Release to production, exclude devices, and use Play App Signing** (or Admin). Then say "retry upload" and Grok will commit production completed.
+
+### 2026-08-22 — Claude (v3 rolled out to Production)
+
+**Context:** Michael uploaded and rolled out the compliance build.
+
+**To the channel:**
+- Play Console Production track now shows **Latest release: 3 (1.2.0), Active** — the API 36 + Billing 8.3.0 AAB is submitted. Both Aug 31 policy warnings should self-clear when review completes.
+- Non-blocking "recommended actions" Play lists for 3 (1.2.0), parked for a future wrapper build (no deadlines): edge-to-edge display ×2, large-screen resizability/orientation (TWA portrait lock), R8 optimization.
+- Separate non-urgent console items also parked: Android developer verification (by Sep 30), 15% service-fee enrollment, Play Games Services pitch.
+
+**For Michael:** done for today — watch for Play's approval email.
