@@ -69,6 +69,8 @@ interface Fx {
   flip?: boolean
   easeIn?: boolean
   trail?: boolean       // exhaust streak below the sprite (missiles)
+  cycleMs?: number      // flipbook speed for `frames` (default 300 — eagles fly slower)
+  wobble?: boolean      // fast micro-sway — a missile under thrust, not a frozen PNG
 }
 
 const MARCH_MS = 1100          // soldier travel time to the walls
@@ -132,7 +134,13 @@ const K9_MARCH_MS = 750
 // from a different art family); pitchforks + missile are small WebPs.
 const EAGLE_FRAMES = ['/siege/eagle_a.webp', '/siege/eagle_b.webp', '/siege/eagle_c.webp', '/siege/eagle_b.webp']
 const PITCHFORK = '/siege/pitchfork.webp'
+const PITCHFORK_B = '/siege/pitchfork_b.webp' // motion-blurred tumble frame
 const MISSILE = '/siege/missile.webp'
+// FREE special (siege-feel 2026-08-22): its own art at last — the antifa
+// flipbook pose-locked-recolored to Liberty patina + torch, so the Yearning
+// crowd stops reading as the same black-clad kids
+const FREE_RUN = ['/siege/free_run1.webp', '/siege/free_run2.webp', '/siege/free_run3.webp', '/siege/free_run4.webp', '/siege/free_run5.webp', '/siege/free_run6.webp']
+const FREE_ATK = ['/siege/free_atk1.webp', '/siege/free_atk2.webp', '/siege/free_atk3.webp', '/siege/free_atk4.webp']
 
 // N-frame flipbook: stacked images alternating opacity via keyframes
 function Flipbook({ frames, cycleMs }: { frames: string[]; cycleMs: number }) {
@@ -161,27 +169,39 @@ function FxItem({ f }: { f: Fx }) {
     <span style={{ fontSize: f.size, animation: 'sgBoom 0.75s ease-out forwards' }}>{f.emoji ?? '💥'}</span>
   ) : (f.src || f.frames) ? (
     <span className="block relative" style={{ height: f.size, width: f.size * 1.2 }}>
-      {/* exhaust streak trails BELOW the sprite — missiles fly near-vertical */}
+      {/* exhaust streak trails BELOW the sprite — missiles fly near-vertical.
+          The flame PULSES (length + brightness flicker) so the rocket reads
+          as burning fuel, not a painted-on gradient */}
       {f.trail && (
         <span style={{
           position: 'absolute', left: '50%', top: '88%', transform: 'translateX(-50%)',
           width: 6, height: f.size * 0.8, borderRadius: 3,
-          background: 'linear-gradient(180deg, #fde047, rgba(251,146,60,0.6), transparent)',
+          transformOrigin: '50% 0%',
+          background: 'linear-gradient(180deg, #fff7c0, #fde047 18%, rgba(251,146,60,0.6) 55%, transparent)',
           filter: 'blur(2px)',
+          animation: 'sgExhaust 0.09s linear infinite alternate',
         }} />
       )}
       {f.frames ? (
         f.frames.map((src, fi) => (
           <img key={src + fi} src={src} alt="" style={{
             position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain',
-            animation: `sgF${f.frames!.length}_${fi} 300ms steps(1) infinite`,
+            animation: `sgF${f.frames!.length}_${fi} ${f.cycleMs ?? 300}ms steps(1) infinite`,
           }} />
         ))
       ) : f.src2 ? (
-        <>
-          <img src={f.src} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_0 240ms steps(1) infinite' }} />
-          <img src={f.src2} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_1 240ms steps(1) infinite' }} />
-        </>
+        // 2-frame flicker — and it can TUMBLE: the spin rides the wrapper so
+        // both frames rotate together (pitchforks flip between sharp/blurred
+        // while cartwheeling, siege-feel 2026-08-22)
+        <span className="block absolute inset-0" style={{ animation: f.spin ? `sgSpin ${f.dur}ms linear` : undefined }}>
+          <img src={f.src} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_0 160ms steps(1) infinite' }} />
+          <img src={f.src2} alt="" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', objectFit: 'contain', animation: 'sgF2_1 160ms steps(1) infinite' }} />
+        </span>
+      ) : f.wobble ? (
+        // thrust micro-sway: the sprite is ALIVE on its flight path
+        <span className="block absolute inset-0" style={{ animation: 'sgWobble 0.13s ease-in-out infinite' }}>
+          <img src={f.src} alt="" style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
+        </span>
       ) : (
         <img src={f.src} alt="" style={{ height: '100%', width: '100%', objectFit: 'contain', animation: f.spin ? `sgSpin ${f.dur}ms linear` : undefined }} />
       )}
@@ -618,7 +638,7 @@ function SiegePage() {
     // hall damage plates load for everyone — the crossfade must not pop in
     // a cold image mid-assault (checklist #7)
     const warm = [...runFrames, ...atkFrames, ...HALL_PLATES]
-    if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK, PITCHFORK)
+    if (profile.party === 'democrat') warm.push(...POOR_RUN, ...POOR_ATK, ...FREE_RUN, ...FREE_ATK, PITCHFORK, PITCHFORK_B)
     else warm.push(...K9_RUN, ...K9_ATK, ...EAGLE_FRAMES, MISSILE)
     for (const src of warm) {
       const im = new Image()
@@ -715,7 +735,7 @@ function SiegePage() {
           // shot-down pitchforks die halfway up, short of the hall.
           // ±10% size + random mirror so the volley reads as many forks,
           // not one icon stamped nine times (checklist #6)
-          addFx({ src: PITCHFORK, x0: 8 + Math.random() * 84, y0: 106, x1, y1: hit ? y1 + 26 : y1, size: 49 + Math.random() * 11, dur: hit ? 380 : 650, spin: true, easeIn: true, flip: Math.random() < 0.5 }, hit ? 400 : 700)
+          addFx({ src: PITCHFORK, src2: PITCHFORK_B, x0: 8 + Math.random() * 84, y0: 106, x1, y1: hit ? y1 + 26 : y1, size: 49 + Math.random() * 11, dur: hit ? 380 : 650, spin: true, easeIn: true, flip: Math.random() < 0.5 }, hit ? 400 : 700)
           if (hit) shootDown(x1, y1 + 26, 340)
           else schedule(650, () => chipStrike(chunk, x1, y1 - 4))
         })
@@ -819,7 +839,7 @@ function SiegePage() {
         // a downed eagle is clipped mid-dive and drops well short
         const ex = hit ? (fromLeft ? x1 - 18 : x1 + 18) : x1
         schedule(i * 200, () => {
-          addFx({ frames: EAGLE_FRAMES, x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1: ex, y1: hit ? y1 + 14 : y1, size: 66, dur: hit ? 620 : 950, flip: !fromLeft }, hit ? 660 : 1050)
+          addFx({ frames: EAGLE_FRAMES, cycleMs: 460, x0: fromLeft ? -8 : 108, y0: 14 + Math.random() * 26, x1: ex, y1: hit ? y1 + 14 : y1, size: 66, dur: hit ? 620 : 950, flip: !fromLeft }, hit ? 660 : 1050)
           if (hit) shootDown(ex, y1 + 14, 580)
           else schedule(950, () => {
             chipStrike(chunk, x1, y1 - 3)
@@ -844,7 +864,7 @@ function SiegePage() {
           // intercepted missiles are detonated early, below the walls;
           // survivors dive with an exhaust trail and land as ONE coherent
           // kit-heavy boom (the old 92px emoji 💥 doubled the explosion)
-          addFx({ src: MISSILE, x0: 20 + i * 30, y0: 110, x1, y1: hit ? y1 + 30 : y1, size: 90, dur: hit ? 430 : 720, easeIn: true, trail: true }, hit ? 450 : 740)
+          addFx({ src: MISSILE, x0: 20 + i * 30, y0: 110, x1, y1: hit ? y1 + 30 : y1, size: 90, dur: hit ? 430 : 720, easeIn: true, trail: true, wobble: true }, hit ? 450 : 740)
           if (hit) shootDown(x1, y1 + 30, 390)
           else schedule(720, () => {
             chipStrike(chunk, x1, y1 - 5, 'heavy') // kit: flash + burst + shockwave + big shake
@@ -1179,17 +1199,28 @@ function SiegePage() {
             // it, his statue-handoff is its own entrance
             <span className="block" style={{ animation: s.kind !== 'k9' ? 'sgDeploy 0.22s ease-out' : undefined }}>
             <span className="block relative" style={{
-              // dogs are long and low — wider box, shorter stance
+              // dogs are long and low — wider box, shorter stance.
+              // Siege-feel 2026-08-22: NO wrapper motion — sgRun/sgLunge made
+              // the body bob louder than the frames. Locomotion is the
+              // Flipbook alone; the only pulse allowed is the ground shadow.
               width: s.kind === 'k9' ? 76 : 56,
               height: s.kind === 'k9' ? (s.state === 'fight' ? 50 : 54) : (s.state === 'fight' ? 60 : 64),
-              animation: s.state === 'march' ? 'sgRun 0.34s ease-in-out infinite' : 'sgLunge 0.62s ease-in-out infinite',
-              filter: `drop-shadow(0 0 6px ${s.kind === 'poor' ? '#60a5fa' : s.kind === 'free' ? '#93c5fd' : s.kind === 'k9' ? '#fca5a5' : myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
+              filter: `drop-shadow(0 0 6px ${s.kind === 'poor' ? '#60a5fa' : s.kind === 'free' ? '#86efac' : s.kind === 'k9' ? '#fca5a5' : myColor}) drop-shadow(0 2px 3px rgba(0,0,0,0.7))`,
             }}>
+              {/* footfall shadow: squeezes on each foot contact (2 steps per
+                  6-frame stride cycle) — weight without body bounce */}
+              <span style={{
+                position: 'absolute', left: '50%', bottom: -4, width: '74%', height: 9,
+                borderRadius: '50%',
+                background: 'radial-gradient(ellipse, rgba(0,0,0,0.42), transparent 70%)',
+                animation: s.state === 'march' ? `sgStep ${s.kind === 'k9' ? 140 : 180}ms ease-in-out infinite` : undefined,
+                transform: 'translateX(-50%)',
+              }} />
               <Flipbook
                 frames={s.kind === 'poor'
                   ? (s.state === 'fight' ? POOR_ATK : POOR_RUN)
                   : s.kind === 'free'
-                    ? (s.state === 'fight' ? ANTIFA_ATK : ANTIFA_RUN)
+                    ? (s.state === 'fight' ? FREE_ATK : FREE_RUN)
                     : s.kind === 'k9'
                       ? (s.state === 'fight' ? K9_ATK : K9_RUN)
                       : (s.state === 'fight' ? atkFrames : runFrames)}
@@ -1412,8 +1443,9 @@ function SiegePage() {
         @keyframes sgSpin { 0%{transform:rotate(0)} 100%{transform:rotate(660deg)} }
         @keyframes sgShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,4px)} 50%{transform:translate(6px,-4px)} 75%{transform:translate(-4px,2px)} }
         @keyframes sgShakeBig { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-14px,8px)} 35%{transform:translate(12px,-9px)} 55%{transform:translate(-9px,5px)} 75%{transform:translate(6px,-4px)} }
-        @keyframes sgRun { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
-        @keyframes sgLunge { 0%,100%{transform:translateX(-2px)} 45%{transform:translateX(3px) scale(1.05)} }
+        @keyframes sgStep { 0%,100%{transform:translateX(-50%) scaleX(1);opacity:1} 50%{transform:translateX(-50%) scaleX(0.8);opacity:0.75} }
+        @keyframes sgWobble { 0%,100%{transform:translateX(-1.3px) rotate(-1.2deg)} 50%{transform:translateX(1.3px) rotate(1.2deg)} }
+        @keyframes sgExhaust { 0%{transform:translateX(-50%) scaleY(0.82);opacity:0.75} 100%{transform:translateX(-50%) scaleY(1.12);opacity:1} }
         @keyframes sgPoof { 0%{transform:scale(0.7);opacity:1} 100%{transform:scale(1.8) translateY(-14px);opacity:0} }
         @keyframes sgBoom { 0%{transform:scale(0.2);opacity:0} 20%{transform:scale(1.25);opacity:1} 100%{transform:scale(1.6);opacity:0} }
         @keyframes sgFlash { 0%{opacity:0.95} 100%{opacity:0} }

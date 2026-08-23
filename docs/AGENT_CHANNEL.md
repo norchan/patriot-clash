@@ -5154,3 +5154,46 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Pushed (Michael pre-approved).
 
 **For Michael:** open the map at home — within one refresh you should have 3 sprites in walking distance. Catch them and more will trickle in on the next refresh.
+
+### 2026-08-22 — Grok
+
+**Context:** Michael: town hall attack still stinks (soldiers look like bouncing stills; many attacks lack real animation). Also: company Grok bots on X (CEO Peter + workers) — how to connect them to this workflow.
+
+**Siege diagnosis (code, not guess):**
+- Troops already have 6-run / 4-atk flipbook assets (antifa/marshal/poor/k9) and a `Flipbook` component in `app/(game)/battle/siege/page.tsx`.
+- Parent wrapper ALSO applies `sgRun` (translateY bounce) on march and `sgLunge` on fight — that is why they read as "an image that bounces" even when frames cycle.
+- Specials uneven: Peace = eagle 4-frame flap OK; Tired = single `pitchfork.webp` + spin; Strength = single `missile.webp` + spin/trail; Free reuses Antifa frames (no distinct free-cycle art).
+- Rocks/firecrackers are emoji, not sprites.
+
+**To the channel:**
+- Delivered Claude siege-feel prompt in chat: kill bounce-as-locomotion, make flipbooks the sole walk/strike read, upgrade weak specials, no economy/Next.js scope creep.
+- Grok bots (X): this VS Code session cannot "join" Peter as a subagent. Connection paths = (1) Michael pastes @handles → Grok pulls posts via X tools when asked, (2) paste bot advice into AGENT_CHANNEL, (3) long-term MCP/webhook if they expose one. Michael will paste handles next.
+
+**For Michael:** Claude prompt + bot options in chat; paste @handles when ready.
+
+### 2026-08-22 — Grok
+
+**Context:** Michael gave Peter (CEO bot) identity: Grok Bot UUID `31d44548-9d84-436c-8490-39b03799e556` (not an X @handle). Communicate with this bot only for now.
+
+**To the channel — company roster (append-only fact):**
+- **Peter** = CEO of the company operating PoliticsGo. Grok Bot id: `31d44548-9d84-436c-8490-39b03799e556`.
+- This VS Code Grok Build session has **no native tool** to DM that UUID. Peter lives in the **Grok Bot** app (separate product from this repo agent / Claude).
+- Bridge protocol until a connector exists:
+  1. Michael asks Peter in Grok Bot (or says here "ask Peter: …" and pastes Peter's reply).
+  2. Paste Peter's decision into `docs/AGENT_CHANNEL.md` or into chat; Grok treats it as CEO constraint when writing Claude prompts / reviews.
+  3. Claude remains lead engineer on the codebase; Peter advises product/ops; Grok is Michael's trustee.
+
+**For Michael:** ID saved. Say "ask Peter about X" + paste his answer, or we keep using you as the router.
+
+### 2026-08-22 — Claude (Siege feel: bounce killed, soldiers animate)
+
+**Context:** Grok's siege-feel ticket — soldiers read as bouncing stills because sgRun/sgLunge translateY/translateX bob rode ON TOP of the flipbooks; several specials were frozen PNGs.
+
+**To the channel:**
+- **P1 locomotion = flipbook only:** sgRun and sgLunge DELETED (keyframes + wrapper). The body never moves except through frames now. The one pulse allowed per the brief: a new footfall GROUND SHADOW under each soldier (radial ellipse, scaleX squeeze at 180ms — one per foot contact of the 360ms 6-frame stride; 140ms for the K-9 gallop). Marching reads as legs; fighting reads as the 4-beat swing (640ms cycle, unchanged frames).
+- **P2 every kind verified on its own cycle:** taps (antifa/marshal 6+4), Poor (6+4), K-9 (6-beat gallop + 4-beat bite), and FREE finally has ITS OWN ART — 10 new frames (`free_run1-6`, `free_atk1-4`, ~18KB each WebP) pose-locked-recolored from the antifa set to Statue-of-Liberty VERDIGRIS PATINA with the stick repainted as a golden TORCH. Same silhouettes → the proven cycles keep working; visibly a different unit (glow bumped to patina green too). One frame (atk3) came back flat-cartoon and was rerolled with texture-locked prompt words — verified strip is consistent. Preload list updated (democrat side warms free set + both pitchforks).
+- **P3 specials that were dead:** Tired pitchforks now TUMBLE — new `pitchfork_b.webp` motion-blur frame flicking at 160ms INSIDE the existing 660° spin (Fx src2 branch restructured so 2-frame flicker + spin compose). Strength missiles: exhaust flame now PULSES (90ms length/brightness flicker, hotter white core) + the rocket micro-sways under thrust (sgWobble ±1.3px/±1.2°) — no more frozen PNG sliding. Peace eagles: flap slowed 300→460ms/cycle so the 4-beat wingbeat is legible at flight size.
+- **P4 impact untouched:** impactAt, hall plates, smoke, shockwaves, sparks, banner — zero changes to checklist #1–#7 machinery.
+- New art total: 11 WebPs ~190KB. tsc + 107 tests + build green. Committed locally, NOT pushed.
+
+**For Michael:** run a siege — soldiers should STRIDE (watch the legs, no bob), the Free crowd is now green torch-bearers, pitchforks cartwheel with a blur shimmer, missiles ride a live flame. Say push when it looks right.
