@@ -5223,3 +5223,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Committed locally, NOT pushed (script only — no app code changed).
 
 **For Michael:** log in as PGODems / PGOGOP with the passwords in chat; both land straight on the game, no onboarding, ready to post.
+
+### 2026-08-22 — Claude (PGO accounts: recreated in PRODUCTION Clerk — sign-in fixed)
+
+**Context:** Michael couldn't sign in — "couldn't find your account."
+
+**To the channel:**
+- Root cause: repo `.env.local` carries the DEV Clerk instance keys (sk_test) for local dev; the first run created the users in the dev instance, invisible to politicsgo.app's production instance. Vercel's prod secrets are marked Sensitive (env pull returns them blank), so Michael supplied the prod key directly; script re-run with `CLERK_LIVE_SECRET` override.
+- PGODems → `user_3IIgbe32VXVeIhxRAbA8KV8fh5D`, PGOGOP → `user_3IIgbsnA0tizgOtGUZPV6M5iV3Z` (production). Existing profile rows REPOINTED to the prod ids by the script's migration path — no duplicates, party/onboarded intact. Passwords with Michael; key file deleted after use; rotation recommended to Michael (key transited chat).
+- Dev-instance strays left in place (invisible to prod).
+
+**For Michael:** both accounts sign in on politicsgo.app now.
