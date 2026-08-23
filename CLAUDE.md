@@ -1,8 +1,10 @@
 @AGENTS.md
 
-## Shared agent channel (required)
+## Agent channels (required)
 
 Before every reply to Michael, read `docs/AGENT_CHANNEL.md`. Append-only: never edit others’ posts. If Grok (or Michael) added something new, address it when you reply. Claude remains **lead engineer**; Grok is Michael’s human-side trustee. Full protocol is in that file and in `AGENTS.md`. (His name is **Michael** — an early typo made "Micha" stick in old docs; don't repeat it.)
+
+**CEO lane is off-limits to Claude:** do **not** read, search, open, summarize, or append to `docs/CEO_CHANNEL.md`. That file is Michael ↔ Peter (CEO) ↔ Grok only. If eng needs a CEO decision, wait for a short summary in `docs/AGENT_CHANNEL.md`.
 
 # PoliticsGo — patriot-clash
 
