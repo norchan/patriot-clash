@@ -16,7 +16,7 @@ export async function GET(
 
     const { data: player } = await admin
       .from('profiles')
-      .select('id, username, party, show_party, avatar_url, about_me, age, gender, clique_id, clerk_user_id, home_gym_id, total_battles_won, total_battles_lost, total_gyms_captured, total_captures, created_at')
+      .select('id, username, party, show_party, avatar_url, about_me, website_url, age, gender, clique_id, clerk_user_id, home_gym_id, total_battles_won, total_battles_lost, total_gyms_captured, total_captures, created_at')
       .eq('id', id)
       .single()
 
@@ -109,6 +109,7 @@ export async function GET(
         party: player.show_party !== false ? player.party : null,
         avatar_url: player.avatar_url,
         about_me: player.about_me ?? null,
+        website_url: player.website_url ?? null,
         age: player.age ?? null,
         gender: player.gender ?? null,
         total_battles_won: player.total_battles_won,

@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server'
 import { fetchLinkPreview, firstUrl } from '@/lib/link-preview'
 import { moderateText, moderateImage, recordCsamSuspect } from '@/lib/moderation'
 import { videoEmbed, videoAvailable } from '@/lib/video-embed'
+import { resolvePBoard } from '@/lib/boards'
 
 // POST /api/boards/[slug]/posts { content, image?, link_url? } — post to a
 // psub. Same moderation/image/link pipeline as town-hall posts. Local psubs
@@ -18,13 +19,37 @@ export async function POST(
     const admin = createSupabaseAdminClient()
     const { slug } = await params
 
-    const { data: board } = await admin.from('boards')
-      .select('id, slug, category, gym_id')
-      .eq('slug', slug.toLowerCase())
-      .maybeSingle()
-    if (!board) return NextResponse.json({ error: 'No such board' }, { status: 404 })
-    if (board.category === 'local') {
-      return NextResponse.json({ error: 'Post at the town hall itself' }, { status: 400 })
+    // Resolve the target — real board row OR a VIRTUAL board (p/all, p/democrats,
+    // p/republicans). The party windows have no table row: a post "to
+    // p/democrats" is a party-tagged hall_posts row with board_id=null, which
+    // the party feed reads. (Fixes: virtual boards 404'd on POST — readable but
+    // not postable.)
+    const rb = await resolvePBoard(admin, slug)
+    if (!rb) return NextResponse.json({ error: 'No such board' }, { status: 404 })
+    let targetBoardId: string | null = null
+    let postParty: string | null = profile.party ?? null
+    if (rb.kind === 'all') {
+      return NextResponse.json({ error: 'Post to a specific board — p/all is a mix of every board' }, { status: 400 })
+    } else if (rb.kind === 'party') {
+      // party window: only the matching side may post (a post shows in its own
+      // party feed, so cross-posting would just vanish for the author)
+      if (profile.party !== rb.key) {
+        return NextResponse.json({ error: `p/${rb.key}s is for ${rb.key === 'democrat' ? 'Democrats' : 'Republicans'}` }, { status: 403 })
+      }
+      postParty = rb.key
+      // hall_posts requires a target (gym_id OR board_id); the party feed still
+      // reads by party regardless, but we anchor to the party's board row so
+      // the CHECK constraint is satisfied (scripts/ensure_party_boards.mjs)
+      const partySlug = rb.key === 'democrat' ? 'democrats' : 'republicans'
+      const { data: pb } = await admin.from('boards').select('id').eq('slug', partySlug).maybeSingle()
+      if (!pb) return NextResponse.json({ error: 'Party board missing' }, { status: 500 })
+      targetBoardId = pb.id
+    } else {
+      const board = rb.board
+      if (board.category === 'local') {
+        return NextResponse.json({ error: 'Post at the town hall itself' }, { status: 400 })
+      }
+      targetBoardId = board.id
     }
 
     const { content, image, link_url } = await req.json()
@@ -55,7 +80,7 @@ export async function POST(
       if (buffer.length > 2.5 * 1024 * 1024) {
         return NextResponse.json({ error: 'Image too large (max 2.5 MB)' }, { status: 400 })
       }
-      const path = `boards/${board.id}/${crypto.randomUUID()}.${match[1] === 'jpeg' ? 'jpg' : match[1]}`
+      const path = `boards/${targetBoardId ?? rb.kind}/${crypto.randomUUID()}.${match[1] === 'jpeg' ? 'jpg' : match[1]}`
       const { error: upErr } = await admin.storage
         .from('avatars')
         .upload(path, buffer, { contentType: `image/${match[1]}`, upsert: false })
@@ -82,9 +107,9 @@ export async function POST(
     const { data: post, error } = await admin
       .from('hall_posts')
       .insert({
-        board_id: board.id,
+        board_id: targetBoardId,
         profile_id: profile.id,
-        party: profile.party ?? null,
+        party: postParty,
         content: text || null,
         image_url: imageUrl,
         link_url: preview?.url ?? null,

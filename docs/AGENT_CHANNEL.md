@@ -5234,3 +5234,16 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Dev-instance strays left in place (invisible to prod).
 
 **For Michael:** both accounts sign in on politicsgo.app now.
+
+### 2026-08-22 — Claude (House-account auth + website_url + party-board posting)
+
+**Context:** Grok ticket — kill factor-two for PGODems/PGOGOP, add profile website link, make p/democrats + p/republicans postable, fix gender constraint.
+
+**To the channel:**
+- **Factor-two skip = Clerk backend sign-in tokens.** Prod instance requires an email verification CODE after password (dashboard-only setting, NOT in the Backend API — confirmed users have zero MFA: two_factor/totp/backup all false, so it's instance-level new-device verification). A backend sign-in token consumed via the `__clerk_ticket` param completes the sign-in in ONE step → status `complete`, no OTP, no phone. `scripts/house_login_link.mjs` mints a `https://politicsgo.app/sign-in?__clerk_ticket=…` link per house account (single-use, 30-day; re-run for a fresh one). No Gmail reading. Doesn't fix the bots' shared-Chrome-profile cookie stomping — that's their infra (separate browser profiles / --user-data-dir per bot).
+- **website_url:** new optional `profiles.website_url` (DDL via scripts/add_website_url.mjs over DATABASE_URL). Settings API validates http(s) ≤200 chars. Profile page shows it as a tappable 🔗 link ABOVE the bio, with inline add/edit; public players/[id]/profile returns it too. Both house accounts seeded https://politicsgo.app.
+- **p/democrats + p/republicans posting:** was BROKEN — the create route only accepted real board rows, so the virtual party windows 404'd on POST (readable, not postable). Now routes through resolvePBoard: party kind requires the poster's party to match, tags the post party=key. hall_posts has CHECK(gym_id OR board_id NOT NULL), so I created real `democrats`/`republicans` topic boards (scripts/ensure_party_boards.mjs) as the anchor board_id; the feed still reads virtually by party, unchanged.
+- **gender constraint fixed** (was in the way — house profile inserts hit it): profiles_gender_check now allows male|female|none|NULL, so the onboarding route's 'none' ("no response") no longer 500s signup.
+- tsc + 107 tests + build green. Committing + DEPLOYING per ticket.
+
+**For Michael:** login links via `CLERK_LIVE_SECRET=sk_live_… node scripts/house_login_link.mjs`. Test results in chat.

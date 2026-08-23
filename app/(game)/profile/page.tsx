@@ -126,6 +126,10 @@ export default function ProfilePage() {
   const [editingAbout, setEditingAbout] = useState(false)
   const [aboutDraft, setAboutDraft] = useState('')
   const [savingAbout, setSavingAbout] = useState(false)
+  // Website link editor
+  const [editingSite, setEditingSite] = useState(false)
+  const [siteDraft, setSiteDraft] = useState('')
+  const [savingSite, setSavingSite] = useState(false)
 
   async function votePost(post: Post, v: number) {
     setPosts(ps => ps.map(p => p.id === post.id ? { ...p, score: (p.score ?? 0) + v - (p.my_vote ?? 0), my_vote: v } : p))
@@ -456,6 +460,51 @@ export default function ProfilePage() {
                 style={{ width: `${progressToNext}%`, background: rank.color }} />
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Website — a tappable link sitting above the bio */}
+      <div className="mx-4 mt-3">
+        {editingSite ? (
+          <div className="bg-gray-900 rounded-2xl px-4 py-3">
+            <input value={siteDraft} onChange={e => setSiteDraft(e.target.value)} maxLength={200}
+              placeholder="https://your-site.com" inputMode="url"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-purple-500" />
+            <div className="flex justify-end gap-2 mt-2">
+              <button onClick={() => setEditingSite(false)}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-gray-300 bg-gray-800 hover:bg-gray-700">Cancel</button>
+              <button disabled={savingSite}
+                onClick={async () => {
+                  setSavingSite(true)
+                  try {
+                    const raw = siteDraft.trim()
+                    const url = raw ? (/^https?:\/\//i.test(raw) ? raw : `https://${raw}`) : null
+                    const res = await fetch('/api/profile/settings', {
+                      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ website_url: url }),
+                    })
+                    if (res.ok) { await refetch(); setEditingSite(false) }
+                  } finally { setSavingSite(false) }
+                }}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-purple-700 hover:bg-purple-600 disabled:opacity-50">
+                {savingSite ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        ) : (profile as any)?.website_url ? (
+          <div className="flex items-center gap-2">
+            <a href={(profile as any).website_url} target="_blank" rel="noopener noreferrer nofollow"
+              className="flex-1 min-w-0 flex items-center gap-2 bg-gray-900 rounded-2xl px-4 py-3 text-sm font-bold text-sky-400 hover:text-sky-300 truncate">
+              🔗 <span className="truncate">{(profile as any).website_url.replace(/^https?:\/\//i, '')}</span>
+            </a>
+            <button onClick={() => { setSiteDraft((profile as any).website_url ?? ''); setEditingSite(true) }}
+              className="shrink-0 text-purple-400 text-xs font-bold hover:text-purple-300 px-2">✏️</button>
+          </div>
+        ) : (
+          <button onClick={() => { setSiteDraft(''); setEditingSite(true) }}
+            className="w-full text-left bg-gray-900 rounded-2xl px-4 py-3 text-sm text-gray-500 hover:text-gray-400 transition">
+            🔗 Add a website link
+          </button>
         )}
       </div>
 

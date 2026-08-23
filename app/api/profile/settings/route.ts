@@ -77,6 +77,23 @@ export async function PATCH(req: NextRequest) {
       }
       updates.pvp_fighter = body.pvp_fighter
     }
+    // Website — one optional http(s) link shown atop the profile; null clears
+    if ('website_url' in body) {
+      const w = body.website_url
+      if (w !== null) {
+        if (typeof w !== 'string' || w.length > 200) {
+          return NextResponse.json({ error: 'Invalid website' }, { status: 400 })
+        }
+        let u: URL
+        try { u = new URL(w) } catch { return NextResponse.json({ error: 'Enter a full URL (https://…)' }, { status: 400 }) }
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+          return NextResponse.json({ error: 'Only http(s) links are allowed' }, { status: 400 })
+        }
+        updates.website_url = u.toString()
+      } else {
+        updates.website_url = null
+      }
+    }
     // About Me — free text (links/photo URLs allowed), capped; empty clears it
     if ('about_me' in body) {
       if (body.about_me !== null && typeof body.about_me !== 'string') {
