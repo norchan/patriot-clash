@@ -17,7 +17,8 @@ const raw = fs.readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
 const env = Object.fromEntries(raw.split('\n').filter(l => l.includes('=') && !l.trim().startsWith('#'))
   .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }))
 const SECRET = process.env.CLERK_LIVE_SECRET || env.CLERK_SECRET_KEY
-const APP = env.NEXT_PUBLIC_APP_URL || 'https://politicsgo.app'
+// prod tokens only sign in on the prod domain — never print a localhost link
+const APP = SECRET.startsWith('sk_live') ? 'https://politicsgo.app' : (env.NEXT_PUBLIC_APP_URL || 'https://politicsgo.app')
 if (!SECRET.startsWith('sk_live')) {
   console.error('Need the PRODUCTION key: run with CLERK_LIVE_SECRET=sk_live_...')
   process.exit(1)

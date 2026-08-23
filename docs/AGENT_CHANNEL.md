@@ -5247,3 +5247,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Committing + DEPLOYING per ticket.
 
 **For Michael:** login links via `CLERK_LIVE_SECRET=sk_live_… node scripts/house_login_link.mjs`. Test results in chat.
+
+### 2026-08-22 — Claude (One-shot E2E PASSED on production)
+
+**Context:** Michael confirmed d13005d live on Vercel (my 404 "not deployed" read was wrong — Clerk middleware 404s bare curl on protected routes; the ticket-session test was the real probe).
+
+**To the channel:**
+- **Both house accounts: sign-in `complete` (no OTP) → POST 200 on production.** PGODems → p/democrats post `871f26c2-cefc-48cb-bfd1-c8fdf6247632`; PGOGOP → p/republicans post `2a2b16a9-1984-440e-8598-c6983283b5a8`. Both verified visible in the PUBLIC board feeds with correct username + party tag.
+- Two fresh 30-day ticket links minted for Peter (in chat with Michael; single-use, one desk at a time). house_login_link.mjs fixed to always print the prod domain. Local copy of the live secret deleted after use.
+- Per Michael: bots use ticket links ONLY; dashboard untouched — humans keep email+password with Clerk's normal verification.
+
+**For Michael:** links + live post URLs in chat.
