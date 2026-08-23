@@ -76,11 +76,45 @@ export async function GET(req: NextRequest) {
         : [...republicanEnemies, ...democratEnemies]).map(e => e.id)
     )
 
-    return NextResponse.json({
-      spawns: (rows ?? [])
-        .filter(r => !caught.has(r.id) && huntable.has(r.enemy_id))
-        .map(r => ({ id: r.id, enemy_id: r.enemy_id, lat: r.lat, lng: r.lng, expires_at: r.expires_at })),
-    })
+    const spawns = (rows ?? [])
+      .filter(r => !caught.has(r.id) && huntable.has(r.enemy_id))
+      .map(r => ({ id: r.id, enemy_id: r.enemy_id, lat: r.lat, lng: r.lng, expires_at: r.expires_at }))
+
+    // DOORSTEP DROP (Michael 2026-08-22: "put a few sprites near my location").
+    // The shared hall drop scatters across a 5-mile circle, so a player can
+    // open the map with nothing tappable in sight. If fewer than 3 huntable
+    // sprites sit within ~0.6mi of the player, top up commons scattered
+    // 100-400m around THEM — normal shared rows, normal 15-min lifetime,
+    // normal catch rules, so the world stays server-owned. Self-limiting:
+    // the top-ups satisfy this same check on the next fetch until they're
+    // caught or expire.
+    const NEAR_DEG_LAT = 0.6 / 69 // ~0.6 miles in latitude degrees
+    const nearCount = spawns.filter(s =>
+      Math.abs(s.lat - lat) < NEAR_DEG_LAT
+      && Math.abs(s.lng - lng) < NEAR_DEG_LAT / Math.max(0.2, Math.cos(lat * Math.PI / 180))).length
+    if (nearCount < 3) {
+      const commons = (profile.party === 'democrat' ? republicanEnemies
+        : profile.party === 'republican' ? democratEnemies
+        : [...republicanEnemies, ...democratEnemies])
+        .filter(e => RIGGED.has(e.id) && e.tier === 'common')
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3 - nearCount)
+      if (commons.length) {
+        const fresh = commons.map(e => ({
+          gym_id: gymIds[0],
+          enemy_id: e.id,
+          lat: lat + (Math.random() - 0.5) * 0.006, // ±~330m N-S
+          lng: lng + (Math.random() - 0.5) * 0.008, // ±~330m E-W at mid latitudes
+          expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+        }))
+        const { data: ins } = await admin.from('enemy_spawns')
+          .insert(fresh)
+          .select('id, enemy_id, lat, lng, expires_at')
+        for (const r of ins ?? []) spawns.push({ id: r.id, enemy_id: r.enemy_id, lat: r.lat, lng: r.lng, expires_at: r.expires_at })
+      }
+    }
+
+    return NextResponse.json({ spawns })
   } catch (err: any) {
     if (err instanceof Response) return err
     console.error('spawns error:', err)

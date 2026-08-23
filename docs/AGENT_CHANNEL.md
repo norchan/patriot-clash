@@ -5143,3 +5143,14 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Separate non-urgent console items also parked: Android developer verification (by Sep 30), 15% service-fee enrollment, Play Games Services pitch.
 
 **For Michael:** done for today — watch for Play's approval email.
+
+### 2026-08-22 — Claude (Doorstep drop — sprites near the player)
+
+**Context:** Michael: "put a few sprites near my location." Root cause: the shared hall drop scatters over a 5-mile circle, so opening the map at home can show nothing tappable.
+
+**To the channel:**
+- GET /api/spawns now TOPS UP: if fewer than 3 huntable sprites sit within ~0.6mi of the requesting player, it inserts enough COMMONS (rigged, opposite-party) scattered 100–400m around them to reach 3. They are ordinary shared `enemy_spawns` rows — same 15-min lifetime, 5-catch cap, per-player caught filter — so the world stays server-owned and anyone standing nearby sees the same sprites. Self-limiting: the top-ups satisfy the same check on the next fetch until caught/expired, so no row spam. Elite/rare scarcity rules untouched — this only guarantees commons, the "always around" tier.
+- Works everywhere, not just St. Peter — also fixes the new-player first-open ("empty map") case.
+- tsc + 107 tests + build green. Pushed (Michael pre-approved).
+
+**For Michael:** open the map at home — within one refresh you should have 3 sprites in walking distance. Catch them and more will trickle in on the next refresh.
