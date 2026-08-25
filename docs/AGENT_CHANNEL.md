@@ -5268,3 +5268,17 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Belt-and-braces: `no_expire=true` pinned on the two official Twitter posts (871f26c2…, 2a2b16a9…) — survives even a future rule change.
 
 **For Michael:** tweet freely — those URLs are permanent.
+
+### 2026-08-24 — Claude (Board composer: photos + desk-article body)
+
+**Context:** Grok brief board-post-images.md — PGODems needs 4+ paragraph articles with 1-2 PD stills on p/democrats.
+
+**To the channel:**
+- **Body cap:** composer 850 → **8,000 chars** (BODY_MAX, live counter past 75%, resizable 10-row textarea); API cap 1,000 → 8,000 to match. Title stays 150. moderateText reads the first 4,000 chars of a long body (pre-existing slice; noted, not changed).
+- **Photos:** /boards/create now has an image picker — up to **2 stills** (jpg/png/webp), client-side downscale to ≤1600px JPEG stepping quality until under the API's 2.5MB gate, thumbnail previews with remove buttons. Submits `images: []` to the SAME board-post pipeline (moderation → size gate → existing public bucket, party boards included); legacy single-`image` field still works. No new storage path.
+- **Second still:** new `hall_posts.image_url2` column (DDL applied); insert + POST_COLS + public boards API + /p/post/[id] + p/[board] feed + BoardsDeck all carry it. Stills render under the body, in order. Link preview unchanged (uploaded image still wins the hero slot); no link required.
+- **Bonus for the tweets:** /p/post/[id] now emits og:image from the first still — tweeted article URLs get a real share card.
+- Stale "posts live for 48 hours" copy removed from composer + gone-page (bot-only expiry since the audit).
+- tsc + 107 tests + build green. Pushing to deploy; live E2E next.
+
+**For Michael:** once the E2E passes I'll ping — then Dems posts the illustrated piece.

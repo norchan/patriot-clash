@@ -14,7 +14,7 @@ import { ReelCard, type ReelItem } from '@/components/ReelsViewer'
 const BASE_TABS = ['all', 'videos', 'politics', 'democrats', 'republicans', 'sports', 'space', 'movies', 'ufos', 'random-facts', 'opensecrets']
 
 interface DeckPost {
-  id: string; content: string | null; image_url: string | null
+  id: string; content: string | null; image_url: string | null; image_url2?: string | null
   link_title: string | null; link_domain: string | null
   link_url?: string | null; link_image?: string | null
   score: number; comment_count: number; created_at: string
@@ -318,6 +318,11 @@ export default function BoardsDeck({ signedIn, initialPosts, extraTabs = [], swi
               {p.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={p.image_url} alt="" loading="lazy"
+                  className="mt-2 w-full max-h-[540px] object-cover rounded-2xl border border-gray-700/80" />
+              )}
+              {p.image_url2 && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.image_url2} alt="" loading="lazy"
                   className="mt-2 w-full max-h-[540px] object-cover rounded-2xl border border-gray-700/80" />
               )}
               {/* video links: on p/videos a tap goes FULLSCREEN — swipe up

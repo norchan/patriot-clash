@@ -205,6 +205,10 @@ export default async function BoardPage({ params, searchParams }: {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.image_url} alt="" className="mt-2 w-full rounded-2xl border border-gray-700/80 max-h-[540px] object-cover" loading="lazy" />
                 )}
+                {p.image_url2 && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.image_url2} alt="" className="mt-2 w-full rounded-2xl border border-gray-700/80 max-h-[540px] object-cover" loading="lazy" />
+                )}
               </Link>
               {/* videos: tap → /reels fullscreen pager, swipe up = next (Michael) */}
               {reelIndex.has(p.id) && <ReelCard items={reelItems} index={reelIndex.get(p.id)!} board={dbBoard?.slug ?? b.label.slice(2)} />}

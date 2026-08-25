@@ -24,6 +24,7 @@ export async function GET(
           id: p.id,
           content: p.content,
           image_url: p.image_url,
+          image_url2: p.image_url2 ?? null,
           link_title: p.link_title,
           link_domain: p.link_domain,
           link_url: p.link_url,

@@ -1,15 +1,39 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Link2, Search } from 'lucide-react'
+import { ArrowLeft, ImagePlus, Link2, Search, X } from 'lucide-react'
 
 // CREATE A POST (Michael): the full composer page — title, body, a pSub
-// picker, and a link field. Paste a URL and the form preloads the title and
-// body from the link's preview (og:title / og:description) — editable before
-// posting. Submits through the normal board post API (moderation, dead-video
-// gate, preview card all included).
+// picker, up to two photos, and a link field. Paste a URL and the form
+// preloads the title and body from the link's preview (og:title /
+// og:description) — editable before posting. Submits through the normal
+// board post API (moderation, dead-video gate, preview card all included).
+// Desk-article sizing (Grok brief 2026-08-24): 8,000-char body + 1-2 stills.
 
 interface BoardOpt { slug: string; name: string; category: string }
+
+const BODY_MAX = 8000
+
+// Downscale a chosen photo to fit the API's 2.5MB base64 gate: longest edge
+// 1600px, JPEG, quality stepping down until it fits. PNG/WebP in, JPEG out —
+// article stills, not pixel art.
+async function fileToDataUrl(file: File): Promise<string | null> {
+  try {
+    const bmp = await createImageBitmap(file)
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height))
+    const cv = document.createElement('canvas')
+    cv.width = Math.max(1, Math.round(bmp.width * scale))
+    cv.height = Math.max(1, Math.round(bmp.height * scale))
+    const ctx = cv.getContext('2d')
+    if (!ctx) return null
+    ctx.drawImage(bmp, 0, 0, cv.width, cv.height)
+    for (const q of [0.87, 0.75, 0.6]) {
+      const url = cv.toDataURL('image/jpeg', q)
+      if (url.length < 2.4 * 1024 * 1024) return url
+    }
+    return null
+  } catch { return null }
+}
 
 export default function CreatePost({ boards, defaultSlug }: { boards: BoardOpt[]; defaultSlug: string }) {
   const router = useRouter()
@@ -21,9 +45,24 @@ export default function CreatePost({ boards, defaultSlug }: { boards: BoardOpt[]
   const [pickerOpen, setPickerOpen] = useState(false)
   const [preview, setPreview] = useState<{ title: string | null; image: string | null; domain: string; description: string | null } | null>(null)
   const [loadingPrev, setLoadingPrev] = useState(false)
+  const [stills, setStills] = useState<string[]>([]) // 0-2 data URLs, posted in order
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const prevFor = useRef('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function addStills(files: FileList | null) {
+    if (!files) return
+    setErr('')
+    for (const f of Array.from(files)) {
+      if (stills.length >= 2) break
+      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { setErr('Photos only — jpg, png or webp'); continue }
+      const url = await fileToDataUrl(f)
+      if (!url) { setErr('That image could not be read'); continue }
+      setStills(s => (s.length >= 2 ? s : [...s, url]))
+    }
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   // paste a URL → preload title/body from its preview (only fills what the
   // user hasn't typed — never stomps their words)
@@ -57,13 +96,17 @@ export default function CreatePost({ boards, defaultSlug }: { boards: BoardOpt[]
     setErr('')
     if (!slug) { setErr('Pick a pSub to post in'); return }
     const text = [title.trim(), body.trim()].filter(Boolean).join('\n\n')
-    if (!text && !link.trim()) { setErr('Write something or add a link'); return }
+    if (!text && !link.trim() && !stills.length) { setErr('Write something, add a photo, or add a link'); return }
     setBusy(true)
     try {
       const res = await fetch(`/api/boards/${slug}/posts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text, link_url: link.trim() || undefined }),
+        body: JSON.stringify({
+          content: text,
+          link_url: link.trim() || undefined,
+          images: stills.length ? stills : undefined,
+        }),
       })
       const d = await res.json()
       if (!res.ok) { setErr(d.error ?? 'Could not post'); return }
@@ -122,12 +165,45 @@ export default function CreatePost({ boards, defaultSlug }: { boards: BoardOpt[]
             className="mt-1.5 w-full px-4 py-3 bg-gray-900 rounded-2xl border border-gray-800 text-white text-sm font-bold placeholder-gray-600 outline-none focus:border-purple-600" />
         </div>
 
-        {/* body */}
+        {/* body — desk-article sized: whole paragraphs, not a caption */}
         <div className="mt-4">
-          <label className="text-gray-400 text-xs uppercase tracking-wider px-1">Body</label>
-          <textarea value={body} onChange={e => setBody(e.target.value)} maxLength={850} rows={5}
-            placeholder="Say your piece…"
-            className="mt-1.5 w-full px-4 py-3 bg-gray-900 rounded-2xl border border-gray-800 text-gray-200 text-sm placeholder-gray-600 outline-none focus:border-purple-600 resize-none" />
+          <label className="text-gray-400 text-xs uppercase tracking-wider px-1 flex items-center justify-between">
+            <span>Body</span>
+            {body.length > BODY_MAX * 0.75 && (
+              <span className={body.length >= BODY_MAX ? 'text-red-400' : 'text-gray-600'}>{body.length.toLocaleString()}/{BODY_MAX.toLocaleString()}</span>
+            )}
+          </label>
+          <textarea value={body} onChange={e => setBody(e.target.value)} maxLength={BODY_MAX} rows={10}
+            placeholder="Say your piece… full articles welcome"
+            className="mt-1.5 w-full px-4 py-3 bg-gray-900 rounded-2xl border border-gray-800 text-gray-200 text-sm placeholder-gray-600 outline-none focus:border-purple-600 resize-y" />
+        </div>
+
+        {/* photos — up to two stills, shown under the body in this order */}
+        <div className="mt-4">
+          <label className="text-gray-400 text-xs uppercase tracking-wider px-1 flex items-center gap-1.5">
+            <ImagePlus size={12} /> Photos (optional, up to 2)
+          </label>
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
+            className="hidden" onChange={e => addStills(e.target.files)} />
+          <div className="mt-1.5 flex gap-2">
+            {stills.map((s, i) => (
+              <div key={i} className="relative w-28 h-28">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={s} alt="" className="w-full h-full object-cover rounded-xl border border-gray-700" />
+                <button onClick={() => setStills(st => st.filter((_, j) => j !== i))}
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-950 border border-gray-600 text-gray-300 flex items-center justify-center hover:text-white">
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+            {stills.length < 2 && (
+              <button onClick={() => fileRef.current?.click()}
+                className="w-28 h-28 rounded-xl border border-dashed border-gray-700 text-gray-600 hover:border-purple-600 hover:text-gray-400 transition flex flex-col items-center justify-center gap-1">
+                <ImagePlus size={20} />
+                <span className="text-[11px] font-bold">Add photo</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* link */}
@@ -159,7 +235,7 @@ export default function CreatePost({ boards, defaultSlug }: { boards: BoardOpt[]
           style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
           {busy ? 'Posting…' : 'Post it'}
         </button>
-        <p className="text-gray-600 text-[11px] text-center mt-2">Posts live for 48 hours · links get big preview cards · videos must be playable</p>
+        <p className="text-gray-600 text-[11px] text-center mt-2">Links get big preview cards · videos must be playable</p>
       </div>
     </div>
   )

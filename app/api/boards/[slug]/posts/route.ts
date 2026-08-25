@@ -52,18 +52,27 @@ export async function POST(
       targetBoardId = board.id
     }
 
-    const { content, image, link_url } = await req.json()
+    const { content, image, images, link_url } = await req.json()
     const text = (content ?? '').trim()
-    if (text.length > 1000) {
-      return NextResponse.json({ error: 'Post is too long (1000 characters max)' }, { status: 400 })
+    // 8,000 chars: a 4-8 paragraph desk article fits (was 1,000 — Grok brief
+    // 2026-08-24). moderateText reads the first 4,000 of it.
+    if (text.length > 8000) {
+      return NextResponse.json({ error: 'Post is too long (8,000 characters max)' }, { status: 400 })
     }
 
     const textVerdict = await moderateText(text)
     if (!textVerdict.allowed) {
       return NextResponse.json({ error: textVerdict.reason ?? 'Post rejected' }, { status: 400 })
     }
-    if (image) {
-      const imgVerdict = await moderateImage(image, 'post_image')
+
+    // 1-2 stills per post via `images: []` (the composer), or the legacy
+    // single `image` field — SAME pipeline for each: moderation → size gate →
+    // the existing public bucket path. No second storage system.
+    const stills: string[] = (Array.isArray(images) ? images : image ? [image] : [])
+      .filter((s: unknown) => typeof s === 'string' && s.length > 0)
+      .slice(0, 2)
+    for (const im of stills) {
+      const imgVerdict = await moderateImage(im, 'post_image')
       if (!imgVerdict.allowed) {
         if (imgVerdict.csamSuspected) {
           await recordCsamSuspect(admin, { profileId: profile.id, targetType: 'board_post_image', details: imgVerdict.details })
@@ -72,9 +81,9 @@ export async function POST(
       }
     }
 
-    let imageUrl: string | null = null
-    if (image) {
-      const match = /^data:image\/(jpeg|png|webp|gif);base64,(.+)$/.exec(image)
+    const stillUrls: string[] = []
+    for (const im of stills) {
+      const match = /^data:image\/(jpeg|png|webp|gif);base64,(.+)$/.exec(im)
       if (!match) return NextResponse.json({ error: 'Unsupported image' }, { status: 400 })
       const buffer = Buffer.from(match[2], 'base64')
       if (buffer.length > 2.5 * 1024 * 1024) {
@@ -88,8 +97,10 @@ export async function POST(
         console.error('board image upload failed:', upErr)
         return NextResponse.json({ error: 'Image upload failed' }, { status: 500 })
       }
-      imageUrl = admin.storage.from('avatars').getPublicUrl(path).data.publicUrl
+      stillUrls.push(admin.storage.from('avatars').getPublicUrl(path).data.publicUrl)
     }
+    const imageUrl: string | null = stillUrls[0] ?? null
+    const imageUrl2: string | null = stillUrls[1] ?? null
 
     let preview = null
     const url = (link_url ?? '').trim() || (text ? firstUrl(text) : null)
@@ -112,12 +123,13 @@ export async function POST(
         party: postParty,
         content: text || null,
         image_url: imageUrl,
+        image_url2: imageUrl2,
         link_url: preview?.url ?? null,
         link_title: preview?.title ?? null,
         link_image: preview?.image ?? null,
         link_domain: preview?.domain ?? null,
       })
-      .select('id, profile_id, party, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at')
+      .select('id, profile_id, party, content, image_url, image_url2, link_url, link_title, link_image, link_domain, score, comment_count, created_at')
       .single()
     if (error) throw error
 

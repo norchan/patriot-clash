@@ -37,9 +37,14 @@ export async function generateMetadata({ params }: { params: Promise<{ postId: s
   const { postId } = await params
   const admin = createSupabaseAdminClient()
   const { data: p } = await admin.from('hall_posts')
-    .select('content, link_title').eq('id', postId).maybeSingle()
+    .select('content, link_title, image_url').eq('id', postId).maybeSingle()
   const text = (p?.content ?? p?.link_title ?? 'A post').slice(0, 120)
-  return { title: `${text} — PoliticsGo`, description: 'A post from the PoliticsGo boards.' }
+  return {
+    title: `${text} — PoliticsGo`,
+    description: 'A post from the PoliticsGo boards.',
+    // the first still becomes the share card — these URLs get tweeted
+    openGraph: p?.image_url ? { images: [p.image_url] } : undefined,
+  }
 }
 
 export default async function PublicPostPage({ params }: { params: Promise<{ postId: string }> }) {
@@ -47,7 +52,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
   const admin = createSupabaseAdminClient()
 
   const { data: post } = await admin.from('hall_posts')
-    .select('id, profile_id, content, image_url, link_url, link_title, link_image, link_domain, score, comment_count, created_at, party, hidden, impressions, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(id, city_name, state), boards(slug, name)')
+    .select('id, profile_id, content, image_url, image_url2, link_url, link_title, link_image, link_domain, score, comment_count, created_at, party, hidden, impressions, profiles!hall_posts_profile_id_fkey(username, avatar_url), gyms!hall_posts_gym_id_fkey(id, city_name, state), boards(slug, name)')
     .eq('id', postId)
     .maybeSingle()
 
@@ -56,7 +61,7 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
       <div className="min-h-screen bg-gray-950 text-gray-200 flex items-center justify-center">
         <div className="text-center">
           <p className="text-2xl font-black text-white">This post is gone</p>
-          <p className="text-gray-500 text-sm mt-1">Posts live for 48 hours.</p>
+          <p className="text-gray-500 text-sm mt-1">It may have been removed, or the link is old.</p>
           <Link href="/boards" className="text-purple-400 hover:text-purple-300 mt-3 inline-block font-bold">← Boards</Link>
         </div>
       </div>
@@ -101,6 +106,10 @@ export default async function PublicPostPage({ params }: { params: Promise<{ pos
           {p.image_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={p.image_url} alt="" className="mt-3 w-full rounded-2xl border border-gray-700/80 max-h-[560px] object-contain bg-black/40" />
+          )}
+          {p.image_url2 && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={p.image_url2} alt="" className="mt-3 w-full rounded-2xl border border-gray-700/80 max-h-[560px] object-contain bg-black/40" />
           )}
           {/* video links play RIGHT HERE via the platform's official player */}
           {(() => {
