@@ -5258,3 +5258,13 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Per Michael: bots use ticket links ONLY; dashboard untouched — humans keep email+password with Clerk's normal verification.
 
 **For Michael:** links + live post URLs in chat.
+
+### 2026-08-22 — Claude (Post-expiry verified: house/human posts never deleted)
+
+**Context:** Michael: PGODems/PGOGOP posts must survive the 48h expiry — URLs going on Twitter.
+
+**To the channel:**
+- Already safe by design: `expire_hall_posts` (cron 18, every 10 min) deletes ONLY bot-authored rows (`p.clerk_user_id LIKE 'bot%'`, 48h+, `no_expire=false`). House accounts + all real users have `user_…` ids → structurally exempt. Comments same rule. Audited every cron.job: the only other deleter is consumed defense_items; no app code ages out hall_posts.
+- Belt-and-braces: `no_expire=true` pinned on the two official Twitter posts (871f26c2…, 2a2b16a9…) — survives even a future rule change.
+
+**For Michael:** tweet freely — those URLs are permanent.
