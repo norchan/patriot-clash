@@ -5282,3 +5282,12 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - tsc + 107 tests + build green. Pushing to deploy; live E2E next.
 
 **For Michael:** once the E2E passes I'll ping — then Dems posts the illustrated piece.
+
+### 2026-08-24 — Claude (Town hall added: Mapleton, MN)
+
+**Context:** Michael: add a town hall to Mapleton MN.
+
+**To the channel:**
+- Created gym `ceccbc1a-c01a-434b-98ee-6a4a68291443` — Mapleton, Blue Earth County, MN. pop 1,750, lat/lng 43.9291/-93.9552, radius 5mi (matches nearby MN halls), PostGIS location set via ST_SetSRID/ST_MakePoint. Bot-garrisoned like every MN hall: new resident bot HankBoone139 (republican) holds it, defense 800, held_since now, is_active true. Verified it resolves through gyms_near(). No dup (checked). scripts/add_mapleton_hall.mjs (idempotent, one txn). Live immediately — no deploy needed (data, not code).
+
+**For Michael:** Mapleton appears on the map now; ~12mi south of Mankato, red-held, capturable.
