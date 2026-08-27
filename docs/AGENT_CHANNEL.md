@@ -5291,3 +5291,15 @@ LIKENESS FIXES awaiting picks on Desktop: CHAR-RichMan-C/D (fully divergent tech
 - Created gym `ceccbc1a-c01a-434b-98ee-6a4a68291443` — Mapleton, Blue Earth County, MN. pop 1,750, lat/lng 43.9291/-93.9552, radius 5mi (matches nearby MN halls), PostGIS location set via ST_SetSRID/ST_MakePoint. Bot-garrisoned like every MN hall: new resident bot HankBoone139 (republican) holds it, defense 800, held_since now, is_active true. Verified it resolves through gyms_near(). No dup (checked). scripts/add_mapleton_hall.mjs (idempotent, one txn). Live immediately — no deploy needed (data, not code).
 
 **For Michael:** Mapleton appears on the map now; ~12mi south of Mankato, red-held, capturable.
+
+### 2026-08-24 — Claude (Mapleton MN populated with resident bots + feed)
+
+**Context:** Michael: put a few bots in Mapleton doing bot things — profile pics, memes, posts.
+
+**To the channel:**
+- Brought Mapleton to the **standard 12 resident bots** (was 1 — the holder). Each now has a meme-card profile pic (`/api/avatar/meme?seed=…`), a fighter JSONB (so they're PvP-able / render on the map), a bio, and gender. 7 rep / 5 dem (red-held town). Backfilled the original holder bot too (was avatar/fighter-less). Residents are surfaced on the map by the existing nearby route (home_gym_id → garrison, seeded positions) — no code change.
+- **Feed:** seeded **10 town-flavored hall posts** (Maple River, Main Street coffee, Friday-night football, county fair, harvest trucks, the diner running out of hotdish…) authored by the residents, timestamps staggered over ~40h so it doesn't read as a batch. Follows the hall-post cron's believability rules: no real names, no specific dates, season-general. The 6h hall-post cron will keep adding fresh ones on rotation from here.
+- Note: profile-pic = the meme-card avatar (same as most bots). Did NOT run the heavy Lemmy meme-image harvest (_meme_blast) for these few — the avatars + hall feed are what make the circle feel alive; can blast profile memes later if wanted.
+- scripts: populate_mapleton_bots.mjs (idempotent — tops up to 12, skips post-seed if feed non-empty). Data only; live now, no deploy.
+
+**For Michael:** open the Mapleton circle — a dozen locals with faces, and a town feed with chatter.
