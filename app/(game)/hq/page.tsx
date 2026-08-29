@@ -310,6 +310,29 @@ export default function HqPage() {
     } finally { setBusy(false) }
   }
 
+  // Tap-to-claim for income buildings (Michael 2026-08-27): tapping a solar
+  // array / media tower that has FP banked collects ALL of it at once — the
+  // same one-tap feel as the print shop, no sheet, no per-interval clicking.
+  // (The server RPC already pays every banked interval in one call.) Tapping
+  // one with nothing banked still opens the manage sheet.
+  async function claimIncome(type: 'solar' | 'media_tower', pad: number) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/house', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: type === 'solar' ? 'claim_solar' : 'claim_tower' }),
+      })
+      const d = await res.json()
+      if (res.ok && (d.claimed ?? 0) > 0) {
+        popAt(pad, `+${d.claimed} FP`)
+        playBase('claim')
+        try { navigator.vibrate?.(20) } catch {}
+        load(); refetch()
+      } else { load() }
+    } finally { setBusy(false) }
+  }
+
   const builtOn = new Map((house?.buildings ?? []).map(b => [b.pad, b]))
   const hasOf = (t: string) => (house?.buildings ?? []).some(b => b.type === t)
 
@@ -376,7 +399,11 @@ export default function HqPage() {
         dead: damaged,   // charred until the countdown (or a repair) clears it
         // B7: damaged buildings wear real scorch marks over the char filter
         overlay: damaged && !isFence ? '/house/fx/scorch.webp' : undefined,
-        onTap: () => setSheet({ pad, building: b }),
+        // income buildings with FP banked → tap collects it all at once
+        // (print-shop feel); otherwise tap opens the manage sheet
+        onTap: banked > 0 && (b.type === 'solar' || b.type === 'media_tower')
+          ? () => claimIncome(b.type as 'solar' | 'media_tower', pad)
+          : () => setSheet({ pad, building: b }),
         chip: damaged
           ? <span className="flex flex-col items-center">
               <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-orange-600 text-white shadow-lg">🔧 {fmtLeft(b.damaged_until!, now)}</span>
@@ -388,7 +415,7 @@ export default function HqPage() {
                 <MiniBar pct={pctDone(b.upgrade.done_at, upgradeSecs(b.upgrade.to))} w={56} />
               </span>
             : banked > 0
-              ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-emerald-400 text-black animate-bounce shadow-lg">+{banked} FP</span>
+              ? <span className="text-[13px] font-black px-2 py-1 rounded-md bg-emerald-400 text-black animate-bounce shadow-lg">⚡ CLAIM {banked}</span>
               : stored > 0
                 ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-black/60 text-amber-300 shadow-lg">🔐 {stored.toLocaleString()}</span>
                 : <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-gray-200 shadow-lg">Lv {b.level}</span>,
