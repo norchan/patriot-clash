@@ -2,9 +2,11 @@
 import { useEffect, useRef, useState } from 'react'
 
 // Full-page interstitial shown before guests fight sprites or enter the
-// arcade. Renders a full-screen AdSense slot when ads are live (post
-// approval); until then it's a short branded splash. One showing per
-// activity per session.
+// arcade — ONLY when an ad provider is actually configured. With no ad
+// network live (AdSense never approved, Michael 2026-08-27), this renders
+// nothing: guests go straight in, no "supported by ads" splash, no fake
+// countdown. Wire a provider back by setting the env vars and the gate
+// returns on its own. One showing per activity per session.
 
 const CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
 const SLOT = process.env.NEXT_PUBLIC_ADSENSE_SLOT
@@ -16,6 +18,7 @@ export default function GuestAdGate({ gateKey, seconds = 5 }: { gateKey: string;
   const pushed = useRef(false)
 
   useEffect(() => {
+    if (!ADS_LIVE) return // no provider → no gate at all
     const k = `adgate_${gateKey}`
     if (sessionStorage.getItem(k)) return
     sessionStorage.setItem(k, '1')
