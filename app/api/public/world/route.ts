@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       halls: (gyms ?? []).slice(0, 120).map((g: any) => ({
+        id: g.id, // guests open /play/hall/[id] to look a hall over
         city_name: g.city_name,
         state: g.state,
         latitude: g.latitude,

@@ -124,7 +124,8 @@ export default function GuestPlayPage() {
           <img src="/halls/hall_intact.webp" style="width:46px;height:auto;pointer-events:none;filter:drop-shadow(0 0 6px ${color}) drop-shadow(0 2px 4px rgba(0,0,0,0.6));" />
           <div style="background:rgba(0,0,0,0.85);border:1.5px solid ${color};border-radius:7px;padding:1px 6px;color:white;font-size:10px;font-weight:700;white-space:nowrap;">${h.city_name}</div>
         </div>`
-      el.addEventListener('click', toSignUp)
+      // tap a hall → look it over (guest hall page); no id (older cache) → sign-up
+      el.addEventListener('click', () => h.id ? router.push(`/play/hall/${h.id}`) : toSignUp())
       markersRef.current.push(new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([h.longitude, h.latitude]).addTo(m))
     })
 

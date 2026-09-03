@@ -207,7 +207,7 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
         node.style.cursor = 'pointer'
         node.innerHTML = `
           <div style="font-weight:800;font-size:13px;">🏛️ ${(f.properties as any).name}</div>
-          <div style="font-size:10px;color:#a78bfa;margin-top:3px;font-weight:700;">${signedIn ? 'Open this town hall →' : 'Zoom in →'}</div>`
+          <div style="font-size:10px;color:#a78bfa;margin-top:3px;font-weight:700;">${signedIn ? 'Open this town hall →' : 'Play here free →'}</div>`
         node.onclick = () => { clickPopup.remove(); if (h) goToHall(h) }
         clickPopup.setLngLat((f.geometry as any).coordinates).setDOMContent(node).addTo(m)
       })
@@ -220,11 +220,13 @@ export default function BattleMap({ halls, height = '60vh', signedIn = false, ho
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Signed-in: go to the hall's page. Guests: fly the map to it.
+  // Signed-in: open the hall's page. Guests: drop INTO the free guest world
+  // centered on this town — they see what's around them and can tap the hall
+  // to check it out (Michael 2026-08-27, was a dead-end fly-in on this map).
   function goToHall(h: HallDot) {
     setFinder(false)
     if (signedIn && h.id) { router.push(`/townhall/${h.id}`); return }
-    map.current?.flyTo({ center: [h.lng, h.lat], zoom: 10.5, duration: 2200 })
+    router.push(`/play?flat=${h.lat.toFixed(5)}&flng=${h.lng.toFixed(5)}`)
   }
 
   function nearestHall(lat: number, lng: number): HallDot | undefined {
