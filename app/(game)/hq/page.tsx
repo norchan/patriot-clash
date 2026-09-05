@@ -636,6 +636,11 @@ export default function HqPage() {
           className={`w-9 h-9 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-gray-200 disabled:opacity-40 ${snapping ? 'animate-pulse' : ''}`}>
           <Share2 size={15} />
         </button>
+        {/* 3D base preview (Michael 2026-09-05) */}
+        <button onClick={() => router.push('/hq/3d')} aria-label="3D view"
+          className="h-9 px-2.5 rounded-xl bg-black/50 backdrop-blur flex items-center justify-center text-amber-300 font-black text-xs">
+          🧊 3D
+        </button>
       </div>
       <div className="absolute top-3 right-3 z-[70] flex items-center gap-1.5">
         {(army?.capacity ?? 0) > 0 && (
