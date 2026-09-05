@@ -1,12 +1,20 @@
 'use client'
 import { Suspense, useMemo } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Billboard, useTexture, ContactShadows } from '@react-three/drei'
+import { OrbitControls, Billboard, useTexture, useGLTF, ContactShadows } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   GRID, HQ_PAD, PRINT_SHOP_PAD,
   hqImage, safeImage, barracksImage, solarImage, turretImage,
 } from '@/config/house'
+
+// Building types that have a real Meshy-generated GLB in
+// public/models/buildings/<type>.glb. Types NOT listed fall back to the
+// painted sprite billboard. Populated as models are generated + eyeballed.
+const GLB_TYPES = new Set<string>([
+  'hq', 'print_shop', 'media_tower', 'safe', 'barracks', 'solar', 'turret', 'doberman', 'fence',
+])
+const glbUrl = (type: string) => `/models/buildings/${type}.glb`
 
 // ── 3D BASE (Michael 2026-09-05: "an Unreal-engine version of the base").
 // A real 3D lot — orbiting camera, sunlit ground, soft contact shadows —
@@ -67,6 +75,36 @@ function BuildingSprite({ src, x, z, w, mirror, damaged }: {
   )
 }
 
+// A real 3D building mesh (Meshy GLB), self-normalized: scaled so its
+// footprint matches the grid slot, feet dropped to the ground, centered.
+function BuildingGLB({ type, x, z, w, mirror, damaged }: {
+  type: string; x: number; z: number; w: number; mirror?: boolean; damaged?: boolean
+}) {
+  const { scene } = useGLTF(glbUrl(type))
+  const obj = useMemo(() => {
+    const clone = scene.clone(true)
+    const box = new THREE.Box3().setFromObject(clone)
+    const size = new THREE.Vector3(); box.getSize(size)
+    const center = new THREE.Vector3(); box.getCenter(center)
+    const footprint = Math.max(size.x, size.z) || 1
+    const s = w / footprint
+    clone.scale.setScalar(s)
+    clone.position.set(-center.x * s, -box.min.y * s, -center.z * s)
+    clone.traverse(o => {
+      const m = o as THREE.Mesh
+      if (m.isMesh) {
+        m.castShadow = true; m.receiveShadow = true
+        if (damaged) {
+          const mat = (m.material as THREE.MeshStandardMaterial)?.clone?.()
+          if (mat) { mat.color?.multiplyScalar?.(0.45); m.material = mat }
+        }
+      }
+    })
+    return clone
+  }, [scene, w, damaged])
+  return <group position={[x, 0, z]} scale={[mirror ? -1 : 1, 1, 1]}><primitive object={obj} /></group>
+}
+
 // The grass lot — the yard background stretched over a plane, softly framed.
 function Ground() {
   const tex = useTexture('/house/yard_bg2.webp')
@@ -87,16 +125,16 @@ export default function Base3D({ buildings, hqLevel, printShopPad }: {
 }) {
   // build the placement list once
   const placed = useMemo(() => {
-    const items: { key: string; src: string; x: number; z: number; w: number; mirror?: boolean; damaged?: boolean }[] = []
+    const items: { key: string; type: string; src: string; x: number; z: number; w: number; mirror?: boolean; damaged?: boolean }[] = []
     const [hx, hz] = padXZ(HQ_PAD)
-    items.push({ key: 'hq', src: hqImage(hqLevel), x: hx, z: hz, w: 3.4 })
+    items.push({ key: 'hq', type: 'hq', src: hqImage(hqLevel), x: hx, z: hz, w: 3.4 })
     const [px, pz] = padXZ(printShopPad ?? PRINT_SHOP_PAD)
-    items.push({ key: 'ps', src: '/house/print_shop.webp', x: px, z: pz, w: 2.3 })
+    items.push({ key: 'ps', type: 'print_shop', src: '/house/print_shop.webp', x: px, z: pz, w: 2.3 })
     for (const b of buildings) {
       const a = ART[b.type]
       if (!a) continue
       const [x, z] = padXZ(b.pad)
-      items.push({ key: `b${b.pad}`, src: a.src(b.level), x, z, w: a.w, mirror: ((b.facing ?? 0) % 2) === 1, damaged: b.damaged })
+      items.push({ key: `b${b.pad}`, type: b.type, src: a.src(b.level), x, z, w: a.w, mirror: ((b.facing ?? 0) % 2) === 1, damaged: b.damaged })
     }
     return items
   }, [buildings, hqLevel, printShopPad])
@@ -120,7 +158,9 @@ export default function Base3D({ buildings, hqLevel, printShopPad }: {
       <Suspense fallback={null}>
         <Ground />
         {placed.map(p => (
-          <BuildingSprite key={p.key} src={p.src} x={p.x} z={p.z} w={p.w} mirror={p.mirror} damaged={p.damaged} />
+          GLB_TYPES.has(p.type)
+            ? <BuildingGLB key={p.key} type={p.type} x={p.x} z={p.z} w={p.w} mirror={p.mirror} damaged={p.damaged} />
+            : <BuildingSprite key={p.key} src={p.src} x={p.x} z={p.z} w={p.w} mirror={p.mirror} damaged={p.damaged} />
         ))}
         <ContactShadows position={[0, 0.03, 0]} scale={GRID * CELL + 4} blur={2.4} opacity={0.4} far={12} />
       </Suspense>
